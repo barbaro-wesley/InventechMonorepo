@@ -39,7 +39,7 @@ export const authService = {
         await api.post("/auth/2fa/send");
     },
 
-    async verify2FA(code: string): Promise<void> {
-        await api.post("/auth/2fa/verify", { code });
+    async verify2FA(userId: string, code: string): Promise<void> {
+        await api.post("/auth/2fa/verify", { userId, code });
     },
 };

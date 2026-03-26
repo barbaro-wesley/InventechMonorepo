@@ -8,7 +8,7 @@
 import 'dotenv/config'
 import { PrismaClient, UserRole } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
-import { PrismaPg } from 'node_modules/@prisma/adapter-pg/dist/index.mjs'
+import { PrismaPg } from '@prisma/adapter-pg'
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
 const prisma = new PrismaClient({ adapter })
 async function main() {

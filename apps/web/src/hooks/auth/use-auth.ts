@@ -18,7 +18,7 @@ export function useAuth() {
     const queryClient = useQueryClient();
     const { setUser, logout: storeLogout } = useAuthStore();
     const [requires2FA, setRequires2FA] = useState(false);
-
+    const [twoFAUserId, setTwoFAUserId] = useState<string | null>(null);
     // Busca usuário atual
     const { isLoading } = useQuery({
         queryKey: authKeys.me,
@@ -39,6 +39,7 @@ export function useAuth() {
         onSuccess: (response) => {
             if (response.requires2FA) {
                 setRequires2FA(true);
+                setTwoFAUserId(response.user?.id ?? null);
                 toast.info("Código de verificação enviado para seu e-mail.");
                 return;
             }
@@ -54,7 +55,8 @@ export function useAuth() {
 
     // Verificação 2FA
     const verify2FAMutation = useMutation({
-        mutationFn: (code: string) => authService.verify2FA(code),
+        mutationFn: ({ userId, code }: { userId: string; code: string }) =>
+            authService.verify2FA(userId, code),
         onSuccess: async () => {
             const user = await authService.me();
             setUser(user);
