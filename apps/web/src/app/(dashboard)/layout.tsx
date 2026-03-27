@@ -11,41 +11,66 @@ import {
     Settings,
     LogOut,
     Menu,
-    X,
     Bell,
+    Users,
+    Building2,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
 import { useCurrentUser } from "@/store/auth.store";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
+import type { Role } from "@/types/auth";
 
-const navItems = [
-    {
-        label: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-    },
-    {
-        label: "Ordens de Serviço",
-        href: "/ordens-de-servico",
-        icon: ClipboardList,
-    },
-    {
-        label: "Equipamentos",
-        href: "/equipamentos",
-        icon: Wrench,
-    },
-    {
-        label: "Relatórios",
-        href: "/relatorios",
-        icon: BarChart3,
-    },
-    {
-        label: "Configurações",
-        href: "/configuracoes",
-        icon: Settings,
-    },
-];
+const navItems: {
+    label: string;
+    href: string;
+    icon: React.ElementType;
+    roles: Role[];
+}[] = [
+        {
+            label: "Dashboard",
+            href: "/dashboard",
+            icon: LayoutDashboard,
+            roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"],
+        },
+        {
+            label: "Ordens de Serviço",
+            href: "/ordens-de-servico",
+            icon: ClipboardList,
+            roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
+        },
+        {
+            label: "Equipamentos",
+            href: "/equipamentos",
+            icon: Wrench,
+            roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+        },
+        {
+            label: "Usuários",
+            href: "/usuarios",
+            icon: Users,
+            roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
+        },
+        {
+            label: "Empresas",
+            href: "/empresas",
+            icon: Building2,
+            roles: ["SUPER_ADMIN"],
+        },
+        {
+            label: "Relatórios",
+            href: "/relatorios",
+            icon: BarChart3,
+            roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"],
+        },
+        {
+            label: "Configurações",
+            href: "/configuracoes",
+            icon: Settings,
+            roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
+        },
+    ];
 
 export default function DashboardLayout({
     children,
@@ -55,6 +80,7 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const { logout, isLoggingOut } = useAuth();
     const user = useCurrentUser();
+    const permissions = usePermissions();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     function getInitials(name: string) {
@@ -65,6 +91,10 @@ export default function DashboardLayout({
             .join("")
             .toUpperCase();
     }
+
+    const filteredNavItems = navItems.filter((item) =>
+        permissions.role ? item.roles.includes(permissions.role) : false
+    );
 
     const Sidebar = () => (
         <aside className="flex flex-col h-full bg-slate-900 text-white w-60">
@@ -96,7 +126,7 @@ export default function DashboardLayout({
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wider px-3 mb-2">
                     Menu
                 </p>
-                {navItems.map((item) => {
+                {filteredNavItems.map((item) => {
                     const isActive =
                         pathname === item.href ||
                         (item.href !== "/dashboard" && pathname.startsWith(item.href));

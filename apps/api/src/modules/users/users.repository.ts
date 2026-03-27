@@ -55,7 +55,7 @@ export class UsersRepository {
   async findMany(
     companyId: string,
     filters: ListUsersDto,
-  ): Promise<{ data: SafeUser[]; total: number; page: number; limit: number }> {
+  ): Promise<{ data: SafeUser[]; pagination: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean; hasPrevPage: boolean } }> {
     const { search, role, status, clientId, page = 1, limit = 20 } = filters
 
     const where: Prisma.UserWhereInput = {
@@ -83,7 +83,19 @@ export class UsersRepository {
       this.prisma.user.count({ where }),
     ])
 
-    return { data, total, page, limit }
+    const totalPages = Math.ceil(total / limit)
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    }
   }
 
   // ─────────────────────────────────────────

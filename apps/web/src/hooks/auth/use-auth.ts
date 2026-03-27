@@ -82,6 +82,7 @@ export function useAuth() {
     return {
         isLoading,
         requires2FA,
+        twoFAUserId,
 
         login: loginMutation.mutate,
         isLoggingIn: loginMutation.isPending,
