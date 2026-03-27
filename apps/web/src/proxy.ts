@@ -4,12 +4,13 @@ const PUBLIC_ROUTES = [
   "/login",
   "/forgot-password",
   "/reset-password",
+  "/auth/reset-password",
   "/verify-email",
 ];
 
 const STATIC_PATHS = ["/_next", "/favicon.ico", "/images", "/icons"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Ignora arquivos estáticos

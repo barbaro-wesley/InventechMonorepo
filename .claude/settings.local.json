@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find 'c:/Users/Wesley Barbaro/Documents/inventech-monorepo/apps/web/node_modules/next/dist' -name *.md)",
+      "Bash(grep -r \"middleware-to-proxy\\\\|proxy\\\\.ts\\\\|proxy\\\\|isProxy\\\\|PROXY_CONVENTION\" 'c:/Users/Wesley Barbaro/Documents/inventech-monorepo/node_modules/next/dist' --include=*.js -l)"
+    ]
+  }
+}

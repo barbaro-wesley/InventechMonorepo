@@ -21,13 +21,14 @@ api.interceptors.response.use(
             _retry?: boolean;
         };
 
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        const isRefreshRequest = originalRequest.url?.includes("/auth/refresh");
+        if (error.response?.status === 401 && !originalRequest._retry && !isRefreshRequest) {
             originalRequest._retry = true;
             try {
                 await api.post("/auth/refresh");
                 return api(originalRequest);
             } catch {
-                if (typeof window !== "undefined") {
+                if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
                     window.location.href = "/login";
                 }
                 return Promise.reject(error);

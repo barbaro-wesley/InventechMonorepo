@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { authService } from "@/services/auth/auth.service";
-import { useAuthStore } from "@/store/auth.store";
+import { useAuthStore, useIsAuthLoading } from "@/store/auth.store";
 import { getErrorMessage } from "@/lib/api";
 
 export const authKeys = {
@@ -17,19 +17,9 @@ export function useAuth() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const { setUser, logout: storeLogout } = useAuthStore();
+    const isLoading = useIsAuthLoading();
     const [requires2FA, setRequires2FA] = useState(false);
     const [twoFAUserId, setTwoFAUserId] = useState<string | null>(null);
-    // Busca usuário atual
-    const { isLoading } = useQuery({
-        queryKey: authKeys.me,
-        queryFn: async () => {
-            const user = await authService.me();
-            setUser(user);
-            return user;
-        },
-        retry: false,
-        staleTime: 5 * 60 * 1000,
-    });
 
     // Login
     const loginMutation = useMutation({
@@ -44,7 +34,7 @@ export function useAuth() {
                 return;
             }
             setUser(response.user);
-            toast.success(`Bem-vindo, ${response.user.name.split(" ")[0]}!`);
+            toast.success(`Bem-vindo, ${response.user.name?.split(" ")[0] ?? response.user.name}!`);
             router.push("/dashboard");
         },
 
@@ -60,7 +50,7 @@ export function useAuth() {
         onSuccess: async () => {
             const user = await authService.me();
             setUser(user);
-            toast.success(`Bem-vindo, ${user.name.split(" ")[0]}!`);
+            toast.success(`Bem-vindo, ${user.name?.split(" ")[0] ?? user.name}!`);
             router.push("/dashboard");
         },
         onError: (error) => {

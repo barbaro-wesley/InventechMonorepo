@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return user;
     },
     retry: false,
+    staleTime: 5 * 60 * 1000,
     enabled: !isPublicRoute,
   });
 

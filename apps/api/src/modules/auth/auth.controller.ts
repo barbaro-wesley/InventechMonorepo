@@ -136,10 +136,7 @@ export class AuthController {
   @Get('me')
   @ApiOperation({ summary: 'Usuário logado', description: 'Retorna os dados do usuário autenticado' })
   me(@CurrentUser() user: AuthenticatedUser) {
-    return {
-      id: user.sub, email: user.email,
-      role: user.role, companyId: user.companyId, clientId: user.clientId,
-    }
+    return this.authService.getMe(user.sub)
   }
 
   // ─────────────────────────────────────────

@@ -248,7 +248,7 @@ export class TwoFactorService {
         })
 
         const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001'
-        const resetUrl = `${frontendUrl}/auth/reset-password?token=${token}`
+        const resetUrl = `${frontendUrl}/reset-password?token=${token}`
 
         await this.emailChannel.send({
             to: email,
