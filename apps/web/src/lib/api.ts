@@ -12,6 +12,10 @@ export const api = axios.create({
 api.interceptors.response.use(
     (response: AxiosResponse) => {
         if (response.data && "data" in response.data) {
+            // Paginated responses — preserve the full envelope so services can access pagination
+            if ("pagination" in response.data) {
+                return response;
+            }
             return { ...response, data: response.data.data };
         }
         return response;

@@ -3,6 +3,7 @@ import type {
     Company,
     CompanyWithLicense,
     CreateCompanyDto,
+    CreateCompanyResponse,
     UpdateCompanyDto,
     ListCompaniesParams,
     License,
@@ -12,7 +13,11 @@ import type { PaginatedResponse } from "@/types/user";
 export const companiesService = {
     async list(params?: ListCompaniesParams): Promise<PaginatedResponse<Company>> {
         const { data } = await api.get("/companies", { params });
-        return data;
+        // Interceptor preserves the full envelope for paginated responses
+        return {
+            data: data.data,
+            pagination: data.pagination,
+        };
     },
 
     async getById(id: string): Promise<CompanyWithLicense> {
@@ -20,7 +25,7 @@ export const companiesService = {
         return data;
     },
 
-    async create(dto: CreateCompanyDto): Promise<CompanyWithLicense> {
+    async create(dto: CreateCompanyDto): Promise<CreateCompanyResponse> {
         const { data } = await api.post("/companies", dto);
         return data;
     },

@@ -1,53 +1,76 @@
 export interface Company {
-    id: string;
-    name: string;
-    slug: string;
-    document?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    logoUrl?: string | null;
-    isActive: boolean;
-    createdAt: string;
-    _count?: {
-        clients: number;
-        users: number;
-    };
+  id: string;
+  platformId: string;
+  name: string;
+  slug: string;
+  document?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  logoUrl?: string | null;
+  status: "ACTIVE" | "TRIAL" | "SUSPENDED" | "EXPIRED";
+  trialEndsAt?: string | null;
+  settings?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    clients: number;
+    users: number;
+  };
 }
 
 export interface License {
-    status: "ACTIVE" | "TRIAL" | "SUSPENDED" | "EXPIRED";
-    expiresAt?: string | null;
-    trialEndsAt?: string | null;
-    suspendedAt?: string | null;
-    suspensionReason?: string | null;
-    notes?: string | null;
+  status: "ACTIVE" | "TRIAL" | "SUSPENDED" | "EXPIRED";
+  isActive: boolean;
+  isSuspended: boolean;
+  isLicenseExpired: boolean;
+  licenseExpiresAt?: string | null;
+  daysUntilExpiry?: number | null;
+  trialEndsAt?: string | null;
+  suspendedAt?: string | null;
+  suspendedReason?: string | null;
+  notes?: string | null;
+  expiryWarning?: boolean;
 }
 
 export interface CompanyWithLicense extends Company {
-    license?: License | null;
+  license?: License | null;
+}
+
+export interface CreateCompanyResponse {
+  company: Company;
+  admin: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
 }
 
 export interface CreateCompanyDto {
+  name: string;
+  document?: string;
+  email?: string;
+  phone?: string;
+  admin: {
     name: string;
-    document?: string;
-    email?: string;
+    email: string;
+    password: string;
     phone?: string;
-    admin: {
-        name: string;
-        email: string;
-        password: string;
-    };
+  };
 }
 
 export interface UpdateCompanyDto {
-    name?: string;
-    document?: string;
-    email?: string;
-    phone?: string;
+  name?: string;
+  document?: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface ListCompaniesParams {
-    page?: number;
-    limit?: number;
-    search?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
 }
+
+export type CompanyListResponse = import("./user").PaginatedResponse<Company>;

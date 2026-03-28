@@ -9,12 +9,12 @@ export default function AuthLayout({
       {/* ── Painel Esquerdo — Branding ── */}
       <div className="hidden lg:flex flex-col items-center justify-center relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, #1e3a8a 0%, #312e81 40%, #0f172a 100%)",
+          background: "linear-gradient(135deg, #0a3776 0%, #1162d4 55%, #f97a1f 100%)",
         }}
       >
         {/* Glow effects */}
-        <div className="absolute top-[-15%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-500/20 blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-indigo-500/15 blur-[100px] pointer-events-none" />
+        <div className="absolute top-[-15%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-400/20 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-orange-400/15 blur-[100px] pointer-events-none" />
 
         {/* Grid pattern sutil */}
         <div
@@ -31,8 +31,12 @@ export default function AuthLayout({
         {/* Conteúdo */}
         <div className="relative z-10 text-center max-w-md px-8">
           {/* Logo card */}
-          <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-6 py-3.5 mb-10 shadow-lg">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md">
+          <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-6 py-3.5 mb-10 shadow-lg"
+            style={{ boxShadow: "var(--shadow-brand)" }}
+          >
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md"
+              style={{ background: "linear-gradient(135deg, #f97a1f, #e05a00)" }}
+            >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path
                   d="M9 2L15.5 5.5V12.5L9 16L2.5 12.5V5.5L9 2Z"
@@ -49,7 +53,7 @@ export default function AuthLayout({
               </svg>
             </div>
             <span className="text-white font-bold text-xl tracking-tight">
-              Inven<span className="text-blue-300">Tech</span>
+              Inven<span style={{ color: "#f97a1f" }}>Tech</span>
             </span>
           </div>
 
@@ -84,7 +88,7 @@ export default function AuthLayout({
       </div>
 
       {/* ── Painel Direito — Formulário ── */}
-      <div className="flex items-center justify-center p-6 sm:p-8 bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
+      <div className="flex items-center justify-center p-6 sm:p-8 bg-background">
         <div className="w-full max-w-md">{children}</div>
       </div>
     </div>
