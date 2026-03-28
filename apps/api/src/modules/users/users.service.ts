@@ -4,15 +4,18 @@ import {
   ConflictException,
   ForbiddenException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { UserRole, UserStatus } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
 import { UsersRepository } from './users.repository'
 import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
+import { UpdateOwnProfileDto, ChangePasswordDto } from './dto/update-own-profile.dto'
 import { ListUsersDto } from './dto/list-users.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { TwoFactorService } from '../auth/security/two-factor.service'
+import { PrismaService } from '../../prisma/prisma.service'
 
 const COMPANY_ROLES = [
   UserRole.COMPANY_ADMIN,
@@ -31,15 +34,20 @@ export class UsersService {
   constructor(
     private usersRepository: UsersRepository,
     private twoFactorService: TwoFactorService,
+    private prisma: PrismaService,
   ) { }
 
   async findAll(currentUser: AuthenticatedUser, filters: ListUsersDto) {
     this.ensureCompanyScope(currentUser)
+    // SUPER_ADMIN pode filtrar por empresa via query param
+    const companyId = currentUser.role === UserRole.SUPER_ADMIN
+      ? (filters.companyId ?? currentUser.companyId!)
+      : currentUser.companyId!
     // CLIENT_ADMIN vê apenas usuários do seu próprio cliente
     const effectiveFilters = currentUser.clientId
       ? { ...filters, clientId: currentUser.clientId }
       : filters
-    return this.usersRepository.findMany(currentUser.companyId!, effectiveFilters)
+    return this.usersRepository.findMany(companyId, effectiveFilters)
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser) {
@@ -126,6 +134,51 @@ export class UsersService {
 
     await this.usersRepository.softDelete(id, currentUser.companyId!)
     return { message: 'Usuário removido com sucesso' }
+  }
+
+  // ─────────────────────────────────────────
+  // Atualiza o próprio perfil (sem verificação de hierarquia)
+  // ─────────────────────────────────────────
+  async updateOwnProfile(dto: UpdateOwnProfileDto, currentUser: AuthenticatedUser) {
+    const data: Record<string, unknown> = {}
+    if (dto.name !== undefined) data.name = dto.name
+    if (dto.phone !== undefined) data.phone = dto.phone || null
+    if (dto.telegramChatId !== undefined) data.telegramChatId = dto.telegramChatId || null
+
+    return this.prisma.user.update({
+      where: { id: currentUser.sub },
+      data,
+      select: {
+        id: true, name: true, email: true, role: true, status: true,
+        avatarUrl: true, phone: true, telegramChatId: true,
+        companyId: true, clientId: true,
+      },
+    })
+  }
+
+  // ─────────────────────────────────────────
+  // Troca de senha autenticada
+  // Valida a senha atual antes de trocar
+  // ─────────────────────────────────────────
+  async changePassword(dto: ChangePasswordDto, currentUser: AuthenticatedUser) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUser.sub },
+      select: { passwordHash: true },
+    })
+    if (!user) throw new NotFoundException('Usuário não encontrado')
+
+    const isCurrentValid = await bcrypt.compare(dto.currentPassword, user.passwordHash)
+    if (!isCurrentValid) {
+      throw new UnauthorizedException('Senha atual incorreta')
+    }
+
+    const newHash = await bcrypt.hash(dto.newPassword, 10)
+    await this.prisma.user.update({
+      where: { id: currentUser.sub },
+      data: { passwordHash: newHash },
+    })
+
+    return { message: 'Senha alterada com sucesso' }
   }
 
   async getProfile(currentUser: AuthenticatedUser) {

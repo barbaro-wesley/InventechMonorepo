@@ -1,14 +1,16 @@
 import {
-  Controller, Post, Get, Body, Res, Req,
+  Controller, Post, Get, Patch, Body, Res, Req, Query,
   HttpCode, HttpStatus, UseGuards, Param, ParseUUIDPipe,
 } from '@nestjs/common'
 import type { Request, Response } from 'express'
 import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator'
+import { UserRole } from '@prisma/client'
 import { AuthService } from './auth.service'
 import { LoginDto } from './dto/login.dto'
 import { JwtRefreshGuard } from './guards/jwt-auth.guard'
 import { Public } from '../../common/decorators/public.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
+import { Roles } from '../../common/decorators/roles.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { TwoFactorService } from './security/two-factor.service'
 import { LoginSecurityService } from './security/login-security.service'
@@ -213,5 +215,63 @@ async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
 async resetPassword(@Body() dto: ResetPasswordDto) {
   await this.twoFactorService.resetPassword(dto.token, dto.newPassword)
   return { message: 'Senha redefinida com sucesso! Faça login com a nova senha.' }
+}
+
+// ─────────────────────────────────────────
+// Audit — SUPER_ADMIN only
+// ─────────────────────────────────────────
+
+@Get('audit/stats')
+@Roles(UserRole.SUPER_ADMIN)
+@ApiOperation({ summary: 'Estatísticas de auditoria', description: 'Resumo de tentativas de login e bloqueios ativos' })
+getAuditStats() {
+  return this.loginSecurityService.getAuditStats()
+}
+
+@Get('audit/attempts')
+@Roles(UserRole.SUPER_ADMIN)
+@ApiOperation({ summary: 'Tentativas de login', description: 'Histórico paginado de todas as tentativas de login' })
+getLoginAttempts(
+  @Query('page') page?: string,
+  @Query('limit') limit?: string,
+  @Query('search') search?: string,
+  @Query('success') success?: string,
+  @Query('dateFrom') dateFrom?: string,
+  @Query('dateTo') dateTo?: string,
+) {
+  return this.loginSecurityService.getPlatformLoginAttempts({
+    page: page ? parseInt(page) : undefined,
+    limit: limit ? parseInt(limit) : undefined,
+    search,
+    success: success === 'true' ? true : success === 'false' ? false : undefined,
+    dateFrom: dateFrom ? new Date(dateFrom) : undefined,
+    dateTo: dateTo ? new Date(dateTo) : undefined,
+  })
+}
+
+@Get('audit/blocks')
+@Roles(UserRole.SUPER_ADMIN)
+@ApiOperation({ summary: 'Bloqueios de conta', description: 'Histórico paginado de bloqueios de conta' })
+getAccountBlocks(
+  @Query('page') page?: string,
+  @Query('limit') limit?: string,
+  @Query('activeOnly') activeOnly?: string,
+) {
+  return this.loginSecurityService.getPlatformAccountBlocks({
+    page: page ? parseInt(page) : undefined,
+    limit: limit ? parseInt(limit) : undefined,
+    activeOnly: activeOnly === 'true',
+  })
+}
+
+@Patch('audit/unblock/:userId')
+@Roles(UserRole.SUPER_ADMIN)
+@HttpCode(HttpStatus.OK)
+@ApiOperation({ summary: 'Desbloquear conta', description: 'Desbloqueia manualmente uma conta de usuário' })
+unblockUser(
+  @Param('userId', ParseUUIDPipe) userId: string,
+  @CurrentUser() cu: AuthenticatedUser,
+) {
+  return this.loginSecurityService.unblockAccount(userId, cu.sub)
 }
 }

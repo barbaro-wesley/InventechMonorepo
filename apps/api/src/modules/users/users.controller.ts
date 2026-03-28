@@ -15,6 +15,7 @@ import { UserRole } from '@prisma/client'
 import { UsersService } from './users.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
+import { UpdateOwnProfileDto, ChangePasswordDto } from './dto/update-own-profile.dto'
 import { ListUsersDto } from './dto/list-users.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
@@ -82,6 +83,29 @@ export class UsersController {
   }
 
   // ─────────────────────────────────────────
+  // PATCH /users/profile — atualizar próprio perfil (nome, telefone, telegram)
+  // DEVE ficar antes de PATCH :id para não ser capturado como parâmetro
+  // ─────────────────────────────────────────
+  @Patch('profile')
+  updateOwnProfile(
+    @Body() dto: UpdateOwnProfileDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.updateOwnProfile(dto, currentUser)
+  }
+
+  // ─────────────────────────────────────────
+  // PATCH /users/profile/password — troca de senha com verificação da atual
+  // ─────────────────────────────────────────
+  @Patch('profile/password')
+  changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.changePassword(dto, currentUser)
+  }
+
+  // ─────────────────────────────────────────
   // PATCH /users/:id — atualizar usuário
   // ─────────────────────────────────────────
   @Patch(':id')
@@ -96,18 +120,6 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.usersService.update(id, dto, currentUser)
-  }
-
-  // ─────────────────────────────────────────
-  // PATCH /users/profile — atualizar próprio perfil
-  // Qualquer papel autenticado pode editar o próprio perfil
-  // ─────────────────────────────────────────
-  @Patch('profile')
-  updateProfile(
-    @Body() dto: UpdateUserDto,
-    @CurrentUser() currentUser: AuthenticatedUser,
-  ) {
-    return this.usersService.update(currentUser.sub, dto, currentUser)
   }
 
   // ─────────────────────────────────────────

@@ -32,4 +32,8 @@ export const clientsService = {
     const { data } = await api.patch(`/clients/${id}`, dto);
     return data;
   },
+
+  async delete(id: string): Promise<void> {
+    await api.delete(`/clients/${id}`);
+  },
 };

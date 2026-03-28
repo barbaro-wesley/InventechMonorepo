@@ -29,7 +29,9 @@ export class ClientsService {
   ) { }
 
   async findAll(currentUser: AuthenticatedUser, filters: ListClientsDto) {
-    const companyId = this.resolveCompanyId(currentUser)
+    const companyId = currentUser.role === UserRole.SUPER_ADMIN
+      ? (filters.companyId ?? currentUser.companyId!)
+      : this.resolveCompanyId(currentUser)
     return this.clientsRepository.findMany(companyId, filters)
   }
 
@@ -53,7 +55,9 @@ export class ClientsService {
   async create(dto: CreateClientDto, currentUser: AuthenticatedUser) {
     this.ensureCompanyRole(currentUser)
 
-    const companyId = currentUser.companyId!
+    const companyId = currentUser.role === UserRole.SUPER_ADMIN
+      ? (dto.companyId ?? currentUser.companyId!)
+      : currentUser.companyId!
 
     if (dto.document) {
       const documentTaken = await this.clientsRepository.documentExists(
@@ -260,7 +264,7 @@ export class ClientsService {
         'Apenas a empresa de manutenção pode gerenciar clientes',
       )
     }
-    if (!user.companyId) {
+    if (user.role !== UserRole.SUPER_ADMIN && !user.companyId) {
       throw new ForbiddenException('Acesso sem escopo de empresa')
     }
   }

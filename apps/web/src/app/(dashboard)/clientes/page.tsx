@@ -91,7 +91,7 @@ const createClientSchema = z.object({
   document: z.string().optional(),
   email: z.email("E-mail inválido").optional().or(z.literal("")),
   phone: z.string().optional(),
-  status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   address: z.object({
     street: z.string().optional(),
     number: z.string().optional(),

@@ -9,6 +9,8 @@ export interface AuthUser {
   role: UserRole;
   status: UserStatus;
   avatarUrl?: string | null;
+  phone?: string | null;
+  telegramChatId?: string | null;
   companyId?: string | null;
   clientId?: string | null;
   company?: {

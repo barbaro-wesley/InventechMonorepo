@@ -252,4 +252,160 @@ export class LoginSecurityService {
 
         this.logger.log(`Conta desbloqueada manualmente: userId=${userId} | admin=${adminId}`)
     }
+
+    // ─────────────────────────────────────────
+    // SUPER_ADMIN — todas as tentativas de login (paginado)
+    // ─────────────────────────────────────────
+    async getPlatformLoginAttempts(filters: {
+        search?: string
+        success?: boolean
+        dateFrom?: Date
+        dateTo?: Date
+        page?: number
+        limit?: number
+    }) {
+        const { search, success, dateFrom, dateTo, page = 1, limit = 50 } = filters
+
+        const where: any = {}
+        if (success !== undefined) where.success = success
+        if (dateFrom || dateTo) {
+            where.createdAt = {}
+            if (dateFrom) where.createdAt.gte = dateFrom
+            if (dateTo) where.createdAt.lte = dateTo
+        }
+        if (search) {
+            where.OR = [
+                { email: { contains: search, mode: 'insensitive' } },
+                { ipAddress: { contains: search } },
+                { city: { contains: search, mode: 'insensitive' } },
+                { country: { contains: search, mode: 'insensitive' } },
+            ]
+        }
+
+        const [data, total] = await this.prisma.$transaction([
+            this.prisma.loginAttempt.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: {
+                    id: true,
+                    email: true,
+                    success: true,
+                    ipAddress: true,
+                    country: true,
+                    region: true,
+                    city: true,
+                    userAgent: true,
+                    failReason: true,
+                    createdAt: true,
+                    user: { select: { id: true, name: true } },
+                },
+            }),
+            this.prisma.loginAttempt.count({ where }),
+        ])
+
+        return {
+            data,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1,
+            },
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // SUPER_ADMIN — todos os bloqueios de conta (paginado)
+    // ─────────────────────────────────────────
+    async getPlatformAccountBlocks(filters: {
+        activeOnly?: boolean
+        page?: number
+        limit?: number
+    }) {
+        const { activeOnly, page = 1, limit = 50 } = filters
+        const now = new Date()
+
+        const where: any = {}
+        if (activeOnly) {
+            where.unblocked = false
+            where.expiresAt = { gt: now }
+        }
+
+        const [data, total] = await this.prisma.$transaction([
+            this.prisma.accountBlock.findMany({
+                where,
+                orderBy: { blockedAt: 'desc' },
+                skip: (page - 1) * limit,
+                take: limit,
+                select: {
+                    id: true,
+                    reason: true,
+                    ipAddress: true,
+                    blockedAt: true,
+                    expiresAt: true,
+                    unblocked: true,
+                    unblockedAt: true,
+                    unblockedBy: true,
+                    user: { select: { id: true, name: true, email: true } },
+                },
+            }),
+            this.prisma.accountBlock.count({ where }),
+        ])
+
+        return {
+            data,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+                hasNextPage: page < Math.ceil(total / limit),
+                hasPrevPage: page > 1,
+            },
+        }
+    }
+
+    // ─────────────────────────────────────────
+    // SUPER_ADMIN — estatísticas de auditoria
+    // ─────────────────────────────────────────
+    async getAuditStats() {
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+        const [
+            totalToday,
+            failedToday,
+            successToday,
+            activeBlocks,
+            failedLast7Days,
+            topFailedIps,
+        ] = await Promise.all([
+            this.prisma.loginAttempt.count({ where: { createdAt: { gte: today } } }),
+            this.prisma.loginAttempt.count({ where: { success: false, createdAt: { gte: today } } }),
+            this.prisma.loginAttempt.count({ where: { success: true, createdAt: { gte: today } } }),
+            this.prisma.accountBlock.count({ where: { unblocked: false, expiresAt: { gt: now } } }),
+            this.prisma.loginAttempt.count({ where: { success: false, createdAt: { gte: last7Days } } }),
+            this.prisma.$queryRaw<Array<{ ip: string; count: number }>>`
+                SELECT ip_address as ip, COUNT(*)::int as count
+                FROM login_attempts
+                WHERE success = false
+                  AND created_at >= ${last7Days}
+                GROUP BY ip_address
+                ORDER BY count DESC
+                LIMIT 5
+            `,
+        ])
+
+        return {
+            today: { total: totalToday, failed: failedToday, success: successToday },
+            activeBlocks,
+            failedLast7Days,
+            topFailedIps,
+        }
+    }
 }

@@ -193,6 +193,8 @@ export class AuthService {
                 role: true,
                 status: true,
                 avatarUrl: true,
+                phone: true,
+                telegramChatId: true,
                 companyId: true,
                 clientId: true,
                 company: { select: { id: true, name: true, slug: true, logoUrl: true } },

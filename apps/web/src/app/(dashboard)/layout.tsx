@@ -18,6 +18,7 @@ import {
     ChevronDown,
     ChevronsLeft,
     ChevronsRight,
+    ShieldAlert,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -25,6 +26,7 @@ import { useCurrentUser } from "@/store/auth.store";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/auth";
+import { ROLE_LABELS } from "@/types/auth";
 
 type NavItem = {
     label: string;
@@ -92,6 +94,12 @@ const navSections: NavSection[] = [
                 label: "Empresas",
                 href: "/empresas",
                 icon: Building2,
+                roles: ["SUPER_ADMIN"],
+            },
+            {
+                label: "Logs de Auditoria",
+                href: "/logs-auditoria",
+                icon: ShieldAlert,
                 roles: ["SUPER_ADMIN"],
             },
         ],
@@ -310,22 +318,32 @@ export default function DashboardLayout({
             <div className="px-2 py-2 border-t border-border flex-shrink-0">
                 {(!collapsed || isMobile) ? (
                     <>
-                        <div className="flex items-center gap-3 px-3 py-2 rounded-md">
-                            <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-semibold"
-                                style={{ background: "var(--gradient-brand)" }}
-                            >
-                                {user?.name ? getInitials(user.name) : "?"}
+                        <Link
+                            href="/perfil"
+                            onClick={() => isMobile && setSidebarOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors"
+                        >
+                            <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden">
+                                {user?.avatarUrl ? (
+                                    <img src={user.avatarUrl} alt={user.name ?? ""} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div
+                                        className="w-full h-full flex items-center justify-center text-white text-xs font-semibold"
+                                        style={{ background: "var(--gradient-brand)" }}
+                                    >
+                                        {user?.name ? getInitials(user.name) : "?"}
+                                    </div>
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
                                     {user?.name ?? "Usuário"}
                                 </p>
                                 <p className="text-xs truncate" style={{ color: "var(--muted-foreground)" }}>
-                                    {user?.email ?? ""}
+                                    {user?.role ? ROLE_LABELS[user.role] : ""}
                                 </p>
                             </div>
-                        </div>
+                        </Link>
                         <button
                             onClick={() => logout()}
                             disabled={isLoggingOut}
@@ -338,17 +356,24 @@ export default function DashboardLayout({
                     </>
                 ) : (
                     <>
-                        <div
+                        <Link
+                            href="/perfil"
                             className="flex justify-center py-2"
                             title={user?.name ?? "Usuário"}
                         >
-                            <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-                                style={{ background: "var(--gradient-brand)" }}
-                            >
-                                {user?.name ? getInitials(user.name) : "?"}
+                            <div className="w-8 h-8 rounded-full overflow-hidden">
+                                {user?.avatarUrl ? (
+                                    <img src={user.avatarUrl} alt={user.name ?? ""} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div
+                                        className="w-full h-full flex items-center justify-center text-white text-xs font-semibold"
+                                        style={{ background: "var(--gradient-brand)" }}
+                                    >
+                                        {user?.name ? getInitials(user.name) : "?"}
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        </Link>
                         <button
                             onClick={() => logout()}
                             disabled={isLoggingOut}

@@ -57,3 +57,17 @@ export function useUpdateClient(id: string) {
     },
   });
 }
+
+export function useDeleteClient() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => clientsService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientKeys.all });
+      toast.success("Cliente removido com sucesso!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}

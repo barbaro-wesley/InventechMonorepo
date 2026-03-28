@@ -31,6 +31,21 @@ export class DashboardController {
         return this.dashboardService.getCompanyDashboard(cu.companyId!)
     }
 
+    // GET /dashboard/platform
+    // Visão consolidada de toda a plataforma — apenas SUPER_ADMIN
+    @Get('platform')
+    @ApiOperation({
+        summary: 'Dashboard da plataforma',
+        description:
+            'Retorna métricas globais: totais de empresas, usuários, clientes, ' +
+            'equipamentos, OS ativas, licenças próximas do vencimento e ' +
+            'empresas cadastradas recentemente.',
+    })
+    @Roles(UserRole.SUPER_ADMIN)
+    getPlatformDashboard() {
+        return this.dashboardService.getSuperAdminDashboard()
+    }
+
     // GET /dashboard/client/:clientId
     // Visão restrita de um cliente específico
     @Get('client/:clientId')

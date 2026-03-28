@@ -29,12 +29,14 @@ export interface CreateUserDto {
   password: string;
   role: UserRole;
   phone?: string;
+  companyId?: string;
   clientId?: string;
 }
 
 export interface UpdateUserDto {
   name?: string;
   phone?: string;
+  telegramChatId?: string;
   status?: UserStatus;
 }
 
@@ -44,4 +46,6 @@ export interface ListUsersParams {
   search?: string;
   role?: UserRole;
   status?: UserStatus;
+  companyId?: string;
+  clientId?: string;
 }

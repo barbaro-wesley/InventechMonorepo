@@ -20,6 +20,10 @@ export class ListUsersDto {
   clientId?: string
 
   @IsOptional()
+  @IsUUID()
+  companyId?: string  // Usado pelo SUPER_ADMIN para filtrar por empresa
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

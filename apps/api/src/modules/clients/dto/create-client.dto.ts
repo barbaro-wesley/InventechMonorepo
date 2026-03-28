@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  IsUUID,
   MinLength,
   ValidateNested,
 } from 'class-validator'
@@ -80,6 +81,10 @@ export class CreateClientDto {
   @IsOptional()
   @IsEnum(ClientStatus)
   status?: ClientStatus = ClientStatus.ACTIVE
+
+  @IsOptional()
+  @IsUUID()
+  companyId?: string  // Usado pelo SUPER_ADMIN para criar clientes em outras empresas
 
   // Administrador inicial do cliente — criado junto na mesma transação
   @ValidateNested()

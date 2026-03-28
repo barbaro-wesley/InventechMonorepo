@@ -42,6 +42,8 @@ export interface CreateClientDto {
   phone?: string;
   status?: ClientStatus;
   address?: ClientAddress;
+  /** Usado pelo SUPER_ADMIN para criar clientes em outras empresas */
+  companyId?: string;
   /** Administrador inicial do cliente — criado junto na mesma transação */
   admin: CreateClientAdminDto;
 }
@@ -59,4 +61,5 @@ export interface ListClientsParams {
   page?: number;
   limit?: number;
   search?: string;
+  companyId?: string;
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { ServiceOrderStatus, ServiceOrderPriority } from '@prisma/client'
+import { ServiceOrderStatus, ServiceOrderPriority, CompanyStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 
 @Injectable()
@@ -287,6 +287,123 @@ export class DashboardService {
             warrantyExpiring,
             total: unassignedOs + overdueAlerts,
         }
+    }
+
+    // ─────────────────────────────────────────
+    // Dashboard plataforma — visão do SUPER_ADMIN
+    // ─────────────────────────────────────────
+    async getSuperAdminDashboard() {
+        const [
+            companyMetrics,
+            userMetrics,
+            clientMetrics,
+            equipmentTotal,
+            osMetrics,
+            licenseAlerts,
+            recentCompanies,
+        ] = await Promise.all([
+            this.getPlatformCompanyMetrics(),
+            this.getPlatformUserMetrics(),
+            this.getPlatformClientMetrics(),
+            this.prisma.equipment.count({ where: { deletedAt: null } }),
+            this.getPlatformOsMetrics(),
+            this.getExpiringLicenses(),
+            this.getRecentCompanies(),
+        ])
+
+        return {
+            companyMetrics,
+            userMetrics,
+            clientMetrics,
+            equipmentTotal,
+            osMetrics,
+            licenseAlerts,
+            recentCompanies,
+            generatedAt: new Date().toISOString(),
+        }
+    }
+
+    private async getPlatformCompanyMetrics() {
+        const [total, active, trial, suspended, inactive] = await Promise.all([
+            this.prisma.company.count({ where: { deletedAt: null } }),
+            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.ACTIVE } }),
+            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.TRIAL } }),
+            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.SUSPENDED } }),
+            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.INACTIVE } }),
+        ])
+        return { total, byStatus: { active, trial, suspended, inactive } }
+    }
+
+    private async getPlatformUserMetrics() {
+        const [total, active, unverified, blocked] = await Promise.all([
+            this.prisma.user.count({ where: { deletedAt: null } }),
+            this.prisma.user.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
+            this.prisma.user.count({ where: { deletedAt: null, status: 'UNVERIFIED' } }),
+            this.prisma.user.count({ where: { deletedAt: null, status: 'BLOCKED' } }),
+        ])
+        return { total, active, unverified, blocked }
+    }
+
+    private async getPlatformClientMetrics() {
+        const [total, active] = await Promise.all([
+            this.prisma.client.count({ where: { deletedAt: null } }),
+            this.prisma.client.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
+        ])
+        return { total, active }
+    }
+
+    private async getPlatformOsMetrics() {
+        const [total, open, inProgress, urgent] = await Promise.all([
+            this.prisma.serviceOrder.count({ where: { deletedAt: null } }),
+            this.prisma.serviceOrder.count({ where: { deletedAt: null, status: ServiceOrderStatus.OPEN } }),
+            this.prisma.serviceOrder.count({ where: { deletedAt: null, status: ServiceOrderStatus.IN_PROGRESS } }),
+            this.prisma.serviceOrder.count({
+                where: {
+                    deletedAt: null,
+                    priority: ServiceOrderPriority.URGENT,
+                    status: { notIn: ['COMPLETED_APPROVED', 'CANCELLED'] },
+                },
+            }),
+        ])
+        return { total, open, inProgress, urgent, active: open + inProgress }
+    }
+
+    private async getExpiringLicenses() {
+        const now = new Date()
+        const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        return this.prisma.company.findMany({
+            where: {
+                deletedAt: null,
+                status: { in: [CompanyStatus.ACTIVE, CompanyStatus.TRIAL] },
+                trialEndsAt: { gte: now, lte: in30Days },
+            },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                status: true,
+                trialEndsAt: true,
+                _count: { select: { users: true } },
+            },
+            orderBy: { trialEndsAt: 'asc' },
+            take: 5,
+        })
+    }
+
+    private async getRecentCompanies() {
+        return this.prisma.company.findMany({
+            where: { deletedAt: null },
+            select: {
+                id: true,
+                name: true,
+                slug: true,
+                status: true,
+                createdAt: true,
+                _count: { select: { users: true, clients: true } },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 5,
+        })
     }
 
     // ─────────────────────────────────────────

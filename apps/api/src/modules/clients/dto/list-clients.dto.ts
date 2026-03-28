@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
+import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ClientStatus } from '@prisma/client'
 
@@ -10,6 +10,10 @@ export class ListClientsDto {
   @IsOptional()
   @IsEnum(ClientStatus)
   status?: ClientStatus
+
+  @IsOptional()
+  @IsUUID()
+  companyId?: string  // Usado pelo SUPER_ADMIN para filtrar por empresa
 
   @IsOptional()
   @Type(() => Number)

@@ -36,4 +36,22 @@ export const usersService = {
     async delete(id: string): Promise<void> {
         await api.delete(`/users/${id}`);
     },
+
+    async updateProfile(dto: UpdateUserDto): Promise<User> {
+        const { data } = await api.patch("/users/profile", dto);
+        return data;
+    },
+
+    async uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+        const form = new FormData();
+        form.append("file", file);
+        const { data } = await api.post("/storage/avatar", form, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return data;
+    },
+
+    async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+        await api.patch("/users/profile/password", { currentPassword, newPassword });
+    },
 };
