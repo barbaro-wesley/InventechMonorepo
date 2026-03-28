@@ -2,6 +2,7 @@
 export type {
   ClientAddress,
   Client,
+  CreateClientAdminDto,
   CreateClientDto,
   UpdateClientDto,
   ListClientsParams,

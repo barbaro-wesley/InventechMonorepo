@@ -6,6 +6,7 @@ const PUBLIC_ROUTES = [
   "/reset-password",
   "/auth/reset-password",
   "/verify-email",
+  "/verificar-email",
 ];
 
 const STATIC_PATHS = ["/_next", "/favicon.ico", "/images", "/icons"];

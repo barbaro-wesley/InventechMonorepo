@@ -28,6 +28,13 @@ export interface Client {
   };
 }
 
+export interface CreateClientAdminDto {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
 export interface CreateClientDto {
   name: string;
   document?: string;
@@ -35,6 +42,8 @@ export interface CreateClientDto {
   phone?: string;
   status?: ClientStatus;
   address?: ClientAddress;
+  /** Administrador inicial do cliente — criado junto na mesma transação */
+  admin: CreateClientAdminDto;
 }
 
 export interface UpdateClientDto {

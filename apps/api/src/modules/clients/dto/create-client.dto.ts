@@ -1,9 +1,9 @@
 import {
   IsEmail,
   IsEnum,
-  IsObject,
   IsOptional,
   IsString,
+  MinLength,
   ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -39,6 +39,23 @@ class AddressDto {
   zip?: string
 }
 
+// Administrador inicial do cliente — criado junto na mesma transação
+export class CreateClientAdminDto {
+  @IsString()
+  name: string
+
+  @IsEmail({}, { message: 'Email do administrador inválido' })
+  email: string
+
+  @IsString()
+  @MinLength(6, { message: 'Senha deve ter no mínimo 6 caracteres' })
+  password: string
+
+  @IsOptional()
+  @IsString()
+  phone?: string
+}
+
 export class CreateClientDto {
   @IsString()
   name: string
@@ -63,4 +80,9 @@ export class CreateClientDto {
   @IsOptional()
   @IsEnum(ClientStatus)
   status?: ClientStatus = ClientStatus.ACTIVE
+
+  // Administrador inicial do cliente — criado junto na mesma transação
+  @ValidateNested()
+  @Type(() => CreateClientAdminDto)
+  admin: CreateClientAdminDto
 }

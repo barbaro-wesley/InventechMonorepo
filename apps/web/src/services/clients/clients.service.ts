@@ -7,6 +7,11 @@ import type {
 } from "@/types/client";
 import type { PaginatedResponse } from "@/types/user";
 
+export interface CreateClientResponse {
+  client: Client;
+  admin: { id: string; name: string; email: string; role: string };
+}
+
 export const clientsService = {
   async list(params?: ListClientsParams): Promise<PaginatedResponse<Client>> {
     const { data } = await api.get("/clients", { params });
@@ -18,7 +23,7 @@ export const clientsService = {
     return data;
   },
 
-  async create(dto: CreateClientDto): Promise<Client> {
+  async create(dto: CreateClientDto): Promise<CreateClientResponse> {
     const { data } = await api.post("/clients", dto);
     return data;
   },

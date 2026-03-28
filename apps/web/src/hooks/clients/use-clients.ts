@@ -7,7 +7,7 @@ import type {
   CreateClientDto,
   UpdateClientDto,
   ListClientsParams,
-} from "@/types/client";
+} from "@inventech/shared-types";
 
 export const clientKeys = {
   all: ["clients"] as const,

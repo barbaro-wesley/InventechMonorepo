@@ -26,12 +26,14 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
+    Drawer,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerDescription,
+    DrawerBody,
+    DrawerFooter,
+} from "@/components/ui/drawer";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -57,16 +59,36 @@ import {
 } from "@/components/ui/select";
 
 // ---------------------------------------------------------------------------
+// Config
+// ---------------------------------------------------------------------------
+
+const ALL_ROLE_OPTIONS: { value: Role; label: string; forRoles: Role[] }[] = [
+    { value: "COMPANY_ADMIN",   label: "Administrador",      forRoles: ["SUPER_ADMIN"] },
+    { value: "COMPANY_MANAGER", label: "Gerente",            forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN"] },
+    { value: "TECHNICIAN",      label: "Técnico",            forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"] },
+    { value: "CLIENT_ADMIN",    label: "Admin do Cliente",   forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"] },
+    { value: "CLIENT_USER",     label: "Usuário do Cliente", forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
+    { value: "CLIENT_VIEWER",   label: "Visualizador",       forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
+];
+
+const STATUS_CONFIG = {
+    ACTIVE:     { label: "Ativo",           className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+    INACTIVE:   { label: "Inativo",         className: "bg-slate-100 text-slate-600 border-slate-200" },
+    SUSPENDED:  { label: "Suspenso",        className: "bg-orange-50 text-orange-700 border-orange-200" },
+    UNVERIFIED: { label: "Não verificado",  className: "bg-amber-50 text-amber-700 border-amber-200" },
+    BLOCKED:    { label: "Bloqueado",       className: "bg-red-50 text-red-700 border-red-200" },
+};
+
+// ---------------------------------------------------------------------------
 // Schema
 // ---------------------------------------------------------------------------
+
 const createUserSchema = z.object({
     name: z.string().min(1, "Nome obrigatório"),
-    email: z.string().min(1, "E-mail obrigatório").email("E-mail inválido"),
+    email: z.email("E-mail inválido"),
     password: z
         .string()
-        .min(6, "Mínimo 6 caracteres")
-        .regex(/[A-Z]/, "Precisa de letra maiúscula")
-        .regex(/[0-9]/, "Precisa de número"),
+        .min(6, "Mínimo 6 caracteres"),
     role: z.enum([
         "COMPANY_ADMIN",
         "COMPANY_MANAGER",
@@ -83,22 +105,6 @@ type CreateUserForm = z.infer<typeof createUserSchema>;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-const STATUS_CONFIG = {
-    ACTIVE: { label: "Ativo", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-    INACTIVE: { label: "Inativo", className: "bg-slate-100 text-slate-600 border-slate-200" },
-    SUSPENDED: { label: "Suspenso", className: "bg-orange-50 text-orange-700 border-orange-200" },
-    UNVERIFIED: { label: "Não verificado", className: "bg-amber-50 text-amber-700 border-amber-200" },
-    BLOCKED: { label: "Bloqueado", className: "bg-red-50 text-red-700 border-red-200" },
-};
-
-const ROLE_OPTIONS: { value: Role; label: string }[] = [
-    { value: "COMPANY_ADMIN", label: "Administrador" },
-    { value: "COMPANY_MANAGER", label: "Gerente" },
-    { value: "TECHNICIAN", label: "Técnico" },
-    { value: "CLIENT_ADMIN", label: "Admin do Cliente" },
-    { value: "CLIENT_USER", label: "Usuário" },
-    { value: "CLIENT_VIEWER", label: "Visualizador" },
-];
 
 function getInitials(name: string) {
     return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
@@ -107,6 +113,7 @@ function getInitials(name: string) {
 // ---------------------------------------------------------------------------
 // Página
 // ---------------------------------------------------------------------------
+
 export default function UsuariosPage() {
     const permissions = usePermissions();
     const [search, setSearch] = useState("");
@@ -117,6 +124,11 @@ export default function UsuariosPage() {
     const { data, isLoading } = useUsers({ page, limit: 10, search: search || undefined });
     const createUser = useCreateUser();
     const deleteUserMutation = useDeleteUser();
+
+    // Filtra as opções de role disponíveis para o usuário atual
+    const roleOptions = ALL_ROLE_OPTIONS.filter(
+        (opt) => permissions.role && opt.forRoles.includes(permissions.role as Role)
+    );
 
     const form = useForm<CreateUserForm>({
         resolver: zodResolver(createUserSchema),
@@ -181,7 +193,7 @@ export default function UsuariosPage() {
                     <TableHeader>
                         <TableRow className="bg-slate-50 dark:bg-slate-800/50">
                             <TableHead>Usuário</TableHead>
-                            <TableHead>Role</TableHead>
+                            <TableHead>Perfil</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Telefone</TableHead>
                             <TableHead className="w-10" />
@@ -292,112 +304,133 @@ export default function UsuariosPage() {
                 </div>
             )}
 
-            {/* Modal criar usuário */}
-            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Novo usuário</DialogTitle>
-                    </DialogHeader>
+            {/* Drawer — Criar usuário */}
+            <Drawer
+                open={createOpen}
+                onOpenChange={(open) => {
+                    setCreateOpen(open);
+                    if (!open) form.reset();
+                }}
+            >
+                <DrawerContent>
+                    <DrawerHeader>
+                        <DrawerTitle>Novo usuário</DrawerTitle>
+                        <DrawerDescription>
+                            Preencha os dados para cadastrar um novo usuário.
+                        </DrawerDescription>
+                    </DrawerHeader>
 
-                    <form onSubmit={form.handleSubmit(handleCreate)} className="space-y-4">
-                        <div>
-                            <Label htmlFor="name">Nome</Label>
-                            <Input
-                                id="name"
-                                placeholder="Nome completo"
-                                className="mt-1.5"
-                                {...form.register("name")}
-                            />
-                            {form.formState.errors.name && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {form.formState.errors.name.message}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="email">E-mail</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="email@empresa.com"
-                                className="mt-1.5"
-                                {...form.register("email")}
-                            />
-                            {form.formState.errors.email && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {form.formState.errors.email.message}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="password">Senha</Label>
-                            <Input
-                                id="password"
-                                type="password"
-                                placeholder="Mín. 6 caracteres"
-                                className="mt-1.5"
-                                {...form.register("password")}
-                            />
-                            {form.formState.errors.password && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {form.formState.errors.password.message}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="role">Role</Label>
-                            <Select
-                                onValueChange={(value: string) => form.setValue("role", value as CreateUserForm["role"])}
-                            >
-                                <SelectTrigger className="mt-1.5">
-                                    <SelectValue placeholder="Selecione o role" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {ROLE_OPTIONS.map((option) => (
-                                        <SelectItem key={option.value} value={option.value}>
-                                            {option.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            {form.formState.errors.role && (
-                                <p className="mt-1 text-xs text-red-500">
-                                    {form.formState.errors.role.message}
-                                </p>
-                            )}
-                        </div>
-
-                        <div>
-                            <Label htmlFor="phone">Telefone (opcional)</Label>
-                            <Input
-                                id="phone"
-                                placeholder="(51) 99999-9999"
-                                className="mt-1.5"
-                                {...form.register("phone")}
-                            />
-                        </div>
-
-                        <DialogFooter className="pt-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setCreateOpen(false)}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button type="submit" disabled={createUser.isPending}>
-                                {createUser.isPending && (
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <DrawerBody>
+                        <form
+                            id="create-user-form"
+                            onSubmit={form.handleSubmit(handleCreate)}
+                            className="space-y-4"
+                        >
+                            <div>
+                                <Label htmlFor="name">Nome</Label>
+                                <Input
+                                    id="name"
+                                    placeholder="Nome completo"
+                                    className="mt-1.5"
+                                    {...form.register("name")}
+                                />
+                                {form.formState.errors.name && (
+                                    <p className="mt-1 text-xs text-red-500">
+                                        {form.formState.errors.name.message}
+                                    </p>
                                 )}
-                                Criar usuário
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="email">E-mail</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="email@empresa.com"
+                                    className="mt-1.5"
+                                    {...form.register("email")}
+                                />
+                                {form.formState.errors.email && (
+                                    <p className="mt-1 text-xs text-red-500">
+                                        {form.formState.errors.email.message}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="password">Senha</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    placeholder="Mín. 6 caracteres"
+                                    className="mt-1.5"
+                                    {...form.register("password")}
+                                />
+                                {form.formState.errors.password && (
+                                    <p className="mt-1 text-xs text-red-500">
+                                        {form.formState.errors.password.message}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="role">Perfil</Label>
+                                <Select
+                                    onValueChange={(value: string) =>
+                                        form.setValue("role", value as CreateUserForm["role"])
+                                    }
+                                >
+                                    <SelectTrigger className="mt-1.5">
+                                        <SelectValue placeholder="Selecione o perfil" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {roleOptions.map((option) => (
+                                            <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {form.formState.errors.role && (
+                                    <p className="mt-1 text-xs text-red-500">
+                                        {form.formState.errors.role.message}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="phone">Telefone (opcional)</Label>
+                                <Input
+                                    id="phone"
+                                    placeholder="(51) 99999-9999"
+                                    className="mt-1.5"
+                                    {...form.register("phone")}
+                                />
+                            </div>
+                        </form>
+                    </DrawerBody>
+
+                    <DrawerFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setCreateOpen(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            type="submit"
+                            form="create-user-form"
+                            disabled={createUser.isPending}
+                        >
+                            {createUser.isPending && (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            )}
+                            Criar usuário
+                        </Button>
+                    </DrawerFooter>
+                </DrawerContent>
+            </Drawer>
 
             {/* Confirmação de remoção */}
             <AlertDialog

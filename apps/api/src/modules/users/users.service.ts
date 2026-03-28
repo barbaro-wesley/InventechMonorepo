@@ -35,7 +35,11 @@ export class UsersService {
 
   async findAll(currentUser: AuthenticatedUser, filters: ListUsersDto) {
     this.ensureCompanyScope(currentUser)
-    return this.usersRepository.findMany(currentUser.companyId!, filters)
+    // CLIENT_ADMIN vê apenas usuários do seu próprio cliente
+    const effectiveFilters = currentUser.clientId
+      ? { ...filters, clientId: currentUser.clientId }
+      : filters
+    return this.usersRepository.findMany(currentUser.companyId!, effectiveFilters)
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser) {
@@ -147,6 +151,11 @@ export class UsersService {
     if (
       currentRole === UserRole.COMPANY_MANAGER &&
       ([...CLIENT_ROLES, UserRole.TECHNICIAN] as UserRole[]).includes(role)
+    ) return
+    // CLIENT_ADMIN pode criar CLIENT_USER e CLIENT_VIEWER dentro do seu próprio cliente
+    if (
+      currentRole === UserRole.CLIENT_ADMIN &&
+      ([UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER] as UserRole[]).includes(role)
     ) return
     throw new ForbiddenException(`Você não tem permissão para criar usuários com o papel: ${role}`)
   }

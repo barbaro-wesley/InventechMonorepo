@@ -5,14 +5,17 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
-import { ClientsRepository } from './clients.repository'
+import { UserRole, UserStatus } from '@prisma/client'
+import * as bcrypt from 'bcrypt'
+import { ClientsRepository, CLIENT_SELECT } from './clients.repository'
 import { CreateClientDto } from './dto/create-client.dto'
 import { UpdateClientDto } from './dto/update-client.dto'
 import { ListClientsDto } from './dto/list-clients.dto'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { Prisma } from '@prisma/client'
-import { ConfigService } from '@nestjs/config' // 👈 adicionado
+import { ConfigService } from '@nestjs/config'
+import { PrismaService } from '../../prisma/prisma.service'
+import { TwoFactorService } from '../auth/security/two-factor.service'
 
 @Injectable()
 export class ClientsService {
@@ -20,7 +23,9 @@ export class ClientsService {
 
   constructor(
     private clientsRepository: ClientsRepository,
-    private configService: ConfigService, // 👈 adicionado
+    private prisma: PrismaService,
+    private configService: ConfigService,
+    private twoFactorService: TwoFactorService,
   ) { }
 
   async findAll(currentUser: AuthenticatedUser, filters: ListClientsDto) {
@@ -62,19 +67,61 @@ export class ClientsService {
       }
     }
 
-    const client = await this.clientsRepository.create({
-      name: dto.name,
-      document: dto.document,
-      email: dto.email,
-      phone: dto.phone,
-      address: dto.address ? (dto.address as unknown as Prisma.InputJsonValue) : undefined,
-      status: dto.status,
-      company: { connect: { id: companyId } },
+    const adminEmailTaken = await this.prisma.user.findFirst({
+      where: { email: dto.admin.email, deletedAt: null },
+      select: { id: true },
+    })
+    if (adminEmailTaken) {
+      throw new ConflictException('O e-mail do administrador já está em uso')
+    }
+
+    const passwordHash = await bcrypt.hash(dto.admin.password, 10)
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const client = await tx.client.create({
+        data: {
+          name: dto.name,
+          document: dto.document,
+          email: dto.email,
+          phone: dto.phone,
+          address: dto.address ? (dto.address as unknown as Prisma.InputJsonValue) : undefined,
+          status: dto.status,
+          company: { connect: { id: companyId } },
+        },
+        select: CLIENT_SELECT,
+      })
+
+      const admin = await tx.user.create({
+        data: {
+          name: dto.admin.name,
+          email: dto.admin.email,
+          passwordHash,
+          role: UserRole.CLIENT_ADMIN,
+          status: UserStatus.UNVERIFIED,
+          phone: dto.admin.phone,
+          company: { connect: { id: companyId } },
+          client: { connect: { id: client.id } },
+        },
+        select: { id: true, name: true, email: true, role: true },
+      })
+
+      return { client, admin }
     })
 
-    this.logger.log(`Cliente criado: ${client.name} | Empresa: ${companyId}`)
+    this.logger.log(
+      `Cliente criado: ${result.client.name} | Admin: ${result.admin.email} | Empresa: ${companyId}`,
+    )
 
-    return client
+    // Envia email de verificação para o admin — fora da transação para não revertê-la se o email falhar
+    try {
+      await this.twoFactorService.sendEmailVerification(result.admin.id)
+    } catch (error) {
+      this.logger.warn(
+        `Não foi possível enviar email de verificação para ${result.admin.email}: ${error}`,
+      )
+    }
+
+    return result
   }
 
   async update(

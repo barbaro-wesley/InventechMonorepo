@@ -40,7 +40,7 @@ export function usePermissions() {
         // Permissões por tela
         canManageCompanies: isRole("SUPER_ADMIN"),
         canManageLicenses: isRole("SUPER_ADMIN"),
-        canManageUsers: isRole("SUPER_ADMIN", "COMPANY_ADMIN"),
+        canManageUsers: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "CLIENT_ADMIN"),
         canManageClients: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"),
         canManageEquipment: isRole(
             "SUPER_ADMIN",

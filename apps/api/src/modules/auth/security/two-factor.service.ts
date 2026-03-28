@@ -158,7 +158,7 @@ export class TwoFactorService {
         })
 
         const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001'
-        const verificationUrl = `${frontendUrl}/auth/verify-email?token=${token}`
+        const verificationUrl = `${frontendUrl}/verificar-email?token=${token}`
 
         await this.emailChannel.send({
             to: user.email,

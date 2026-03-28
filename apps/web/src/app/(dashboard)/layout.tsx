@@ -14,6 +14,7 @@ import {
     Bell,
     Users,
     Building2,
+    Contact,
     ChevronDown,
     ChevronsLeft,
     ChevronsRight,
@@ -79,7 +80,13 @@ const navSections: NavSection[] = [
                 label: "Usuários",
                 href: "/usuarios",
                 icon: Users,
-                roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "CLIENT_ADMIN"],
+            },
+            {
+                label: "Clientes",
+                href: "/clientes",
+                icon: Contact,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
             },
             {
                 label: "Empresas",
