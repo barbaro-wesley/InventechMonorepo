@@ -29,6 +29,7 @@ import {
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Company } from "@/types/company";
+import type { CompanyStatus } from "@inventech/shared-types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,7 +116,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const STATUS_FILTERS: { label: string; value: string | undefined }[] = [
+const STATUS_FILTERS: { label: string; value: CompanyStatus | undefined }[] = [
   { label: "Todas", value: undefined },
   { label: "Ativas", value: "ACTIVE" },
   { label: "Trial", value: "TRIAL" },
@@ -366,7 +367,7 @@ export default function EmpresasPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(
+  const [statusFilter, setStatusFilter] = useState<CompanyStatus | undefined>(
     undefined
   );
 

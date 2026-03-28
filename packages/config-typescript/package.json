@@ -1,0 +1,15 @@
+{
+  "name": "@inventech/config-typescript",
+  "version": "0.1.0",
+  "private": false,
+  "exports": {
+    "./base": "./base.json",
+    "./next": "./next.json",
+    "./nestjs": "./nestjs.json"
+  },
+  "files": [
+    "base.json",
+    "next.json",
+    "nestjs.json"
+  ]
+}

@@ -86,6 +86,7 @@ type CreateUserForm = z.infer<typeof createUserSchema>;
 const STATUS_CONFIG = {
     ACTIVE: { label: "Ativo", className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
     INACTIVE: { label: "Inativo", className: "bg-slate-100 text-slate-600 border-slate-200" },
+    SUSPENDED: { label: "Suspenso", className: "bg-orange-50 text-orange-700 border-orange-200" },
     UNVERIFIED: { label: "Não verificado", className: "bg-amber-50 text-amber-700 border-amber-200" },
     BLOCKED: { label: "Bloqueado", className: "bg-red-50 text-red-700 border-red-200" },
 };
