@@ -3,6 +3,7 @@ export type {
   Company,
   License,
   CompanyWithLicense,
+  CompanyLicenseRow,
   CreateCompanyDto,
   CreateCompanyResponse,
   UpdateCompanyDto,

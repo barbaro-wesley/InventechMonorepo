@@ -338,42 +338,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Credenciais de Desenvolvimento */}
-      {process.env.NODE_ENV === "development" && (
-        <div className="mt-6 w-full rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-900/60 p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              Dev — Acesso Rápido
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: "Super Admin", email: "super@manutencao.app", password: "Super@123" },
-              { label: "Admin Empresa", email: "admin@ariaengenharia.com", password: "Admin@123" },
-              { label: "Técnico", email: "joao.tecnico@ariaengenharia.com", password: "Tecnico@123" },
-              { label: "Cliente", email: "admin@saolucas.com.br", password: "Cliente@123" },
-            ].map((cred) => (
-              <button
-                key={cred.email}
-                type="button"
-                className="group flex flex-col rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-800/50 p-2.5 text-left transition-all hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-500/30"
-                onClick={() => {
-                  loginForm.setValue("email", cred.email);
-                  loginForm.setValue("password", cred.password);
-                }}
-              >
-                <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  {cred.label}
-                </span>
-                <span className="mt-0.5 w-full truncate text-[10px] text-slate-400">
-                  {cred.email}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -20,6 +20,10 @@ export class CreateLocationDto {
     @IsOptional()
     @IsUUID()
     parentId?: string  // Hierarquia — null = raiz
+
+    @IsOptional()
+    @IsUUID()
+    costCenterId?: string
 }
 
 export class UpdateLocationDto {
@@ -36,6 +40,10 @@ export class UpdateLocationDto {
     parentId?: string
 
     @IsOptional()
+    @IsUUID()
+    costCenterId?: string | null
+
+    @IsOptional()
     @IsBoolean()
     isActive?: boolean
 }
@@ -48,6 +56,10 @@ export class ListLocationsDto {
     @IsOptional()
     @IsUUID()
     parentId?: string  // Filtra por pai específico
+
+    @IsOptional()
+    @IsUUID()
+    costCenterId?: string  // Filtra por centro de custo
 
     @IsOptional()
     @IsBoolean()

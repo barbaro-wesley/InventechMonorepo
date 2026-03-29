@@ -24,7 +24,9 @@ export interface License {
   status: CompanyStatus;
   isActive: boolean;
   isSuspended: boolean;
+  isTrial: boolean;
   isLicenseExpired: boolean;
+  isTrialExpired: boolean;
   licenseExpiresAt?: string | null;
   daysUntilExpiry?: number | null;
   trialEndsAt?: string | null;
@@ -32,6 +34,8 @@ export interface License {
   suspendedReason?: string | null;
   notes?: string | null;
   expiryWarning?: boolean;
+  users?: number;
+  clients?: number;
 }
 
 export interface CompanyWithLicense extends Company {
@@ -66,6 +70,22 @@ export interface UpdateCompanyDto {
   document?: string;
   email?: string;
   phone?: string;
+}
+
+export interface CompanyLicenseRow {
+  id: string;
+  name: string;
+  slug: string;
+  status: CompanyStatus;
+  licenseExpiresAt: string | null;
+  trialEndsAt: string | null;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
+  daysUntilExpiry: number | null;
+  isLicenseExpired: boolean;
+  isTrialExpired: boolean;
+  expiryWarning: boolean;
+  _count: { users: number; clients: number };
 }
 
 export interface ListCompaniesParams {

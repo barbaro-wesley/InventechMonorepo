@@ -20,7 +20,20 @@ const COST_CENTER_SELECT = {
     description: true,
     isActive: true,
     createdAt: true,
-    _count: { select: { equipments: true } },
+    _count: { select: { equipments: true, locations: true } },
+    locations: {
+        select: {
+            id: true,
+            name: true,
+            parentId: true,
+            description: true,
+            isActive: true,
+            costCenterId: true,
+            _count: { select: { equipments: true } },
+            parent: { select: { id: true, name: true } },
+        },
+        orderBy: { name: 'asc' as const },
+    },
 } satisfies Prisma.CostCenterSelect
 
 @Injectable()
@@ -116,13 +129,19 @@ export class CostCentersService {
     async remove(id: string, clientId: string, companyId: string) {
         const cc = await this.prisma.costCenter.findFirst({
             where: { id, clientId, companyId },
-            select: { id: true, name: true, _count: { select: { equipments: true } } },
+            select: { id: true, name: true, _count: { select: { equipments: true, locations: true } } },
         })
         if (!cc) throw new NotFoundException('Centro de custo não encontrado')
 
         if (cc._count.equipments > 0) {
             throw new ConflictException(
                 `Não é possível remover — ${cc._count.equipments} equipamento(s) vinculado(s)`,
+            )
+        }
+
+        if (cc._count.locations > 0) {
+            throw new ConflictException(
+                `Não é possível remover — ${cc._count.locations} localização(ões) vinculada(s)`,
             )
         }
 

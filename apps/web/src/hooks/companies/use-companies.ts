@@ -122,3 +122,18 @@ export function useUpdateLicense(companyId: string) {
     },
   });
 }
+
+export function useUpdateTrial(companyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: { trialEndsAt: string }) =>
+      companiesService.updateTrial(companyId, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      toast.success("Período de trial atualizado!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}

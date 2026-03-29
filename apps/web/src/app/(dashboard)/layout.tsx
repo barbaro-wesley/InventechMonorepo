@@ -19,6 +19,9 @@ import {
     ChevronsLeft,
     ChevronsRight,
     ShieldAlert,
+    BadgeCheck,
+    Layers,
+    Landmark,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -69,7 +72,7 @@ const navSections: NavSection[] = [
                 label: "Equipamentos",
                 href: "/equipamentos",
                 icon: Wrench,
-                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
             },
         ],
     },
@@ -91,9 +94,27 @@ const navSections: NavSection[] = [
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
             },
             {
+                label: "Tipos de Equipamento",
+                href: "/tipos-de-equipamento",
+                icon: Layers,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
+            },
+            {
+                label: "Centros de Custo",
+                href: "/centros-de-custo",
+                icon: Landmark,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"],
+            },
+            {
                 label: "Empresas",
                 href: "/empresas",
                 icon: Building2,
+                roles: ["SUPER_ADMIN"],
+            },
+            {
+                label: "Licenças",
+                href: "/licencas",
+                icon: BadgeCheck,
                 roles: ["SUPER_ADMIN"],
             },
             {

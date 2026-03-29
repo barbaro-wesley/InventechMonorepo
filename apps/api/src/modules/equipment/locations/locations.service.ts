@@ -17,11 +17,13 @@ const LOCATION_SELECT = {
     id: true,
     companyId: true,
     clientId: true,
+    costCenterId: true,
     name: true,
     parentId: true,
     description: true,
     isActive: true,
     createdAt: true,
+    costCenter: { select: { id: true, name: true, code: true } },
     parent: { select: { id: true, name: true } },
     children: { select: { id: true, name: true, isActive: true } },
     _count: { select: { equipments: true } },
@@ -36,14 +38,14 @@ export class LocationsService {
         companyId: string,
         filters: ListLocationsDto,
     ) {
-        const { search, parentId, isActive, page = 1, limit = 50 } = filters
+        const { search, parentId, costCenterId, isActive, page = 1, limit = 50 } = filters
 
         const where: Prisma.LocationWhereInput = {
             clientId,
             companyId,
             ...(isActive !== undefined && { isActive }),
-            // undefined = raiz, string = filho de parentId
             ...(parentId !== undefined && { parentId }),
+            ...(costCenterId !== undefined && { costCenterId }),
             ...(search && {
                 name: { contains: search, mode: 'insensitive' },
             }),
@@ -71,6 +73,7 @@ export class LocationsService {
                 id: true,
                 name: true,
                 parentId: true,
+                costCenterId: true,
                 description: true,
                 _count: { select: { equipments: true } },
             },
@@ -85,6 +88,7 @@ export class LocationsService {
             if (node.parentId) {
                 const parent = map.get(node.parentId)
                 if (parent) parent.children.push(node)
+                else roots.push(node) // pai inativo — sobe para raiz
             } else {
                 roots.push(node)
             }
@@ -116,9 +120,18 @@ export class LocationsService {
                 select: { id: true },
             })
             if (!parent) {
-                throw new BadRequestException(
-                    'Localização pai não encontrada neste cliente',
-                )
+                throw new BadRequestException('Localização pai não encontrada neste cliente')
+            }
+        }
+
+        // Valida costCenterId pertence ao mesmo cliente
+        if (dto.costCenterId) {
+            const cc = await this.prisma.costCenter.findFirst({
+                where: { id: dto.costCenterId, clientId, companyId },
+                select: { id: true },
+            })
+            if (!cc) {
+                throw new BadRequestException('Centro de custo não encontrado neste cliente')
             }
         }
 
@@ -129,6 +142,7 @@ export class LocationsService {
                 name: dto.name,
                 description: dto.description,
                 parentId: dto.parentId ?? null,
+                costCenterId: dto.costCenterId ?? null,
             },
             select: LOCATION_SELECT,
         })
@@ -160,6 +174,7 @@ export class LocationsService {
                 ...(dto.name && { name: dto.name }),
                 ...(dto.description !== undefined && { description: dto.description }),
                 ...(dto.parentId !== undefined && { parentId: dto.parentId }),
+                ...(dto.costCenterId !== undefined && { costCenterId: dto.costCenterId }),
                 ...(dto.isActive !== undefined && { isActive: dto.isActive }),
             },
             select: LOCATION_SELECT,

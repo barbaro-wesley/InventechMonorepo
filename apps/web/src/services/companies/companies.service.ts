@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import type {
     Company,
     CompanyWithLicense,
+    CompanyLicenseRow,
     CreateCompanyDto,
     CreateCompanyResponse,
     UpdateCompanyDto,
@@ -44,7 +45,7 @@ export const companiesService = {
     async getAllLicenses(params?: {
         expiringInDays?: number;
         status?: string;
-    }): Promise<CompanyWithLicense[]> {
+    }): Promise<CompanyLicenseRow[]> {
         const { data } = await api.get("/companies/licenses/all", { params });
         return data;
     },

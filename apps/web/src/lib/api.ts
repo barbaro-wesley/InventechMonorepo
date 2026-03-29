@@ -9,6 +9,15 @@ export const api = axios.create({
     },
 });
 
+// When sending FormData, remove the Content-Type default so the browser sets it
+// automatically with the correct multipart/form-data boundary.
+api.interceptors.request.use((config) => {
+    if (config.data instanceof FormData) {
+        delete config.headers["Content-Type"];
+    }
+    return config;
+});
+
 api.interceptors.response.use(
     (response: AxiosResponse) => {
         if (response.data && "data" in response.data) {

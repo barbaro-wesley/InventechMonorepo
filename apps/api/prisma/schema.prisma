@@ -383,6 +383,7 @@ model CostCenter {
   client Client @relation(fields: [clientId], references: [id])
 
   equipments Equipment[]
+  locations  Location[]
 
   @@unique([clientId, code])
   @@index([companyId, clientId])
@@ -394,19 +395,21 @@ model CostCenter {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Location {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  clientId    String   @map("client_id")
-  name        String
-  parentId    String?  @map("parent_id")
-  description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id           String  @id @default(uuid())
+  companyId    String  @map("company_id")
+  clientId     String  @map("client_id")
+  costCenterId String? @map("cost_center_id")
+  name         String
+  parentId     String? @map("parent_id")
+  description  String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  client   Client     @relation(fields: [clientId], references: [id])
-  parent   Location?  @relation("LocationHierarchy", fields: [parentId], references: [id])
-  children Location[] @relation("LocationHierarchy")
+  client     Client      @relation(fields: [clientId], references: [id])
+  costCenter CostCenter? @relation(fields: [costCenterId], references: [id])
+  parent     Location?   @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children   Location[]  @relation("LocationHierarchy")
 
   equipments        Equipment[]
   movementsFrom     EquipmentMovement[] @relation("MovementOrigin")
@@ -415,6 +418,7 @@ model Location {
 
   @@index([companyId, clientId])
   @@index([clientId, parentId])
+  @@index([clientId, costCenterId])
   @@map("locations")
 }
 

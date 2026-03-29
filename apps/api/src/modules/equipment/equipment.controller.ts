@@ -46,7 +46,8 @@ export class EquipmentController {
   // O frontend pode mandar os dados do equipamento + arquivos juntos
   // ─────────────────────────────────────────
   @Post()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
+    UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER)
   @UseInterceptors(
     FilesInterceptor('files', 10, {  // até 10 arquivos de uma vez
       storage: memoryStorage(),
@@ -71,7 +72,8 @@ export class EquipmentController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
+    UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER)
   update(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -83,7 +85,8 @@ export class EquipmentController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
+    UserRole.CLIENT_ADMIN)
   remove(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -94,7 +97,8 @@ export class EquipmentController {
 
   @Post(':id/depreciation')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
+    UserRole.CLIENT_ADMIN)
   recalculateDepreciation(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Param('id', ParseUUIDPipe) id: string,
