@@ -103,6 +103,7 @@ export class AuthService {
             role: user.role,
             companyId: user.companyId,
             clientId: user.clientId,
+            customRoleId: user.customRoleId ?? null,
         }
 
         const { accessToken, refreshToken } = await this.generateTokens(payload)
@@ -172,6 +173,7 @@ export class AuthService {
             role: user.role,
             companyId: user.companyId,
             clientId: user.clientId,
+            customRoleId: user.customRoleId ?? null,
         }
 
         const { accessToken, refreshToken } = await this.generateTokens(payload)
@@ -197,8 +199,10 @@ export class AuthService {
                 telegramChatId: true,
                 companyId: true,
                 clientId: true,
+                customRoleId: true,
                 company: { select: { id: true, name: true, slug: true, logoUrl: true } },
                 client: { select: { id: true, name: true, logoUrl: true } },
+                customRole: { select: { id: true, name: true, description: true } },
             },
         })
 

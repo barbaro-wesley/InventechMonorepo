@@ -201,4 +201,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get attachment() { return this._db.attachment }
   get notification() { return this._db.notification }
   get reportPermission() { return this._db.reportPermission }
+
+  // ─── Permissões dinâmicas & Custom Roles ──────────────────────────────────
+
+  get resourcePermission() { return this._db.resourcePermission }
+  get customRole() { return this._db.customRole }
+  get customRolePermission() { return this._db.customRolePermission }
 }

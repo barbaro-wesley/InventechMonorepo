@@ -11,7 +11,6 @@ import {
     HttpCode,
     HttpStatus,
 } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
 import { LocationsService } from './locations.service'
 import {
     CreateLocationDto,
@@ -19,20 +18,15 @@ import {
     ListLocationsDto,
 } from './dto/location.dto'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
-import { Roles } from '../../../common/decorators/roles.decorator'
+import { Permission } from '../../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../../common/interfaces/authenticated-user.interface'
 
-// Rota aninhada: /clients/:clientId/locations
 @Controller('clients/:clientId/locations')
 export class LocationsController {
     constructor(private readonly locationsService: LocationsService) { }
 
-    // GET /clients/:clientId/locations
     @Get()
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER,
-    )
+    @Permission('location:list')
     findAll(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Query() filters: ListLocationsDto,
@@ -41,12 +35,8 @@ export class LocationsController {
         return this.locationsService.findAll(clientId, currentUser.companyId!, filters)
     }
 
-    // GET /clients/:clientId/locations/tree
     @Get('tree')
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER,
-    )
+    @Permission('location:list')
     findTree(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @CurrentUser() currentUser: AuthenticatedUser,
@@ -54,12 +44,8 @@ export class LocationsController {
         return this.locationsService.findTree(clientId, currentUser.companyId!)
     }
 
-    // GET /clients/:clientId/locations/:id
     @Get(':id')
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER,
-    )
+    @Permission('location:read')
     findOne(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -68,11 +54,8 @@ export class LocationsController {
         return this.locationsService.findOne(id, clientId, currentUser.companyId!)
     }
 
-    // POST /clients/:clientId/locations
     @Post()
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    )
+    @Permission('location:create')
     create(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Body() dto: CreateLocationDto,
@@ -81,11 +64,8 @@ export class LocationsController {
         return this.locationsService.create(dto, clientId, currentUser.companyId!)
     }
 
-    // PATCH /clients/:clientId/locations/:id
     @Patch(':id')
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    )
+    @Permission('location:update')
     update(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -95,10 +75,9 @@ export class LocationsController {
         return this.locationsService.update(id, dto, clientId, currentUser.companyId!)
     }
 
-    // DELETE /clients/:clientId/locations/:id
     @Delete(':id')
     @HttpCode(HttpStatus.OK)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+    @Permission('location:delete')
     remove(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,

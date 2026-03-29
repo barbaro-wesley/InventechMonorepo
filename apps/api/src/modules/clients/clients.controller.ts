@@ -6,14 +6,13 @@ import {
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
-import { UserRole } from '@prisma/client'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger'
 import { ClientsService } from './clients.service'
 import { CreateClientDto } from './dto/create-client.dto'
 import { UpdateClientDto } from './dto/update-client.dto'
 import { ListClientsDto } from './dto/list-clients.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
-import { Roles } from '../../common/decorators/roles.decorator'
+import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('Clients')
@@ -23,26 +22,25 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) { }
 
   @Get()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER, UserRole.TECHNICIAN)
+  @Permission('client:list')
   findAll(@Query() filters: ListClientsDto, @CurrentUser() cu: AuthenticatedUser) {
     return this.clientsService.findAll(cu, filters)
   }
 
   @Get(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER)
+  @Permission('client:read')
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
     return this.clientsService.findOne(id, cu)
   }
 
   @Post()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Permission('client:create')
   create(@Body() dto: CreateClientDto, @CurrentUser() cu: AuthenticatedUser) {
     return this.clientsService.create(dto, cu)
   }
 
   @Patch(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Permission('client:update')
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateClientDto,
@@ -56,7 +54,7 @@ export class ClientsController {
   // Upload do logo do cliente
   // ─────────────────────────────────────────
   @Post(':id/logo')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Permission('client:upload-logo')
   @ApiOperation({
     summary: 'Upload do logo do cliente',
     description: 'Salva o logo do cliente para uso nos relatórios. Aceita PNG, JPG, SVG (máx 2MB).',
@@ -85,7 +83,7 @@ export class ClientsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Permission('client:delete')
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
     return this.clientsService.remove(id, cu)
   }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 
 import { QueryProvider } from "@/components/providers/query-provider";
@@ -32,28 +31,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" className="light">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <QueryProvider>
-            <AuthProvider>
-              {children}
-              <Toaster
-                position="top-right"
-                richColors
-                closeButton
-                toastOptions={{ duration: 4000 }}
-              />
-            </AuthProvider>
-          </QueryProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <AuthProvider>
+            {children}
+            <Toaster
+              position="top-right"
+              richColors
+              closeButton
+              toastOptions={{ duration: 4000 }}
+            />
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

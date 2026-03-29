@@ -3,7 +3,6 @@ import {
     Body, Param, Query, ParseUUIDPipe,
     HttpCode, HttpStatus,
 } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
 import { MaintenanceService } from './maintenance.service'
 import {
     CreateMaintenanceDto,
@@ -14,22 +13,15 @@ import {
     ListSchedulesDto,
 } from './dto/maintenance.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
-import { Roles } from '../../common/decorators/roles.decorator'
+import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
-// ─────────────────────────────────────────
-// Manutenções avulsas
-// /clients/:clientId/maintenances
-// ─────────────────────────────────────────
 @Controller('clients/:clientId/maintenances')
 export class MaintenanceController {
     constructor(private readonly maintenanceService: MaintenanceService) { }
 
     @Get()
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_VIEWER,
-    )
+    @Permission('maintenance:list')
     findAll(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Query() filters: ListMaintenancesDto,
@@ -39,10 +31,7 @@ export class MaintenanceController {
     }
 
     @Get(':id')
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_VIEWER,
-    )
+    @Permission('maintenance:read')
     findOne(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -52,9 +41,7 @@ export class MaintenanceController {
     }
 
     @Post()
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    )
+    @Permission('maintenance:create')
     create(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Body() dto: CreateMaintenanceDto,
@@ -64,10 +51,7 @@ export class MaintenanceController {
     }
 
     @Patch(':id')
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN,
-    )
+    @Permission('maintenance:update')
     update(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -78,19 +62,12 @@ export class MaintenanceController {
     }
 }
 
-// ─────────────────────────────────────────
-// Agendamentos de preventivas
-// /clients/:clientId/maintenance-schedules
-// ─────────────────────────────────────────
 @Controller('clients/:clientId/maintenance-schedules')
 export class ScheduleController {
     constructor(private readonly maintenanceService: MaintenanceService) { }
 
     @Get()
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_VIEWER,
-    )
+    @Permission('maintenance-schedule:list')
     findAll(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Query() filters: ListSchedulesDto,
@@ -100,10 +77,7 @@ export class ScheduleController {
     }
 
     @Get(':id')
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_VIEWER,
-    )
+    @Permission('maintenance-schedule:read')
     findOne(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -113,9 +87,7 @@ export class ScheduleController {
     }
 
     @Post()
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    )
+    @Permission('maintenance-schedule:create')
     create(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Body() dto: CreateScheduleDto,
@@ -125,9 +97,7 @@ export class ScheduleController {
     }
 
     @Patch(':id')
-    @Roles(
-        UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    )
+    @Permission('maintenance-schedule:update')
     update(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -139,7 +109,7 @@ export class ScheduleController {
 
     @Delete(':id')
     @HttpCode(HttpStatus.OK)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+    @Permission('maintenance-schedule:delete')
     remove(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -148,11 +118,9 @@ export class ScheduleController {
         return this.maintenanceService.removeSchedule(id, clientId, cu.companyId!)
     }
 
-    // POST /clients/:clientId/maintenance-schedules/trigger
-    // Dispara geração manualmente (útil para testes e admin)
     @Post('trigger')
     @HttpCode(HttpStatus.OK)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+    @Permission('maintenance-schedule:trigger')
     triggerGeneration() {
         return this.maintenanceService.triggerGeneration()
     }

@@ -3,11 +3,10 @@ import {
     Body, Param, Query, ParseUUIDPipe,
     HttpCode, HttpStatus,
 } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
 import { CostCentersService } from './cost-centers.service'
 import { CreateCostCenterDto, UpdateCostCenterDto, ListCostCentersDto } from './dto/cost-center.dto'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
-import { Roles } from '../../../common/decorators/roles.decorator'
+import { Permission } from '../../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../../common/interfaces/authenticated-user.interface'
 
 @Controller('clients/:clientId/cost-centers')
@@ -15,8 +14,7 @@ export class CostCentersController {
     constructor(private readonly costCentersService: CostCentersService) { }
 
     @Get()
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER)
+    @Permission('cost-center:list')
     findAll(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Query() filters: ListCostCentersDto,
@@ -26,8 +24,7 @@ export class CostCentersController {
     }
 
     @Get(':id')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-        UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER)
+    @Permission('cost-center:read')
     findOne(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -37,7 +34,7 @@ export class CostCentersController {
     }
 
     @Post()
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+    @Permission('cost-center:create')
     create(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Body() dto: CreateCostCenterDto,
@@ -47,7 +44,7 @@ export class CostCentersController {
     }
 
     @Patch(':id')
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+    @Permission('cost-center:update')
     update(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,
@@ -59,7 +56,7 @@ export class CostCentersController {
 
     @Delete(':id')
     @HttpCode(HttpStatus.OK)
-    @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+    @Permission('cost-center:delete')
     remove(
         @Param('clientId', ParseUUIDPipe) clientId: string,
         @Param('id', ParseUUIDPipe) id: string,

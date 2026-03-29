@@ -6,11 +6,10 @@ import {
 } from '@nestjs/common'
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
-import { UserRole } from '@prisma/client'
 import { EquipmentService } from './equipment.service'
 import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto } from './dto/equipment.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
-import { Roles } from '../../common/decorators/roles.decorator'
+import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { ALLOWED_MIME_LIST } from '../storage/storage.constants'
 
@@ -19,8 +18,7 @@ export class EquipmentController {
   constructor(private readonly equipmentService: EquipmentService) {}
 
   @Get()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER)
+  @Permission('equipment:list')
   findAll(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Query() filters: ListEquipmentsDto,
@@ -30,8 +28,7 @@ export class EquipmentController {
   }
 
   @Get(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    UserRole.TECHNICIAN, UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER)
+  @Permission('equipment:read')
   findOne(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -40,18 +37,12 @@ export class EquipmentController {
     return this.equipmentService.findOne(id, clientId, cu.companyId!)
   }
 
-  // ─────────────────────────────────────────
-  // POST /clients/:clientId/equipment
-  // Aceita multipart/form-data com arquivos opcionais
-  // O frontend pode mandar os dados do equipamento + arquivos juntos
-  // ─────────────────────────────────────────
   @Post()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER)
+  @Permission('equipment:create')
   @UseInterceptors(
-    FilesInterceptor('files', 10, {  // até 10 arquivos de uma vez
+    FilesInterceptor('files', 10, {
       storage: memoryStorage(),
-      limits: { fileSize: 20 * 1024 * 1024 }, // 20MB por arquivo
+      limits: { fileSize: 20 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         if (ALLOWED_MIME_LIST.includes(file.mimetype)) {
           cb(null, true)
@@ -67,13 +58,11 @@ export class EquipmentController {
     @UploadedFiles() files: Express.Multer.File[],
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    // files pode ser undefined se não enviou nenhum arquivo — tudo bem
     return this.equipmentService.create(dto, clientId, cu.companyId!, cu, files ?? [])
   }
 
   @Patch(':id')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER)
+  @Permission('equipment:update')
   update(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -85,8 +74,7 @@ export class EquipmentController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    UserRole.CLIENT_ADMIN)
+  @Permission('equipment:delete')
   remove(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -97,8 +85,7 @@ export class EquipmentController {
 
   @Post(':id/depreciation')
   @HttpCode(HttpStatus.OK)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER,
-    UserRole.CLIENT_ADMIN)
+  @Permission('equipment:depreciation')
   recalculateDepreciation(
     @Param('clientId', ParseUUIDPipe) clientId: string,
     @Param('id', ParseUUIDPipe) id: string,

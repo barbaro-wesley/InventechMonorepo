@@ -22,6 +22,7 @@ import {
     BadgeCheck,
     Layers,
     Landmark,
+    ShieldCheck,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -121,6 +122,12 @@ const navSections: NavSection[] = [
                 label: "Logs de Auditoria",
                 href: "/logs-auditoria",
                 icon: ShieldAlert,
+                roles: ["SUPER_ADMIN"],
+            },
+            {
+                label: "Papéis & Permissões",
+                href: "/papeis-permissoes",
+                icon: ShieldCheck,
                 roles: ["SUPER_ADMIN"],
             },
         ],

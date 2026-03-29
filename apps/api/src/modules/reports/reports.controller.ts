@@ -10,11 +10,11 @@ import {
   IsBoolean, IsArray, IsString,
 } from 'class-validator'
 import { Transform } from 'class-transformer'
-import { ServiceOrderStatus, UserRole } from '@prisma/client'
+import { ServiceOrderStatus } from '@prisma/client'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsService, type ReportType } from './report-permissions.service'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
-import { Roles } from '../../common/decorators/roles.decorator'
+import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { RateLimit } from '../../common/decorators/rate-limit.decorator'
 
@@ -166,7 +166,7 @@ export class ReportsController {
     description: 'Retorna quais roles têm acesso a cada tipo de relatório. ' +
       'Se não houver configuração, usa os padrões do sistema.',
   })
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Permission('permission:manage')
   getPermissions(@CurrentUser() cu: AuthenticatedUser) {
     return this.permissionsService.findAll(cu.companyId!)
   }
@@ -177,7 +177,7 @@ export class ReportsController {
     description: 'Define quais roles podem acessar um tipo de relatório. ' +
       'Substitui a configuração anterior para aquele tipo.',
   })
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Permission('permission:manage')
   @HttpCode(HttpStatus.OK)
   setPermission(
     @Body() dto: SetReportPermissionDto,
@@ -188,7 +188,7 @@ export class ReportsController {
 
   @Patch('permissions/reset')
   @ApiOperation({ summary: 'Restaurar permissões padrão' })
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Permission('permission:manage')
   @HttpCode(HttpStatus.OK)
   resetPermissions(@CurrentUser() cu: AuthenticatedUser) {
     return this.permissionsService.reset(cu.companyId!)

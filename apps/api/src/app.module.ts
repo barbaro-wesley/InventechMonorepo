@@ -23,10 +23,11 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { DashboardModule } from './modules/dashboard/dashboard.module'
 import { HealthModule } from './modules/health/health.module'
 import { ReportsModule } from './modules/reports/reports.module'
+import { PermissionsModule } from './modules/permissions/permissions.module'
 
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
-import { RolesGuard } from './common/guards/roles.guard'
 import { RateLimitGuard } from './common/guards/rate-limit.guard'
+import { PermissionGuard } from './common/guards/permission.guard'
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
 
 @Module({
@@ -68,6 +69,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     DashboardModule,
     HealthModule,
     ReportsModule,
+    PermissionsModule,
   ],
   providers: [
     // ─── Ordem dos guards é crítica ──────────────────────────────
@@ -75,8 +77,8 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // 2. Rate limit (não depende de request.user)
     { provide: APP_GUARD, useClass: RateLimitGuard },
-    // 4. Roles guard (depende de request.user do passo 1)
-    { provide: APP_GUARD, useClass: RolesGuard },
+    // 3. Permission guard — resolve @Permission e @Roles (legado)
+    { provide: APP_GUARD, useClass: PermissionGuard },
     // ─── Filtro global de exceções ────────────────────────────────
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
   ],
