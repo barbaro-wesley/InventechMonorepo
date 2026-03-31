@@ -115,6 +115,19 @@ export function useDeleteCustomRole(targetCompanyId?: string) {
   });
 }
 
+export function useAssignCustomRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, customRoleId }: { userId: string; customRoleId: string | null }) =>
+      customRolesService.assignToUser(userId, customRoleId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Papel personalizado atribuído!");
+    },
+    onError: (e) => toast.error(getErrorMessage(e)),
+  });
+}
+
 export function useSetCustomRolePermissions(id: string, targetCompanyId?: string) {
   const queryClient = useQueryClient();
   return useMutation({

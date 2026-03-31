@@ -36,4 +36,16 @@ export const clientsService = {
   async delete(id: string): Promise<void> {
     await api.delete(`/clients/${id}`);
   },
+
+  async uploadLogo(
+    clientId: string,
+    file: File
+  ): Promise<{ logoUrl: string }> {
+    const form = new FormData();
+    form.append("logo", file);
+    const { data } = await api.post(`/clients/${clientId}/logo`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  },
 };

@@ -71,3 +71,17 @@ export function useDeleteClient() {
     },
   });
 }
+
+export function useUploadClientLogo(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => clientsService.uploadLogo(clientId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientKeys.all });
+      toast.success("Logo do cliente atualizado!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}

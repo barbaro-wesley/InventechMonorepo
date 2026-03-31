@@ -37,6 +37,8 @@ type NavItem = {
     href: string;
     icon: React.ElementType;
     roles: Role[];
+    /** resource:action — usado para verificar acesso de usuários com papel personalizado */
+    permission?: string;
 };
 
 type NavSection = {
@@ -55,6 +57,7 @@ const navSections: NavSection[] = [
                 href: "/dashboard",
                 icon: LayoutDashboard,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"],
+                permission: "dashboard:company",
             },
         ],
     },
@@ -68,12 +71,14 @@ const navSections: NavSection[] = [
                 href: "/ordens-de-servico",
                 icon: ClipboardList,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
+                permission: "service-order:list",
             },
             {
                 label: "Equipamentos",
                 href: "/equipamentos",
                 icon: Wrench,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
+                permission: "equipment:list",
             },
         ],
     },
@@ -87,24 +92,28 @@ const navSections: NavSection[] = [
                 href: "/usuarios",
                 icon: Users,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "CLIENT_ADMIN"],
+                permission: "user:list",
             },
             {
                 label: "Clientes",
                 href: "/clientes",
                 icon: Contact,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
+                permission: "client:list",
             },
             {
                 label: "Tipos de Equipamento",
                 href: "/tipos-de-equipamento",
                 icon: Layers,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
+                permission: "equipment-type:list",
             },
             {
                 label: "Centros de Custo",
                 href: "/centros-de-custo",
                 icon: Landmark,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"],
+                permission: "cost-center:list",
             },
             {
                 label: "Empresas",
@@ -129,6 +138,7 @@ const navSections: NavSection[] = [
                 href: "/papeis-permissoes",
                 icon: ShieldCheck,
                 roles: ["SUPER_ADMIN"],
+                permission: "permission:manage",
             },
         ],
     },
@@ -142,6 +152,7 @@ const navSections: NavSection[] = [
                 href: "/relatorios",
                 icon: BarChart3,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"],
+                permission: "report:company",
             },
             {
                 label: "Configurações",
@@ -264,7 +275,7 @@ export default function DashboardLayout({
             <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto overflow-x-hidden">
                 {navSections.map((section) => {
                     const visibleItems = section.items.filter((item) =>
-                        permissions.role ? item.roles.includes(permissions.role) : false
+                        permissions.canSeeNav(item.roles, item.permission)
                     );
                     if (visibleItems.length === 0) return null;
 

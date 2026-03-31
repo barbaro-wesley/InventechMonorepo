@@ -120,4 +120,8 @@ export const customRolesService = {
     const { data } = await api.put(`/custom-roles/${id}/permissions`, { permissions }, { params: targetCompanyId ? { targetCompanyId } : undefined });
     return data;
   },
+
+  async assignToUser(userId: string, customRoleId: string | null): Promise<void> {
+    await api.patch(`/custom-roles/assign/${userId}`, { customRoleId });
+  },
 };

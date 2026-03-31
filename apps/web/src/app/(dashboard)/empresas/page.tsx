@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Plus,
@@ -14,6 +14,9 @@ import {
   FileText,
   MoreHorizontal,
   Calendar,
+  Palette,
+  Upload,
+  ImageIcon,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,6 +28,8 @@ import {
   useSuspendCompany,
   useActivateCompany,
   useUpdateLicense,
+  useUploadCompanyLogo,
+  useUpdateReportSettings,
 } from "@/hooks/companies/use-companies";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
@@ -154,9 +159,17 @@ const licenseSchema = z.object({
   notes: z.string().optional(),
 });
 
+const reportSettingsSchema = z.object({
+  reportPrimaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida").optional().or(z.literal("")),
+  reportSecondaryColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor inválida").optional().or(z.literal("")),
+  reportHeaderTitle: z.string().optional(),
+  reportFooterText: z.string().optional(),
+});
+
 type CreateCompanyForm = z.infer<typeof createCompanySchema>;
 type SuspendForm = z.infer<typeof suspendSchema>;
 type LicenseForm = z.infer<typeof licenseSchema>;
+type ReportSettingsForm = z.infer<typeof reportSettingsSchema>;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -190,12 +203,14 @@ function CompanyCard({
   onSuspend,
   onActivate,
   onLicense,
+  onTemplate,
   onClick,
 }: {
   company: Company;
   onSuspend: () => void;
   onActivate: () => void;
   onLicense: () => void;
+  onTemplate: () => void;
   onClick: () => void;
 }) {
   const status = STATUS_CONFIG[company.status] ?? STATUS_CONFIG["SUSPENDED"];
@@ -241,6 +256,10 @@ function CompanyCard({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={onLicense}>
                   Gerenciar licença
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onTemplate}>
+                  <Palette className="w-4 h-4 mr-2" />
+                  Personalizar relatório
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {canSuspend ? (
@@ -375,6 +394,8 @@ export default function EmpresasPage() {
   const [suspendCompany, setSuspendCompany] = useState<Company | null>(null);
   const [activateCompany, setActivateCompany] = useState<Company | null>(null);
   const [licenseCompany, setLicenseCompany] = useState<Company | null>(null);
+  const [templateCompany, setTemplateCompany] = useState<Company | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   const { data, isLoading } = useCompanies({
     page,
@@ -387,6 +408,8 @@ export default function EmpresasPage() {
   const suspendMutation = useSuspendCompany();
   const activateMutation = useActivateCompany();
   const updateLicense = useUpdateLicense(licenseCompany?.id ?? "");
+  const uploadLogo = useUploadCompanyLogo(templateCompany?.id ?? "");
+  const updateReportSettings = useUpdateReportSettings(templateCompany?.id ?? "");
 
   const createForm = useForm<CreateCompanyForm>({
     resolver: zodResolver(createCompanySchema),
@@ -407,6 +430,16 @@ export default function EmpresasPage() {
   const licenseForm = useForm<LicenseForm>({
     resolver: zodResolver(licenseSchema),
     defaultValues: { expiresAt: "", notes: "" },
+  });
+
+  const reportSettingsForm = useForm<ReportSettingsForm>({
+    resolver: zodResolver(reportSettingsSchema),
+    defaultValues: {
+      reportPrimaryColor: "",
+      reportSecondaryColor: "",
+      reportHeaderTitle: "",
+      reportFooterText: "",
+    },
   });
 
   function handleCreate(formData: CreateCompanyForm) {
@@ -443,6 +476,29 @@ export default function EmpresasPage() {
       onSuccess: () => {
         setLicenseCompany(null);
         licenseForm.reset();
+      },
+    });
+  }
+
+  function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoPreview(URL.createObjectURL(file));
+    uploadLogo.mutate(file);
+  }
+
+  function handleSaveReportSettings(formData: ReportSettingsForm) {
+    const dto = {
+      ...(formData.reportPrimaryColor && { reportPrimaryColor: formData.reportPrimaryColor }),
+      ...(formData.reportSecondaryColor && { reportSecondaryColor: formData.reportSecondaryColor }),
+      ...(formData.reportHeaderTitle !== undefined && { reportHeaderTitle: formData.reportHeaderTitle }),
+      ...(formData.reportFooterText !== undefined && { reportFooterText: formData.reportFooterText }),
+    };
+    updateReportSettings.mutate(dto, {
+      onSuccess: () => {
+        setTemplateCompany(null);
+        setLogoPreview(null);
+        reportSettingsForm.reset();
       },
     });
   }
@@ -575,6 +631,16 @@ export default function EmpresasPage() {
               onLicense={() => {
                 licenseForm.reset();
                 setLicenseCompany(company);
+              }}
+              onTemplate={() => {
+                setLogoPreview(company.logoUrl ?? null);
+                reportSettingsForm.reset({
+                  reportPrimaryColor: company.reportPrimaryColor ?? "#1E40AF",
+                  reportSecondaryColor: company.reportSecondaryColor ?? "#DBEAFE",
+                  reportHeaderTitle: company.reportHeaderTitle ?? "",
+                  reportFooterText: company.reportFooterText ?? "",
+                });
+                setTemplateCompany(company);
               }}
             />
           ))}
@@ -880,6 +946,176 @@ export default function EmpresasPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Drawer — Personalizar relatório ── */}
+      <Drawer
+        open={!!templateCompany}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTemplateCompany(null);
+            setLogoPreview(null);
+            reportSettingsForm.reset();
+          }
+        }}
+      >
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Personalizar relatório</DrawerTitle>
+            <DrawerDescription>
+              {templateCompany?.name} — Logo e cores dos relatórios gerados
+            </DrawerDescription>
+          </DrawerHeader>
+
+          <DrawerBody>
+            <form
+              id="report-settings-form"
+              onSubmit={reportSettingsForm.handleSubmit(handleSaveReportSettings)}
+              className="space-y-6"
+            >
+              {/* Logo */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  Logo
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 bg-slate-50 dark:bg-slate-800">
+                    {logoPreview ? (
+                      <img
+                        src={logoPreview}
+                        alt="Logo"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-slate-300" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <Label
+                      htmlFor="logo-upload"
+                      className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      {uploadLogo.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {uploadLogo.isPending ? "Enviando..." : "Selecionar imagem"}
+                    </Label>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/png,image/jpeg,image/svg+xml"
+                      className="sr-only"
+                      onChange={handleLogoChange}
+                    />
+                    <p className="mt-1 text-xs text-slate-400">PNG, JPG ou SVG — máx. 2MB</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Colors */}
+              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  Cores
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="primaryColor">Cor primária</Label>
+                    <p className="text-xs text-slate-400 mb-1.5">Cabeçalho das tabelas</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        id="primaryColor"
+                        className="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent"
+                        value={reportSettingsForm.watch("reportPrimaryColor") || "#1E40AF"}
+                        onChange={(e) => reportSettingsForm.setValue("reportPrimaryColor", e.target.value)}
+                      />
+                      <Input
+                        className="font-mono text-sm"
+                        placeholder="#1E40AF"
+                        {...reportSettingsForm.register("reportPrimaryColor")}
+                      />
+                    </div>
+                    {reportSettingsForm.formState.errors.reportPrimaryColor && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {reportSettingsForm.formState.errors.reportPrimaryColor.message}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="secondaryColor">Cor secundária</Label>
+                    <p className="text-xs text-slate-400 mb-1.5">Linhas alternadas</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        id="secondaryColor"
+                        className="w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent"
+                        value={reportSettingsForm.watch("reportSecondaryColor") || "#DBEAFE"}
+                        onChange={(e) => reportSettingsForm.setValue("reportSecondaryColor", e.target.value)}
+                      />
+                      <Input
+                        className="font-mono text-sm"
+                        placeholder="#DBEAFE"
+                        {...reportSettingsForm.register("reportSecondaryColor")}
+                      />
+                    </div>
+                    {reportSettingsForm.formState.errors.reportSecondaryColor && (
+                      <p className="mt-1 text-xs text-red-500">
+                        {reportSettingsForm.formState.errors.reportSecondaryColor.message}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Texts */}
+              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  Textos
+                </p>
+                <div>
+                  <Label htmlFor="reportHeaderTitle">Título do cabeçalho</Label>
+                  <Input
+                    id="reportHeaderTitle"
+                    placeholder="Ex: Relatório Técnico — Aria Engenharia"
+                    className="mt-1.5"
+                    {...reportSettingsForm.register("reportHeaderTitle")}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reportFooterText">Texto do rodapé</Label>
+                  <Input
+                    id="reportFooterText"
+                    placeholder="Ex: Documento confidencial — uso interno"
+                    className="mt-1.5"
+                    {...reportSettingsForm.register("reportFooterText")}
+                  />
+                </div>
+              </div>
+            </form>
+          </DrawerBody>
+
+          <DrawerFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTemplateCompany(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form="report-settings-form"
+              disabled={updateReportSettings.isPending}
+            >
+              {updateReportSettings.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Salvar
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       {/* ── Confirmação — Reativar ── */}
       <AlertDialog

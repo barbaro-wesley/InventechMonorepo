@@ -7,6 +7,7 @@ export type {
   CreateCompanyDto,
   CreateCompanyResponse,
   UpdateCompanyDto,
+  UpdateReportSettingsDto,
   ListCompaniesParams,
 } from '@inventech/shared-types';
 

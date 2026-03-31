@@ -8,6 +8,7 @@ export const USER_SAFE_SELECT = {
   id: true,
   companyId: true,
   clientId: true,
+  customRoleId: true,
   name: true,
   email: true,
   role: true,
