@@ -13,6 +13,7 @@ export interface AuthUser {
   telegramChatId?: string | null;
   companyId?: string | null;
   clientId?: string | null;
+  customRoleId?: string | null;
   company?: {
     id: string;
     name: string;
@@ -23,6 +24,12 @@ export interface AuthUser {
     id: string;
     name: string;
     logoUrl?: string | null;
+  } | null;
+  customRole?: {
+    id: string;
+    name: string;
+    description?: string | null;
+    permissions: { resource: string; action: string }[];
   } | null;
 }
 

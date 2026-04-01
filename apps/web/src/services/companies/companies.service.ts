@@ -6,6 +6,7 @@ import type {
     CreateCompanyDto,
     CreateCompanyResponse,
     UpdateCompanyDto,
+    UpdateReportSettingsDto,
     ListCompaniesParams,
     License,
 } from "@/types/company";
@@ -70,5 +71,24 @@ export const companiesService = {
         dto: { trialEndsAt: string }
     ): Promise<void> {
         await api.patch(`/companies/${companyId}/trial`, dto);
+    },
+
+    async uploadLogo(
+        companyId: string,
+        file: File
+    ): Promise<{ logoUrl: string }> {
+        const form = new FormData();
+        form.append("logo", file);
+        const { data } = await api.post(`/companies/${companyId}/logo`, form, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return data;
+    },
+
+    async updateReportSettings(
+        companyId: string,
+        dto: UpdateReportSettingsDto
+    ): Promise<void> {
+        await api.patch(`/companies/${companyId}/report-settings`, dto);
     },
 };

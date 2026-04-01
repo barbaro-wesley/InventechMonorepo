@@ -6,6 +6,7 @@ import { getErrorMessage } from "@/lib/api";
 import type {
   CreateCompanyDto,
   UpdateCompanyDto,
+  UpdateReportSettingsDto,
   ListCompaniesParams,
 } from "@/types/company";
 
@@ -131,6 +132,35 @@ export function useUpdateTrial(companyId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: companyKeys.all });
       toast.success("Período de trial atualizado!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useUploadCompanyLogo(companyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => companiesService.uploadLogo(companyId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      toast.success("Logo atualizado com sucesso!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useUpdateReportSettings(companyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: UpdateReportSettingsDto) =>
+      companiesService.updateReportSettings(companyId, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      toast.success("Configurações de relatório salvas!");
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));

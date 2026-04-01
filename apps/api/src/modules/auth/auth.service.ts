@@ -202,7 +202,14 @@ export class AuthService {
                 customRoleId: true,
                 company: { select: { id: true, name: true, slug: true, logoUrl: true } },
                 client: { select: { id: true, name: true, logoUrl: true } },
-                customRole: { select: { id: true, name: true, description: true } },
+                customRole: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        permissions: { select: { resource: true, action: true } },
+                    },
+                },
             },
         })
 

@@ -32,16 +32,63 @@ export class NotificationsService {
         @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
     ) { }
 
+    private readonly JOB_OPTIONS = {
+        attempts: 3,
+        backoff: { type: 'exponential' as const, delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+    }
+
     // ─────────────────────────────────────────
-    // Enfileira uma notificação
+    // Enfileira uma notificação de negócio
     // Chamado pelos outros serviços (ServiceOrders, Maintenance etc.)
     // ─────────────────────────────────────────
     async notify(payload: NotificationJobPayload) {
-        await this.notificationQueue.add('dispatch', payload, {
-            attempts: 3,
-            backoff: { type: 'exponential', delay: 5000 },
-            removeOnComplete: 100,
-        })
+        await this.notificationQueue.add('dispatch', payload, this.JOB_OPTIONS)
+    }
+
+    // ─────────────────────────────────────────
+    // Enfileira email de autenticação (2FA, reset, verificação)
+    // Não cria registro na tabela Notification — é fire-and-forget com retry
+    // ─────────────────────────────────────────
+    async queueAuthEmail(payload: { to: string; subject: string; html: string }): Promise<void> {
+        await this.notificationQueue.add('send-auth-email', payload, this.JOB_OPTIONS)
+    }
+
+    // ─────────────────────────────────────────
+    // Envia email de auth — chamado pelo processor (não chamar diretamente)
+    // ─────────────────────────────────────────
+    async sendAuthEmailJob(payload: { to: string; subject: string; html: string }): Promise<void> {
+        await this.emailChannel.send(payload)
+    }
+
+    // ─────────────────────────────────────────
+    // Envia email rastreado — chamado pelo processor (não chamar diretamente)
+    // Atualiza o status da Notification no banco
+    // ─────────────────────────────────────────
+    async sendTrackedEmailJob(payload: { notificationId: string; to: string; subject: string; html: string }): Promise<void> {
+        try {
+            await this.emailChannel.send({
+                to: payload.to,
+                subject: payload.subject,
+                html: payload.html,
+            })
+            await this.prisma.notification.update({
+                where: { id: payload.notificationId },
+                data: { status: NotificationStatus.SENT, sentAt: new Date() },
+            })
+        } catch (error) {
+            await this.prisma.notification.update({
+                where: { id: payload.notificationId },
+                data: {
+                    status: NotificationStatus.FAILED,
+                    failedAt: new Date(),
+                    failReason: error.message,
+                    retryCount: { increment: 1 },
+                },
+            })
+            throw error  // re-throw para Bull fazer retry
+        }
     }
 
     // ─────────────────────────────────────────
@@ -492,6 +539,7 @@ export class NotificationsService {
         })
         if (!user?.email) return
 
+        // Cria o registro de notificação como PENDING
         const notification = await this.prisma.notification.create({
             data: {
                 companyId,
@@ -504,28 +552,13 @@ export class NotificationsService {
             },
         })
 
-        try {
-            await this.emailChannel.send({
-                to: user.email,
-                subject: template.subject,
-                html: template.html,
-            })
-
-            await this.prisma.notification.update({
-                where: { id: notification.id },
-                data: { status: NotificationStatus.SENT, sentAt: new Date() },
-            })
-        } catch (error) {
-            await this.prisma.notification.update({
-                where: { id: notification.id },
-                data: {
-                    status: NotificationStatus.FAILED,
-                    failedAt: new Date(),
-                    failReason: error.message,
-                    retryCount: { increment: 1 },
-                },
-            })
-        }
+        // Enfileira o envio — retorna imediatamente, não bloqueia a resposta HTTP
+        await this.notificationQueue.add('send-tracked-email', {
+            notificationId: notification.id,
+            to: user.email,
+            subject: template.subject,
+            html: template.html,
+        }, this.JOB_OPTIONS)
     }
 
     private async saveAndSendTelegram(

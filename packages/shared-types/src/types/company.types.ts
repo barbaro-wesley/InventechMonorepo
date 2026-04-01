@@ -9,6 +9,10 @@ export interface Company {
   email?: string | null;
   phone?: string | null;
   logoUrl?: string | null;
+  reportPrimaryColor?: string | null;
+  reportSecondaryColor?: string | null;
+  reportHeaderTitle?: string | null;
+  reportFooterText?: string | null;
   status: CompanyStatus;
   trialEndsAt?: string | null;
   settings?: Record<string, unknown> | null;
@@ -18,6 +22,13 @@ export interface Company {
     clients: number;
     users: number;
   };
+}
+
+export interface UpdateReportSettingsDto {
+  reportPrimaryColor?: string;
+  reportSecondaryColor?: string;
+  reportHeaderTitle?: string;
+  reportFooterText?: string;
 }
 
 export interface License {

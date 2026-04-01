@@ -10,6 +10,7 @@ export interface User {
   avatarUrl?: string | null;
   companyId?: string | null;
   clientId?: string | null;
+  customRoleId?: string | null;
   company?: {
     id: string;
     name: string;

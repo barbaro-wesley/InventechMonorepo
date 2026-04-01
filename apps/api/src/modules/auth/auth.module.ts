@@ -7,12 +7,13 @@ import { JwtStrategy } from './strategies/jwt.strategy'
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy'
 import { LoginSecurityService } from './security/login-security.service'
 import { TwoFactorService } from './security/two-factor.service'
-import { EmailChannel } from '../notifications/channels/email.channel'
+import { NotificationsModule } from '../notifications/notifications.module'
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({}),
+    NotificationsModule,  // Fornece NotificationsService com queue para envio async
   ],
   providers: [
     AuthService,
@@ -20,7 +21,6 @@ import { EmailChannel } from '../notifications/channels/email.channel'
     JwtRefreshStrategy,
     LoginSecurityService,
     TwoFactorService,
-    EmailChannel,  // Para envio dos emails de 2FA e reset
   ],
   controllers: [AuthController],
   exports: [AuthService, LoginSecurityService, TwoFactorService],

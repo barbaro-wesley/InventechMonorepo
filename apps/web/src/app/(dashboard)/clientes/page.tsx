@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   Plus,
   Search,
@@ -13,12 +13,14 @@ import {
   Phone,
   MoreHorizontal,
   Users,
+  Upload,
+  ImageIcon,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { useClients, useCreateClient, useUpdateClient } from "@/hooks/clients/use-clients";
+import { useClients, useCreateClient, useUpdateClient, useUploadClientLogo } from "@/hooks/clients/use-clients";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Client } from "@/types/client";
@@ -292,6 +294,7 @@ export default function ClientesPage() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
+  const [clientLogoPreview, setClientLogoPreview] = useState<string | null>(null);
 
   const { data, isLoading } = useClients({
     page,
@@ -301,6 +304,7 @@ export default function ClientesPage() {
 
   const createClient = useCreateClient();
   const updateClient = useUpdateClient(editClient?.id ?? "");
+  const uploadClientLogo = useUploadClientLogo(editClient?.id ?? "");
 
   const createForm = useForm<CreateClientForm>({
     resolver: zodResolver(createClientSchema),
@@ -330,6 +334,7 @@ export default function ClientesPage() {
 
   function handleEdit(client: Client) {
     setEditClient(client);
+    setClientLogoPreview(client.logoUrl ?? null);
     updateForm.reset({
       name: client.name,
       document: client.document ?? "",
@@ -337,6 +342,13 @@ export default function ClientesPage() {
       phone: client.phone ?? "",
       status: client.status,
     });
+  }
+
+  function handleClientLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setClientLogoPreview(URL.createObjectURL(file));
+    uploadClientLogo.mutate(file);
   }
 
   function handleUpdate(formData: UpdateClientForm) {
@@ -701,6 +713,7 @@ export default function ClientesPage() {
         onOpenChange={(open) => {
           if (!open) {
             setEditClient(null);
+            setClientLogoPreview(null);
             updateForm.reset();
           }
         }}
@@ -719,7 +732,48 @@ export default function ClientesPage() {
               onSubmit={updateForm.handleSubmit(handleUpdate)}
               className="space-y-4"
             >
-              <div>
+              {/* Logo */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  Logo
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0 bg-slate-50 dark:bg-slate-800">
+                    {clientLogoPreview ? (
+                      <img
+                        src={clientLogoPreview}
+                        alt="Logo"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <ImageIcon className="w-5 h-5 text-slate-300" />
+                    )}
+                  </div>
+                  <div>
+                    <Label
+                      htmlFor="client-logo-upload"
+                      className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      {uploadClientLogo.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Upload className="w-4 h-4" />
+                      )}
+                      {uploadClientLogo.isPending ? "Enviando..." : "Selecionar logo"}
+                    </Label>
+                    <input
+                      id="client-logo-upload"
+                      type="file"
+                      accept="image/png,image/jpeg,image/svg+xml"
+                      className="sr-only"
+                      onChange={handleClientLogoChange}
+                    />
+                    <p className="mt-1 text-xs text-slate-400">PNG, JPG ou SVG — máx. 2MB</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
                 <Label htmlFor="edit-name">Nome *</Label>
                 <Input
                   id="edit-name"
