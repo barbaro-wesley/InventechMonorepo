@@ -31,6 +31,14 @@ import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/auth";
 import { ROLE_LABELS } from "@/types/auth";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type NavItem = {
     label: string;
@@ -342,78 +350,6 @@ export default function DashboardLayout({
                 })}
             </nav>
 
-            {/* ── Usuário ── */}
-            <div className="px-2 py-2 border-t border-border flex-shrink-0">
-                {(!collapsed || isMobile) ? (
-                    <>
-                        <Link
-                            href="/perfil"
-                            onClick={() => isMobile && setSidebarOpen(false)}
-                            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-muted transition-colors"
-                        >
-                            <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden">
-                                {user?.avatarUrl ? (
-                                    <img src={user.avatarUrl} alt={user.name ?? ""} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div
-                                        className="w-full h-full flex items-center justify-center text-white text-xs font-semibold"
-                                        style={{ background: "var(--gradient-brand)" }}
-                                    >
-                                        {user?.name ? getInitials(user.name) : "?"}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>
-                                    {user?.name ?? "Usuário"}
-                                </p>
-                                <p className="text-xs truncate" style={{ color: "var(--muted-foreground)" }}>
-                                    {user?.role ? ROLE_LABELS[user.role] : ""}
-                                </p>
-                            </div>
-                        </Link>
-                        <button
-                            onClick={() => logout()}
-                            disabled={isLoggingOut}
-                            className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm mt-1 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            style={{ color: "var(--muted-foreground)" }}
-                        >
-                            <LogOut className="w-4 h-4 flex-shrink-0" />
-                            {isLoggingOut ? "Saindo..." : "Sair"}
-                        </button>
-                    </>
-                ) : (
-                    <>
-                        <Link
-                            href="/perfil"
-                            className="flex justify-center py-2"
-                            title={user?.name ?? "Usuário"}
-                        >
-                            <div className="w-8 h-8 rounded-full overflow-hidden">
-                                {user?.avatarUrl ? (
-                                    <img src={user.avatarUrl} alt={user.name ?? ""} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div
-                                        className="w-full h-full flex items-center justify-center text-white text-xs font-semibold"
-                                        style={{ background: "var(--gradient-brand)" }}
-                                    >
-                                        {user?.name ? getInitials(user.name) : "?"}
-                                    </div>
-                                )}
-                            </div>
-                        </Link>
-                        <button
-                            onClick={() => logout()}
-                            disabled={isLoggingOut}
-                            className="w-full flex justify-center py-2 px-0 rounded-md hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            style={{ color: "var(--muted-foreground)" }}
-                            title="Sair"
-                        >
-                            <LogOut className="w-4 h-4" />
-                        </button>
-                    </>
-                )}
-            </div>
         </aside>
     );
 
@@ -450,32 +386,79 @@ export default function DashboardLayout({
 
             {/* Conteúdo principal */}
             <div className="flex-1 flex flex-col min-w-0">
-                {/* Header mobile */}
+                {/* Header */}
                 <header
-                    className="lg:hidden flex items-center justify-between px-4 h-14 sticky top-0 z-30"
+                    className="flex items-center justify-between px-4 h-14 sticky top-0 z-30 flex-shrink-0"
                     style={{
                         background: "rgba(255, 255, 255, 0.6)",
                         backdropFilter: "blur(8px)",
                         WebkitBackdropFilter: "blur(8px)",
-                        borderBottom: "0.8px solid rgb(224, 229, 235)",
+                        borderBottom: "1px solid var(--border)",
                     }}
                 >
-                    <button
-                        onClick={() => setSidebarOpen(true)}
-                        className="p-1.5 rounded-md transition-colors hover:bg-muted"
-                        style={{ color: "var(--muted-foreground)" }}
-                    >
-                        <Menu className="w-5 h-5" />
-                    </button>
-                    <span className="text-base font-bold text-gradient-brand">
-                        InvenTech
-                    </span>
-                    <button
-                        className="p-1.5 rounded-md transition-colors hover:bg-muted"
-                        style={{ color: "var(--muted-foreground)" }}
-                    >
-                        <Bell className="w-5 h-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="lg:hidden p-1.5 rounded-md transition-colors hover:bg-muted"
+                            style={{ color: "var(--muted-foreground)" }}
+                        >
+                            <Menu className="w-5 h-5" />
+                        </button>
+                        <span className="lg:hidden text-base font-bold text-gradient-brand ml-2">
+                            InvenTech
+                        </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <button
+                            className="p-2 rounded-full transition-colors hover:bg-muted relative"
+                            style={{ color: "var(--muted-foreground)" }}
+                        >
+                            <Bell className="w-5 h-5" />
+                        </button>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button className="flex items-center gap-2 hover:bg-muted py-1 px-2 rounded-md transition-colors outline-none border border-transparent hover:border-border">
+                                    <div className="hidden md:flex flex-col items-end">
+                                        <span className="text-sm font-medium leading-none" style={{ color: "var(--foreground)" }}>
+                                            {user?.name ?? "Usuário"}
+                                        </span>
+                                        <span className="text-xs mt-1.5 leading-none" style={{ color: "var(--muted-foreground)" }}>
+                                            {user?.role ? ROLE_LABELS[user.role] : ""}
+                                        </span>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-border bg-muted">
+                                        {user?.avatarUrl ? (
+                                            <img src={user.avatarUrl} alt={user.name ?? ""} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div
+                                                className="w-full h-full flex items-center justify-center text-white text-xs font-semibold"
+                                                style={{ background: "var(--gradient-brand)" }}
+                                            >
+                                                {user?.name ? getInitials(user.name) : "?"}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <ChevronDown className="w-4 h-4 ml-1 md:block hidden text-muted-foreground" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 mt-1">
+                                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                    <Link href="/perfil" className="w-full cursor-pointer flex items-center">
+                                        Meu Perfil
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => logout()} disabled={isLoggingOut} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
+                                    <LogOut className="w-4 h-4 mr-2" />
+                                    {isLoggingOut ? "Saindo..." : "Sair"}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </header>
 
                 {/* Conteúdo */}
