@@ -8,15 +8,15 @@ export interface User {
   status: UserStatus;
   phone?: string | null;
   avatarUrl?: string | null;
-  companyId?: string | null;
-  clientId?: string | null;
+  tenantId?: string | null;
+  organizationId?: string | null;
   customRoleId?: string | null;
-  company?: {
+  tenant?: {
     id: string;
     name: string;
     slug: string;
   } | null;
-  client?: {
+  organization?: {
     id: string;
     name: string;
   } | null;
@@ -30,8 +30,8 @@ export interface CreateUserDto {
   password: string;
   role: UserRole;
   phone?: string;
-  companyId?: string;
-  clientId?: string;
+  tenantId?: string;
+  organizationId?: string;
 }
 
 export interface UpdateUserDto {
@@ -47,6 +47,6 @@ export interface ListUsersParams {
   search?: string;
   role?: UserRole;
   status?: UserStatus;
-  companyId?: string;
-  clientId?: string;
+  tenantId?: string;
+  organizationId?: string;
 }

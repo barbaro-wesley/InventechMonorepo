@@ -11,55 +11,55 @@ import {
 import { costCenterKeys } from "./use-cost-centers";
 
 export const locationKeys = {
-  all: (clientId: string) => ["locations", clientId] as const,
-  list: (clientId: string, params?: ListLocationsParams) =>
-    ["locations", clientId, "list", params] as const,
+  all: (organizationId: string) => ["locations", organizationId] as const,
+  list: (organizationId: string, params?: ListLocationsParams) =>
+    ["locations", organizationId, "list", params] as const,
 };
 
-export function useLocations(clientId: string, params?: ListLocationsParams) {
+export function useLocations(organizationId: string, params?: ListLocationsParams) {
   return useQuery<Location[]>({
-    queryKey: locationKeys.list(clientId, params),
-    queryFn: () => locationsService.list(clientId, params),
-    enabled: !!clientId,
+    queryKey: locationKeys.list(organizationId, params),
+    queryFn: () => locationsService.list(organizationId, params),
+    enabled: !!organizationId,
     staleTime: 60 * 1000,
   });
 }
 
-export function useCreateLocation(clientId: string) {
+export function useCreateLocation(organizationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateLocationDto) =>
-      locationsService.create(clientId, dto),
+      locationsService.create(organizationId, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: locationKeys.all(clientId) });
-      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: locationKeys.all(organizationId) });
+      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(organizationId) });
       toast.success("Localização criada!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useUpdateLocation(clientId: string) {
+export function useUpdateLocation(organizationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateLocationDto }) =>
-      locationsService.update(clientId, id, dto),
+      locationsService.update(organizationId, id, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: locationKeys.all(clientId) });
-      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: locationKeys.all(organizationId) });
+      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(organizationId) });
       toast.success("Localização atualizada!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useDeleteLocation(clientId: string) {
+export function useDeleteLocation(organizationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => locationsService.remove(clientId, id),
+    mutationFn: (id: string) => locationsService.remove(organizationId, id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: locationKeys.all(clientId) });
-      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: locationKeys.all(organizationId) });
+      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(organizationId) });
       toast.success("Localização removida!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),

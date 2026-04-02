@@ -28,18 +28,18 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
-  BLOCKED     // Bloqueado por tentativas excessivas
-  UNVERIFIED  // Email não verificado
+  BLOCKED // Bloqueado por tentativas excessivas
+  UNVERIFIED // Email não verificado
 }
 
-enum CompanyStatus {
+enum TenantStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
   TRIAL
 }
 
-enum ClientStatus {
+enum OrgStatus {
   ACTIVE
   INACTIVE
 }
@@ -169,7 +169,7 @@ model Platform {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  companies Company[]
+  companies Tenant[]
 
   @@map("platforms")
 }
@@ -178,68 +178,75 @@ model Platform {
 // COMPANY
 // ─────────────────────────────────────────────────────────────────────────────
 
-model Company {
-  id          String        @id @default(uuid())
-  platformId  String        @map("platform_id")
-  name        String
-  slug        String        @unique
-  document    String?       @unique
-  email       String?
-  phone       String?
-  logoUrl     String?       @map("logo_url")
+model Tenant {
+  id                   String       @id @default(uuid())
+  platformId           String       @map("platform_id")
+  name                 String
+  slug                 String       @unique
+  document             String?      @unique
+  email                String?
+  phone                String?
+  logoUrl              String?      @map("logo_url")
   // Configurações de relatório
-  reportPrimaryColor   String?  @default("#1E40AF") @map("report_primary_color")
-  reportSecondaryColor String?  @default("#DBEAFE") @map("report_secondary_color")
-  reportHeaderTitle    String?  @map("report_header_title")  // Ex: "Relatório Técnico"
-  reportFooterText     String?  @map("report_footer_text")   // Ex: "Documento confidencial"
-  status      CompanyStatus @default(ACTIVE)
-  trialEndsAt DateTime?     @map("trial_ends_at")
-  settings    Json?
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  deletedAt   DateTime?     @map("deleted_at")
+  reportPrimaryColor   String?      @default("#1E40AF") @map("report_primary_color")
+  reportSecondaryColor String?      @default("#DBEAFE") @map("report_secondary_color")
+  reportHeaderTitle    String?      @map("report_header_title") // Ex: "Relatório Técnico"
+  reportFooterText     String?      @map("report_footer_text") // Ex: "Documento confidencial"
+  status               TenantStatus @default(ACTIVE)
+  trialEndsAt          DateTime?    @map("trial_ends_at")
+  settings             Json?
+  createdAt            DateTime     @default(now()) @map("created_at")
+  updatedAt            DateTime     @updatedAt @map("updated_at")
+  deletedAt            DateTime?    @map("deleted_at")
 
   platform Platform @relation(fields: [platformId], references: [id])
 
-  clients              Client[]
-  users                User[]
-  maintenanceGroups    MaintenanceGroup[]
-  reportPermissions    ReportPermission[]
-  resourcePermissions  ResourcePermission[]
-  customRoles          CustomRole[]
-  licenseExpiresAt  DateTime?   // data de vencimento do contrato
-  suspendedAt       DateTime?   // quando foi suspenso
-  suspendedReason   String?     // motivo do bloqueio
-  suspendedBy       String?     // ID do SUPER_ADMIN que bloqueou
+  organizations       Organization[]
+  users               User[]
+  maintenanceGroups   MaintenanceGroup[]
+  reportPermissions   ReportPermission[]
+  resourcePermissions ResourcePermission[]
+  customRoles         CustomRole[]
+  licenseExpiresAt    DateTime? // data de vencimento do contrato
+  suspendedAt         DateTime? // quando foi suspenso
+  suspendedReason     String? // motivo do bloqueio
+  suspendedBy         String? // ID do SUPER_ADMIN que bloqueou
+  serviceContracts    ServiceContract[]
+
   @@index([platformId])
   @@index([slug])
   @@index([status])
-  @@map("companies")
+  @@map("tenants")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLIENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-model Client {
-  id        String       @id @default(uuid())
-  companyId String       @map("company_id")
-  name      String
-  document  String?
-  email     String?
-  phone     String?
-  address   Json?
-  logoUrl   String?      @map("logo_url")       // Logo do cliente para relatórios
-  reportName String?     @map("report_name")     // Nome que aparece nos relatórios
-  status    ClientStatus @default(ACTIVE)
-  settings  Json?
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-  deletedAt DateTime?    @map("deleted_at")
+model Organization {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  name       String
+  document   String?
+  email      String?
+  phone      String?
+  address    Json?
+  logoUrl    String?   @map("logo_url") // Logo do cliente para relatórios
+  isInternal Boolean   @default(false) @map("is_internal")
+  reportName String?   @map("report_name") // Nome que aparece nos relatórios
+  status     OrgStatus @default(ACTIVE)
+  settings   Json?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
 
-  company Company @relation(fields: [companyId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
-  users         User[]
+  users User[]
+
+  contractsAsProvider ServiceContract[] @relation("ContractProvider")
+  contractsAsClient   ServiceContract[] @relation("ContractClient")
+
   costCenters   CostCenter[]
   locations     Location[]
   equipments    Equipment[]
@@ -247,19 +254,44 @@ model Client {
   maintenances  Maintenance[]
   schedules     MaintenanceSchedule[]
 
-  @@index([companyId])
-  @@index([companyId, status])
-  @@map("clients")
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("organizations")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // USER
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE CONTRACT
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ServiceContract {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  providerId     String    @map("provider_id")
+  organizationId String    @map("client_id")
+  status         String    @default("ACTIVE")
+  startDate      DateTime  @map("start_date")
+  endDate        DateTime? @map("end_date")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  provider     Organization @relation("ContractProvider", fields: [providerId], references: [id])
+  organization Organization @relation("ContractClient", fields: [organizationId], references: [id])
+
+  serviceOrders        ServiceOrder[]
+  maintenanceSchedules MaintenanceSchedule[]
+
+  @@unique([tenantId, providerId, organizationId])
+  @@map("service_contracts")
+}
+
 model User {
   id             String     @id @default(uuid())
-  companyId      String?    @map("company_id")
-  clientId       String?    @map("client_id")
+  tenantId       String?    @map("tenant_id")
+  organizationId String?    @map("organization_id")
   customRoleId   String?    @map("custom_role_id")
   name           String
   email          String     @unique
@@ -275,19 +307,19 @@ model User {
   updatedAt      DateTime   @updatedAt @map("updated_at")
   deletedAt      DateTime?  @map("deleted_at")
 
-  company    Company?    @relation(fields: [companyId], references: [id])
-  client     Client?     @relation(fields: [clientId], references: [id])
-  customRole CustomRole? @relation(fields: [customRoleId], references: [id])
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  customRole   CustomRole?   @relation(fields: [customRoleId], references: [id])
 
   refreshTokens           RefreshToken[]
-  serviceOrdersOwned      ServiceOrder[]            @relation("ServiceOrderRequester")
-  serviceOrdersApproved   ServiceOrder[]            @relation("ServiceOrderApprover")
+  serviceOrdersOwned      ServiceOrder[]           @relation("ServiceOrderRequester")
+  serviceOrdersApproved   ServiceOrder[]           @relation("ServiceOrderApprover")
   serviceOrderTechnicians ServiceOrderTechnician[]
   comments                ServiceOrderComment[]
   taskAssignments         ServiceOrderTask[]
   notifications           Notification[]
-  movementsRequested      EquipmentMovement[]       @relation("MovementRequester")
-  movementsApproved       EquipmentMovement[]       @relation("MovementApprover")
+  movementsRequested      EquipmentMovement[]      @relation("MovementRequester")
+  movementsApproved       EquipmentMovement[]      @relation("MovementApprover")
   maintenancesExecuted    Maintenance[]
   technicianGroups        TechnicianGroup[]
   loginAttempts           LoginAttempt[]
@@ -296,9 +328,9 @@ model User {
   emailVerifications      EmailVerification[]
   passwordResets          PasswordReset[]
 
-  @@index([companyId])
-  @@index([clientId])
-  @@index([companyId, clientId])
+  @@index([tenantId])
+  @@index([organizationId])
+  @@index([tenantId, organizationId])
   @@index([email])
   @@index([role])
   @@map("users")
@@ -331,7 +363,7 @@ model RefreshToken {
 
 model MaintenanceGroup {
   id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
+  tenantId    String   @map("tenant_id")
   name        String
   description String?
   color       String?
@@ -339,14 +371,14 @@ model MaintenanceGroup {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   technicians   TechnicianGroup[]
   serviceOrders ServiceOrder[]
   schedules     MaintenanceSchedule[]
 
-  @@unique([companyId, name])
-  @@index([companyId, isActive])
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
   @@map("maintenance_groups")
 }
 
@@ -374,23 +406,23 @@ model TechnicianGroup {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model CostCenter {
-  id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  clientId    String   @map("client_id")
-  name        String
-  code        String?
-  description String?
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  organizationId String   @map("organization_id")
+  name           String
+  code           String?
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  client Client @relation(fields: [clientId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
 
   equipments Equipment[]
   locations  Location[]
 
-  @@unique([clientId, code])
-  @@index([companyId, clientId])
+  @@unique([organizationId, code])
+  @@index([tenantId, organizationId])
   @@map("cost_centers")
 }
 
@@ -399,30 +431,30 @@ model CostCenter {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Location {
-  id           String  @id @default(uuid())
-  companyId    String  @map("company_id")
-  clientId     String  @map("client_id")
-  costCenterId String? @map("cost_center_id")
-  name         String
-  parentId     String? @map("parent_id")
-  description  String?
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  organizationId String   @map("organization_id")
+  costCenterId   String?  @map("cost_center_id")
+  name           String
+  parentId       String?  @map("parent_id")
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  client     Client      @relation(fields: [clientId], references: [id])
-  costCenter CostCenter? @relation(fields: [costCenterId], references: [id])
-  parent     Location?   @relation("LocationHierarchy", fields: [parentId], references: [id])
-  children   Location[]  @relation("LocationHierarchy")
+  organization Organization @relation(fields: [organizationId], references: [id])
+  costCenter   CostCenter?  @relation(fields: [costCenterId], references: [id])
+  parent       Location?    @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children     Location[]   @relation("LocationHierarchy")
 
   equipments        Equipment[]
   movementsFrom     EquipmentMovement[] @relation("MovementOrigin")
   movementsTo       EquipmentMovement[] @relation("MovementDestination")
   currentEquipments Equipment[]         @relation("CurrentLocation")
 
-  @@index([companyId, clientId])
-  @@index([clientId, parentId])
-  @@index([clientId, costCenterId])
+  @@index([tenantId, organizationId])
+  @@index([organizationId, parentId])
+  @@index([organizationId, costCenterId])
   @@map("locations")
 }
 
@@ -432,7 +464,7 @@ model Location {
 
 model EquipmentType {
   id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
+  tenantId    String   @map("tenant_id")
   name        String
   description String?
   isActive    Boolean  @default(true) @map("is_active")
@@ -441,14 +473,14 @@ model EquipmentType {
   subtypes   EquipmentSubtype[]
   equipments Equipment[]
 
-  @@index([companyId])
+  @@index([tenantId])
   @@map("equipment_types")
 }
 
 model EquipmentSubtype {
   id          String   @id @default(uuid())
   typeId      String   @map("type_id")
-  companyId   String   @map("company_id")
+  tenantId    String   @map("tenant_id")
   name        String
   description String?
   isActive    Boolean  @default(true) @map("is_active")
@@ -458,7 +490,7 @@ model EquipmentSubtype {
   equipments Equipment[]
 
   @@index([typeId])
-  @@index([companyId])
+  @@index([tenantId])
   @@map("equipment_subtypes")
 }
 
@@ -468,8 +500,8 @@ model EquipmentSubtype {
 
 model Equipment {
   id                   String               @id @default(uuid())
-  companyId            String               @map("company_id")
-  clientId             String               @map("client_id")
+  tenantId             String               @map("tenant_id")
+  organizationId       String               @map("organization_id")
   costCenterId         String?              @map("cost_center_id")
   locationId           String?              @map("location_id")
   currentLocationId    String?              @map("current_location_id")
@@ -481,13 +513,13 @@ model Equipment {
   serialNumber         String?              @map("serial_number")
   patrimonyNumber      String?              @map("patrimony_number")
   anvisaNumber         String?              @map("anvisa_number")
-  purchaseValue        Decimal?             @map("purchase_value")    @db.Decimal(12, 2)
-  purchaseDate         DateTime?            @map("purchase_date")     @db.Date
+  purchaseValue        Decimal?             @map("purchase_value") @db.Decimal(12, 2)
+  purchaseDate         DateTime?            @map("purchase_date") @db.Date
   invoiceNumber        String?              @map("invoice_number")
-  warrantyStart        DateTime?            @map("warranty_start")    @db.Date
-  warrantyEnd          DateTime?            @map("warranty_end")      @db.Date
+  warrantyStart        DateTime?            @map("warranty_start") @db.Date
+  warrantyEnd          DateTime?            @map("warranty_end") @db.Date
   depreciationRate     Decimal?             @map("depreciation_rate") @db.Decimal(5, 2)
-  currentValue         Decimal?             @map("current_value")     @db.Decimal(12, 2)
+  currentValue         Decimal?             @map("current_value") @db.Decimal(12, 2)
   lastDepreciationCalc DateTime?            @map("last_depreciation_calc")
   ipAddress            String?              @map("ip_address")
   operatingSystem      String?              @map("operating_system")
@@ -501,7 +533,7 @@ model Equipment {
   updatedAt            DateTime             @updatedAt @map("updated_at")
   deletedAt            DateTime?            @map("deleted_at")
 
-  client          Client            @relation(fields: [clientId], references: [id])
+  organization    Organization      @relation(fields: [organizationId], references: [id])
   costCenter      CostCenter?       @relation(fields: [costCenterId], references: [id])
   location        Location?         @relation(fields: [locationId], references: [id])
   currentLocation Location?         @relation("CurrentLocation", fields: [currentLocationId], references: [id])
@@ -514,9 +546,9 @@ model Equipment {
   schedules     MaintenanceSchedule[]
   attachments   Attachment[]          @relation("EquipmentAttachments")
 
-  @@index([companyId, clientId])
-  @@index([clientId, status])
-  @@index([clientId, typeId])
+  @@index([tenantId, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, typeId])
   @@index([serialNumber])
   @@index([patrimonyNumber])
   @@map("equipments")
@@ -528,8 +560,9 @@ model Equipment {
 
 model MaintenanceSchedule {
   id                   String          @id @default(uuid())
-  companyId            String          @map("company_id")
-  clientId             String          @map("client_id")
+  tenantId             String          @map("tenant_id")
+  organizationId       String          @map("organization_id")
+  serviceContractId    String?         @map("service_contract_id")
   equipmentId          String          @map("equipment_id")
   groupId              String?         @map("group_id")
   title                String
@@ -540,20 +573,21 @@ model MaintenanceSchedule {
   estimatedDurationMin Int?            @map("estimated_duration_min")
   assignedTechnicianId String?         @map("assigned_technician_id")
   startDate            DateTime        @map("start_date") @db.Date
-  endDate              DateTime?       @map("end_date")   @db.Date
+  endDate              DateTime?       @map("end_date") @db.Date
   nextRunAt            DateTime        @map("next_run_at")
   lastRunAt            DateTime?       @map("last_run_at")
   isActive             Boolean         @default(true) @map("is_active")
   createdAt            DateTime        @default(now()) @map("created_at")
   updatedAt            DateTime        @updatedAt @map("updated_at")
 
-  client    Client            @relation(fields: [clientId], references: [id])
-  equipment Equipment         @relation(fields: [equipmentId], references: [id])
-  group     MaintenanceGroup? @relation(fields: [groupId], references: [id])
+  organization    Organization      @relation(fields: [organizationId], references: [id])
+  serviceContract ServiceContract?  @relation(fields: [serviceContractId], references: [id])
+  equipment       Equipment         @relation(fields: [equipmentId], references: [id])
+  group           MaintenanceGroup? @relation(fields: [groupId], references: [id])
 
   maintenances Maintenance[]
 
-  @@index([companyId, clientId])
+  @@index([tenantId, organizationId])
   @@index([nextRunAt, isActive])
   @@index([equipmentId])
   @@map("maintenance_schedules")
@@ -564,31 +598,31 @@ model MaintenanceSchedule {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Maintenance {
-  id           String          @id @default(uuid())
-  companyId    String          @map("company_id")
-  clientId     String          @map("client_id")
-  equipmentId  String          @map("equipment_id")
-  scheduleId   String?         @map("schedule_id")
-  technicianId String?         @map("technician_id")
-  type         MaintenanceType
-  title        String
-  description  String?
-  scheduledAt  DateTime?       @map("scheduled_at")
-  startedAt    DateTime?       @map("started_at")
-  completedAt  DateTime?       @map("completed_at")
-  observations String?
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
+  id             String          @id @default(uuid())
+  tenantId       String          @map("tenant_id")
+  organizationId String          @map("organization_id")
+  equipmentId    String          @map("equipment_id")
+  scheduleId     String?         @map("schedule_id")
+  technicianId   String?         @map("technician_id")
+  type           MaintenanceType
+  title          String
+  description    String?
+  scheduledAt    DateTime?       @map("scheduled_at")
+  startedAt      DateTime?       @map("started_at")
+  completedAt    DateTime?       @map("completed_at")
+  observations   String?
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
-  client     Client               @relation(fields: [clientId], references: [id])
-  equipment  Equipment            @relation(fields: [equipmentId], references: [id])
-  schedule   MaintenanceSchedule? @relation(fields: [scheduleId], references: [id])
-  technician User?                @relation(fields: [technicianId], references: [id])
+  organization Organization         @relation(fields: [organizationId], references: [id])
+  equipment    Equipment            @relation(fields: [equipmentId], references: [id])
+  schedule     MaintenanceSchedule? @relation(fields: [scheduleId], references: [id])
+  technician   User?                @relation(fields: [technicianId], references: [id])
 
   serviceOrders ServiceOrder[]
   attachments   Attachment[]   @relation("MaintenanceAttachments")
 
-  @@index([companyId, clientId])
+  @@index([tenantId, organizationId])
   @@index([equipmentId])
   @@index([scheduleId])
   @@index([technicianId])
@@ -601,8 +635,8 @@ model Maintenance {
 
 model ServiceOrder {
   id              String               @id @default(uuid())
-  companyId       String               @map("company_id")
-  clientId        String               @map("client_id")
+  tenantId        String               @map("tenant_id")
+  organizationId  String               @map("organization_id")
   equipmentId     String               @map("equipment_id")
   maintenanceId   String?              @map("maintenance_id")
   requesterId     String               @map("requester_id")
@@ -617,7 +651,7 @@ model ServiceOrder {
   resolution      String?
   internalNotes   String?              @map("internal_notes")
   estimatedHours  Decimal?             @map("estimated_hours") @db.Decimal(6, 2)
-  actualHours     Decimal?             @map("actual_hours")    @db.Decimal(6, 2)
+  actualHours     Decimal?             @map("actual_hours") @db.Decimal(6, 2)
   scheduledFor    DateTime?            @map("scheduled_for")
   startedAt       DateTime?            @map("started_at")
   completedAt     DateTime?            @map("completed_at")
@@ -629,23 +663,25 @@ model ServiceOrder {
   updatedAt       DateTime             @updatedAt @map("updated_at")
   deletedAt       DateTime?            @map("deleted_at")
 
-  client      Client            @relation(fields: [clientId], references: [id])
-  equipment   Equipment         @relation(fields: [equipmentId], references: [id])
-  maintenance Maintenance?      @relation(fields: [maintenanceId], references: [id])
-  requester   User              @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
-  approvedBy  User?             @relation("ServiceOrderApprover", fields: [approvedById], references: [id])
-  group       MaintenanceGroup? @relation(fields: [groupId], references: [id])
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  equipment    Equipment         @relation(fields: [equipmentId], references: [id])
+  maintenance  Maintenance?      @relation(fields: [maintenanceId], references: [id])
+  requester    User              @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
+  approvedBy   User?             @relation("ServiceOrderApprover", fields: [approvedById], references: [id])
+  group        MaintenanceGroup? @relation(fields: [groupId], references: [id])
 
-  technicians   ServiceOrderTechnician[]
-  comments      ServiceOrderComment[]
-  tasks         ServiceOrderTask[]
-  attachments   Attachment[]              @relation("ServiceOrderAttachments")
-  statusHistory ServiceOrderStatusHistory[]
-  notifications Notification[]
+  technicians       ServiceOrderTechnician[]
+  comments          ServiceOrderComment[]
+  tasks             ServiceOrderTask[]
+  attachments       Attachment[]                @relation("ServiceOrderAttachments")
+  statusHistory     ServiceOrderStatusHistory[]
+  notifications     Notification[]
+  serviceContract   ServiceContract?            @relation(fields: [serviceContractId], references: [id])
+  serviceContractId String?
 
-  @@unique([companyId, number])
-  @@index([companyId, clientId])
-  @@index([clientId, status])
+  @@unique([tenantId, number])
+  @@index([tenantId, organizationId])
+  @@index([organizationId, status])
   @@index([groupId, isAvailable])
   @@index([isAvailable, createdAt])
   @@index([equipmentId])
@@ -745,8 +781,8 @@ model ServiceOrderTask {
 
 model EquipmentMovement {
   id                    String         @id @default(uuid())
-  companyId             String         @map("company_id")
-  clientId              String         @map("client_id")
+  tenantId              String         @map("tenant_id")
+  organizationId        String         @map("organization_id")
   equipmentId           String         @map("equipment_id")
   requesterId           String         @map("requester_id")
   approverId            String?        @map("approver_id")
@@ -767,7 +803,7 @@ model EquipmentMovement {
   origin      Location  @relation("MovementOrigin", fields: [originLocationId], references: [id])
   destination Location  @relation("MovementDestination", fields: [destinationLocationId], references: [id])
 
-  @@index([companyId, clientId])
+  @@index([tenantId, organizationId])
   @@index([equipmentId, status])
   @@map("equipment_movements")
 }
@@ -779,24 +815,24 @@ model EquipmentMovement {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model Attachment {
-  id           String           @id @default(uuid())
-  companyId    String           @map("company_id")
-  clientId     String?          @map("client_id")
-  entity       AttachmentEntity
-  fileName     String           @map("file_name")
-  storedName   String           @map("stored_name")
-  bucket       String
-  key          String
-  mimeType     String           @map("mime_type")
-  sizeBytes    Int              @map("size_bytes")
-  uploadedById String           @map("uploaded_by_id")
-  createdAt    DateTime         @default(now()) @map("created_at")
+  id             String           @id @default(uuid())
+  tenantId       String           @map("tenant_id")
+  organizationId String?          @map("organization_id")
+  entity         AttachmentEntity
+  fileName       String           @map("file_name")
+  storedName     String           @map("stored_name")
+  bucket         String
+  key            String
+  mimeType       String           @map("mime_type")
+  sizeBytes      Int              @map("size_bytes")
+  uploadedById   String           @map("uploaded_by_id")
+  createdAt      DateTime         @default(now()) @map("created_at")
 
   // Apenas um destes será preenchido por vez
-  serviceOrderId String?  @map("service_order_id")
-  maintenanceId  String?  @map("maintenance_id")
-  equipmentId    String?  @map("equipment_id")
-  commentId      String?  @map("comment_id")
+  serviceOrderId String? @map("service_order_id")
+  maintenanceId  String? @map("maintenance_id")
+  equipmentId    String? @map("equipment_id")
+  commentId      String? @map("comment_id")
 
   serviceOrder ServiceOrder?        @relation("ServiceOrderAttachments", fields: [serviceOrderId], references: [id])
   maintenance  Maintenance?         @relation("MaintenanceAttachments", fields: [maintenanceId], references: [id])
@@ -806,7 +842,7 @@ model Attachment {
   @@index([serviceOrderId])
   @@index([maintenanceId])
   @@index([equipmentId])
-  @@index([companyId, entity])
+  @@index([tenantId, entity])
   @@index([bucket, key])
   @@map("attachments")
 }
@@ -817,7 +853,7 @@ model Attachment {
 
 model Notification {
   id             String              @id @default(uuid())
-  companyId      String              @map("company_id")
+  tenantId       String              @map("tenant_id")
   userId         String              @map("user_id")
   serviceOrderId String?             @map("service_order_id")
   channel        NotificationChannel
@@ -837,7 +873,7 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([status, createdAt])
-  @@index([companyId, createdAt])
+  @@index([tenantId, createdAt])
   @@map("notifications")
 }
 
@@ -846,18 +882,18 @@ model Notification {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model ReportPermission {
-  id         String     @id @default(uuid())
-  companyId  String     @map("company_id")
-  reportType ReportType @map("report_type")
+  id           String     @id @default(uuid())
+  tenantId     String     @map("tenant_id")
+  reportType   ReportType @map("report_type")
   // Roles que têm acesso — ex: ["COMPANY_ADMIN", "COMPANY_MANAGER"]
-  allowedRoles String[] @map("allowed_roles")
-  createdAt  DateTime   @default(now()) @map("created_at")
-  updatedAt  DateTime   @updatedAt @map("updated_at")
+  allowedRoles String[]   @map("allowed_roles")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id])
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
-  @@unique([companyId, reportType])
-  @@index([companyId])
+  @@unique([tenantId, reportType])
+  @@index([tenantId])
   @@map("report_permissions")
 }
 
@@ -868,17 +904,17 @@ model ReportPermission {
 
 model ResourcePermission {
   id           String   @id @default(uuid())
-  companyId    String   @map("company_id")
-  resource     String   // ex: "equipment", "service-order"
-  action       String   // ex: "create", "delete", "list"
+  tenantId     String   @map("tenant_id")
+  resource     String // ex: "equipment", "service-order"
+  action       String // ex: "create", "delete", "list"
   allowedRoles String[] @map("allowed_roles") // ex: ["COMPANY_ADMIN", "TECHNICIAN"]
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([companyId, resource, action])
-  @@index([companyId])
+  @@unique([tenantId, resource, action])
+  @@index([tenantId])
   @@map("resource_permissions")
 }
 
@@ -889,19 +925,19 @@ model ResourcePermission {
 
 model CustomRole {
   id          String   @id @default(uuid())
-  companyId   String   @map("company_id")
-  name        String                        // ex: "Supervisor TI", "Auditor"
+  tenantId    String   @map("tenant_id")
+  name        String // ex: "Supervisor TI", "Auditor"
   description String?
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  company     Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   permissions CustomRolePermission[]
   users       User[]
 
-  @@unique([companyId, name])
-  @@index([companyId])
+  @@unique([tenantId, name])
+  @@index([tenantId])
   @@map("custom_roles")
 }
 
@@ -924,21 +960,21 @@ model CustomRolePermission {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model LoginAttempt {
-  id          String   @id @default(uuid())
-  email       String   // Email tentado (pode não existir no sistema)
-  userId      String?  @map("user_id") // Preenchido se o email existir
-  success     Boolean
-  ipAddress   String   @map("ip_address")
-  userAgent   String?  @map("user_agent")
+  id         String   @id @default(uuid())
+  email      String // Email tentado (pode não existir no sistema)
+  userId     String?  @map("user_id") // Preenchido se o email existir
+  success    Boolean
+  ipAddress  String   @map("ip_address")
+  userAgent  String?  @map("user_agent")
   // Geolocalização do IP
-  country     String?
-  region      String?
-  city        String?
-  latitude    Float?
-  longitude   Float?
+  country    String?
+  region     String?
+  city       String?
+  latitude   Float?
+  longitude  Float?
   // Motivo da falha
-  failReason  String?  @map("fail_reason") // WRONG_PASSWORD, USER_NOT_FOUND, ACCOUNT_BLOCKED etc.
-  createdAt   DateTime @default(now()) @map("created_at")
+  failReason String?  @map("fail_reason") // WRONG_PASSWORD, USER_NOT_FOUND, ACCOUNT_BLOCKED etc.
+  createdAt  DateTime @default(now()) @map("created_at")
 
   user User? @relation(fields: [userId], references: [id])
 
@@ -956,7 +992,7 @@ model AccountBlock {
   id          String    @id @default(uuid())
   userId      String    @map("user_id")
   ipAddress   String?   @map("ip_address")
-  reason      String    // Motivo do bloqueio
+  reason      String // Motivo do bloqueio
   blockedAt   DateTime  @default(now()) @map("blocked_at")
   expiresAt   DateTime  @map("expires_at") // Null = bloqueio permanente
   unblocked   Boolean   @default(false)
@@ -975,14 +1011,14 @@ model AccountBlock {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model TwoFactorCode {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  code      String   // Hash do código de 6 dígitos
+  id        String        @id @default(uuid())
+  userId    String        @map("user_id")
+  code      String // Hash do código de 6 dígitos
   type      TwoFactorType
-  expiresAt DateTime @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-  ipAddress String?  @map("ip_address")
-  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime      @map("expires_at")
+  usedAt    DateTime?     @map("used_at")
+  ipAddress String?       @map("ip_address")
+  createdAt DateTime      @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -996,12 +1032,12 @@ model TwoFactorCode {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model EmailVerification {
-  id        String    @id @default(uuid())
-  userId    String    @map("user_id")
-  token     String    @unique // Token de verificação
-  expiresAt DateTime  @map("expires_at")
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  token      String    @unique // Token de verificação
+  expiresAt  DateTime  @map("expires_at")
   verifiedAt DateTime? @map("verified_at")
-  createdAt DateTime  @default(now()) @map("created_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

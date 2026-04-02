@@ -11,36 +11,36 @@ export const movementKeys = {
   all: (equipmentId: string) => ["movements", equipmentId] as const,
 };
 
-export function useMovements(clientId: string, equipmentId: string) {
+export function useMovements(organizationId: string, equipmentId: string) {
   return useQuery({
     queryKey: movementKeys.all(equipmentId),
-    queryFn: () => movementsService.list(clientId, equipmentId),
-    enabled: !!clientId && !!equipmentId,
+    queryFn: () => movementsService.list(organizationId, equipmentId),
+    enabled: !!organizationId && !!equipmentId,
   });
 }
 
-export function useCreateMovement(clientId: string, equipmentId: string) {
+export function useCreateMovement(organizationId: string, equipmentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateMovementDto) =>
-      movementsService.create(clientId, equipmentId, dto),
+      movementsService.create(organizationId, equipmentId, dto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movementKeys.all(equipmentId) });
-      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(organizationId) });
       toast.success("Movimentação registrada!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useReturnEquipment(clientId: string, equipmentId: string) {
+export function useReturnEquipment(organizationId: string, equipmentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ movementId, notes }: { movementId: string; notes?: string }) =>
-      movementsService.returnEquipment(clientId, equipmentId, movementId, notes),
+      movementsService.returnEquipment(organizationId, equipmentId, movementId, notes),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: movementKeys.all(equipmentId) });
-      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(organizationId) });
       toast.success("Equipamento devolvido!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),

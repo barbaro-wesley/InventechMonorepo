@@ -17,7 +17,7 @@ export interface PermissionMatrix {
 
 export interface ResourcePermission {
   id: string;
-  companyId: string;
+  tenantId: string;
   resource: string;
   action: string;
   allowedRoles: string[];
@@ -33,7 +33,7 @@ export interface CustomRolePermission {
 
 export interface CustomRole {
   id: string;
-  companyId: string;
+  tenantId: string;
   name: string;
   description: string | null;
   isActive: boolean;
@@ -91,33 +91,33 @@ export const permissionsService = {
 // ─── Custom Roles Service ─────────────────────────────────────────────────────
 
 export const customRolesService = {
-  async list(targetCompanyId?: string): Promise<CustomRole[]> {
-    const { data } = await api.get("/custom-roles", { params: targetCompanyId ? { targetCompanyId } : undefined });
+  async list(targetTenantId?: string): Promise<CustomRole[]> {
+    const { data } = await api.get("/custom-roles", { params: targetTenantId ? { targetTenantId } : undefined });
     return Array.isArray(data) ? data : (data?.data ?? []);
   },
 
-  async getOne(id: string, targetCompanyId?: string): Promise<CustomRole> {
-    const { data } = await api.get(`/custom-roles/${id}`, { params: targetCompanyId ? { targetCompanyId } : undefined });
+  async getOne(id: string, targetTenantId?: string): Promise<CustomRole> {
+    const { data } = await api.get(`/custom-roles/${id}`, { params: targetTenantId ? { targetTenantId } : undefined });
     return data;
   },
 
-  async create(dto: CreateCustomRoleDto, targetCompanyId?: string): Promise<CustomRole> {
-    const { data } = await api.post("/custom-roles", dto, { params: targetCompanyId ? { targetCompanyId } : undefined });
+  async create(dto: CreateCustomRoleDto, targetTenantId?: string): Promise<CustomRole> {
+    const { data } = await api.post("/custom-roles", dto, { params: targetTenantId ? { targetTenantId } : undefined });
     return data;
   },
 
-  async update(id: string, dto: UpdateCustomRoleDto, targetCompanyId?: string): Promise<CustomRole> {
-    const { data } = await api.patch(`/custom-roles/${id}`, dto, { params: targetCompanyId ? { targetCompanyId } : undefined });
+  async update(id: string, dto: UpdateCustomRoleDto, targetTenantId?: string): Promise<CustomRole> {
+    const { data } = await api.patch(`/custom-roles/${id}`, dto, { params: targetTenantId ? { targetTenantId } : undefined });
     return data;
   },
 
-  async remove(id: string, targetCompanyId?: string): Promise<{ message: string }> {
-    const { data } = await api.delete(`/custom-roles/${id}`, { params: targetCompanyId ? { targetCompanyId } : undefined });
+  async remove(id: string, targetTenantId?: string): Promise<{ message: string }> {
+    const { data } = await api.delete(`/custom-roles/${id}`, { params: targetTenantId ? { targetTenantId } : undefined });
     return data;
   },
 
-  async setPermissions(id: string, permissions: { resource: string; action: string }[], targetCompanyId?: string): Promise<CustomRole> {
-    const { data } = await api.put(`/custom-roles/${id}/permissions`, { permissions }, { params: targetCompanyId ? { targetCompanyId } : undefined });
+  async setPermissions(id: string, permissions: { resource: string; action: string }[], targetTenantId?: string): Promise<CustomRole> {
+    const { data } = await api.put(`/custom-roles/${id}/permissions`, { permissions }, { params: targetTenantId ? { targetTenantId } : undefined });
     return data;
   },
 

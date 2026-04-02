@@ -28,7 +28,7 @@ import {
 } from "@/hooks/permissions/use-permissions";
 import type { CustomRole, PermissionMatrixItem } from "@/services/permissions/permissions.service";
 import { useCurrentUser } from "@/store/auth.store";
-import { useCompanies } from "@/hooks/companies/use-companies";
+import { useTenants } from "@/hooks/companies/use-companies";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -219,17 +219,17 @@ function ResourceSection({ resource, items }: { resource: string; items: Permiss
 // ─── CustomRoleSheet ──────────────────────────────────────────────────────────
 
 function CustomRoleSheet({
-  open, editTarget, matrixResources, targetCompanyId, onClose,
+  open, editTarget, matrixResources, targetTenantId, onClose,
 }: {
   open: boolean;
   editTarget: CustomRole | null;
   matrixResources: Record<string, string[]>;
-  targetCompanyId?: string;
+  targetTenantId?: string;
   onClose: () => void;
 }) {
-  const create = useCreateCustomRole(targetCompanyId);
-  const update = useUpdateCustomRole(editTarget?.id ?? "", targetCompanyId);
-  const setPerms = useSetCustomRolePermissions(editTarget?.id ?? "", targetCompanyId);
+  const create = useCreateCustomRole(targetTenantId);
+  const update = useUpdateCustomRole(editTarget?.id ?? "", targetTenantId);
+  const setPerms = useSetCustomRolePermissions(editTarget?.id ?? "", targetTenantId);
   const isPending = create.isPending || update.isPending || setPerms.isPending;
 
   // Selected permissions as "resource:action" set
@@ -301,7 +301,7 @@ function CustomRoleSheet({
   // Workaround: need direct service call for create flow since hook ID isn't set yet
   async function customRolesService_setPerms(id: string, perms: { resource: string; action: string }[]) {
     const { customRolesService } = await import("@/services/permissions/permissions.service");
-    await customRolesService.setPermissions(id, perms, targetCompanyId);
+    await customRolesService.setPermissions(id, perms, targetTenantId);
   }
 
   const totalResources = Object.keys(matrixResources);
@@ -400,22 +400,22 @@ export default function PapeisPermissoesPage() {
   const [roleSheet, setRoleSheet] = useState<{ open: boolean; target: CustomRole | null }>({ open: false, target: null });
   const [deleteTarget, setDeleteTarget] = useState<CustomRole | null>(null);
   const [resetConfirm, setResetConfirm] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [selectedTenantId, setSelectedTenantId] = useState<string>("");
 
   const currentUser = useCurrentUser();
   const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
-  // SUPER_ADMIN without a company needs to pick one; otherwise use their own
-  const needsCompanySelector = isSuperAdmin && !currentUser?.companyId;
-  const effectiveCompanyId = needsCompanySelector
-    ? (selectedCompanyId || undefined)
-    : (currentUser?.companyId ?? undefined);
+  // SUPER_ADMIN without a tenant needs to pick one; otherwise use their own
+  const needsTenantSelector = isSuperAdmin && !currentUser?.tenantId;
+  const effectiveTenantId = needsTenantSelector
+    ? (selectedTenantId || undefined)
+    : (currentUser?.tenantId ?? undefined);
 
-  const { data: companiesPage } = useCompanies({ limit: 100 });
-  const companies = companiesPage?.data ?? [];
+  const { data: tenantsPage } = useTenants({ limit: 100 });
+  const companies = tenantsPage?.data ?? [];
 
   const { data: matrix, isLoading: matrixLoading } = usePermissionMatrix();
-  const { data: customRoles = [], isLoading: rolesLoading } = useCustomRoles(effectiveCompanyId);
-  const deleteRole = useDeleteCustomRole(effectiveCompanyId);
+  const { data: customRoles = [], isLoading: rolesLoading } = useCustomRoles(effectiveTenantId);
+  const deleteRole = useDeleteCustomRole(effectiveTenantId);
   const reset = useResetPermissions();
 
   // Group matrix by resource
@@ -439,7 +439,7 @@ export default function PapeisPermissoesPage() {
             Configure o que cada papel pode acessar na plataforma.
           </p>
         </div>
-        {tab === "custom" && effectiveCompanyId && (
+        {tab === "custom" && effectiveTenantId && (
           <Button onClick={() => setRoleSheet({ open: true, target: null })}>
             <Plus className="w-4 h-4 mr-2" />
             Novo papel
@@ -475,7 +475,7 @@ export default function PapeisPermissoesPage() {
       {tab === "custom" && (
         <>
           {/* Company selector for SUPER_ADMIN without their own company */}
-          {needsCompanySelector && (
+          {needsTenantSelector && (
             <div className="bg-white rounded-xl border border-border px-5 py-4 flex items-center gap-4">
               <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
               <div className="flex-1">
@@ -483,7 +483,7 @@ export default function PapeisPermissoesPage() {
                 <p className="text-xs text-muted-foreground">Gerencie os papéis personalizados de uma empresa específica.</p>
               </div>
               <select
-                value={selectedCompanyId}
+                value={selectedTenantId}
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
                 className="border border-border rounded-lg px-3 py-2 text-sm bg-white min-w-[220px] focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
@@ -496,7 +496,7 @@ export default function PapeisPermissoesPage() {
           )}
 
           {/* Prompt to select company before showing roles */}
-          {needsCompanySelector && !selectedCompanyId ? (
+          {needsTenantSelector && !selectedTenantId ? (
             <div className="bg-white rounded-xl border border-border py-16 text-center">
               <Building2 className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground font-medium">Selecione uma empresa acima</p>
@@ -621,7 +621,7 @@ export default function PapeisPermissoesPage() {
         open={roleSheet.open}
         editTarget={roleSheet.target}
         matrixResources={matrix?.resources ?? {}}
-        targetCompanyId={effectiveCompanyId}
+        targetTenantId={effectiveTenantId}
         onClose={() => setRoleSheet({ open: false, target: null })}
       />
 

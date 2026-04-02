@@ -46,10 +46,10 @@ import {
   useAllLicenses,
   useUpdateLicense,
   useUpdateTrial,
-  useSuspendCompany,
-  useActivateCompany,
+  useSuspendTenant,
+  useActivateTenant,
 } from "@/hooks/companies/use-companies";
-import type { CompanyLicenseRow } from "@/types/company";
+import type { TenantLicenseRow } from "@/types/company";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ function RenewLicenseSheet({
   open,
   onClose,
 }: {
-  company: CompanyLicenseRow | null;
+  company: TenantLicenseRow | null;
   open: boolean;
   onClose: () => void;
 }) {
@@ -235,7 +235,7 @@ function SetTrialSheet({
   open,
   onClose,
 }: {
-  company: CompanyLicenseRow | null;
+  company: TenantLicenseRow | null;
   open: boolean;
   onClose: () => void;
 }) {
@@ -304,11 +304,11 @@ function SuspendSheet({
   open,
   onClose,
 }: {
-  company: CompanyLicenseRow | null;
+  company: TenantLicenseRow | null;
   open: boolean;
   onClose: () => void;
 }) {
-  const suspend = useSuspendCompany();
+  const suspend = useSuspendTenant();
   const {
     register,
     handleSubmit,
@@ -388,12 +388,12 @@ export default function LicensesPage() {
   const [search, setSearch] = useState("");
 
   // Sheets
-  const [renewTarget, setRenewTarget] = useState<CompanyLicenseRow | null>(null);
-  const [trialTarget, setTrialTarget] = useState<CompanyLicenseRow | null>(null);
-  const [suspendTarget, setSuspendTarget] = useState<CompanyLicenseRow | null>(null);
-  const [activateTarget, setActivateTarget] = useState<CompanyLicenseRow | null>(null);
+  const [renewTarget, setRenewTarget] = useState<TenantLicenseRow | null>(null);
+  const [trialTarget, setTrialTarget] = useState<TenantLicenseRow | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<TenantLicenseRow | null>(null);
+  const [activateTarget, setActivateTarget] = useState<TenantLicenseRow | null>(null);
 
-  const activate = useActivateCompany();
+  const activate = useActivateTenant();
 
   const { data: licenses, isLoading } = useAllLicenses({
     status: filterStatus !== "all" ? filterStatus : undefined,
@@ -627,7 +627,7 @@ export default function LicensesPage() {
                           </span>
                           <span className="flex items-center gap-1">
                             <Contact className="w-3.5 h-3.5" />
-                            {company._count.clients}
+                            {company._count.organizations}
                           </span>
                         </div>
                       </td>

@@ -1,94 +1,93 @@
 import { api } from "@/lib/api";
 import type {
-    Company,
-    CompanyWithLicense,
-    CompanyLicenseRow,
-    CreateCompanyDto,
-    CreateCompanyResponse,
-    UpdateCompanyDto,
+    Tenant,
+    TenantWithLicense,
+    TenantLicenseRow,
+    CreateTenantDto,
+    CreateTenantResponse,
+    UpdateTenantDto,
     UpdateReportSettingsDto,
-    ListCompaniesParams,
+    ListTenantsParams,
     License,
 } from "@/types/company";
 import type { PaginatedResponse } from "@/types/user";
 
-export const companiesService = {
-    async list(params?: ListCompaniesParams): Promise<PaginatedResponse<Company>> {
-        const { data } = await api.get("/companies", { params });
-        // Interceptor preserves the full envelope for paginated responses
+export const tenantsService = {
+    async list(params?: ListTenantsParams): Promise<PaginatedResponse<Tenant>> {
+        const { data } = await api.get("/tenants", { params });
         return {
             data: data.data,
             pagination: data.pagination,
         };
     },
 
-    async getById(id: string): Promise<CompanyWithLicense> {
-        const { data } = await api.get(`/companies/${id}`);
+    async getById(id: string): Promise<TenantWithLicense> {
+        const { data } = await api.get(`/tenants/${id}`);
         return data;
     },
 
-    async create(dto: CreateCompanyDto): Promise<CreateCompanyResponse> {
-        const { data } = await api.post("/companies", dto);
+    async create(dto: CreateTenantDto): Promise<CreateTenantResponse> {
+        const { data } = await api.post("/tenants", dto);
         return data;
     },
 
-    async update(id: string, dto: UpdateCompanyDto): Promise<Company> {
-        const { data } = await api.patch(`/companies/${id}`, dto);
+    async update(id: string, dto: UpdateTenantDto): Promise<Tenant> {
+        const { data } = await api.patch(`/tenants/${id}`, dto);
         return data;
     },
 
     // Licenças — só SUPER_ADMIN
-    async getLicense(companyId: string): Promise<License> {
-        const { data } = await api.get(`/companies/${companyId}/license`);
+    async getLicense(tenantId: string): Promise<License> {
+        const { data } = await api.get(`/tenants/${tenantId}/license`);
         return data;
     },
 
     async getAllLicenses(params?: {
         expiringInDays?: number;
         status?: string;
-    }): Promise<CompanyLicenseRow[]> {
-        const { data } = await api.get("/companies/licenses/all", { params });
+    }): Promise<TenantLicenseRow[]> {
+        const { data } = await api.get("/tenants/licenses/all", { params });
         return data;
     },
 
-    async suspend(companyId: string, reason: string): Promise<void> {
-        await api.patch(`/companies/${companyId}/suspend`, { reason });
+    async suspend(tenantId: string, reason: string): Promise<void> {
+        await api.patch(`/tenants/${tenantId}/suspend`, { reason });
     },
 
-    async activate(companyId: string): Promise<void> {
-        await api.patch(`/companies/${companyId}/activate`);
+    async activate(tenantId: string): Promise<void> {
+        await api.patch(`/tenants/${tenantId}/activate`);
     },
 
     async updateLicense(
-        companyId: string,
+        tenantId: string,
         dto: { expiresAt?: string; notes?: string }
     ): Promise<void> {
-        await api.patch(`/companies/${companyId}/license`, dto);
+        await api.patch(`/tenants/${tenantId}/license`, dto);
     },
 
     async updateTrial(
-        companyId: string,
+        tenantId: string,
         dto: { trialEndsAt: string }
     ): Promise<void> {
-        await api.patch(`/companies/${companyId}/trial`, dto);
+        await api.patch(`/tenants/${tenantId}/trial`, dto);
     },
 
     async uploadLogo(
-        companyId: string,
+        tenantId: string,
         file: File
     ): Promise<{ logoUrl: string }> {
         const form = new FormData();
         form.append("logo", file);
-        const { data } = await api.post(`/companies/${companyId}/logo`, form, {
+        const { data } = await api.post(`/tenants/${tenantId}/logo`, form, {
             headers: { "Content-Type": "multipart/form-data" },
         });
         return data;
     },
 
     async updateReportSettings(
-        companyId: string,
+        tenantId: string,
         dto: UpdateReportSettingsDto
     ): Promise<void> {
-        await api.patch(`/companies/${companyId}/report-settings`, dto);
+        await api.patch(`/tenants/${tenantId}/report-settings`, dto);
     },
 };

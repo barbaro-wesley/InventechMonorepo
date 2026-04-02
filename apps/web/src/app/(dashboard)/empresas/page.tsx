@@ -23,18 +23,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 import {
-  useCompanies,
-  useCreateCompany,
-  useSuspendCompany,
-  useActivateCompany,
+  useTenants,
+  useCreateTenant,
+  useSuspendTenant,
+  useActivateTenant,
   useUpdateLicense,
-  useUploadCompanyLogo,
+  useUploadTenantLogo,
   useUpdateReportSettings,
 } from "@/hooks/companies/use-companies";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
-import type { Company } from "@/types/company";
-import type { CompanyStatus } from "@inventech/shared-types";
+import type { Tenant } from "@/types/company";
+import type { TenantStatus } from "@inventech/shared-types";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -121,7 +121,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const STATUS_FILTERS: { label: string; value: CompanyStatus | undefined }[] = [
+const STATUS_FILTERS: { label: string; value: TenantStatus | undefined }[] = [
   { label: "Todas", value: undefined },
   { label: "Ativas", value: "ACTIVE" },
   { label: "Trial", value: "TRIAL" },
@@ -199,14 +199,14 @@ function formatDate(date?: string | null) {
 // ---------------------------------------------------------------------------
 
 function CompanyCard({
-  company,
+  tenant: company,
   onSuspend,
   onActivate,
   onLicense,
   onTemplate,
   onClick,
 }: {
-  company: Company;
+  tenant: Tenant;
   onSuspend: () => void;
   onActivate: () => void;
   onLicense: () => void;
@@ -331,10 +331,10 @@ function CompanyCard({
           <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
             <span className="font-medium text-slate-700 dark:text-slate-300">
-              {company._count?.clients ?? 0}
+              {company._count?.organizations ?? 0}
             </span>
             <span className="text-slate-400 hidden sm:inline">
-              cliente{(company._count?.clients ?? 0) !== 1 ? "s" : ""}
+              organiz.
             </span>
           </div>
         </div>
@@ -386,29 +386,29 @@ export default function EmpresasPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<CompanyStatus | undefined>(
+  const [statusFilter, setStatusFilter] = useState<TenantStatus | undefined>(
     undefined
   );
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [suspendCompany, setSuspendCompany] = useState<Company | null>(null);
-  const [activateCompany, setActivateCompany] = useState<Company | null>(null);
-  const [licenseCompany, setLicenseCompany] = useState<Company | null>(null);
-  const [templateCompany, setTemplateCompany] = useState<Company | null>(null);
+  const [suspendCompany, setSuspendCompany] = useState<Tenant | null>(null);
+  const [activateCompany, setActivateCompany] = useState<Tenant | null>(null);
+  const [licenseCompany, setLicenseCompany] = useState<Tenant | null>(null);
+  const [templateCompany, setTemplateCompany] = useState<Tenant | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
-  const { data, isLoading } = useCompanies({
+  const { data, isLoading } = useTenants({
     page,
     limit: 12,
     search: search || undefined,
     status: statusFilter,
   });
 
-  const createCompany = useCreateCompany();
-  const suspendMutation = useSuspendCompany();
-  const activateMutation = useActivateCompany();
+  const createCompany = useCreateTenant();
+  const suspendMutation = useSuspendTenant();
+  const activateMutation = useActivateTenant();
   const updateLicense = useUpdateLicense(licenseCompany?.id ?? "");
-  const uploadLogo = useUploadCompanyLogo(templateCompany?.id ?? "");
+  const uploadLogo = useUploadTenantLogo(templateCompany?.id ?? "");
   const updateReportSettings = useUpdateReportSettings(templateCompany?.id ?? "");
 
   const createForm = useForm<CreateCompanyForm>({
@@ -621,7 +621,7 @@ export default function EmpresasPage() {
           {companies.map((company) => (
             <CompanyCard
               key={company.id}
-              company={company}
+              tenant={company}
               onClick={() => router.push(`/empresas/${company.id}`)}
               onSuspend={() => {
                 suspendForm.reset();

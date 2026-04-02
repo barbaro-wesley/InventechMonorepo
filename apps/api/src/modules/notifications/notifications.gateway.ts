@@ -68,11 +68,11 @@ export class NotificationsGateway
 
             // Salva o userId no socket para uso posterior
             client.data.userId = payload.sub
-            client.data.companyId = payload.companyId
+            client.data.tenantId = payload.tenantId
             client.data.role = payload.role
 
             // Entra nas rooms de company e usuário
-            client.join(`company:${payload.companyId}`)
+            client.join(`company:${payload.tenantId}`)
             client.join(`user:${payload.sub}`)
 
             // Registra o socket do usuário
@@ -137,9 +137,9 @@ export class NotificationsGateway
     }
 
     // Envia para todos os sockets de uma empresa
-    sendToCompany(companyId: string, payload: WsNotificationPayload) {
-        this.server.to(`company:${companyId}`).emit('notification', payload)
-        this.logger.debug(`WS → company:${companyId} | ${payload.event}`)
+    sendToCompany(tenantId: string, payload: WsNotificationPayload) {
+        this.server.to(`company:${tenantId}`).emit('notification', payload)
+        this.logger.debug(`WS → company:${tenantId} | ${payload.event}`)
     }
 
     // Envia atualização de status de uma OS — para todos que estão na room da OS
@@ -149,14 +149,14 @@ export class NotificationsGateway
     }
 
     // Notifica painel que uma nova OS está disponível para assumir
-    sendPanelUpdate(companyId: string, payload: WsNotificationPayload) {
-        this.server.to(`company:${companyId}`).emit('panel:updated', payload)
-        this.logger.debug(`WS → panel company:${companyId} | ${payload.event}`)
+    sendPanelUpdate(tenantId: string, payload: WsNotificationPayload) {
+        this.server.to(`company:${tenantId}`).emit('panel:updated', payload)
+        this.logger.debug(`WS → panel company:${tenantId} | ${payload.event}`)
     }
 
     // Retorna quantos usuários conectados por empresa
-    getConnectedCount(companyId: string): number {
-        const room = this.server.sockets.adapter.rooms.get(`company:${companyId}`)
+    getConnectedCount(tenantId: string): number {
+        const room = this.server.sockets.adapter.rooms.get(`company:${tenantId}`)
         return room?.size ?? 0
     }
 }

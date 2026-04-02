@@ -137,8 +137,8 @@ export default function UsuariosPage() {
     const assignCustomRole = useAssignCustomRole();
 
     // Custom roles da empresa — "" desabilita a query (SUPER_ADMIN sem empresa)
-    const effectiveCompanyId = currentUser?.companyId || "";
-    const { data: customRoles = [] } = useCustomRoles(effectiveCompanyId);
+    const effectiveTenantId = currentUser?.tenantId || "";
+    const { data: customRoles = [] } = useCustomRoles(effectiveTenantId);
     const activeCustomRoles = customRoles.filter((r) => r.isActive);
 
     // Papéis de sistema disponíveis para o usuário atual (hierarquia)

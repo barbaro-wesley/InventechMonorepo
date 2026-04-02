@@ -32,11 +32,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 import {
-  useCompany,
-  useCompanyLicense,
-  useUpdateCompany,
-  useSuspendCompany,
-  useActivateCompany,
+  useTenant,
+  useTenantLicense,
+  useUpdateTenant,
+  useSuspendTenant,
+  useActivateTenant,
   useUpdateLicense,
 } from "@/hooks/companies/use-companies";
 import {
@@ -45,14 +45,14 @@ import {
   useDeleteUser,
 } from "@/hooks/users/use-users";
 import {
-  useClients,
-  useCreateClient,
-  useDeleteClient,
+  useOrganizations,
+  useCreateOrganization,
+  useDeleteOrganization,
 } from "@/hooks/clients/use-clients";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { ROLE_LABELS } from "@/types/auth";
 import type { User } from "@/types/user";
-import type { Client } from "@/types/client";
+import type { Organization } from "@/types/client";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -323,12 +323,12 @@ function SkeletonDetail() {
 // Users Tab
 // ---------------------------------------------------------------------------
 
-function UsersTab({ companyId }: { companyId: string }) {
+function UsersTab({ tenantId: companyId }: { tenantId: string }) {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
 
-  const { data, isLoading } = useUsers({ companyId, search: search || undefined, limit: 50 });
+  const { data, isLoading } = useUsers({ tenantId: companyId, search: search || undefined, limit: 50 });
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
 
@@ -345,7 +345,7 @@ function UsersTab({ companyId }: { companyId: string }) {
         password: formData.password,
         role: formData.role,
         phone: formData.phone || undefined,
-        companyId,
+        tenantId: companyId,
       },
       {
         onSuccess: () => {
@@ -565,14 +565,14 @@ function UsersTab({ companyId }: { companyId: string }) {
 // Clients Tab
 // ---------------------------------------------------------------------------
 
-function ClientsTab({ companyId }: { companyId: string }) {
+function ClientsTab({ tenantId: companyId }: { tenantId: string }) {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Organization | null>(null);
 
-  const { data, isLoading } = useClients({ companyId, search: search || undefined, limit: 50 });
-  const createClient = useCreateClient();
-  const deleteClient = useDeleteClient();
+  const { data, isLoading } = useOrganizations({ tenantId: companyId, search: search || undefined, limit: 50 });
+  const createClient = useCreateOrganization();
+  const deleteClient = useDeleteOrganization();
 
   const createForm = useForm<CreateClientForm>({
     resolver: zodResolver(createClientSchema),
@@ -586,7 +586,7 @@ function ClientsTab({ companyId }: { companyId: string }) {
         document: formData.document || undefined,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
-        companyId,
+        tenantId: companyId,
         admin: {
           name: formData.adminName,
           email: formData.adminEmail,
@@ -846,12 +846,12 @@ export default function EmpresaDetailPage() {
   const [activateOpen, setActivateOpen] = useState(false);
   const [licenseOpen, setLicenseOpen] = useState(false);
 
-  const { data: company, isLoading, isError } = useCompany(id);
-  const { data: license, isLoading: licenseLoading } = useCompanyLicense(id);
+  const { data: company, isLoading, isError } = useTenant(id);
+  const { data: license, isLoading: licenseLoading } = useTenantLicense(id);
 
-  const updateCompany = useUpdateCompany(id);
-  const suspendMutation = useSuspendCompany();
-  const activateMutation = useActivateCompany();
+  const updateCompany = useUpdateTenant(id);
+  const suspendMutation = useSuspendTenant();
+  const activateMutation = useActivateTenant();
   const updateLicense = useUpdateLicense(id);
 
   const editForm = useForm<EditForm>({
@@ -1253,8 +1253,8 @@ export default function EmpresaDetailPage() {
         </div>
       )}
 
-      {activeTab === "users" && <UsersTab companyId={id} />}
-      {activeTab === "clients" && <ClientsTab companyId={id} />}
+      {activeTab === "users" && <UsersTab tenantId={id} />}
+      {activeTab === "clients" && <ClientsTab tenantId={id} />}
 
       {/* ── Drawer — Editar empresa ── */}
       <Drawer

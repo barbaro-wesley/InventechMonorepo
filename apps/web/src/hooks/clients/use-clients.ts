@@ -1,42 +1,42 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { clientsService } from "@/services/clients/clients.service";
+import { organizationsService } from "@/services/clients/clients.service";
 import { getErrorMessage } from "@/lib/api";
 import type {
-  CreateClientDto,
-  UpdateClientDto,
-  ListClientsParams,
+  CreateOrganizationDto,
+  UpdateOrganizationDto,
+  ListOrganizationsParams,
 } from "@inventech/shared-types";
 
-export const clientKeys = {
-  all: ["clients"] as const,
-  list: (params?: ListClientsParams) => ["clients", "list", params] as const,
-  detail: (id: string) => ["clients", "detail", id] as const,
+export const organizationKeys = {
+  all: ["organizations"] as const,
+  list: (params?: ListOrganizationsParams) => ["organizations", "list", params] as const,
+  detail: (id: string) => ["organizations", "detail", id] as const,
 };
 
-export function useClients(params?: ListClientsParams) {
+export function useOrganizations(params?: ListOrganizationsParams) {
   return useQuery({
-    queryKey: clientKeys.list(params),
-    queryFn: () => clientsService.list(params),
+    queryKey: organizationKeys.list(params),
+    queryFn: () => organizationsService.list(params),
   });
 }
 
-export function useClient(id: string) {
+export function useOrganization(id: string) {
   return useQuery({
-    queryKey: clientKeys.detail(id),
-    queryFn: () => clientsService.getById(id),
+    queryKey: organizationKeys.detail(id),
+    queryFn: () => organizationsService.getById(id),
     enabled: !!id,
   });
 }
 
-export function useCreateClient() {
+export function useCreateOrganization() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dto: CreateClientDto) => clientsService.create(dto),
+    mutationFn: (dto: CreateOrganizationDto) => organizationsService.create(dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientKeys.all });
-      toast.success("Cliente criado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+      toast.success("Organização criada com sucesso!");
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));
@@ -44,13 +44,13 @@ export function useCreateClient() {
   });
 }
 
-export function useUpdateClient(id: string) {
+export function useUpdateOrganization(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dto: UpdateClientDto) => clientsService.update(id, dto),
+    mutationFn: (dto: UpdateOrganizationDto) => organizationsService.update(id, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientKeys.all });
-      toast.success("Cliente atualizado com sucesso!");
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+      toast.success("Organização atualizada com sucesso!");
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));
@@ -58,13 +58,13 @@ export function useUpdateClient(id: string) {
   });
 }
 
-export function useDeleteClient() {
+export function useDeleteOrganization() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => clientsService.delete(id),
+    mutationFn: (id: string) => organizationsService.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientKeys.all });
-      toast.success("Cliente removido com sucesso!");
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+      toast.success("Organização removida com sucesso!");
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));
@@ -72,13 +72,13 @@ export function useDeleteClient() {
   });
 }
 
-export function useUploadClientLogo(clientId: string) {
+export function useUploadOrganizationLogo(organizationId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (file: File) => clientsService.uploadLogo(clientId, file),
+    mutationFn: (file: File) => organizationsService.uploadLogo(organizationId, file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: clientKeys.all });
-      toast.success("Logo do cliente atualizado!");
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all });
+      toast.success("Logo da organização atualizado!");
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));

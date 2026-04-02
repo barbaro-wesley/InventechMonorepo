@@ -1,8 +1,8 @@
-export const CompanyStatus = {
+export const TenantStatus = {
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
   SUSPENDED: 'SUSPENDED',
   TRIAL: 'TRIAL',
   EXPIRED: 'EXPIRED',
 } as const;
-export type CompanyStatus = (typeof CompanyStatus)[keyof typeof CompanyStatus];
+export type TenantStatus = (typeof TenantStatus)[keyof typeof TenantStatus];

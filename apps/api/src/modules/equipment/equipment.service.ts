@@ -11,8 +11,8 @@ import { StorageService } from '../storage/storage.service'
 
 const EQUIPMENT_SELECT = {
     id: true,
-    companyId: true,
-    clientId: true,
+    tenantId: true,
+    organizationId: true,
     name: true,
     brand: true,
     model: true,
@@ -55,15 +55,15 @@ export class EquipmentService {
     ) { }
 
     async findAll(
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         filters: ListEquipmentsDto,
     ) {
         const { search, status, criticality, typeId, locationId, costCenterId, page = 1, limit = 20 } = filters
 
         const where: Prisma.EquipmentWhereInput = {
-            clientId,
-            companyId,
+            organizationId,
+            tenantId,
             deletedAt: null,
             ...(status && { status }),
             ...(criticality && { criticality }),
@@ -95,9 +95,9 @@ export class EquipmentService {
         return { data, total, page, limit }
     }
 
-    async findOne(id: string, clientId: string, companyId: string) {
+    async findOne(id: string, organizationId: string, tenantId: string) {
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: { id, organizationId, tenantId, deletedAt: null },
             select: EQUIPMENT_SELECT,
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
@@ -106,15 +106,15 @@ export class EquipmentService {
 
     async create(
         dto: CreateEquipmentDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
         files: Express.Multer.File[] = [],
     ) {
         // Valida número de série único no cliente
         if (dto.serialNumber) {
             const exists = await this.prisma.equipment.findFirst({
-                where: { serialNumber: dto.serialNumber, clientId, deletedAt: null },
+                where: { serialNumber: dto.serialNumber, organizationId, deletedAt: null },
                 select: { id: true },
             })
             if (exists) {
@@ -125,7 +125,7 @@ export class EquipmentService {
         // Valida patrimônio único no cliente
         if (dto.patrimonyNumber) {
             const exists = await this.prisma.equipment.findFirst({
-                where: { patrimonyNumber: dto.patrimonyNumber, clientId, deletedAt: null },
+                where: { patrimonyNumber: dto.patrimonyNumber, organizationId, deletedAt: null },
                 select: { id: true },
             })
             if (exists) {
@@ -138,8 +138,8 @@ export class EquipmentService {
 
         const equipment = await this.prisma.equipment.create({
             data: {
-                companyId,
-                clientId,
+                tenantId,
+                organizationId,
                 name: dto.name,
                 brand: dto.brand,
                 model: dto.model,
@@ -176,8 +176,8 @@ export class EquipmentService {
                     this.storageService.upload(
                         file,
                         { entity: AttachmentEntity.EQUIPMENT, entityId: equipment.id },
-                        companyId,
-                        clientId,
+                        tenantId,
+                        organizationId,
                         currentUser,
                     ),
                 ),
@@ -190,11 +190,11 @@ export class EquipmentService {
     async update(
         id: string,
         dto: UpdateEquipmentDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
         const existing = await this.prisma.equipment.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: { id, organizationId, tenantId, deletedAt: null },
             select: { id: true, serialNumber: true, patrimonyNumber: true },
         })
         if (!existing) throw new NotFoundException('Equipamento não encontrado')
@@ -202,7 +202,7 @@ export class EquipmentService {
         // Valida número de série único se mudando
         if (dto.serialNumber && dto.serialNumber !== existing.serialNumber) {
             const conflict = await this.prisma.equipment.findFirst({
-                where: { serialNumber: dto.serialNumber, clientId, deletedAt: null, id: { not: id } },
+                where: { serialNumber: dto.serialNumber, organizationId, deletedAt: null, id: { not: id } },
                 select: { id: true },
             })
             if (conflict) throw new ConflictException('Número de série já em uso neste cliente')
@@ -242,9 +242,9 @@ export class EquipmentService {
         })
     }
 
-    async remove(id: string, clientId: string, companyId: string) {
+    async remove(id: string, organizationId: string, tenantId: string) {
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: { id, organizationId, tenantId, deletedAt: null },
             select: {
                 id: true, name: true,
                 _count: { select: { serviceOrders: true } },
@@ -268,9 +268,9 @@ export class EquipmentService {
 
     // ── Cálculo de depreciação ─────────────────────────
     // Depreciação linear: valor_atual = valor_compra * (1 - taxa * anos)
-    async recalculateDepreciation(id: string, clientId: string, companyId: string) {
+    async recalculateDepreciation(id: string, organizationId: string, tenantId: string) {
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: { id, organizationId, tenantId, deletedAt: null },
             select: {
                 id: true,
                 purchaseValue: true,

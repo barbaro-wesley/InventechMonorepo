@@ -11,16 +11,16 @@ export interface AuthUser {
   avatarUrl?: string | null;
   phone?: string | null;
   telegramChatId?: string | null;
-  companyId?: string | null;
-  clientId?: string | null;
+  tenantId?: string | null;
+  organizationId?: string | null;
   customRoleId?: string | null;
-  company?: {
+  tenant?: {
     id: string;
     name: string;
     slug: string;
     logoUrl?: string | null;
   } | null;
-  client?: {
+  organization?: {
     id: string;
     name: string;
     logoUrl?: string | null;

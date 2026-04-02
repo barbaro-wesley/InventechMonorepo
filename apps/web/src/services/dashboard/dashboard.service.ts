@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface PlatformDashboard {
-  companyMetrics: {
+  tenantMetrics: {
     total: number;
     byStatus: { active: number; trial: number; suspended: number; inactive: number };
   };
@@ -13,7 +13,7 @@ export interface PlatformDashboard {
     unverified: number;
     blocked: number;
   };
-  clientMetrics: {
+  organizationMetrics: {
     total: number;
     active: number;
   };
@@ -33,13 +33,13 @@ export interface PlatformDashboard {
     trialEndsAt: string | null;
     _count: { users: number };
   }>;
-  recentCompanies: Array<{
+  recentTenants: Array<{
     id: string;
     name: string;
     slug: string;
     status: string;
     createdAt: string;
-    _count: { users: number; clients: number };
+    _count: { users: number; organizations: number };
   }>;
   generatedAt: string;
 }
@@ -100,7 +100,7 @@ export const dashboardService = {
     return data;
   },
 
-  async getCompany(): Promise<CompanyDashboard> {
+  async getTenant(): Promise<CompanyDashboard> {
     const { data } = await api.get("/dashboard");
     return data;
   },

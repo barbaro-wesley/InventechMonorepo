@@ -27,11 +27,11 @@ export class CreateUserDto {
   // com base no usuário logado quando não informado
   @IsOptional()
   @IsUUID()
-  companyId?: string
+  tenantId?: string
 
   @IsOptional()
   @IsUUID()
-  clientId?: string
+  organizationId?: string
 
   @IsOptional()
   @IsString()

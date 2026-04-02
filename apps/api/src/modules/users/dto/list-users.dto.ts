@@ -17,11 +17,11 @@ export class ListUsersDto {
 
   @IsOptional()
   @IsUUID()
-  clientId?: string
+  organizationId?: string
 
   @IsOptional()
   @IsUUID()
-  companyId?: string  // Usado pelo SUPER_ADMIN para filtrar por empresa
+  tenantId?: string  // Usado pelo SUPER_ADMIN para filtrar por empresa
 
   @IsOptional()
   @Type(() => Number)

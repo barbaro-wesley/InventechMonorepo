@@ -3,7 +3,7 @@ import {
   BadRequestException, ForbiddenException,
 } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
-import { CompanyStatus, UserStatus } from '@prisma/client'
+import { TenantStatus, UserStatus } from '@prisma/client'
 import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { PrismaService } from '../../prisma/prisma.service'
@@ -39,20 +39,20 @@ export class LicenseService {
   // ─────────────────────────────────────────
   // Suspender empresa manualmente
   // ─────────────────────────────────────────
-  async suspend(companyId: string, reason: string, adminId: string) {
-    const company = await this.findCompany(companyId)
+  async suspend(tenantId: string, reason: string, adminId: string) {
+    const company = await this.findCompany(tenantId)
 
-    if (company.status === CompanyStatus.SUSPENDED) {
+    if (company.status === TenantStatus.SUSPENDED) {
       throw new BadRequestException('Empresa já está suspensa')
     }
 
     const now = new Date()
 
     // Suspende a empresa
-    await this.prisma.company.update({
-      where: { id: companyId },
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
       data: {
-        status: CompanyStatus.SUSPENDED,
+        status: TenantStatus.SUSPENDED,
         suspendedAt: now,
         suspendedReason: reason,
         suspendedBy: adminId,
@@ -64,7 +64,7 @@ export class LicenseService {
     const updateResult = await this.prisma.$executeRaw`
       UPDATE users
       SET status = 'SUSPENDED', updated_at = NOW()
-      WHERE company_id = ${companyId}
+      WHERE company_id = ${tenantId}
         AND status IN ('ACTIVE', 'UNVERIFIED')
         AND deleted_at IS NULL
     `
@@ -74,7 +74,7 @@ export class LicenseService {
       UPDATE refresh_tokens
       SET revoked_at = NOW()
       WHERE user_id IN (
-        SELECT id FROM users WHERE company_id = ${companyId}
+        SELECT id FROM users WHERE company_id = ${tenantId}
       )
       AND revoked_at IS NULL
     `
@@ -82,7 +82,7 @@ export class LicenseService {
     const result = updateResult
 
     this.logger.warn(
-      `Empresa suspensa: ${company.name} (${companyId}) | ` +
+      `Empresa suspensa: ${company.name} (${tenantId}) | ` +
       `${result} usuário(s) bloqueados | Motivo: ${reason} | Admin: ${adminId}`
     )
 
@@ -96,18 +96,18 @@ export class LicenseService {
   // ─────────────────────────────────────────
   // Reativar empresa
   // ─────────────────────────────────────────
-  async activate(companyId: string, adminId: string) {
-    const company = await this.findCompany(companyId)
+  async activate(tenantId: string, adminId: string) {
+    const company = await this.findCompany(tenantId)
 
-    if (company.status === CompanyStatus.ACTIVE) {
+    if (company.status === TenantStatus.ACTIVE) {
       throw new BadRequestException('Empresa já está ativa')
     }
 
     // Reativa a empresa
-    await this.prisma.company.update({
-      where: { id: companyId },
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
       data: {
-        status: CompanyStatus.ACTIVE,
+        status: TenantStatus.ACTIVE,
         suspendedAt: null,
         suspendedReason: null,
         suspendedBy: null,
@@ -118,13 +118,13 @@ export class LicenseService {
     const result = await this.prisma.$executeRaw`
       UPDATE users
       SET status = 'ACTIVE', updated_at = NOW()
-      WHERE company_id = ${companyId}
+      WHERE company_id = ${tenantId}
         AND status = 'SUSPENDED'
         AND deleted_at IS NULL
     `
 
     this.logger.log(
-      `Empresa reativada: ${company.name} (${companyId}) | ` +
+      `Empresa reativada: ${company.name} (${tenantId}) | ` +
       `${result} usuário(s) reativados | Admin: ${adminId}`
     )
 
@@ -137,24 +137,24 @@ export class LicenseService {
   // ─────────────────────────────────────────
   // Definir/renovar licença
   // ─────────────────────────────────────────
-  async setLicense(companyId: string, dto: SetLicenseDto, adminId: string) {
-    const company = await this.findCompany(companyId)
+  async setLicense(tenantId: string, dto: SetLicenseDto, adminId: string) {
+    const company = await this.findCompany(tenantId)
     const expiresAt = new Date(dto.expiresAt)
 
     if (expiresAt <= new Date()) {
       throw new BadRequestException('A data de vencimento deve ser futura')
     }
 
-    await this.prisma.company.update({
-      where: { id: companyId },
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
       data: {
         licenseExpiresAt: expiresAt,
         // Se estava suspensa por licença vencida, reativa automaticamente
-        status: company.status === CompanyStatus.SUSPENDED
-          ? CompanyStatus.ACTIVE
+        status: company.status === TenantStatus.SUSPENDED
+          ? TenantStatus.ACTIVE
           : company.status,
-        suspendedAt: company.status === CompanyStatus.SUSPENDED ? null : company.suspendedAt,
-        suspendedReason: company.status === CompanyStatus.SUSPENDED ? null : company.suspendedReason,
+        suspendedAt: company.status === TenantStatus.SUSPENDED ? null : company.suspendedAt,
+        suspendedReason: company.status === TenantStatus.SUSPENDED ? null : company.suspendedReason,
       },
     })
 
@@ -168,14 +168,14 @@ export class LicenseService {
   // ─────────────────────────────────────────
   // Configurar período de trial
   // ─────────────────────────────────────────
-  async setTrial(companyId: string, dto: SetTrialDto, adminId: string) {
-    const company = await this.findCompany(companyId)
+  async setTrial(tenantId: string, dto: SetTrialDto, adminId: string) {
+    const company = await this.findCompany(tenantId)
     const trialEndsAt = new Date(dto.trialEndsAt)
 
-    await this.prisma.company.update({
-      where: { id: companyId },
+    await this.prisma.tenant.update({
+      where: { id: tenantId },
       data: {
-        status: CompanyStatus.TRIAL,
+        status: TenantStatus.TRIAL,
         trialEndsAt,
       },
     })
@@ -190,9 +190,9 @@ export class LicenseService {
   // ─────────────────────────────────────────
   // Status detalhado da licença
   // ─────────────────────────────────────────
-  async getLicenseStatus(companyId: string) {
-    const company = await this.prisma.company.findUnique({
-      where: { id: companyId },
+  async getLicenseStatus(tenantId: string) {
+    const company = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
       select: {
         id: true,
         name: true,
@@ -205,7 +205,7 @@ export class LicenseService {
         _count: {
           select: {
             users: true,
-            clients: true,
+            organizations: true,
           },
         },
       },
@@ -215,7 +215,7 @@ export class LicenseService {
 
     const now = new Date()
     const isLicenseExpired = company.licenseExpiresAt && company.licenseExpiresAt < now
-    const isTrialExpired = company.status === CompanyStatus.TRIAL && company.trialEndsAt && company.trialEndsAt < now
+    const isTrialExpired = company.status === TenantStatus.TRIAL && company.trialEndsAt && company.trialEndsAt < now
     const daysUntilExpiry = company.licenseExpiresAt
       ? Math.ceil((company.licenseExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : null
@@ -224,9 +224,9 @@ export class LicenseService {
       id: company.id,
       name: company.name,
       status: company.status,
-      isActive: company.status === CompanyStatus.ACTIVE,
-      isSuspended: company.status === CompanyStatus.SUSPENDED,
-      isTrial: company.status === CompanyStatus.TRIAL,
+      isActive: company.status === TenantStatus.ACTIVE,
+      isSuspended: company.status === TenantStatus.SUSPENDED,
+      isTrial: company.status === TenantStatus.TRIAL,
       isLicenseExpired,
       isTrialExpired,
       licenseExpiresAt: company.licenseExpiresAt,
@@ -237,7 +237,7 @@ export class LicenseService {
       suspendedAt: company.suspendedAt,
       suspendedReason: company.suspendedReason,
       users: company._count.users,
-      clients: company._count.clients,
+      organizations: company._count.organizations,
     }
   }
 
@@ -256,7 +256,7 @@ export class LicenseService {
       where.licenseExpiresAt = { gt: now, lte: limit }
     }
 
-    const companies = await this.prisma.company.findMany({
+    const tenants = await this.prisma.tenant.findMany({
       where,
       select: {
         id: true,
@@ -267,12 +267,12 @@ export class LicenseService {
         trialEndsAt: true,
         suspendedAt: true,
         suspendedReason: true,
-        _count: { select: { users: true, clients: true } },
+        _count: { select: { users: true, organizations: true } },
       },
       orderBy: { name: 'asc' },
     })
 
-    return companies.map((c) => {
+    return tenants.map((c) => {
       const daysUntilExpiry = c.licenseExpiresAt
         ? Math.ceil((c.licenseExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
         : null
@@ -297,9 +297,9 @@ export class LicenseService {
     this.logger.log('Verificando licenças/trials vencidos...')
 
     // Busca empresas ativas com licença vencida
-    const expiredLicense = await this.prisma.company.findMany({
+    const expiredLicense = await this.prisma.tenant.findMany({
       where: {
-        status: CompanyStatus.ACTIVE,
+        status: TenantStatus.ACTIVE,
         licenseExpiresAt: { lt: now },
         deletedAt: null,
       },
@@ -307,9 +307,9 @@ export class LicenseService {
     })
 
     // Busca trials vencidos
-    const expiredTrial = await this.prisma.company.findMany({
+    const expiredTrial = await this.prisma.tenant.findMany({
       where: {
-        status: CompanyStatus.TRIAL,
+        status: TenantStatus.TRIAL,
         trialEndsAt: { lt: now },
         deletedAt: null,
       },
@@ -328,10 +328,10 @@ export class LicenseService {
 
     for (const company of toSuspend) {
       await this.prisma.$transaction(async (tx) => {
-        await tx.company.update({
+        await tx.tenant.update({
           where: { id: company.id },
           data: {
-            status: CompanyStatus.SUSPENDED,
+            status: TenantStatus.SUSPENDED,
             suspendedAt: now,
             suspendedReason: company.reason,
             suspendedBy: 'SYSTEM_AUTO',
@@ -364,7 +364,7 @@ export class LicenseService {
   // Helper
   // ─────────────────────────────────────────
   private async findCompany(id: string) {
-    const company = await this.prisma.company.findUnique({
+    const company = await this.prisma.tenant.findUnique({
       where: { id },
       select: {
         id: true, name: true, status: true,

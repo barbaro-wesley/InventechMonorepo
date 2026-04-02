@@ -1,49 +1,49 @@
 import { api } from "@/lib/api";
 import type {
-  Client,
-  CreateClientDto,
-  UpdateClientDto,
-  ListClientsParams,
+  Organization,
+  CreateOrganizationDto,
+  UpdateOrganizationDto,
+  ListOrganizationsParams,
 } from "@/types/client";
 import type { PaginatedResponse } from "@/types/user";
 
-export interface CreateClientResponse {
-  client: Client;
+export interface CreateOrganizationResponse {
+  organization: Organization;
   admin: { id: string; name: string; email: string; role: string };
 }
 
-export const clientsService = {
-  async list(params?: ListClientsParams): Promise<PaginatedResponse<Client>> {
-    const { data } = await api.get("/clients", { params });
+export const organizationsService = {
+  async list(params?: ListOrganizationsParams): Promise<PaginatedResponse<Organization>> {
+    const { data } = await api.get("/organizations", { params });
     return data;
   },
 
-  async getById(id: string): Promise<Client> {
-    const { data } = await api.get(`/clients/${id}`);
+  async getById(id: string): Promise<Organization> {
+    const { data } = await api.get(`/organizations/${id}`);
     return data;
   },
 
-  async create(dto: CreateClientDto): Promise<CreateClientResponse> {
-    const { data } = await api.post("/clients", dto);
+  async create(dto: CreateOrganizationDto): Promise<CreateOrganizationResponse> {
+    const { data } = await api.post("/organizations", dto);
     return data;
   },
 
-  async update(id: string, dto: UpdateClientDto): Promise<Client> {
-    const { data } = await api.patch(`/clients/${id}`, dto);
+  async update(id: string, dto: UpdateOrganizationDto): Promise<Organization> {
+    const { data } = await api.patch(`/organizations/${id}`, dto);
     return data;
   },
 
   async delete(id: string): Promise<void> {
-    await api.delete(`/clients/${id}`);
+    await api.delete(`/organizations/${id}`);
   },
 
   async uploadLogo(
-    clientId: string,
+    organizationId: string,
     file: File
   ): Promise<{ logoUrl: string }> {
     const form = new FormData();
     form.append("logo", file);
-    const { data } = await api.post(`/clients/${clientId}/logo`, form, {
+    const { data } = await api.post(`/organizations/${organizationId}/logo`, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
     return data;

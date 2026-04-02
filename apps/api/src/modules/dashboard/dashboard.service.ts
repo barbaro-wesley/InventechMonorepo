@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { ServiceOrderStatus, ServiceOrderPriority, CompanyStatus } from '@prisma/client'
+import { ServiceOrderStatus, ServiceOrderPriority, TenantStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 
 @Injectable()
@@ -9,7 +9,7 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // Dashboard principal — tudo em paralelo
     // ─────────────────────────────────────────
-    async getCompanyDashboard(companyId: string) {
+    async getCompanyDashboard(tenantId: string) {
         const [
             osMetrics,
             osTimeline,
@@ -18,12 +18,12 @@ export class DashboardService {
             groupMetrics,
             alerts,
         ] = await Promise.all([
-            this.getOsMetrics(companyId),
-            this.getOsTimeline(companyId),
-            this.getTopTechnicians(companyId),
-            this.getEquipmentMetrics(companyId),
-            this.getGroupMetrics(companyId),
-            this.getAlerts(companyId),
+            this.getOsMetrics(tenantId),
+            this.getOsTimeline(tenantId),
+            this.getTopTechnicians(tenantId),
+            this.getEquipmentMetrics(tenantId),
+            this.getGroupMetrics(tenantId),
+            this.getAlerts(tenantId),
         ])
 
         return {
@@ -40,11 +40,11 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // Dashboard do cliente — visão restrita
     // ─────────────────────────────────────────
-    async getClientDashboard(companyId: string, clientId: string) {
+    async getClientDashboard(tenantId: string, organizationId: string) {
         const [osMetrics, equipmentMetrics, recentOs] = await Promise.all([
-            this.getOsMetrics(companyId, clientId),
-            this.getEquipmentMetrics(companyId, clientId),
-            this.getRecentOs(companyId, clientId),
+            this.getOsMetrics(tenantId, organizationId),
+            this.getEquipmentMetrics(tenantId, organizationId),
+            this.getRecentOs(tenantId, organizationId),
         ])
 
         return {
@@ -58,8 +58,8 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // Contadores de OS por status
     // ─────────────────────────────────────────
-    private async getOsMetrics(companyId: string, clientId?: string) {
-        const where = { companyId, ...(clientId && { clientId }), deletedAt: null }
+    private async getOsMetrics(tenantId: string, organizationId?: string) {
+        const where = { tenantId, ...(organizationId && { organizationId }), deletedAt: null }
 
         const [
             total,
@@ -86,8 +86,8 @@ export class DashboardService {
             this.prisma.$queryRaw<[{ avg_hours: number }]>`
         SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1) as avg_hours
         FROM service_orders
-        WHERE company_id = ${companyId}
-          ${clientId ? this.prisma.$queryRaw`AND client_id = ${clientId}` : this.prisma.$queryRaw``}
+        WHERE company_id = ${tenantId}
+          ${organizationId ? this.prisma.$queryRaw`AND client_id = ${organizationId}` : this.prisma.$queryRaw``}
           AND status IN ('COMPLETED', 'COMPLETED_APPROVED')
           AND completed_at IS NOT NULL
           AND created_at >= NOW() - INTERVAL '30 days'
@@ -117,7 +117,7 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // OS criadas por dia — últimos 30 dias
     // ─────────────────────────────────────────
-    private async getOsTimeline(companyId: string) {
+    private async getOsTimeline(tenantId: string) {
         const result = await this.prisma.$queryRaw<
             Array<{ date: string; total: number; completed: number }>
         >`
@@ -126,7 +126,7 @@ export class DashboardService {
         COUNT(*)::int as total,
         COUNT(*) FILTER (WHERE status IN ('COMPLETED', 'COMPLETED_APPROVED'))::int as completed
       FROM service_orders
-      WHERE company_id = ${companyId}
+      WHERE company_id = ${tenantId}
         AND created_at >= NOW() - INTERVAL '30 days'
         AND deleted_at IS NULL
       GROUP BY DATE_TRUNC('day', created_at)
@@ -139,7 +139,7 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // Top 5 técnicos por OS concluídas (30 dias)
     // ─────────────────────────────────────────
-    private async getTopTechnicians(companyId: string) {
+    private async getTopTechnicians(tenantId: string) {
         const result = await this.prisma.$queryRaw<
             Array<{
                 technician_id: string
@@ -163,7 +163,7 @@ export class DashboardService {
       FROM service_order_technicians sot
       JOIN users u ON u.id = sot.technician_id
       JOIN service_orders so ON so.id = sot.service_order_id
-      WHERE so.company_id = ${companyId}
+      WHERE so.company_id = ${tenantId}
         AND so.created_at >= NOW() - INTERVAL '30 days'
         AND so.deleted_at IS NULL
       GROUP BY u.id, u.name
@@ -177,8 +177,8 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // Métricas de equipamentos
     // ─────────────────────────────────────────
-    private async getEquipmentMetrics(companyId: string, clientId?: string) {
-        const where = { companyId, ...(clientId && { clientId }), deletedAt: null }
+    private async getEquipmentMetrics(tenantId: string, organizationId?: string) {
+        const where = { tenantId, ...(organizationId && { organizationId }), deletedAt: null }
 
         const [total, active, underMaintenance, inactive, scrapped, critical] =
             await Promise.all([
@@ -203,7 +203,7 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // OS por grupo de manutenção
     // ─────────────────────────────────────────
-    private async getGroupMetrics(companyId: string) {
+    private async getGroupMetrics(tenantId: string) {
         const result = await this.prisma.$queryRaw<
             Array<{
                 group_id: string
@@ -230,7 +230,7 @@ export class DashboardService {
         ON so.group_id = mg.id
         AND so.deleted_at IS NULL
         AND so.created_at >= NOW() - INTERVAL '30 days'
-      WHERE mg.company_id = ${companyId}
+      WHERE mg.company_id = ${tenantId}
         AND mg.is_active = true
       GROUP BY mg.id, mg.name, mg.color
       ORDER BY total_os DESC
@@ -242,13 +242,13 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // Alertas ativos
     // ─────────────────────────────────────────
-    private async getAlerts(companyId: string) {
+    private async getAlerts(tenantId: string) {
         const [unassignedOs, overdueAlerts, equipmentUnderMaintenance, warrantyExpiring] =
             await Promise.all([
                 // OS no painel sem técnico
                 this.prisma.serviceOrder.count({
                     where: {
-                        companyId,
+                        tenantId,
                         isAvailable: true,
                         status: ServiceOrderStatus.AWAITING_PICKUP,
                         deletedAt: null,
@@ -257,7 +257,7 @@ export class DashboardService {
                 // OS com alerta de atraso já enviado
                 this.prisma.serviceOrder.count({
                     where: {
-                        companyId,
+                        tenantId,
                         alertSentAt: { not: null },
                         isAvailable: true,
                         deletedAt: null,
@@ -265,12 +265,12 @@ export class DashboardService {
                 }),
                 // Equipamentos em manutenção
                 this.prisma.equipment.count({
-                    where: { companyId, status: 'UNDER_MAINTENANCE', deletedAt: null },
+                    where: { tenantId, status: 'UNDER_MAINTENANCE', deletedAt: null },
                 }),
                 // Equipamentos com garantia vencendo em 30 dias
                 this.prisma.equipment.count({
                     where: {
-                        companyId,
+                        tenantId,
                         deletedAt: null,
                         warrantyEnd: {
                             gte: new Date(),
@@ -312,24 +312,24 @@ export class DashboardService {
         ])
 
         return {
-            companyMetrics,
+            tenantMetrics: companyMetrics,
             userMetrics,
-            clientMetrics,
+            organizationMetrics: clientMetrics,
             equipmentTotal,
             osMetrics,
             licenseAlerts,
-            recentCompanies,
+            recentTenants: recentCompanies,
             generatedAt: new Date().toISOString(),
         }
     }
 
     private async getPlatformCompanyMetrics() {
         const [total, active, trial, suspended, inactive] = await Promise.all([
-            this.prisma.company.count({ where: { deletedAt: null } }),
-            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.ACTIVE } }),
-            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.TRIAL } }),
-            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.SUSPENDED } }),
-            this.prisma.company.count({ where: { deletedAt: null, status: CompanyStatus.INACTIVE } }),
+            this.prisma.tenant.count({ where: { deletedAt: null } }),
+            this.prisma.tenant.count({ where: { deletedAt: null, status: TenantStatus.ACTIVE } }),
+            this.prisma.tenant.count({ where: { deletedAt: null, status: TenantStatus.TRIAL } }),
+            this.prisma.tenant.count({ where: { deletedAt: null, status: TenantStatus.SUSPENDED } }),
+            this.prisma.tenant.count({ where: { deletedAt: null, status: TenantStatus.INACTIVE } }),
         ])
         return { total, byStatus: { active, trial, suspended, inactive } }
     }
@@ -346,8 +346,8 @@ export class DashboardService {
 
     private async getPlatformClientMetrics() {
         const [total, active] = await Promise.all([
-            this.prisma.client.count({ where: { deletedAt: null } }),
-            this.prisma.client.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
+            this.prisma.organization.count({ where: { deletedAt: null } }),
+            this.prisma.organization.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
         ])
         return { total, active }
     }
@@ -371,10 +371,10 @@ export class DashboardService {
     private async getExpiringLicenses() {
         const now = new Date()
         const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        return this.prisma.company.findMany({
+        return this.prisma.tenant.findMany({
             where: {
                 deletedAt: null,
-                status: { in: [CompanyStatus.ACTIVE, CompanyStatus.TRIAL] },
+                status: { in: [TenantStatus.ACTIVE, TenantStatus.TRIAL] },
                 trialEndsAt: { gte: now, lte: in30Days },
             },
             select: {
@@ -391,7 +391,7 @@ export class DashboardService {
     }
 
     private async getRecentCompanies() {
-        return this.prisma.company.findMany({
+        return this.prisma.tenant.findMany({
             where: { deletedAt: null },
             select: {
                 id: true,
@@ -399,7 +399,7 @@ export class DashboardService {
                 slug: true,
                 status: true,
                 createdAt: true,
-                _count: { select: { users: true, clients: true } },
+                _count: { select: { users: true, organizations: true } },
             },
             orderBy: { createdAt: 'desc' },
             take: 5,
@@ -409,9 +409,9 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // OS recentes — para visão do cliente
     // ─────────────────────────────────────────
-    private async getRecentOs(companyId: string, clientId: string) {
+    private async getRecentOs(tenantId: string, organizationId: string) {
         return this.prisma.serviceOrder.findMany({
-            where: { companyId, clientId, deletedAt: null },
+            where: { tenantId, organizationId, deletedAt: null },
             select: {
                 id: true,
                 number: true,

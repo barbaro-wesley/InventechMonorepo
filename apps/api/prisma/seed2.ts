@@ -45,7 +45,7 @@ async function main() {
     // 3. COMPANY — Aria Engenharia
     // ─────────────────────────────────────────────────────────────────────────
     console.log('🏢 Criando Company — Aria Engenharia...')
-    const company = await prisma.company.upsert({
+    const company = await prisma.tenant.upsert({
         where: { slug: 'aria-engenharia' },
         update: {},
         create: {
@@ -74,7 +74,7 @@ async function main() {
             role: UserRole.COMPANY_ADMIN,
             status: UserStatus.ACTIVE,
             phone: '(51) 99999-0001',
-            companyId: company.id,
+            tenantId: company.id,
         },
     })
 
@@ -88,7 +88,7 @@ async function main() {
             role: UserRole.COMPANY_MANAGER,
             status: UserStatus.ACTIVE,
             phone: '(51) 99999-0002',
-            companyId: company.id,
+            tenantId: company.id,
         },
     })
 
@@ -102,7 +102,7 @@ async function main() {
             role: UserRole.TECHNICIAN,
             status: UserStatus.ACTIVE,
             phone: '(51) 99999-0003',
-            companyId: company.id,
+            tenantId: company.id,
         },
     })
 
@@ -116,7 +116,7 @@ async function main() {
             role: UserRole.TECHNICIAN,
             status: UserStatus.ACTIVE,
             phone: '(51) 99999-0004',
-            companyId: company.id,
+            tenantId: company.id,
         },
     })
 
@@ -130,7 +130,7 @@ async function main() {
             role: UserRole.TECHNICIAN,
             status: UserStatus.ACTIVE,
             phone: '(51) 99999-0005',
-            companyId: company.id,
+            tenantId: company.id,
         },
     })
 
@@ -140,10 +140,10 @@ async function main() {
     console.log('🏷️  Criando grupos de manutenção...')
 
     const grupoEletrica = await prisma.maintenanceGroup.upsert({
-        where: { companyId_name: { companyId: company.id, name: 'Elétrica' } },
+        where: { tenantId_name: { tenantId: company.id, name: 'Elétrica' } },
         update: {},
         create: {
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Elétrica',
             description: 'Manutenção de sistemas elétricos e painéis',
             color: '#F59E0B',
@@ -152,10 +152,10 @@ async function main() {
     })
 
     const grupoHidraulica = await prisma.maintenanceGroup.upsert({
-        where: { companyId_name: { companyId: company.id, name: 'Hidráulica' } },
+        where: { tenantId_name: { tenantId: company.id, name: 'Hidráulica' } },
         update: {},
         create: {
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Hidráulica',
             description: 'Tubulações, bombas e sistemas hidráulicos',
             color: '#3B82F6',
@@ -164,10 +164,10 @@ async function main() {
     })
 
     const grupoPredial = await prisma.maintenanceGroup.upsert({
-        where: { companyId_name: { companyId: company.id, name: 'Predial' } },
+        where: { tenantId_name: { tenantId: company.id, name: 'Predial' } },
         update: {},
         create: {
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Predial',
             description: 'Estruturas, alvenaria e acabamentos',
             color: '#10B981',
@@ -200,12 +200,12 @@ async function main() {
     // ─────────────────────────────────────────────────────────────────────────
     console.log('🏥 Criando clientes...')
 
-    const clienteHospital = await prisma.client.upsert({
+    const clienteHospital = await prisma.organization.upsert({
         where: { id: '00000000-0000-0000-0000-000000000010' },
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000010',
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Hospital São Lucas',
             document: '98.765.432/0001-11',
             email: 'manutencao@saolucas.com.br',
@@ -222,12 +222,12 @@ async function main() {
         },
     })
 
-    const clienteEscola = await prisma.client.upsert({
+    const clienteEscola = await prisma.organization.upsert({
         where: { id: '00000000-0000-0000-0000-000000000011' },
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000011',
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Colégio Estadual Júlio de Castilhos',
             document: '87.654.321/0001-22',
             email: 'direcao@juliodecastilhos.edu.br',
@@ -259,8 +259,8 @@ async function main() {
             role: UserRole.CLIENT_ADMIN,
             status: UserStatus.ACTIVE,
             phone: '(51) 99999-0010',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
         },
     })
 
@@ -274,8 +274,8 @@ async function main() {
             role: UserRole.CLIENT_USER,
             status: UserStatus.ACTIVE,
             phone: '(51) 99999-0011',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
         },
     })
 
@@ -285,11 +285,11 @@ async function main() {
     console.log('📍 Criando centros de custo e localizações...')
 
     const ccManutencao = await prisma.costCenter.upsert({
-        where: { clientId_code: { clientId: clienteHospital.id, code: 'CC-001' } },
+        where: { organizationId_code: { organizationId: clienteHospital.id, code: 'CC-001' } },
         update: {},
         create: {
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             name: 'Manutenção Geral',
             code: 'CC-001',
             description: 'Centro de custo para manutenções prediais',
@@ -298,11 +298,11 @@ async function main() {
     })
 
     const ccTI = await prisma.costCenter.upsert({
-        where: { clientId_code: { clientId: clienteHospital.id, code: 'CC-002' } },
+        where: { organizationId_code: { organizationId: clienteHospital.id, code: 'CC-002' } },
         update: {},
         create: {
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             name: 'Tecnologia da Informação',
             code: 'CC-002',
             isActive: true,
@@ -314,8 +314,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000020',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             name: 'UTI Adulto — 2º andar',
             description: 'Unidade de Terapia Intensiva',
             isActive: true,
@@ -327,8 +327,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000021',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             name: 'CME — Subsolo',
             description: 'Central de Material e Esterilização',
             isActive: true,
@@ -340,8 +340,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000022',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             name: 'Emergência — Térreo',
             description: 'Pronto-atendimento e triagem',
             isActive: true,
@@ -358,7 +358,7 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000030',
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Equipamento Hospitalar',
             description: 'Equipamentos médicos e hospitalares',
             isActive: true,
@@ -370,7 +370,7 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000031',
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Infraestrutura',
             description: 'Equipamentos de infraestrutura predial',
             isActive: true,
@@ -383,7 +383,7 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000032',
             typeId: tipoHospitalar.id,
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Monitor Multiparâmetros',
             isActive: true,
         },
@@ -395,7 +395,7 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000033',
             typeId: tipoInfra.id,
-            companyId: company.id,
+            tenantId: company.id,
             name: 'Ar Condicionado',
             isActive: true,
         },
@@ -411,8 +411,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000040',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             typeId: tipoHospitalar.id,
             subtypeId: subtipoMonitor.id,
             locationId: locUTI.id,
@@ -439,8 +439,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000041',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             typeId: tipoHospitalar.id,
             subtypeId: subtipoMonitor.id,
             locationId: locEmergencia.id,
@@ -464,8 +464,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000042',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             typeId: tipoInfra.id,
             subtypeId: subtipoAC.id,
             locationId: locUTI.id,
@@ -490,8 +490,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000043',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             typeId: tipoInfra.id,
             locationId: locCME.id,
             currentLocationId: locCME.id,
@@ -520,8 +520,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000050',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             equipmentId: equipMonitor1.id,
             groupId: grupoEletrica.id,
             assignedTechnicianId: tecnico1.id,
@@ -541,8 +541,8 @@ async function main() {
         update: {},
         create: {
             id: '00000000-0000-0000-0000-000000000051',
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             equipmentId: equipAC.id,
             groupId: grupoEletrica.id,
             title: 'Preventiva semestral — AC UTI',
@@ -563,11 +563,11 @@ async function main() {
 
     // OS 1 — Concluída e aprovada (histórico)
     const os1 = await prisma.serviceOrder.upsert({
-        where: { companyId_number: { companyId: company.id, number: 1 } },
+        where: { tenantId_number: { tenantId: company.id, number: 1 } },
         update: {},
         create: {
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             equipmentId: equipMonitor2.id,
             groupId: grupoEletrica.id,
             requesterId: clientUser.id,
@@ -610,11 +610,11 @@ async function main() {
 
     // OS 2 — Em andamento com 2 técnicos
     const os2 = await prisma.serviceOrder.upsert({
-        where: { companyId_number: { companyId: company.id, number: 2 } },
+        where: { tenantId_number: { tenantId: company.id, number: 2 } },
         update: {},
         create: {
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             equipmentId: equipAC.id,
             groupId: grupoEletrica.id,
             requesterId: clientAdmin.id,
@@ -662,11 +662,11 @@ async function main() {
 
     // OS 3 — No painel (AWAITING_PICKUP)
     const os3 = await prisma.serviceOrder.upsert({
-        where: { companyId_number: { companyId: company.id, number: 3 } },
+        where: { tenantId_number: { tenantId: company.id, number: 3 } },
         update: {},
         create: {
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             equipmentId: equipBomba.id,
             groupId: grupoHidraulica.id,
             requesterId: clientUser.id,
@@ -683,11 +683,11 @@ async function main() {
 
     // OS 4 — Aberta com técnico designado
     const os4 = await prisma.serviceOrder.upsert({
-        where: { companyId_number: { companyId: company.id, number: 4 } },
+        where: { tenantId_number: { tenantId: company.id, number: 4 } },
         update: {},
         create: {
-            companyId: company.id,
-            clientId: clienteHospital.id,
+            tenantId: company.id,
+            organizationId: clienteHospital.id,
             equipmentId: equipMonitor1.id,
             groupId: grupoEletrica.id,
             requesterId: clientAdmin.id,

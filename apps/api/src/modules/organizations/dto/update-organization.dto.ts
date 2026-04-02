@@ -6,7 +6,7 @@ import {
   ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { ClientStatus } from '@prisma/client'
+import { OrgStatus } from '@prisma/client'
 
 class AddressDto {
   @IsOptional()
@@ -61,6 +61,6 @@ export class UpdateClientDto {
   address?: AddressDto
 
   @IsOptional()
-  @IsEnum(ClientStatus)
-  status?: ClientStatus
+  @IsEnum(OrgStatus)
+  status?: OrgStatus
 }

@@ -1,6 +1,6 @@
-import type { ClientStatus } from '../enums/client.enum';
+import type { OrganizationStatus } from '../enums/client.enum';
 
-export interface ClientAddress {
+export interface OrganizationAddress {
   street?: string | null;
   number?: string | null;
   neighborhood?: string | null;
@@ -9,16 +9,16 @@ export interface ClientAddress {
   zip?: string | null;
 }
 
-export interface Client {
+export interface Organization {
   id: string;
-  companyId: string;
+  tenantId: string;
   name: string;
   document?: string | null;
   email?: string | null;
   phone?: string | null;
   logoUrl?: string | null;
-  status: ClientStatus;
-  address?: ClientAddress | null;
+  status: OrganizationStatus;
+  address?: OrganizationAddress | null;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -28,38 +28,38 @@ export interface Client {
   };
 }
 
-export interface CreateClientAdminDto {
+export interface CreateOrganizationAdminDto {
   name: string;
   email: string;
   password: string;
   phone?: string;
 }
 
-export interface CreateClientDto {
+export interface CreateOrganizationDto {
   name: string;
   document?: string;
   email?: string;
   phone?: string;
-  status?: ClientStatus;
-  address?: ClientAddress;
-  /** Usado pelo SUPER_ADMIN para criar clientes em outras empresas */
-  companyId?: string;
-  /** Administrador inicial do cliente — criado junto na mesma transação */
-  admin: CreateClientAdminDto;
+  status?: OrganizationStatus;
+  address?: OrganizationAddress;
+  /** Usado pelo SUPER_ADMIN para criar organizações em outros tenants */
+  tenantId?: string;
+  /** Administrador inicial da organização — criado junto na mesma transação */
+  admin: CreateOrganizationAdminDto;
 }
 
-export interface UpdateClientDto {
+export interface UpdateOrganizationDto {
   name?: string;
   document?: string;
   email?: string;
   phone?: string;
-  status?: ClientStatus;
-  address?: ClientAddress;
+  status?: OrganizationStatus;
+  address?: OrganizationAddress;
 }
 
-export interface ListClientsParams {
+export interface ListOrganizationsParams {
   page?: number;
   limit?: number;
   search?: string;
-  companyId?: string;
+  tenantId?: string;
 }

@@ -8,10 +8,10 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { UserRole } from '@prisma/client'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger'
-import { CompaniesService } from './companies.service'
-import { CreateCompanyDto } from './dto/create-company.dto'
-import { UpdateCompanyDto } from './dto/update-company.dto'
-import { ListCompaniesDto } from './dto/list-companies.dto'
+import { TenantsService } from './tenants.service'
+import { CreateCompanyDto } from './dto/create-tenant.dto'
+import { UpdateCompanyDto } from './dto/update-tenant.dto'
+import { ListCompaniesDto } from './dto/list-tenants.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
 import type  { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -20,10 +20,10 @@ import { LicenseService, SuspendCompanyDto, SetLicenseDto, SetTrialDto } from '.
 import { UpdateReportSettingsDto } from './dto/update-report-settings.dto'
 @ApiTags('Companies')
 @ApiBearerAuth('JWT')
-@Controller('companies')
-export class CompaniesController {
+@Controller('tenants')
+export class TenantsController {
   constructor(
-    private readonly companiesService: CompaniesService,
+    private readonly tenantsService: TenantsService,
     private readonly storageService: StorageService,
     private readonly licenseService: LicenseService,
   ) {}
@@ -31,7 +31,7 @@ export class CompaniesController {
   @Get()
   @Roles(UserRole.SUPER_ADMIN)
   findAll(@Query() filters: ListCompaniesDto) {
-    return this.companiesService.findAll(filters)
+    return this.tenantsService.findAll(filters)
   }
 
   @Get(':id')
@@ -40,13 +40,13 @@ export class CompaniesController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.companiesService.findOne(id, currentUser)
+    return this.tenantsService.findOne(id, currentUser)
   }
 
   @Post()
   @Roles(UserRole.SUPER_ADMIN)
   create(@Body() dto: CreateCompanyDto) {
-    return this.companiesService.create(dto)
+    return this.tenantsService.create(dto)
   }
 
   @Patch(':id')
@@ -56,11 +56,11 @@ export class CompaniesController {
     @Body() dto: UpdateCompanyDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.companiesService.update(id, dto, currentUser)
+    return this.tenantsService.update(id, dto, currentUser)
   }
 
   // ─────────────────────────────────────────
-  // POST /companies/:id/logo
+  // POST /tenants/:id/logo
   // Upload do logo da empresa
   // ─────────────────────────────────────────
   @Post(':id/logo')
@@ -90,12 +90,12 @@ export class CompaniesController {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado. Use o campo "logo".')
 
     // Faz upload para o bucket de avatars/logos no MinIO
-    const logoUrl = await this.companiesService.uploadLogo(id, file, currentUser)
+    const logoUrl = await this.tenantsService.uploadLogo(id, file, currentUser)
     return { logoUrl, message: 'Logo atualizado com sucesso' }
   }
 
   // ─────────────────────────────────────────
-  // PATCH /companies/:id/report-settings
+  // PATCH /tenants/:id/report-settings
   // Configura cores e textos dos relatórios
   // ─────────────────────────────────────────
   @Patch(':id/report-settings')
@@ -109,11 +109,11 @@ export class CompaniesController {
     @Body() dto: UpdateReportSettingsDto,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.companiesService.updateReportSettings(id, dto, currentUser)
+    return this.tenantsService.updateReportSettings(id, dto, currentUser)
   }
 
   // ─────────────────────────────────────────
-  // GET /companies/:id/license
+  // GET /tenants/:id/license
   // ─────────────────────────────────────────
   @Get(':id/license')
   @ApiOperation({ summary: 'Status da licença', description: 'Retorna status detalhado da licença, dias até vencimento e alertas.' })
@@ -122,7 +122,7 @@ export class CompaniesController {
     return this.licenseService.getLicenseStatus(id)
   }
 
-  // GET /companies/licenses — painel geral de licenças
+  // GET /tenants/licenses — painel geral de licenças
   @Get('licenses/all')
   @ApiOperation({ summary: 'Painel de licenças', description: 'Lista todas as empresas com status de licença. Filtros: status, expiringInDays.' })
   @Roles(UserRole.SUPER_ADMIN)
@@ -136,7 +136,7 @@ export class CompaniesController {
     })
   }
 
-  // PATCH /companies/:id/suspend
+  // PATCH /tenants/:id/suspend
   @Patch(':id/suspend')
   @ApiOperation({
     summary: 'Suspender empresa',
@@ -152,7 +152,7 @@ export class CompaniesController {
     return this.licenseService.suspend(id, dto.reason, cu.sub)
   }
 
-  // PATCH /companies/:id/activate
+  // PATCH /tenants/:id/activate
   @Patch(':id/activate')
   @ApiOperation({
     summary: 'Reativar empresa',
@@ -167,7 +167,7 @@ export class CompaniesController {
     return this.licenseService.activate(id, cu.sub)
   }
 
-  // PATCH /companies/:id/license
+  // PATCH /tenants/:id/license
   @Patch(':id/license')
   @ApiOperation({
     summary: 'Definir/renovar licença',
@@ -183,7 +183,7 @@ export class CompaniesController {
     return this.licenseService.setLicense(id, dto, cu.sub)
   }
 
-  // PATCH /companies/:id/trial
+  // PATCH /tenants/:id/trial
   @Patch(':id/trial')
   @ApiOperation({ summary: 'Configurar período de teste' })
   @Roles(UserRole.SUPER_ADMIN)
@@ -200,6 +200,6 @@ export class CompaniesController {
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.SUPER_ADMIN)
   remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.companiesService.remove(id)
+    return this.tenantsService.remove(id)
   }
 }

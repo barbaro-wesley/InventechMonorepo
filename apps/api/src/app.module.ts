@@ -12,8 +12,8 @@ import {
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { UsersModule } from './modules/users/users.module'
-import { CompaniesModule } from './modules/companies/companies.module'
-import { ClientsModule } from './modules/clients/clients.module'
+import { TenantsModule } from './modules/tenants/tenants.module'
+import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { EquipmentModule } from './modules/equipment/equipment.module'
 import { MaintenanceGroupsModule } from './modules/maintenance-groups/maintenance-groups.module'
 import { ServiceOrdersModule } from './modules/service-orders/service-orders.module'
@@ -58,8 +58,8 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     PrismaModule,
     AuthModule,
     UsersModule,
-    CompaniesModule,
-    ClientsModule,
+    TenantsModule,
+    OrganizationsModule,
     EquipmentModule,
     MaintenanceGroupsModule,
     ServiceOrdersModule,

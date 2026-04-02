@@ -23,7 +23,7 @@ export class DashboardController {
     })
     @Permission('dashboard:company')
     getCompanyDashboard(@CurrentUser() cu: AuthenticatedUser) {
-        return this.dashboardService.getCompanyDashboard(cu.companyId!)
+        return this.dashboardService.getCompanyDashboard(cu.tenantId!)
     }
 
     // GET /dashboard/platform
@@ -41,9 +41,9 @@ export class DashboardController {
         return this.dashboardService.getSuperAdminDashboard()
     }
 
-    // GET /dashboard/client/:clientId
+    // GET /dashboard/client/:organizationId
     // Visão restrita de um cliente específico
-    @Get('client/:clientId')
+    @Get('client/:organizationId')
     @ApiOperation({
         summary: 'Dashboard do cliente',
         description:
@@ -52,9 +52,9 @@ export class DashboardController {
     })
     @Permission('dashboard:client')
     getClientDashboard(
-        @Param('clientId', ParseUUIDPipe) clientId: string,
+        @Param('organizationId', ParseUUIDPipe) organizationId: string,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.dashboardService.getClientDashboard(cu.companyId!, clientId)
+        return this.dashboardService.getClientDashboard(cu.tenantId!, organizationId)
     }
 }

@@ -1,14 +1,14 @@
 // Re-exportado de @inventech/shared-types — edite lá, não aqui
 export type {
-  Company,
+  Tenant,
   License,
-  CompanyWithLicense,
-  CompanyLicenseRow,
-  CreateCompanyDto,
-  CreateCompanyResponse,
-  UpdateCompanyDto,
+  TenantWithLicense,
+  TenantLicenseRow,
+  CreateTenantDto,
+  CreateTenantResponse,
+  UpdateTenantDto,
   UpdateReportSettingsDto,
-  ListCompaniesParams,
+  ListTenantsParams,
 } from '@inventech/shared-types';
 
-export type { PaginatedResponse as CompanyListResponse } from '@inventech/shared-types';
+export type { PaginatedResponse as TenantListResponse } from '@inventech/shared-types';

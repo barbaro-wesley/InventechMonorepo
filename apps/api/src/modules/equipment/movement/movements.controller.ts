@@ -7,29 +7,29 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import { Permission } from '../../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../../common/interfaces/authenticated-user.interface'
 
-@Controller('clients/:clientId/equipment/:equipmentId/movements')
+@Controller('clients/:organizationId/equipment/:equipmentId/movements')
 export class MovementsController {
     constructor(private readonly movementsService: MovementsService) { }
 
     @Get()
     @Permission('movement:list')
     findAll(
-        @Param('clientId', ParseUUIDPipe) clientId: string,
+        @Param('organizationId', ParseUUIDPipe) organizationId: string,
         @Param('equipmentId', ParseUUIDPipe) equipmentId: string,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.movementsService.findAll(equipmentId, clientId, cu.companyId!)
+        return this.movementsService.findAll(equipmentId, organizationId, cu.tenantId!)
     }
 
     @Post()
     @Permission('movement:create')
     create(
-        @Param('clientId', ParseUUIDPipe) clientId: string,
+        @Param('organizationId', ParseUUIDPipe) organizationId: string,
         @Param('equipmentId', ParseUUIDPipe) equipmentId: string,
         @Body() dto: CreateMovementDto,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.movementsService.create(equipmentId, dto, clientId, cu.companyId!, cu)
+        return this.movementsService.create(equipmentId, dto, organizationId, cu.tenantId!, cu)
     }
 
     @Post(':id/return')
@@ -40,6 +40,6 @@ export class MovementsController {
         @Body() dto: ReturnMovementDto,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.movementsService.returnEquipment(id, dto, cu.companyId!, cu)
+        return this.movementsService.returnEquipment(id, dto, cu.tenantId!, cu)
     }
 }

@@ -7,10 +7,10 @@ import {
 } from '@nestjs/common'
 import { UserRole, UserStatus } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
-import { ClientsRepository, CLIENT_SELECT } from './clients.repository'
-import { CreateClientDto } from './dto/create-client.dto'
-import { UpdateClientDto } from './dto/update-client.dto'
-import { ListClientsDto } from './dto/list-clients.dto'
+import { OrganizationsRepository, CLIENT_SELECT } from './organizations.repository'
+import { CreateClientDto } from './dto/create-organization.dto'
+import { UpdateClientDto } from './dto/update-organization.dto'
+import { ListClientsDto } from './dto/list-organizations.dto'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { Prisma } from '@prisma/client'
 import { ConfigService } from '@nestjs/config'
@@ -18,32 +18,32 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { TwoFactorService } from '../auth/security/two-factor.service'
 
 @Injectable()
-export class ClientsService {
-  private readonly logger = new Logger(ClientsService.name)
+export class OrganizationsService {
+  private readonly logger = new Logger(OrganizationsService.name)
 
   constructor(
-    private clientsRepository: ClientsRepository,
+    private organizationsRepository: OrganizationsRepository,
     private prisma: PrismaService,
     private configService: ConfigService,
     private twoFactorService: TwoFactorService,
   ) { }
 
   async findAll(currentUser: AuthenticatedUser, filters: ListClientsDto) {
-    const companyId = currentUser.role === UserRole.SUPER_ADMIN
-      ? (filters.companyId ?? currentUser.companyId!)
+    const tenantId = currentUser.role === UserRole.SUPER_ADMIN
+      ? (filters.tenantId ?? currentUser.tenantId!)
       : this.resolveCompanyId(currentUser)
-    return this.clientsRepository.findMany(companyId, filters)
+    return this.organizationsRepository.findMany(tenantId, filters)
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser) {
     if (this.isClientRole(currentUser.role)) {
-      if (currentUser.clientId !== id) {
+      if (currentUser.organizationId !== id) {
         throw new ForbiddenException('Acesso negado a este cliente')
       }
     }
 
-    const companyId = this.resolveCompanyId(currentUser)
-    const client = await this.clientsRepository.findById(id, companyId)
+    const tenantId = this.resolveCompanyId(currentUser)
+    const client = await this.organizationsRepository.findById(id, tenantId)
 
     if (!client) {
       throw new NotFoundException('Cliente não encontrado')
@@ -55,14 +55,14 @@ export class ClientsService {
   async create(dto: CreateClientDto, currentUser: AuthenticatedUser) {
     this.ensureCompanyRole(currentUser)
 
-    const companyId = currentUser.role === UserRole.SUPER_ADMIN
-      ? (dto.companyId ?? currentUser.companyId!)
-      : currentUser.companyId!
+    const tenantId = currentUser.role === UserRole.SUPER_ADMIN
+      ? (dto.tenantId ?? currentUser.tenantId!)
+      : currentUser.tenantId!
 
     if (dto.document) {
-      const documentTaken = await this.clientsRepository.documentExists(
+      const documentTaken = await this.organizationsRepository.documentExists(
         dto.document,
-        companyId,
+        tenantId,
       )
       if (documentTaken) {
         throw new ConflictException(
@@ -90,7 +90,7 @@ export class ClientsService {
           phone: dto.phone,
           address: dto.address ? (dto.address as unknown as Prisma.InputJsonValue) : undefined,
           status: dto.status,
-          company: { connect: { id: companyId } },
+          company: { connect: { id: tenantId } },
         },
         select: CLIENT_SELECT,
       })
@@ -103,8 +103,8 @@ export class ClientsService {
           role: UserRole.CLIENT_ADMIN,
           status: UserStatus.UNVERIFIED,
           phone: dto.admin.phone,
-          company: { connect: { id: companyId } },
-          client: { connect: { id: client.id } },
+          company: { connect: { id: tenantId } },
+          organization: { connect: { id: client.id } },
         },
         select: { id: true, name: true, email: true, role: true },
       })
@@ -113,7 +113,7 @@ export class ClientsService {
     })
 
     this.logger.log(
-      `Cliente criado: ${result.client.name} | Admin: ${result.admin.email} | Empresa: ${companyId}`,
+      `Cliente criado: ${result.client.name} | Admin: ${result.admin.email} | Empresa: ${tenantId}`,
     )
 
     // Envia email de verificação para o admin — fora da transação para não revertê-la se o email falhar
@@ -135,17 +135,17 @@ export class ClientsService {
   ) {
     this.ensureCompanyRole(currentUser)
 
-    const companyId = currentUser.companyId!
-    const existing = await this.clientsRepository.findById(id, companyId)
+    const tenantId = currentUser.tenantId!
+    const existing = await this.organizationsRepository.findById(id, tenantId)
 
     if (!existing) {
       throw new NotFoundException('Cliente não encontrado')
     }
 
     if (dto.document && dto.document !== existing.document) {
-      const documentTaken = await this.clientsRepository.documentExists(
+      const documentTaken = await this.organizationsRepository.documentExists(
         dto.document,
-        companyId,
+        tenantId,
         id,
       )
       if (documentTaken) {
@@ -155,7 +155,7 @@ export class ClientsService {
       }
     }
 
-    return this.clientsRepository.update(id, {
+    return this.organizationsRepository.update(id, {
       ...(dto.name && { name: dto.name }),
       ...(dto.document !== undefined && { document: dto.document }),
       ...(dto.email !== undefined && { email: dto.email }),
@@ -170,8 +170,8 @@ export class ClientsService {
   async remove(id: string, currentUser: AuthenticatedUser) {
     this.ensureCompanyRole(currentUser)
 
-    const companyId = currentUser.companyId!
-    const existing = await this.clientsRepository.findById(id, companyId)
+    const tenantId = currentUser.tenantId!
+    const existing = await this.organizationsRepository.findById(id, tenantId)
 
     if (!existing) {
       throw new NotFoundException('Cliente não encontrado')
@@ -186,7 +186,7 @@ export class ClientsService {
       )
     }
 
-    await this.clientsRepository.softDelete(id)
+    await this.organizationsRepository.softDelete(id)
 
     this.logger.warn(`Cliente removido: ${existing.name} (id: ${id})`)
 
@@ -219,7 +219,7 @@ export class ClientsService {
     })
 
     const bucket = 'avatars'
-    const key = `clients-logos/${id}/logo${ext}`
+    const key = `organizations-logos/${id}/logo${ext}`
 
     await minio.putObject(bucket, key, file.buffer, file.size, {
       'Content-Type': file.mimetype,
@@ -232,7 +232,7 @@ export class ClientsService {
     const protocol = useSSL ? 'https' : 'http'
     const logoUrl = `${protocol}://${endpoint}:${port}/${bucket}/${key}`
 
-    await this.clientsRepository.update(id, { logoUrl })
+    await this.organizationsRepository.update(id, { logoUrl })
 
     this.logger.log(`Logo do cliente ${id} atualizado: ${logoUrl}`)
     return logoUrl
@@ -244,13 +244,13 @@ export class ClientsService {
 
   private resolveCompanyId(user: AuthenticatedUser): string {
     if (user.role === UserRole.SUPER_ADMIN) {
-      if (!user.companyId) {
+      if (!user.tenantId) {
         throw new ForbiddenException(
-          'SUPER_ADMIN deve informar o companyId para listar clientes',
+          'SUPER_ADMIN deve informar o tenantId para listar clientes',
         )
       }
     }
-    return user.companyId!
+    return user.tenantId!
   }
 
   private ensureCompanyRole(user: AuthenticatedUser) {
@@ -264,7 +264,7 @@ export class ClientsService {
         'Apenas a empresa de manutenção pode gerenciar clientes',
       )
     }
-    if (user.role !== UserRole.SUPER_ADMIN && !user.companyId) {
+    if (user.role !== UserRole.SUPER_ADMIN && !user.tenantId) {
       throw new ForbiddenException('Acesso sem escopo de empresa')
     }
   }

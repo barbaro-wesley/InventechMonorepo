@@ -11,7 +11,7 @@ import {
 
 const TYPE_SELECT = {
     id: true,
-    companyId: true,
+    tenantId: true,
     name: true,
     description: true,
     isActive: true,
@@ -30,11 +30,11 @@ export class EquipmentTypesService {
 
     // ── Tipos ──────────────────────────────────────────
 
-    async findAllTypes(companyId: string, filters: ListEquipmentTypesDto) {
+    async findAllTypes(tenantId: string, filters: ListEquipmentTypesDto) {
         const { search, isActive, page = 1, limit = 50 } = filters
 
         const where: Prisma.EquipmentTypeWhereInput = {
-            companyId,
+            tenantId,
             ...(isActive !== undefined && { isActive }),
             ...(search && { name: { contains: search, mode: 'insensitive' } }),
         }
@@ -51,31 +51,31 @@ export class EquipmentTypesService {
         return { data, total, page, limit }
     }
 
-    async findOneType(id: string, companyId: string) {
+    async findOneType(id: string, tenantId: string) {
         const type = await this.prisma.equipmentType.findFirst({
-            where: { id, companyId },
+            where: { id, tenantId },
             select: TYPE_SELECT,
         })
         if (!type) throw new NotFoundException('Tipo de equipamento não encontrado')
         return type
     }
 
-    async createType(dto: CreateEquipmentTypeDto, companyId: string) {
+    async createType(dto: CreateEquipmentTypeDto, tenantId: string) {
         const exists = await this.prisma.equipmentType.findFirst({
-            where: { companyId, name: { equals: dto.name, mode: 'insensitive' } },
+            where: { tenantId, name: { equals: dto.name, mode: 'insensitive' } },
             select: { id: true },
         })
         if (exists) throw new ConflictException('Já existe um tipo com este nome')
 
         return this.prisma.equipmentType.create({
-            data: { companyId, name: dto.name, description: dto.description },
+            data: { tenantId, name: dto.name, description: dto.description },
             select: TYPE_SELECT,
         })
     }
 
-    async updateType(id: string, dto: UpdateEquipmentTypeDto, companyId: string) {
+    async updateType(id: string, dto: UpdateEquipmentTypeDto, tenantId: string) {
         const existing = await this.prisma.equipmentType.findFirst({
-            where: { id, companyId }, select: { id: true },
+            where: { id, tenantId }, select: { id: true },
         })
         if (!existing) throw new NotFoundException('Tipo não encontrado')
 
@@ -90,9 +90,9 @@ export class EquipmentTypesService {
         })
     }
 
-    async removeType(id: string, companyId: string) {
+    async removeType(id: string, tenantId: string) {
         const type = await this.prisma.equipmentType.findFirst({
-            where: { id, companyId },
+            where: { id, tenantId },
             select: { id: true, name: true, _count: { select: { equipments: true } } },
         })
         if (!type) throw new NotFoundException('Tipo não encontrado')
@@ -107,21 +107,21 @@ export class EquipmentTypesService {
 
     // ── Subtipos ───────────────────────────────────────
 
-    async createSubtype(dto: CreateEquipmentSubtypeDto, companyId: string) {
+    async createSubtype(dto: CreateEquipmentSubtypeDto, tenantId: string) {
         const type = await this.prisma.equipmentType.findFirst({
-            where: { id: dto.typeId, companyId }, select: { id: true },
+            where: { id: dto.typeId, tenantId }, select: { id: true },
         })
         if (!type) throw new NotFoundException('Tipo não encontrado')
 
         return this.prisma.equipmentSubtype.create({
-            data: { companyId, typeId: dto.typeId, name: dto.name, description: dto.description },
+            data: { tenantId, typeId: dto.typeId, name: dto.name, description: dto.description },
             select: { id: true, typeId: true, name: true, description: true, isActive: true },
         })
     }
 
-    async updateSubtype(id: string, dto: UpdateEquipmentSubtypeDto, companyId: string) {
+    async updateSubtype(id: string, dto: UpdateEquipmentSubtypeDto, tenantId: string) {
         const existing = await this.prisma.equipmentSubtype.findFirst({
-            where: { id, companyId }, select: { id: true },
+            where: { id, tenantId }, select: { id: true },
         })
         if (!existing) throw new NotFoundException('Subtipo não encontrado')
 
@@ -136,9 +136,9 @@ export class EquipmentTypesService {
         })
     }
 
-    async removeSubtype(id: string, companyId: string) {
+    async removeSubtype(id: string, tenantId: string) {
         const sub = await this.prisma.equipmentSubtype.findFirst({
-            where: { id, companyId },
+            where: { id, tenantId },
             select: { id: true, _count: { select: { equipments: true } } },
         })
         if (!sub) throw new NotFoundException('Subtipo não encontrado')

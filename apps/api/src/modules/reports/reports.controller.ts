@@ -21,7 +21,7 @@ import { RateLimit } from '../../common/decorators/rate-limit.decorator'
 // ─── DTOs ────────────────────────────────────────────────────────────────────
 
 class OsFiltersDto {
-  @IsOptional() @IsUUID() clientId?: string
+  @IsOptional() @IsUUID() organizationId?: string
   @IsOptional() @IsUUID() groupId?: string
   @IsOptional() @IsUUID() technicianId?: string
   @IsOptional() @IsEnum(ServiceOrderStatus) status?: ServiceOrderStatus
@@ -30,13 +30,13 @@ class OsFiltersDto {
 }
 
 class EquipmentFiltersDto {
-  @IsOptional() @IsUUID() clientId?: string
+  @IsOptional() @IsUUID() organizationId?: string
   @IsOptional() @IsString() status?: string
   @IsOptional() @IsUUID() typeId?: string
 }
 
 class PreventiveFiltersDto {
-  @IsOptional() @IsUUID() clientId?: string
+  @IsOptional() @IsUUID() organizationId?: string
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
@@ -78,7 +78,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'SERVICE_ORDERS')
-    const buffer = await this.reportsService.exportServiceOrdersExcel(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportServiceOrdersExcel(cu.tenantId!, filters)
     this.sendFile(res, buffer, 'xlsx', `OS_${today()}`)
   }
 
@@ -91,7 +91,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'SERVICE_ORDERS')
-    const buffer = await this.reportsService.exportServiceOrdersPdf(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportServiceOrdersPdf(cu.tenantId!, filters)
     this.sendFile(res, buffer, 'pdf', `OS_${today()}`)
   }
 
@@ -108,7 +108,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'EQUIPMENT')
-    const buffer = await this.reportsService.exportEquipmentExcel(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportEquipmentExcel(cu.tenantId!, filters)
     this.sendFile(res, buffer, 'xlsx', `Equipamentos_${today()}`)
   }
 
@@ -121,7 +121,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'EQUIPMENT')
-    const buffer = await this.reportsService.exportEquipmentPdf(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportEquipmentPdf(cu.tenantId!, filters)
     this.sendFile(res, buffer, 'pdf', `Equipamentos_${today()}`)
   }
 
@@ -139,7 +139,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'PREVENTIVE')
-    const buffer = await this.reportsService.exportPreventiveExcel(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportPreventiveExcel(cu.tenantId!, filters)
     this.sendFile(res, buffer, 'xlsx', `Preventivas_${today()}`)
   }
 
@@ -152,7 +152,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'PREVENTIVE')
-    const buffer = await this.reportsService.exportPreventivePdf(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportPreventivePdf(cu.tenantId!, filters)
     this.sendFile(res, buffer, 'pdf', `Preventivas_${today()}`)
   }
 
@@ -168,7 +168,7 @@ export class ReportsController {
   })
   @Permission('permission:manage')
   getPermissions(@CurrentUser() cu: AuthenticatedUser) {
-    return this.permissionsService.findAll(cu.companyId!)
+    return this.permissionsService.findAll(cu.tenantId!)
   }
 
   @Post('permissions')
@@ -183,7 +183,7 @@ export class ReportsController {
     @Body() dto: SetReportPermissionDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.permissionsService.upsert(cu.companyId!, dto.reportType as ReportType, dto.allowedRoles)
+    return this.permissionsService.upsert(cu.tenantId!, dto.reportType as ReportType, dto.allowedRoles)
   }
 
   @Patch('permissions/reset')
@@ -191,7 +191,7 @@ export class ReportsController {
   @Permission('permission:manage')
   @HttpCode(HttpStatus.OK)
   resetPermissions(@CurrentUser() cu: AuthenticatedUser) {
-    return this.permissionsService.reset(cu.companyId!)
+    return this.permissionsService.reset(cu.tenantId!)
   }
 
   // ─────────────────────────────────────────

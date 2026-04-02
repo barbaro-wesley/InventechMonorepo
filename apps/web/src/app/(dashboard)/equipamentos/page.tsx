@@ -52,7 +52,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useClients } from "@/hooks/clients/use-clients";
+import { useOrganizations } from "@/hooks/clients/use-clients";
 import { useCurrentUser } from "@/store/auth.store";
 import {
   useEquipment,
@@ -148,21 +148,21 @@ type EquipmentForm = z.infer<typeof equipmentSchema>;
 function EquipmentSheet({
   open,
   editTarget,
-  clientId,
+  organizationId,
   onClose,
 }: {
   open: boolean;
   editTarget: Equipment | null;
-  clientId: string;
+  organizationId: string;
   onClose: () => void;
 }) {
-  const create = useCreateEquipment(clientId);
-  const update = useUpdateEquipment(clientId);
+  const create = useCreateEquipment(organizationId);
+  const update = useUpdateEquipment(organizationId);
   const uploadAttachment = useUploadAttachment("EQUIPMENT", editTarget?.id ?? "");
   const isPending = create.isPending || update.isPending || uploadAttachment.isPending;
 
   const { data: types = [] } = useEquipmentTypes();
-  const { data: costCenters = [] } = useCostCenters(clientId, { limit: 100 });
+  const { data: costCenters = [] } = useCostCenters(organizationId, { limit: 100 });
 
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -528,16 +528,16 @@ type MovementForm = z.infer<typeof movementSchema>;
 function MovementSheet({
   open,
   equipment,
-  clientId,
+  organizationId,
   onClose,
 }: {
   open: boolean;
   equipment: Equipment | null;
-  clientId: string;
+  organizationId: string;
   onClose: () => void;
 }) {
-  const create = useCreateMovement(clientId, equipment?.id ?? "");
-  const { data: costCenters = [] } = useCostCenters(clientId, { limit: 100 });
+  const create = useCreateMovement(organizationId, equipment?.id ?? "");
+  const { data: costCenters = [] } = useCostCenters(organizationId, { limit: 100 });
   const allLocations = costCenters.flatMap((cc) => cc.locations);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<MovementForm>({
@@ -727,22 +727,22 @@ function InfoRow({ label, value, mono, highlight }: { label: string; value: stri
 function DetailSheet({
   open,
   equipment,
-  clientId,
+  organizationId,
   onClose,
   onEdit,
   onMove,
 }: {
   open: boolean;
   equipment: Equipment | null;
-  clientId: string;
+  organizationId: string;
   onClose: () => void;
   onEdit: (e: Equipment) => void;
   onMove: (e: Equipment) => void;
 }) {
-  const { data: movements = [], isLoading: movLoading } = useMovements(clientId, equipment?.id ?? "");
+  const { data: movements = [], isLoading: movLoading } = useMovements(organizationId, equipment?.id ?? "");
   const { data: attachments = [], isLoading: attLoading } = useAttachments("EQUIPMENT", equipment?.id ?? "");
-  const returnEquip = useReturnEquipment(clientId, equipment?.id ?? "");
-  const recalc = useRecalculateDepreciation(clientId);
+  const returnEquip = useReturnEquipment(organizationId, equipment?.id ?? "");
+  const recalc = useRecalculateDepreciation(organizationId);
   const openUrl = usePresignedUrl();
   const deleteAtt = useDeleteAttachment("EQUIPMENT", equipment?.id ?? "");
 
@@ -1037,9 +1037,9 @@ function EquipmentRow({
 
 export default function EquipamentosPage() {
   const user = useCurrentUser();
-  const fixedClientId = user?.clientId ?? null;
+  const fixedOrganizationId = user?.organizationId ?? null;
 
-  const [selectedClientId, setSelectedClientId] = useState(fixedClientId ?? "");
+  const [selectedOrganizationId, setSelectedClientId] = useState(fixedOrganizationId ?? "");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | "">("");
   const [criticalityFilter, setCriticalityFilter] = useState<EquipmentCriticality | "">("");
@@ -1049,10 +1049,10 @@ export default function EquipamentosPage() {
   const [moveSheet, setMoveSheet] = useState<Equipment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
 
-  const { data: clientsData } = useClients({ limit: 100 });
-  const clients = clientsData?.data ?? [];
+  const { data: organizationsData } = useOrganizations({ limit: 100 });
+  const clients = organizationsData?.data ?? [];
 
-  const { data: listData, isLoading } = useEquipment(selectedClientId, {
+  const { data: listData, isLoading } = useEquipment(selectedOrganizationId, {
     search: search || undefined,
     status: statusFilter || undefined,
     criticality: criticalityFilter || undefined,
@@ -1062,7 +1062,7 @@ export default function EquipamentosPage() {
   const equipments = listData?.data ?? [];
   const total = listData?.total ?? 0;
 
-  const remove = useDeleteEquipment(selectedClientId);
+  const remove = useDeleteEquipment(selectedOrganizationId);
 
   return (
     <div className="space-y-6">
@@ -1076,7 +1076,7 @@ export default function EquipamentosPage() {
             Gerencie o parque de equipamentos dos seus clientes.
           </p>
         </div>
-        {selectedClientId && (
+        {selectedOrganizationId && (
           <Button onClick={() => setFormSheet({ open: true, target: null })}>
             <Plus className="w-4 h-4 mr-2" />
             Novo equipamento
@@ -1086,12 +1086,12 @@ export default function EquipamentosPage() {
 
       {/* Client selector + Filters */}
       <div className="bg-white rounded-xl border border-border p-4 flex flex-wrap items-center gap-3">
-        {!fixedClientId && (
+        {!fixedOrganizationId && (
           <div className="flex items-center gap-2 flex-shrink-0">
             <Label htmlFor="client-sel" className="text-sm font-medium whitespace-nowrap">Cliente</Label>
             <select
               id="client-sel"
-              value={selectedClientId}
+              value={selectedOrganizationId}
               onChange={(e) => { setSelectedClientId(e.target.value); setSearch(""); }}
               className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[180px]"
             >
@@ -1103,7 +1103,7 @@ export default function EquipamentosPage() {
           </div>
         )}
 
-        {selectedClientId && (
+        {selectedOrganizationId && (
           <>
             <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -1139,7 +1139,7 @@ export default function EquipamentosPage() {
       </div>
 
       {/* Content */}
-      {!selectedClientId ? (
+      {!selectedOrganizationId ? (
         <div className="bg-white rounded-xl border border-border py-14 text-center">
           <Wrench className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">Selecione um cliente para ver os equipamentos</p>
@@ -1184,14 +1184,14 @@ export default function EquipamentosPage() {
       <EquipmentSheet
         open={formSheet.open}
         editTarget={formSheet.target}
-        clientId={selectedClientId}
+        organizationId={selectedOrganizationId}
         onClose={() => setFormSheet({ open: false, target: null })}
       />
 
       <DetailSheet
         open={!!detailSheet}
         equipment={detailSheet}
-        clientId={selectedClientId}
+        organizationId={selectedOrganizationId}
         onClose={() => setDetailSheet(null)}
         onEdit={(e) => { setDetailSheet(null); setFormSheet({ open: true, target: e }); }}
         onMove={(e) => { setDetailSheet(null); setMoveSheet(e); }}
@@ -1200,7 +1200,7 @@ export default function EquipamentosPage() {
       <MovementSheet
         open={!!moveSheet}
         equipment={moveSheet}
-        clientId={selectedClientId}
+        organizationId={selectedOrganizationId}
         onClose={() => setMoveSheet(null)}
       />
 

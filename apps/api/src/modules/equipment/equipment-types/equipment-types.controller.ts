@@ -19,19 +19,19 @@ export class EquipmentTypesController {
     @Get()
     @Permission('equipment-type:list')
     findAll(@Query() filters: ListEquipmentTypesDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.equipmentTypesService.findAllTypes(cu.companyId!, filters)
+        return this.equipmentTypesService.findAllTypes(cu.tenantId!, filters)
     }
 
     @Get(':id')
     @Permission('equipment-type:read')
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-        return this.equipmentTypesService.findOneType(id, cu.companyId!)
+        return this.equipmentTypesService.findOneType(id, cu.tenantId!)
     }
 
     @Post()
     @Permission('equipment-type:create')
     createType(@Body() dto: CreateEquipmentTypeDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.equipmentTypesService.createType(dto, cu.companyId!)
+        return this.equipmentTypesService.createType(dto, cu.tenantId!)
     }
 
     @Patch(':id')
@@ -41,20 +41,20 @@ export class EquipmentTypesController {
         @Body() dto: UpdateEquipmentTypeDto,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.equipmentTypesService.updateType(id, dto, cu.companyId!)
+        return this.equipmentTypesService.updateType(id, dto, cu.tenantId!)
     }
 
     @Delete(':id')
     @HttpCode(HttpStatus.OK)
     @Permission('equipment-type:delete')
     removeType(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-        return this.equipmentTypesService.removeType(id, cu.companyId!)
+        return this.equipmentTypesService.removeType(id, cu.tenantId!)
     }
 
     @Post('subtypes')
     @Permission('equipment-type:create-sub')
     createSubtype(@Body() dto: CreateEquipmentSubtypeDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.equipmentTypesService.createSubtype(dto, cu.companyId!)
+        return this.equipmentTypesService.createSubtype(dto, cu.tenantId!)
     }
 
     @Patch('subtypes/:id')
@@ -64,13 +64,13 @@ export class EquipmentTypesController {
         @Body() dto: UpdateEquipmentSubtypeDto,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.equipmentTypesService.updateSubtype(id, dto, cu.companyId!)
+        return this.equipmentTypesService.updateSubtype(id, dto, cu.tenantId!)
     }
 
     @Delete('subtypes/:id')
     @HttpCode(HttpStatus.OK)
     @Permission('equipment-type:delete-sub')
     removeSubtype(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-        return this.equipmentTypesService.removeSubtype(id, cu.companyId!)
+        return this.equipmentTypesService.removeSubtype(id, cu.tenantId!)
     }
 }

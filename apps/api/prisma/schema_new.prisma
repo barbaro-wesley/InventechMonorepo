@@ -1,0 +1,715 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Prisma Schema — Plataforma Multi-Tenant e Multi-Sided
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TenantType {
+  SERVICE_PROVIDER
+  ASSET_OWNER
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum OrgRole {
+  MAINTENANCE_COMPANY
+  CLINIC_HOSPITAL
+  MANUFACTURER
+  OTHER
+}
+
+// Em vez de "UserRole" gigantesco, simplificamos para representar níveis lógicos de sistema:
+// SUPER_ADMIN (admin da plataforma)
+// TENANT_ADMIN (dono do tenant)
+// USER (usuário comum, permissões definidas pela Role relacional da Org)
+enum GlobalUserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BLOCKED
+  UNVERIFIED
+}
+
+enum ContractStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_MAINTENANCE
+  SCRAPPED
+  BORROWED
+}
+
+enum EquipmentCriticality {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  CORRECTIVE
+  INITIAL_ACCEPTANCE
+  EXTERNAL_SERVICE
+  TECHNOVIGILANCE
+  TRAINING
+  IMPROPER_USE
+  DEACTIVATION
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+  CUSTOM
+}
+
+enum ServiceOrderStatus {
+  OPEN
+  AWAITING_PICKUP
+  IN_PROGRESS
+  COMPLETED
+  COMPLETED_APPROVED
+  COMPLETED_REJECTED
+  CANCELLED
+}
+
+enum ServiceOrderPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ServiceOrderTechnicianRole {
+  LEAD
+  ASSISTANT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum MovementType {
+  TRANSFER
+  LOAN
+}
+
+enum MovementStatus {
+  ACTIVE
+  RETURNED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  EMAIL
+  TELEGRAM
+  WEBSOCKET
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum AttachmentEntity {
+  EQUIPMENT
+  SERVICE_ORDER
+  MAINTENANCE
+  INVOICE
+  AVATAR
+  COMMENT
+}
+
+enum ReportType {
+  SERVICE_ORDERS
+  EQUIPMENT
+  PREVENTIVE
+  TECHNICIANS
+  FINANCIAL
+}
+
+enum TwoFactorType {
+  LOGIN
+  EMAIL_CHANGE
+  PASSWORD_RESET
+  SENSITIVE_ACTION
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLATFORM (SaaS)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Platform {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenants Tenant[]
+
+  @@map("platforms")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TENANT - O Espaço de Trabalho (Workspace)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id         String       @id @default(uuid())
+  platformId String       @map("platform_id")
+  name       String
+  slug       String       @unique
+  type       TenantType   @default(SERVICE_PROVIDER)
+  status     TenantStatus @default(ACTIVE)
+
+  // Configurações de relatório
+  reportPrimaryColor   String? @default("#1E40AF") @map("report_primary_color")
+  reportSecondaryColor String? @default("#DBEAFE") @map("report_secondary_color")
+  reportHeaderTitle    String? @map("report_header_title")
+  reportFooterText     String? @map("report_footer_text")
+
+  trialEndsAt      DateTime? @map("trial_ends_at")
+  licenseExpiresAt DateTime?
+  suspendedAt      DateTime?
+  suspendedReason  String?
+  suspendedBy      String?
+  settings         Json?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  platform Platform @relation(fields: [platformId], references: [id])
+
+  // Todas as entidades sob este tenant
+  organizations     Organization[]
+  users             User[]
+  equipments        Equipment[]
+  serviceOrders     ServiceOrder[]
+  maintenanceGroups MaintenanceGroup[]
+  costCenters       CostCenter[]
+  locations         Location[]
+  equipmentTypes    EquipmentType[]
+  equipmentSubtypes EquipmentSubtype[]
+  serviceContracts  ServiceContract[]
+  roles             Role[] // Roles permitidas dentro deste tenant
+
+  @@index([platformId])
+  @@index([slug])
+  @@map("tenants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORGANIZATION - Entidade Genérica
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Organization {
+  id         String  @id @default(uuid())
+  tenantId   String  @map("tenant_id")
+  isInternal Boolean @default(false) @map("is_internal")
+  name       String
+  document   String?
+  email      String?
+  phone      String?
+  logoUrl    String? @map("logo_url")
+  address    Json?
+  orgRole    OrgRole @map("org_role")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  users      User[]
+  equipments Equipment[] // Eqps em que esta organização é DONA
+
+  contractsAsProvider ServiceContract[] @relation("ProviderOrganization")
+  contractsAsClient   ServiceContract[] @relation("ClientOrganization")
+
+  @@index([tenantId])
+  @@map("organizations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICE CONTRACT
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ServiceContract {
+  id         String         @id @default(uuid())
+  tenantId   String         @map("tenant_id")
+  providerId String         @map("provider_id")
+  clientId   String         @map("client_id")
+  status     ContractStatus @default(ACTIVE)
+  startDate  DateTime       @map("start_date")
+  endDate    DateTime?      @map("end_date")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id])
+  provider Organization @relation("ProviderOrganization", fields: [providerId], references: [id])
+  client   Organization @relation("ClientOrganization", fields: [clientId], references: [id])
+
+  serviceOrders ServiceOrder[]
+
+  @@unique([tenantId, providerId, clientId])
+  @@map("service_contracts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLE COM PERMISSÕES (RBAC)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String?  @map("tenant_id") // Nulo = papel de sistema (global)
+  name        String // Ex: 'TECHNICIAN', 'MANAGER', 'VIEWER'
+  description String?
+  permissions Json // Arry/Map das permissões
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users  User[]
+
+  @@map("roles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String         @id @default(uuid())
+  tenantId       String         @map("tenant_id")
+  organizationId String         @map("organization_id")
+  roleId         String?        @map("role_id")
+  globalRole     GlobalUserRole @default(USER) @map("global_role")
+
+  name           String
+  email          String     @unique
+  passwordHash   String     @map("password_hash")
+  status         UserStatus @default(ACTIVE)
+  avatarUrl      String?    @map("avatar_url")
+  phone          String?
+  telegramChatId String?    @map("telegram_chat_id")
+  lastLoginAt    DateTime?  @map("last_login_at")
+  lastLoginIp    String?    @map("last_login_ip")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  deletedAt      DateTime?  @map("deleted_at")
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  role         Role?        @relation(fields: [roleId], references: [id])
+
+  refreshTokens           RefreshToken[]
+  serviceOrdersOwned      ServiceOrder[]           @relation("ServiceOrderRequester")
+  serviceOrdersApproved   ServiceOrder[]           @relation("ServiceOrderApprover")
+  serviceOrderTechnicians ServiceOrderTechnician[]
+  comments                ServiceOrderComment[]
+  taskAssignments         ServiceOrderTask[]
+  notifications           Notification[]
+  movementsRequested      EquipmentMovement[]      @relation("MovementRequester")
+  movementsApproved       EquipmentMovement[]      @relation("MovementApprover")
+  maintenancesExecuted    Maintenance[]
+  technicianGroups        TechnicianGroup[]
+  loginAttempts           LoginAttempt[]
+  accountBlocks           AccountBlock[]
+  twoFactorCodes          TwoFactorCode[]
+  emailVerifications      EmailVerification[]
+  passwordResets          PasswordReset[]
+
+  @@index([tenantId])
+  @@index([organizationId])
+  @@index([email])
+  @@map("users")
+}
+
+// (Manteremos os outros modelos, mas onde era companyId / clientId a gente vai trocar por tenantId e organizationId)
+// ...
+
+// RefreshToken
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  ipAddress String?   @map("ip_address")
+  userAgent String?   @map("user_agent")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+// CostCenter
+model CostCenter {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  organizationId String   @map("organization_id")
+  name           String
+  code           String?
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([organizationId, code])
+  @@index([tenantId])
+  @@map("cost_centers")
+}
+
+// Location
+model Location {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  organizationId String   @map("organization_id")
+  name           String
+  parentId       String?  @map("parent_id")
+  description    String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant            Tenant      @relation(fields: [tenantId], references: [id])
+  parent            Location?   @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children          Location[]  @relation("LocationHierarchy")
+  equipments        Equipment[] @relation("EquipmentLocation")
+  currentEquipments Equipment[] @relation("CurrentEquipmentLocation")
+
+  @@index([tenantId])
+  @@map("locations")
+}
+
+// MaintenanceGroup
+model MaintenanceGroup {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String
+  description String?
+  color       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id])
+  technicians   TechnicianGroup[]
+  serviceOrders ServiceOrder[]
+
+  @@map("maintenance_groups")
+}
+
+// TechnicianGroup
+model TechnicianGroup {
+  id       String  @id @default(uuid())
+  userId   String  @map("user_id")
+  groupId  String  @map("group_id")
+  isActive Boolean @default(true) @map("is_active")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group MaintenanceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@map("technician_groups")
+}
+
+// EquipmentType / Subtype
+model EquipmentType {
+  id          String             @id @default(uuid())
+  tenantId    String             @map("tenant_id")
+  name        String
+  description String?
+  isActive    Boolean            @default(true)
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  subtypes    EquipmentSubtype[]
+  equipments  Equipment[]
+
+  @@map("equipment_types")
+}
+
+model EquipmentSubtype {
+  id         String        @id @default(uuid())
+  tenantId   String        @map("tenant_id")
+  typeId     String        @map("type_id")
+  name       String
+  isActive   Boolean       @default(true)
+  tenant     Tenant        @relation(fields: [tenantId], references: [id])
+  type       EquipmentType @relation(fields: [typeId], references: [id])
+  equipments Equipment[]
+
+  @@map("equipment_subtypes")
+}
+
+// Equipment
+model Equipment {
+  id                  String               @id @default(uuid())
+  tenantId            String               @map("tenant_id")
+  ownerOrganizationId String               @map("owner_organization_id") // A quem pertence, ex: o Hospital
+  locationId          String?              @map("location_id")
+  currentLocationId   String?              @map("current_location_id")
+  typeId              String?              @map("type_id")
+  subtypeId           String?              @map("subtype_id")
+  name                String
+  model               String?
+  serialNumber        String?              @map("serial_number")
+  patrimonyNumber     String?              @map("patrimony_number")
+  status              EquipmentStatus      @default(ACTIVE)
+  criticality         EquipmentCriticality @default(MEDIUM)
+  observations        String?
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  deletedAt           DateTime?
+
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  ownerOrganization Organization      @relation(fields: [ownerOrganizationId], references: [id])
+  location          Location?         @relation("EquipmentLocation", fields: [locationId], references: [id])
+  currentLocation   Location?         @relation("CurrentEquipmentLocation", fields: [currentLocationId], references: [id])
+  type              EquipmentType?    @relation(fields: [typeId], references: [id])
+  subtype           EquipmentSubtype? @relation(fields: [subtypeId], references: [id])
+
+  serviceOrders ServiceOrder[]
+  maintenances  Maintenance[]
+  movements     EquipmentMovement[]
+
+  @@index([tenantId])
+  @@index([ownerOrganizationId])
+  @@map("equipments")
+}
+
+// ServiceOrder
+model ServiceOrder {
+  id                String               @id @default(uuid())
+  tenantId          String               @map("tenant_id")
+  serviceContractId String?              @map("service_contract_id") // Vincula a ordem ao contrato (e indiretamente a quem paga/quem faz)
+  equipmentId       String               @map("equipment_id")
+  requesterId       String               @map("requester_id")
+  approvedById      String?              @map("approved_by_id")
+  groupId           String?              @map("group_id")
+  number            Int
+  title             String
+  description       String
+  maintenanceType   MaintenanceType      @map("maintenance_type")
+  status            ServiceOrderStatus   @default(OPEN)
+  priority          ServiceOrderPriority @default(MEDIUM)
+  createdAt         DateTime             @default(now()) @map("created_at")
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  contract   ServiceContract?  @relation(fields: [serviceContractId], references: [id])
+  equipment  Equipment         @relation(fields: [equipmentId], references: [id])
+  requester  User              @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
+  approvedBy User?             @relation("ServiceOrderApprover", fields: [approvedById], references: [id])
+  group      MaintenanceGroup? @relation(fields: [groupId], references: [id])
+
+  technicians   ServiceOrderTechnician[]
+  comments      ServiceOrderComment[]
+  tasks         ServiceOrderTask[]
+  notifications Notification[]
+  statusHistory ServiceOrderStatusHistory[]
+
+  @@unique([tenantId, number])
+  @@map("service_orders")
+}
+
+// ServiceOrderTechnician
+model ServiceOrderTechnician {
+  id             String                     @id @default(uuid())
+  serviceOrderId String                     @map("service_order_id")
+  technicianId   String                     @map("technician_id")
+  role           ServiceOrderTechnicianRole @default(LEAD)
+  assignedAt     DateTime                   @default(now())
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  technician   User         @relation(fields: [technicianId], references: [id])
+
+  @@unique([serviceOrderId, technicianId])
+  @@map("service_order_technicians")
+}
+
+// ServiceOrderStatusHistory
+model ServiceOrderStatusHistory {
+  id             String              @id @default(uuid())
+  serviceOrderId String              @map("service_order_id")
+  fromStatus     ServiceOrderStatus? @map("from_status")
+  toStatus       ServiceOrderStatus  @map("to_status")
+  changedById    String              @map("changed_by_id")
+  createdAt      DateTime            @default(now())
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@map("service_order_status_history")
+}
+
+// ServiceOrderComment
+model ServiceOrderComment {
+  id             String   @id @default(uuid())
+  serviceOrderId String   @map("service_order_id")
+  authorId       String   @map("author_id")
+  content        String
+  isInternal     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  author       User         @relation(fields: [authorId], references: [id])
+
+  @@map("service_order_comments")
+}
+
+// ServiceOrderTask
+model ServiceOrderTask {
+  id             String     @id @default(uuid())
+  serviceOrderId String     @map("service_order_id")
+  assignedToId   String?    @map("assigned_to_id")
+  title          String
+  status         TaskStatus @default(TODO)
+  createdAt      DateTime   @default(now())
+
+  serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  assignedTo   User?        @relation(fields: [assignedToId], references: [id])
+
+  @@map("service_order_tasks")
+}
+
+// Maintenance
+model Maintenance {
+  id           String          @id @default(uuid())
+  tenantId     String          @map("tenant_id")
+  equipmentId  String          @map("equipment_id")
+  technicianId String?         @map("technician_id")
+  type         MaintenanceType
+  title        String
+  createdAt    DateTime        @default(now())
+
+  equipment  Equipment @relation(fields: [equipmentId], references: [id])
+  technician User?     @relation(fields: [technicianId], references: [id])
+
+  @@map("maintenances")
+}
+
+// EquipmentMovement
+model EquipmentMovement {
+  id          String         @id @default(uuid())
+  tenantId    String         @map("tenant_id")
+  equipmentId String         @map("equipment_id")
+  requesterId String         @map("requester_id")
+  approverId  String?        @map("approver_id")
+  type        MovementType
+  status      MovementStatus @default(ACTIVE)
+  createdAt   DateTime       @default(now())
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+  requester User      @relation("MovementRequester", fields: [requesterId], references: [id])
+  approver  User?     @relation("MovementApprover", fields: [approverId], references: [id])
+
+  @@map("equipment_movements")
+}
+
+// Notification
+model Notification {
+  id             String              @id @default(uuid())
+  tenantId       String              @map("tenant_id")
+  userId         String              @map("user_id")
+  serviceOrderId String?             @map("service_order_id")
+  channel        NotificationChannel
+  status         NotificationStatus  @default(PENDING)
+  title          String
+  body           String
+  createdAt      DateTime            @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  serviceOrder ServiceOrder? @relation(fields: [serviceOrderId], references: [id])
+
+  @@map("notifications")
+}
+
+// LoginAttempts, AccountBlocks, TwoFactor, EmailVerification, PasswordReset
+model LoginAttempt {
+  id        String   @id @default(uuid())
+  email     String
+  userId    String?
+  success   Boolean
+  ipAddress String
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("login_attempts")
+}
+
+model AccountBlock {
+  id        String   @id @default(uuid())
+  userId    String
+  reason    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("account_blocks")
+}
+
+model TwoFactorCode {
+  id        String        @id @default(uuid())
+  userId    String
+  code      String
+  type      TwoFactorType
+  expiresAt DateTime
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("two_factor_codes")
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verifications")
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
+}

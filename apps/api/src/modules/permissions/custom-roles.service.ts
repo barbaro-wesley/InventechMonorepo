@@ -20,9 +20,9 @@ export class CustomRolesService {
     private readonly permissionsService: PermissionsService,
   ) {}
 
-  async findAll(companyId: string) {
+  async findAll(tenantId: string) {
     return this.prisma.customRole.findMany({
-      where: { companyId },
+      where: { tenantId },
       include: {
         permissions: { orderBy: [{ resource: 'asc' }, { action: 'asc' }] },
         _count: { select: { users: true } },
@@ -31,9 +31,9 @@ export class CustomRolesService {
     })
   }
 
-  async findOne(id: string, companyId: string) {
+  async findOne(id: string, tenantId: string) {
     const role = await this.prisma.customRole.findFirst({
-      where: { id, companyId },
+      where: { id, tenantId },
       include: {
         permissions: { orderBy: [{ resource: 'asc' }, { action: 'asc' }] },
         _count: { select: { users: true } },
@@ -43,24 +43,24 @@ export class CustomRolesService {
     return role
   }
 
-  async create(companyId: string, dto: CreateCustomRoleDto) {
+  async create(tenantId: string, dto: CreateCustomRoleDto) {
     const exists = await this.prisma.customRole.findUnique({
-      where: { companyId_name: { companyId, name: dto.name } },
+      where: { tenantId_name: { tenantId, name: dto.name } },
     })
     if (exists) throw new ConflictException(`Já existe um papel com o nome "${dto.name}"`)
 
     return this.prisma.customRole.create({
-      data: { companyId, name: dto.name, description: dto.description },
+      data: { tenantId, name: dto.name, description: dto.description },
       include: { permissions: true, _count: { select: { users: true } } },
     })
   }
 
-  async update(id: string, companyId: string, dto: UpdateCustomRoleDto) {
-    const role = await this.findOne(id, companyId)
+  async update(id: string, tenantId: string, dto: UpdateCustomRoleDto) {
+    const role = await this.findOne(id, tenantId)
 
     if (dto.name && dto.name !== role.name) {
       const exists = await this.prisma.customRole.findUnique({
-        where: { companyId_name: { companyId, name: dto.name } },
+        where: { tenantId_name: { tenantId, name: dto.name } },
       })
       if (exists) throw new ConflictException(`Já existe um papel com o nome "${dto.name}"`)
     }
@@ -76,8 +76,8 @@ export class CustomRolesService {
     })
   }
 
-  async remove(id: string, companyId: string) {
-    const role = await this.findOne(id, companyId)
+  async remove(id: string, tenantId: string) {
+    const role = await this.findOne(id, tenantId)
 
     if (role._count.users > 0) {
       throw new ForbiddenException(
@@ -95,8 +95,8 @@ export class CustomRolesService {
   // Gerenciamento de permissões do papel (substitui todas de uma vez)
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async setPermissions(id: string, companyId: string, dto: SetCustomRolePermissionsDto) {
-    await this.findOne(id, companyId) // valida posse
+  async setPermissions(id: string, tenantId: string, dto: SetCustomRolePermissionsDto) {
+    await this.findOne(id, tenantId) // valida posse
 
     // Valida que cada resource:action existe na matriz
     const invalid = dto.permissions.filter(
@@ -123,24 +123,24 @@ export class CustomRolesService {
 
     this.permissionsService.invalidateCustomRoleCache(id)
 
-    return this.findOne(id, companyId)
+    return this.findOne(id, tenantId)
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Atribuição de custom role a um usuário
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async assignToUser(userId: string, companyId: string, customRoleId: string | null) {
+  async assignToUser(userId: string, tenantId: string, customRoleId: string | null) {
     // Valida que o usuário pertence à empresa
     const user = await this.prisma.user.findFirst({
-      where: { id: userId, companyId },
+      where: { id: userId, tenantId },
     })
     if (!user) throw new NotFoundException('Usuário não encontrado')
 
     // Valida que o custom role pertence à empresa (se fornecido)
     if (customRoleId) {
       const role = await this.prisma.customRole.findFirst({
-        where: { id: customRoleId, companyId, isActive: true },
+        where: { id: customRoleId, tenantId, isActive: true },
       })
       if (!role) throw new NotFoundException('Papel personalizado não encontrado ou inativo')
     }

@@ -13,7 +13,7 @@ import { PrismaPg } from '@prisma/adapter-pg'
 // ─────────────────────────────────────────────────────────────────────────────
 
 const SOFT_DELETE_MODELS = [
-  'Company', 'Client', 'User', 'Equipment', 'ServiceOrder',
+  'Tenant', 'Organization', 'User', 'Equipment', 'ServiceOrder',
 ] as const
 
 type SoftDeleteModel = (typeof SOFT_DELETE_MODELS)[number]
@@ -150,11 +150,11 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   // ─── Platform & Company ────────────────────────────────────────────────────
 
   get platform() { return this._db.platform }
-  get company() { return this._db.company }
+  get tenant() { return this._db.tenant }
 
   // ─── Client ────────────────────────────────────────────────────────────────
 
-  get client() { return this._db.client }
+  get organization() { return this._db.organization }
 
   // ─── User & Auth ───────────────────────────────────────────────────────────
 

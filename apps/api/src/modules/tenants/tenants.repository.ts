@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
-import { ListCompaniesDto } from './dto/list-companies.dto'
+import { ListCompaniesDto } from './dto/list-tenants.dto'
 
 export const COMPANY_SELECT = {
   id: true,
@@ -24,29 +24,29 @@ export const COMPANY_SELECT = {
   // Conta clientes e usuários para exibir no painel do SUPER_ADMIN
   _count: {
     select: {
-      clients: true,
+      organizations: true,
       users: true,
     },
   },
-} satisfies Prisma.CompanySelect
+} satisfies Prisma.TenantSelect
 
-export type CompanyWithCount = Prisma.CompanyGetPayload<{
+export type CompanyWithCount = Prisma.TenantGetPayload<{
   select: typeof COMPANY_SELECT
 }>
 
 @Injectable()
-export class CompaniesRepository {
+export class TenantsRepository {
   constructor(private prisma: PrismaService) {}
 
   async findById(id: string): Promise<CompanyWithCount | null> {
-    return this.prisma.company.findFirst({
+    return this.prisma.tenant.findFirst({
       where: { id, deletedAt: null },
       select: COMPANY_SELECT,
     })
   }
 
   async findBySlug(slug: string): Promise<CompanyWithCount | null> {
-    return this.prisma.company.findFirst({
+    return this.prisma.tenant.findFirst({
       where: { slug, deletedAt: null },
       select: COMPANY_SELECT,
     })
@@ -57,7 +57,7 @@ export class CompaniesRepository {
   ): Promise<{ data: CompanyWithCount[]; total: number; page: number; limit: number }> {
     const { search, status, page = 1, limit = 20 } = filters
 
-    const where: Prisma.CompanyWhereInput = {
+    const where: Prisma.TenantWhereInput = {
       deletedAt: null,
       ...(status && { status }),
       ...(search && {
@@ -70,23 +70,23 @@ export class CompaniesRepository {
     }
 
     const [data, total] = await this.prisma.$transaction([
-      this.prisma.company.findMany({
+      this.prisma.tenant.findMany({
         where,
         select: COMPANY_SELECT,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.company.count({ where }),
+      this.prisma.tenant.count({ where }),
     ])
 
     return { data, total, page, limit }
   }
 
   async create(
-    data: Prisma.CompanyCreateInput,
+    data: Prisma.TenantCreateInput,
   ): Promise<CompanyWithCount> {
-    return this.prisma.company.create({
+    return this.prisma.tenant.create({
       data,
       select: COMPANY_SELECT,
     })
@@ -94,9 +94,9 @@ export class CompaniesRepository {
 
   async update(
     id: string,
-    data: Prisma.CompanyUpdateInput,
+    data: Prisma.TenantUpdateInput,
   ): Promise<CompanyWithCount> {
-    return this.prisma.company.update({
+    return this.prisma.tenant.update({
       where: { id },
       data,
       select: COMPANY_SELECT,
@@ -104,14 +104,14 @@ export class CompaniesRepository {
   }
 
   async softDelete(id: string): Promise<void> {
-    await this.prisma.company.update({
+    await this.prisma.tenant.update({
       where: { id },
       data: { deletedAt: new Date() },
     })
   }
 
   async slugExists(slug: string, excludeId?: string): Promise<boolean> {
-    const company = await this.prisma.company.findFirst({
+    const company = await this.prisma.tenant.findFirst({
       where: {
         slug,
         deletedAt: null,
@@ -123,7 +123,7 @@ export class CompaniesRepository {
   }
 
   async documentExists(document: string, excludeId?: string): Promise<boolean> {
-    const company = await this.prisma.company.findFirst({
+    const company = await this.prisma.tenant.findFirst({
       where: {
         document,
         deletedAt: null,

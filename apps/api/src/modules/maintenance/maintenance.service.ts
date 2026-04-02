@@ -28,8 +28,8 @@ export const MAINTENANCE_JOBS = {
 
 const MAINTENANCE_SELECT = {
     id: true,
-    companyId: true,
-    clientId: true,
+    tenantId: true,
+    organizationId: true,
     type: true,
     title: true,
     description: true,
@@ -45,8 +45,8 @@ const MAINTENANCE_SELECT = {
 
 const SCHEDULE_SELECT = {
     id: true,
-    companyId: true,
-    clientId: true,
+    tenantId: true,
+    organizationId: true,
     title: true,
     description: true,
     maintenanceType: true,
@@ -79,15 +79,15 @@ export class MaintenanceService {
     // ─────────────────────────────────────────
 
     async findAllMaintenances(
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         filters: ListMaintenancesDto,
     ) {
         const { type, equipmentId, technicianId, dateFrom, dateTo, page = 1, limit = 20 } = filters
 
         const where: Prisma.MaintenanceWhereInput = {
-            clientId,
-            companyId,
+            organizationId,
+            tenantId,
             ...(type && { type }),
             ...(equipmentId && { equipmentId }),
             ...(technicianId && { technicianId }),
@@ -113,9 +113,9 @@ export class MaintenanceService {
         return { data, total, page, limit }
     }
 
-    async findOneMaintenance(id: string, clientId: string, companyId: string) {
+    async findOneMaintenance(id: string, organizationId: string, tenantId: string) {
         const maintenance = await this.prisma.maintenance.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: MAINTENANCE_SELECT,
         })
         if (!maintenance) throw new NotFoundException('Manutenção não encontrada')
@@ -124,20 +124,20 @@ export class MaintenanceService {
 
     async createMaintenance(
         dto: CreateMaintenanceDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: dto.equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: dto.equipmentId, organizationId, tenantId, deletedAt: null },
             select: { id: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
 
         return this.prisma.maintenance.create({
             data: {
-                companyId,
-                clientId,
+                tenantId,
+                organizationId,
                 type: dto.type,
                 title: dto.title,
                 description: dto.description,
@@ -155,11 +155,11 @@ export class MaintenanceService {
     async updateMaintenance(
         id: string,
         dto: UpdateMaintenanceDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
         const existing = await this.prisma.maintenance.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: { id: true },
         })
         if (!existing) throw new NotFoundException('Manutenção não encontrada')
@@ -194,15 +194,15 @@ export class MaintenanceService {
     // ─────────────────────────────────────────
 
     async findAllSchedules(
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         filters: ListSchedulesDto,
     ) {
         const { equipmentId, recurrenceType, isActive, page = 1, limit = 20 } = filters
 
         const where: Prisma.MaintenanceScheduleWhereInput = {
-            clientId,
-            companyId,
+            organizationId,
+            tenantId,
             ...(equipmentId && { equipmentId }),
             ...(recurrenceType && { recurrenceType }),
             ...(isActive !== undefined && { isActive }),
@@ -222,9 +222,9 @@ export class MaintenanceService {
         return { data, total, page, limit }
     }
 
-    async findOneSchedule(id: string, clientId: string, companyId: string) {
+    async findOneSchedule(id: string, organizationId: string, tenantId: string) {
         const schedule = await this.prisma.maintenanceSchedule.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: SCHEDULE_SELECT,
         })
         if (!schedule) throw new NotFoundException('Agendamento não encontrado')
@@ -233,8 +233,8 @@ export class MaintenanceService {
 
     async createSchedule(
         dto: CreateScheduleDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         // Valida customIntervalDays para recorrência CUSTOM
@@ -246,7 +246,7 @@ export class MaintenanceService {
 
         // Valida equipamento
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: dto.equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: dto.equipmentId, organizationId, tenantId, deletedAt: null },
             select: { id: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
@@ -260,8 +260,8 @@ export class MaintenanceService {
 
         const schedule = await this.prisma.maintenanceSchedule.create({
             data: {
-                companyId,
-                clientId,
+                tenantId,
+                organizationId,
                 title: dto.title,
                 description: dto.description,
                 maintenanceType: dto.maintenanceType,
@@ -272,7 +272,7 @@ export class MaintenanceService {
                 endDate: dto.endDate ? new Date(dto.endDate) : null,
                 nextRunAt,
                 equipmentId: dto.equipmentId,        // ✅ ID direto
-                // ✅ Remove client: { connect } — clientId já está acima
+                // ✅ Remove organization: { connect } — organizationId já está acima
                 ...(dto.groupId && { groupId: dto.groupId }), // ✅ ID direto
                 ...(dto.assignedTechnicianId && {
                     assignedTechnicianId: dto.assignedTechnicianId,
@@ -292,11 +292,11 @@ export class MaintenanceService {
     async updateSchedule(
         id: string,
         dto: UpdateScheduleDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
         const existing = await this.prisma.maintenanceSchedule.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: { id: true, recurrenceType: true, customIntervalDays: true },
         })
         if (!existing) throw new NotFoundException('Agendamento não encontrado')
@@ -339,9 +339,9 @@ export class MaintenanceService {
         })
     }
 
-    async removeSchedule(id: string, clientId: string, companyId: string) {
+    async removeSchedule(id: string, organizationId: string, tenantId: string) {
         const schedule = await this.prisma.maintenanceSchedule.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: { id: true, title: true },
         })
         if (!schedule) throw new NotFoundException('Agendamento não encontrado')
@@ -388,8 +388,8 @@ export class MaintenanceService {
             },
             select: {
                 id: true,
-                companyId: true,
-                clientId: true,
+                tenantId: true,
+                organizationId: true,
                 title: true,
                 description: true,
                 maintenanceType: true,
@@ -415,7 +415,7 @@ export class MaintenanceService {
                 await this.prisma.$transaction(async (tx) => {
                     // Número sequencial da OS
                     const last = await tx.serviceOrder.findFirst({
-                        where: { companyId: schedule.companyId },
+                        where: { tenantId: schedule.tenantId },
                         orderBy: { number: 'desc' },
                         select: { number: true },
                     })
@@ -429,8 +429,8 @@ export class MaintenanceService {
                     // Cria a OS
                     const os = await tx.serviceOrder.create({
                         data: {
-                            companyId: schedule.companyId,
-                            clientId: schedule.clientId,
+                            tenantId: schedule.tenantId,
+                            organizationId: schedule.organizationId,
                             equipmentId: schedule.equipmentId,
                             number,
                             title: `[PREVENTIVA] ${schedule.title}`,
@@ -441,7 +441,7 @@ export class MaintenanceService {
                             alertAfterHours: 4,
                             priority: 'MEDIUM',
                             // ✅ Troca o objeto connect por ID direto
-                            requesterId: await this.getCompanyAdminId(schedule.companyId, tx),
+                            requesterId: await this.getCompanyAdminId(schedule.tenantId, tx),
                             // ✅ Remove equipment: { connect } — equipmentId já está acima
                             ...(schedule.groupId && {
                                 groupId: schedule.groupId, // ✅ Usa ID direto também
@@ -465,7 +465,7 @@ export class MaintenanceService {
                         data: {
                             serviceOrderId: os.id,
                             toStatus: status,
-                            changedById: await this.getCompanyAdminId(schedule.companyId, tx),
+                            changedById: await this.getCompanyAdminId(schedule.tenantId, tx),
                             reason: `Gerada automaticamente pelo agendamento "${schedule.title}"`,
                         },
                     })
@@ -473,8 +473,8 @@ export class MaintenanceService {
                     // Cria registro de manutenção vinculado à OS
                     await tx.maintenance.create({
                         data: {
-                            companyId: schedule.companyId,
-                            clientId: schedule.clientId,
+                            tenantId: schedule.tenantId,
+                            organizationId: schedule.organizationId,
                             equipmentId: schedule.equipmentId,
                             scheduleId: schedule.id,
                             type: schedule.maintenanceType,
@@ -509,7 +509,7 @@ export class MaintenanceService {
                 // Enfileira notificação para cada OS gerada
                 await this.maintenanceQueue.add(
                     'notify-preventive-generated',
-                    { scheduleId: schedule.id, companyId: schedule.companyId },
+                    { scheduleId: schedule.id, tenantId: schedule.tenantId },
                     { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
                 )
             } catch (error) {
@@ -541,8 +541,8 @@ export class MaintenanceService {
                 id: true,
                 number: true,
                 title: true,
-                companyId: true,
-                clientId: true,
+                tenantId: true,
+                organizationId: true,
                 groupId: true,
                 alertAfterHours: true,
                 createdAt: true,
@@ -563,7 +563,7 @@ export class MaintenanceService {
                         serviceOrderId: os.id,
                         number: os.number,
                         title: os.title,
-                        companyId: os.companyId,
+                        tenantId: os.tenantId,
                         groupId: os.groupId,
                     },
                     { attempts: 3, backoff: { type: 'exponential', delay: 3000 } },
@@ -585,12 +585,12 @@ export class MaintenanceService {
     // ─────────────────────────────────────────
     // Helper: ID do primeiro admin da empresa
     // ─────────────────────────────────────────
-    private async getCompanyAdminId(companyId: string, tx: any): Promise<string> {
+    private async getCompanyAdminId(tenantId: string, tx: any): Promise<string> {
         const admin = await tx.user.findFirst({
-            where: { companyId, role: 'COMPANY_ADMIN', deletedAt: null },
+            where: { tenantId, role: 'COMPANY_ADMIN', deletedAt: null },
             select: { id: true },
         })
-        if (!admin) throw new Error(`COMPANY_ADMIN não encontrado para empresa ${companyId}`)
+        if (!admin) throw new Error(`COMPANY_ADMIN não encontrado para empresa ${tenantId}`)
         return admin.id
     }
 }

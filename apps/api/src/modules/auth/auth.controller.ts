@@ -84,7 +84,7 @@ export class AuthController {
     return {
       user: {
         id: user.sub, email: user.email,
-        role: user.role, companyId: user.companyId, clientId: user.clientId,
+        role: user.role, tenantId: user.tenantId, organizationId: user.organizationId,
       },
     }
   }

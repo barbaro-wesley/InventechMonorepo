@@ -23,7 +23,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutos
 export class PermissionsService {
   private readonly logger = new Logger(PermissionsService.name)
 
-  // Cache de permissões de system role: "companyId:resource:action" → UserRole[]
+  // Cache de permissões de system role: "tenantId:resource:action" → UserRole[]
   private readonly systemCache = new Map<string, CacheEntry<UserRole[]>>()
 
   // Cache de custom role: "customRoleId:resource:action" → boolean
@@ -46,40 +46,40 @@ export class PermissionsService {
     }
 
     // System role → verifica overrides da empresa ou defaults
-    return this.checkSystemRole(user.role, user.companyId, resource, action)
+    return this.checkSystemRole(user.role, user.tenantId, resource, action)
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // System role: companyId-level override → fallback para defaults
+  // System role: tenantId-level override → fallback para defaults
   // ─────────────────────────────────────────────────────────────────────────────
 
   async checkSystemRole(
     role: UserRole,
-    companyId: string | null,
+    tenantId: string | null,
     resource: string,
     action: string,
   ): Promise<boolean> {
     const key = `${resource}:${action}`
-    const allowedRoles = await this.getEffectiveSystemRoles(companyId, resource, action)
+    const allowedRoles = await this.getEffectiveSystemRoles(tenantId, resource, action)
     return allowedRoles.includes(role)
   }
 
   async getEffectiveSystemRoles(
-    companyId: string | null,
+    tenantId: string | null,
     resource: string,
     action: string,
   ): Promise<UserRole[]> {
     const permKey = `${resource}:${action}`
 
-    if (companyId) {
-      const cacheKey = `${companyId}:${permKey}`
+    if (tenantId) {
+      const cacheKey = `${tenantId}:${permKey}`
       const cached = this.systemCache.get(cacheKey)
       if (cached && cached.expiresAt > Date.now()) {
         return cached.value
       }
 
       const override = await this.prisma.resourcePermission.findUnique({
-        where: { companyId_resource_action: { companyId, resource, action } },
+        where: { tenantId_resource_action: { tenantId, resource, action } },
         select: { allowedRoles: true },
       })
 
@@ -138,9 +138,9 @@ export class PermissionsService {
   // Invalidação de cache — chamada após write operations
   // ─────────────────────────────────────────────────────────────────────────────
 
-  invalidateCompanyCache(companyId: string): void {
+  invalidateCompanyCache(tenantId: string): void {
     for (const key of this.systemCache.keys()) {
-      if (key.startsWith(`${companyId}:`)) {
+      if (key.startsWith(`${tenantId}:`)) {
         this.systemCache.delete(key)
       }
     }
@@ -158,15 +158,15 @@ export class PermissionsService {
   // Helpers para o PermissionsController
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async findAllByCompany(companyId: string) {
+  async findAllByCompany(tenantId: string) {
     return this.prisma.resourcePermission.findMany({
-      where: { companyId },
+      where: { tenantId },
       orderBy: [{ resource: 'asc' }, { action: 'asc' }],
     })
   }
 
   async upsert(
-    companyId: string,
+    tenantId: string,
     resource: string,
     action: string,
     allowedRoles: string[],
@@ -183,32 +183,32 @@ export class PermissionsService {
     const merged = [...new Set([...valid, ...protected_])]
 
     const result = await this.prisma.resourcePermission.upsert({
-      where: { companyId_resource_action: { companyId, resource, action } },
-      create: { companyId, resource, action, allowedRoles: merged },
+      where: { tenantId_resource_action: { tenantId, resource, action } },
+      create: { tenantId, resource, action, allowedRoles: merged },
       update: { allowedRoles: merged },
     })
 
-    this.invalidateCompanyCache(companyId)
+    this.invalidateCompanyCache(tenantId)
     return result
   }
 
-  async remove(companyId: string, resource: string, action: string) {
+  async remove(tenantId: string, resource: string, action: string) {
     const existing = await this.prisma.resourcePermission.findUnique({
-      where: { companyId_resource_action: { companyId, resource, action } },
+      where: { tenantId_resource_action: { tenantId, resource, action } },
     })
     if (!existing) return { message: 'Override não encontrado — já usa o padrão' }
 
     await this.prisma.resourcePermission.delete({
-      where: { companyId_resource_action: { companyId, resource, action } },
+      where: { tenantId_resource_action: { tenantId, resource, action } },
     })
 
-    this.invalidateCompanyCache(companyId)
+    this.invalidateCompanyCache(tenantId)
     return { message: `Override de ${resource}:${action} removido — voltou ao padrão` }
   }
 
-  async reset(companyId: string) {
-    await this.prisma.resourcePermission.deleteMany({ where: { companyId } })
-    this.invalidateCompanyCache(companyId)
+  async reset(tenantId: string) {
+    await this.prisma.resourcePermission.deleteMany({ where: { tenantId } })
+    this.invalidateCompanyCache(tenantId)
     return { message: 'Todas as permissões restauradas para os padrões do sistema' }
   }
 }

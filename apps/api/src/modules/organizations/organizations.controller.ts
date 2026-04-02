@@ -7,36 +7,36 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger'
-import { ClientsService } from './clients.service'
-import { CreateClientDto } from './dto/create-client.dto'
-import { UpdateClientDto } from './dto/update-client.dto'
-import { ListClientsDto } from './dto/list-clients.dto'
+import { OrganizationsService } from './organizations.service'
+import { CreateClientDto } from './dto/create-organization.dto'
+import { UpdateClientDto } from './dto/update-organization.dto'
+import { ListClientsDto } from './dto/list-organizations.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('Clients')
 @ApiBearerAuth('JWT')
-@Controller('clients')
-export class ClientsController {
-  constructor(private readonly clientsService: ClientsService) { }
+@Controller('organizations')
+export class OrganizationsController {
+  constructor(private readonly organizationsService: OrganizationsService) { }
 
   @Get()
   @Permission('client:list')
   findAll(@Query() filters: ListClientsDto, @CurrentUser() cu: AuthenticatedUser) {
-    return this.clientsService.findAll(cu, filters)
+    return this.organizationsService.findAll(cu, filters)
   }
 
   @Get(':id')
   @Permission('client:read')
   findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-    return this.clientsService.findOne(id, cu)
+    return this.organizationsService.findOne(id, cu)
   }
 
   @Post()
   @Permission('client:create')
   create(@Body() dto: CreateClientDto, @CurrentUser() cu: AuthenticatedUser) {
-    return this.clientsService.create(dto, cu)
+    return this.organizationsService.create(dto, cu)
   }
 
   @Patch(':id')
@@ -46,11 +46,11 @@ export class ClientsController {
     @Body() dto: UpdateClientDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.clientsService.update(id, dto, cu)
+    return this.organizationsService.update(id, dto, cu)
   }
 
   // ─────────────────────────────────────────
-  // POST /clients/:id/logo
+  // POST /organizations/:id/logo
   // Upload do logo do cliente
   // ─────────────────────────────────────────
   @Post(':id/logo')
@@ -77,7 +77,7 @@ export class ClientsController {
     @CurrentUser() cu: AuthenticatedUser,
   ) {
     if (!file) throw new BadRequestException('Nenhum arquivo enviado. Use o campo "logo".')
-    const logoUrl = await this.clientsService.uploadLogo(id, file, cu)
+    const logoUrl = await this.organizationsService.uploadLogo(id, file, cu)
     return { logoUrl, message: 'Logo do cliente atualizado com sucesso' }
   }
 
@@ -85,6 +85,6 @@ export class ClientsController {
   @HttpCode(HttpStatus.OK)
   @Permission('client:delete')
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-    return this.clientsService.remove(id, cu)
+    return this.organizationsService.remove(id, cu)
   }
 }

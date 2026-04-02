@@ -13,8 +13,8 @@ export interface EmbeddedLocation {
 
 export interface CostCenter {
   id: string;
-  companyId: string;
-  clientId: string;
+  tenantId: string;
+  organizationId: string;
   name: string;
   code: string | null;
   description: string | null;
@@ -46,22 +46,22 @@ export interface UpdateCostCenterDto {
 }
 
 export const costCentersService = {
-  async list(clientId: string, params?: ListCostCentersParams): Promise<CostCenter[]> {
-    const { data } = await api.get(`/clients/${clientId}/cost-centers`, { params });
+  async list(organizationId: string, params?: ListCostCentersParams): Promise<CostCenter[]> {
+    const { data } = await api.get(`/organizations/${organizationId}/cost-centers`, { params });
     return Array.isArray(data) ? data : (data?.data ?? []);
   },
 
-  async create(clientId: string, dto: CreateCostCenterDto): Promise<CostCenter> {
-    const { data } = await api.post(`/clients/${clientId}/cost-centers`, dto);
+  async create(organizationId: string, dto: CreateCostCenterDto): Promise<CostCenter> {
+    const { data } = await api.post(`/organizations/${organizationId}/cost-centers`, dto);
     return data;
   },
 
-  async update(clientId: string, id: string, dto: UpdateCostCenterDto): Promise<CostCenter> {
-    const { data } = await api.patch(`/clients/${clientId}/cost-centers/${id}`, dto);
+  async update(organizationId: string, id: string, dto: UpdateCostCenterDto): Promise<CostCenter> {
+    const { data } = await api.patch(`/organizations/${organizationId}/cost-centers/${id}`, dto);
     return data;
   },
 
-  async remove(clientId: string, id: string): Promise<void> {
-    await api.delete(`/clients/${clientId}/cost-centers/${id}`);
+  async remove(organizationId: string, id: string): Promise<void> {
+    await api.delete(`/organizations/${organizationId}/cost-centers/${id}`);
   },
 };

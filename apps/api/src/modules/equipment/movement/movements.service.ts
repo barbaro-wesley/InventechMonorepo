@@ -13,9 +13,9 @@ import { CreateMovementDto, ReturnMovementDto } from './dto/movement.dto'
 export class MovementsService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll(equipmentId: string, clientId: string, companyId: string) {
+    async findAll(equipmentId: string, organizationId: string, tenantId: string) {
         return this.prisma.equipmentMovement.findMany({
-            where: { equipmentId, clientId, companyId },
+            where: { equipmentId, organizationId, tenantId },
             orderBy: { createdAt: 'desc' },
             include: {
                 origin: { select: { id: true, name: true } },
@@ -29,13 +29,13 @@ export class MovementsService {
     async create(
         equipmentId: string,
         dto: CreateMovementDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         // Verifica equipamento
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: equipmentId, organizationId, tenantId, deletedAt: null },
             select: { id: true, name: true, status: true, currentLocationId: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
@@ -57,11 +57,11 @@ export class MovementsService {
         // Origem e destino pertencem ao mesmo cliente
         const [origin, destination] = await Promise.all([
             this.prisma.location.findFirst({
-                where: { id: dto.originLocationId, clientId, companyId },
+                where: { id: dto.originLocationId, organizationId, tenantId },
                 select: { id: true, name: true },
             }),
             this.prisma.location.findFirst({
-                where: { id: dto.destinationLocationId, clientId, companyId },
+                where: { id: dto.destinationLocationId, organizationId, tenantId },
                 select: { id: true, name: true },
             }),
         ])
@@ -81,8 +81,8 @@ export class MovementsService {
         return this.prisma.$transaction(async (tx) => {
             const movement = await tx.equipmentMovement.create({
                 data: {
-                    companyId,
-                    clientId,
+                    tenantId,
+                    organizationId,
                     equipmentId,
                     requesterId: currentUser.sub,
                     type: dto.type,
@@ -118,11 +118,11 @@ export class MovementsService {
     async returnEquipment(
         movementId: string,
         dto: ReturnMovementDto,
-        companyId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         const movement = await this.prisma.equipmentMovement.findFirst({
-            where: { id: movementId, companyId, status: MovementStatus.ACTIVE },
+            where: { id: movementId, tenantId, status: MovementStatus.ACTIVE },
             select: {
                 id: true,
                 equipmentId: true,

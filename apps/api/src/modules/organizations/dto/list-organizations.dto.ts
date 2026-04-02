@@ -1,6 +1,6 @@
 import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator'
 import { Type } from 'class-transformer'
-import { ClientStatus } from '@prisma/client'
+import { OrgStatus } from '@prisma/client'
 
 export class ListClientsDto {
   @IsOptional()
@@ -8,12 +8,12 @@ export class ListClientsDto {
   search?: string  // Busca por nome, documento ou email
 
   @IsOptional()
-  @IsEnum(ClientStatus)
-  status?: ClientStatus
+  @IsEnum(OrgStatus)
+  status?: OrgStatus
 
   @IsOptional()
   @IsUUID()
-  companyId?: string  // Usado pelo SUPER_ADMIN para filtrar por empresa
+  tenantId?: string  // Usado pelo SUPER_ADMIN para filtrar por empresa
 
   @IsOptional()
   @Type(() => Number)

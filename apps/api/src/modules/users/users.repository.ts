@@ -6,8 +6,8 @@ import { ListUsersDto } from './dto/list-users.dto'
 // Campos seguros para retornar ao cliente — nunca expõe passwordHash
 export const USER_SAFE_SELECT = {
   id: true,
-  companyId: true,
-  clientId: true,
+  tenantId: true,
+  organizationId: true,
   customRoleId: true,
   name: true,
   email: true,
@@ -33,10 +33,10 @@ export class UsersRepository {
   // ─────────────────────────────────────────
   async findById(
     id: string,
-    companyId: string,
+    tenantId: string,
   ): Promise<SafeUser | null> {
     return this.prisma.user.findFirst({
-      where: { id, companyId, deletedAt: null },
+      where: { id, tenantId, deletedAt: null },
       select: USER_SAFE_SELECT,
     })
   }
@@ -54,17 +54,17 @@ export class UsersRepository {
   // Listagem com filtros e paginação
   // ─────────────────────────────────────────
   async findMany(
-    companyId: string,
+    tenantId: string,
     filters: ListUsersDto,
   ): Promise<{ data: SafeUser[]; pagination: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean; hasPrevPage: boolean } }> {
-    const { search, role, status, clientId, page = 1, limit = 20 } = filters
+    const { search, role, status, organizationId, page = 1, limit = 20 } = filters
 
     const where: Prisma.UserWhereInput = {
-      companyId,
+      tenantId,
       deletedAt: null,
       ...(role && { role }),
       ...(status && { status }),
-      ...(clientId && { clientId }),
+      ...(organizationId && { organizationId }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' } },
@@ -114,7 +114,7 @@ export class UsersRepository {
   // ─────────────────────────────────────────
   async update(
     id: string,
-    companyId: string,
+    tenantId: string,
     data: Prisma.UserUpdateInput,
   ): Promise<SafeUser> {
     return this.prisma.user.update({
@@ -127,7 +127,7 @@ export class UsersRepository {
   // ─────────────────────────────────────────
   // Soft delete
   // ─────────────────────────────────────────
-  async softDelete(id: string, companyId: string): Promise<void> {
+  async softDelete(id: string, tenantId: string): Promise<void> {
     await this.prisma.user.update({
       where: { id },
       data: { deletedAt: new Date() },

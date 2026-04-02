@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useClients } from "@/hooks/clients/use-clients";
+import { useOrganizations } from "@/hooks/clients/use-clients";
 import { useCurrentUser } from "@/store/auth.store";
 import {
   useCostCenters,
@@ -74,16 +74,16 @@ type LocForm = z.infer<typeof locSchema>;
 function CostCenterSheet({
   open,
   editTarget,
-  clientId,
+  organizationId,
   onClose,
 }: {
   open: boolean;
   editTarget: CostCenter | null;
-  clientId: string;
+  organizationId: string;
   onClose: () => void;
 }) {
-  const create = useCreateCostCenter(clientId);
-  const update = useUpdateCostCenter(clientId);
+  const create = useCreateCostCenter(organizationId);
+  const update = useUpdateCostCenter(organizationId);
   const isPending = create.isPending || update.isPending;
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CcForm>({
@@ -148,17 +148,17 @@ function EmbeddedLocationSheet({
   open,
   context, // { type: 'root', cc } | { type: 'child', parent }
   editTarget,
-  clientId,
+  organizationId,
   onClose,
 }: {
   open: boolean;
   context: { type: "root"; cc: CostCenter } | { type: "child"; parent: EmbeddedLocation } | null;
   editTarget: EmbeddedLocation | null;
-  clientId: string;
+  organizationId: string;
   onClose: () => void;
 }) {
-  const create = useCreateLocation(clientId);
-  const update = useUpdateLocation(clientId);
+  const create = useCreateLocation(organizationId);
+  const update = useUpdateLocation(organizationId);
   const isPending = create.isPending || update.isPending;
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<LocForm>({
@@ -469,9 +469,9 @@ function CostCenterCard({
 
 export default function CostCentersPage() {
   const user = useCurrentUser();
-  const fixedClientId = user?.clientId ?? null;
+  const fixedOrganizationId = user?.organizationId ?? null;
 
-  const [selectedClientId, setSelectedClientId] = useState(fixedClientId ?? "");
+  const [selectedOrganizationId, setSelectedClientId] = useState(fixedOrganizationId ?? "");
 
   // Sheet state
   type SheetState =
@@ -483,13 +483,13 @@ export default function CostCentersPage() {
   const [deleteCc, setDeleteCc] = useState<CostCenter | null>(null);
   const [deleteLoc, setDeleteLoc] = useState<EmbeddedLocation | null>(null);
 
-  const { data: clientsData } = useClients({ limit: 100 });
-  const clients = clientsData?.data ?? [];
+  const { data: organizationsData } = useOrganizations({ limit: 100 });
+  const clients = organizationsData?.data ?? [];
 
-  const removeCc = useDeleteCostCenter(selectedClientId);
-  const removeLoc = useDeleteLocation(selectedClientId);
+  const removeCc = useDeleteCostCenter(selectedOrganizationId);
+  const removeLoc = useDeleteLocation(selectedOrganizationId);
 
-  const { data: costCenters = [], isLoading } = useCostCenters(selectedClientId, { limit: 100 });
+  const { data: costCenters = [], isLoading } = useCostCenters(selectedOrganizationId, { limit: 100 });
 
   return (
     <div className="space-y-6">
@@ -503,7 +503,7 @@ export default function CostCentersPage() {
             Organize onde os equipamentos estão instalados dentro de cada cliente.
           </p>
         </div>
-        {selectedClientId && (
+        {selectedOrganizationId && (
           <Button onClick={() => setSheet({ type: "cc", editTarget: null })}>
             <Plus className="w-4 h-4 mr-2" />
             Novo centro de custo
@@ -512,7 +512,7 @@ export default function CostCentersPage() {
       </div>
 
       {/* How it works — only shown before client selection (and only when client selector is visible) */}
-      {!fixedClientId && !selectedClientId && (
+      {!fixedOrganizationId && !selectedOrganizationId && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
           <p className="font-semibold mb-2">Como funciona:</p>
           <div className="flex items-start gap-3 flex-wrap sm:flex-nowrap">
@@ -535,17 +535,17 @@ export default function CostCentersPage() {
       )}
 
       {/* Client selector — hidden for client-scoped users */}
-      {!fixedClientId && (
+      {!fixedOrganizationId && (
         <div className="bg-white rounded-xl border border-border p-4 flex items-center gap-4">
           <Label htmlFor="client-sel" className="text-sm font-medium whitespace-nowrap">
             Cliente
           </Label>
           <select
             id="client-sel"
-            value={selectedClientId}
+            value={selectedOrganizationId}
             onChange={(e) => setSelectedClientId(e.target.value)}
             className="flex-1 max-w-sm text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-            style={{ color: selectedClientId ? "var(--foreground)" : "var(--muted-foreground)" }}
+            style={{ color: selectedOrganizationId ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             <option value="">— Selecione um cliente —</option>
             {clients.map((c) => (
@@ -556,7 +556,7 @@ export default function CostCentersPage() {
       )}
 
       {/* Empty state — no client */}
-      {!selectedClientId ? (
+      {!selectedOrganizationId ? (
         <div className="bg-white rounded-xl border border-border py-14 text-center">
           <FolderOpen className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
@@ -607,7 +607,7 @@ export default function CostCentersPage() {
       <CostCenterSheet
         open={sheet?.type === "cc"}
         editTarget={sheet?.type === "cc" ? sheet.editTarget : null}
-        clientId={selectedClientId}
+        organizationId={selectedOrganizationId}
         onClose={() => setSheet(null)}
       />
 
@@ -615,7 +615,7 @@ export default function CostCentersPage() {
         open={sheet?.type === "loc"}
         context={sheet?.type === "loc" ? sheet.context : null}
         editTarget={sheet?.type === "loc" ? sheet.editTarget : null}
-        clientId={selectedClientId}
+        organizationId={selectedOrganizationId}
         onClose={() => setSheet(null)}
       />
 

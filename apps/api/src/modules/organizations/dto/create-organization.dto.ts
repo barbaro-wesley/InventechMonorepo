@@ -8,7 +8,7 @@ import {
   ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { ClientStatus } from '@prisma/client'
+import { OrgStatus } from '@prisma/client'
 
 class AddressDto {
   @IsOptional()
@@ -79,12 +79,12 @@ export class CreateClientDto {
   address?: AddressDto
 
   @IsOptional()
-  @IsEnum(ClientStatus)
-  status?: ClientStatus = ClientStatus.ACTIVE
+  @IsEnum(OrgStatus)
+  status?: OrgStatus = OrgStatus.ACTIVE
 
   @IsOptional()
   @IsUUID()
-  companyId?: string  // Usado pelo SUPER_ADMIN para criar clientes em outras empresas
+  tenantId?: string  // Usado pelo SUPER_ADMIN para criar clientes em outras empresas
 
   // Administrador inicial do cliente — criado junto na mesma transação
   @ValidateNested()

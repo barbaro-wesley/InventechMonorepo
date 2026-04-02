@@ -5,8 +5,8 @@ export type EquipmentCriticality = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export interface Equipment {
   id: string;
-  companyId: string;
-  clientId: string;
+  tenantId: string;
+  organizationId: string;
   name: string;
   brand: string | null;
   model: string | null;
@@ -88,34 +88,33 @@ export interface EquipmentListResponse {
 }
 
 export const equipmentService = {
-  async list(clientId: string, params?: ListEquipmentParams): Promise<EquipmentListResponse> {
-    const { data } = await api.get(`/clients/${clientId}/equipment`, { params });
-    // Response has pagination → interceptor keeps full envelope
+  async list(organizationId: string, params?: ListEquipmentParams): Promise<EquipmentListResponse> {
+    const { data } = await api.get(`/organizations/${organizationId}/equipment`, { params });
     if (data?.data) return data;
     return { data: Array.isArray(data) ? data : [], total: 0, page: 1, limit: 20 };
   },
 
-  async getById(clientId: string, id: string): Promise<Equipment> {
-    const { data } = await api.get(`/clients/${clientId}/equipment/${id}`);
+  async getById(organizationId: string, id: string): Promise<Equipment> {
+    const { data } = await api.get(`/organizations/${organizationId}/equipment/${id}`);
     return data;
   },
 
-  async create(clientId: string, payload: CreateEquipmentDto | FormData): Promise<Equipment> {
-    const { data } = await api.post(`/clients/${clientId}/equipment`, payload);
+  async create(organizationId: string, payload: CreateEquipmentDto | FormData): Promise<Equipment> {
+    const { data } = await api.post(`/organizations/${organizationId}/equipment`, payload);
     return data;
   },
 
-  async update(clientId: string, id: string, dto: UpdateEquipmentDto): Promise<Equipment> {
-    const { data } = await api.patch(`/clients/${clientId}/equipment/${id}`, dto);
+  async update(organizationId: string, id: string, dto: UpdateEquipmentDto): Promise<Equipment> {
+    const { data } = await api.patch(`/organizations/${organizationId}/equipment/${id}`, dto);
     return data;
   },
 
-  async remove(clientId: string, id: string): Promise<void> {
-    await api.delete(`/clients/${clientId}/equipment/${id}`);
+  async remove(organizationId: string, id: string): Promise<void> {
+    await api.delete(`/organizations/${organizationId}/equipment/${id}`);
   },
 
-  async recalculateDepreciation(clientId: string, id: string) {
-    const { data } = await api.post(`/clients/${clientId}/equipment/${id}/depreciation`);
+  async recalculateDepreciation(organizationId: string, id: string) {
+    const { data } = await api.post(`/organizations/${organizationId}/equipment/${id}/depreciation`);
     return data;
   },
 };

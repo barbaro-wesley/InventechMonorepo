@@ -75,7 +75,7 @@ async function bootstrap() {
         `Para testar endpoints protegidos no Swagger, use o botão **Authorize** ` +
         `e informe o Bearer token retornado no login.\n\n` +
         `## Multi-tenant\n` +
-        `Todos os dados são isolados por empresa (companyId) e cliente (clientId). ` +
+        `Todos os dados são isolados por empresa (tenantId) e cliente (organizationId). ` +
         `O token JWT carrega essas informações automaticamente.`,
       )
       .setVersion('1.0')

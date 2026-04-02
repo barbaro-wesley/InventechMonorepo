@@ -16,7 +16,7 @@ import {
 
 const GROUP_SELECT = {
     id: true,
-    companyId: true,
+    tenantId: true,
     name: true,
     description: true,
     color: true,
@@ -59,11 +59,11 @@ export class MaintenanceGroupsService {
     // ─────────────────────────────────────────
     // Listar grupos da empresa
     // ─────────────────────────────────────────
-    async findAll(companyId: string, filters: ListMaintenanceGroupsDto) {
+    async findAll(tenantId: string, filters: ListMaintenanceGroupsDto) {
         const { search, isActive, page = 1, limit = 50 } = filters
 
         const where: Prisma.MaintenanceGroupWhereInput = {
-            companyId,
+            tenantId,
             ...(isActive !== undefined && { isActive }),
             ...(search && { name: { contains: search, mode: 'insensitive' } }),
         }
@@ -85,9 +85,9 @@ export class MaintenanceGroupsService {
     // ─────────────────────────────────────────
     // Buscar grupo com seus técnicos
     // ─────────────────────────────────────────
-    async findOne(id: string, companyId: string) {
+    async findOne(id: string, tenantId: string) {
         const group = await this.prisma.maintenanceGroup.findFirst({
-            where: { id, companyId },
+            where: { id, tenantId },
             select: GROUP_WITH_TECHNICIANS_SELECT,
         })
         if (!group) throw new NotFoundException('Grupo de manutenção não encontrado')
@@ -97,10 +97,10 @@ export class MaintenanceGroupsService {
     // ─────────────────────────────────────────
     // Criar grupo
     // ─────────────────────────────────────────
-    async create(dto: CreateMaintenanceGroupDto, companyId: string) {
+    async create(dto: CreateMaintenanceGroupDto, tenantId: string) {
         // Nome único por empresa
         const exists = await this.prisma.maintenanceGroup.findUnique({
-            where: { companyId_name: { companyId, name: dto.name } },
+            where: { tenantId_name: { tenantId, name: dto.name } },
             select: { id: true },
         })
         if (exists) {
@@ -109,7 +109,7 @@ export class MaintenanceGroupsService {
 
         return this.prisma.maintenanceGroup.create({
             data: {
-                companyId,
+                tenantId,
                 name: dto.name,
                 description: dto.description,
                 color: dto.color,
@@ -121,9 +121,9 @@ export class MaintenanceGroupsService {
     // ─────────────────────────────────────────
     // Atualizar grupo
     // ─────────────────────────────────────────
-    async update(id: string, dto: UpdateMaintenanceGroupDto, companyId: string) {
+    async update(id: string, dto: UpdateMaintenanceGroupDto, tenantId: string) {
         const existing = await this.prisma.maintenanceGroup.findFirst({
-            where: { id, companyId },
+            where: { id, tenantId },
             select: { id: true, name: true },
         })
         if (!existing) throw new NotFoundException('Grupo não encontrado')
@@ -131,7 +131,7 @@ export class MaintenanceGroupsService {
         // Valida nome único se estiver mudando
         if (dto.name && dto.name !== existing.name) {
             const nameTaken = await this.prisma.maintenanceGroup.findUnique({
-                where: { companyId_name: { companyId, name: dto.name } },
+                where: { tenantId_name: { tenantId, name: dto.name } },
                 select: { id: true },
             })
             if (nameTaken) throw new ConflictException(`Nome "${dto.name}" já está em uso`)
@@ -152,9 +152,9 @@ export class MaintenanceGroupsService {
     // ─────────────────────────────────────────
     // Remover grupo
     // ─────────────────────────────────────────
-    async remove(id: string, companyId: string) {
+    async remove(id: string, tenantId: string) {
         const group = await this.prisma.maintenanceGroup.findFirst({
-            where: { id, companyId },
+            where: { id, tenantId },
             select: {
                 id: true,
                 name: true,
@@ -184,11 +184,11 @@ export class MaintenanceGroupsService {
     async assignTechnician(
         groupId: string,
         dto: AssignTechnicianToGroupDto,
-        companyId: string,
+        tenantId: string,
     ) {
         // Valida grupo
         const group = await this.prisma.maintenanceGroup.findFirst({
-            where: { id: groupId, companyId },
+            where: { id: groupId, tenantId },
             select: { id: true, name: true },
         })
         if (!group) throw new NotFoundException('Grupo não encontrado')
@@ -197,7 +197,7 @@ export class MaintenanceGroupsService {
         const technician = await this.prisma.user.findFirst({
             where: {
                 id: dto.technicianId,
-                companyId,
+                tenantId,
                 role: UserRole.TECHNICIAN,
                 deletedAt: null,
             },
@@ -237,9 +237,9 @@ export class MaintenanceGroupsService {
     // ─────────────────────────────────────────
     // Desvincular técnico do grupo
     // ─────────────────────────────────────────
-    async removeTechnician(groupId: string, technicianId: string, companyId: string) {
+    async removeTechnician(groupId: string, technicianId: string, tenantId: string) {
         const group = await this.prisma.maintenanceGroup.findFirst({
-            where: { id: groupId, companyId },
+            where: { id: groupId, tenantId },
             select: { id: true },
         })
         if (!group) throw new NotFoundException('Grupo não encontrado')
@@ -262,12 +262,12 @@ export class MaintenanceGroupsService {
     // ─────────────────────────────────────────
     // Listar grupos de um técnico
     // ─────────────────────────────────────────
-    async findTechnicianGroups(technicianId: string, companyId: string) {
+    async findTechnicianGroups(technicianId: string, tenantId: string) {
         return this.prisma.technicianGroup.findMany({
             where: {
                 userId: technicianId,
                 isActive: true,
-                group: { companyId },
+                group: { tenantId },
             },
             select: {
                 id: true,

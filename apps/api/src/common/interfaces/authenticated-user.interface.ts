@@ -4,7 +4,7 @@ export interface AuthenticatedUser {
   sub: string              // userId
   email: string
   role: UserRole
-  companyId: string | null
-  clientId: string | null
+  tenantId: string | null
+  organizationId: string | null
   customRoleId: string | null  // papel personalizado — sobrepõe permissões do system role
 }

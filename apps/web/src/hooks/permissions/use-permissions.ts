@@ -63,26 +63,26 @@ export function useResetPermissions() {
 
 // ─── Custom Roles ─────────────────────────────────────────────────────────────
 
-export function useCustomRoles(targetCompanyId?: string) {
+export function useCustomRoles(targetTenantId?: string) {
   return useQuery({
-    queryKey: [...permissionKeys.customRoles(), targetCompanyId],
-    queryFn: () => customRolesService.list(targetCompanyId),
-    enabled: targetCompanyId !== undefined ? !!targetCompanyId : true,
+    queryKey: [...permissionKeys.customRoles(), targetTenantId],
+    queryFn: () => customRolesService.list(targetTenantId),
+    enabled: targetTenantId !== undefined ? !!targetTenantId : true,
   });
 }
 
-export function useCustomRole(id: string, targetCompanyId?: string) {
+export function useCustomRole(id: string, targetTenantId?: string) {
   return useQuery({
-    queryKey: [...permissionKeys.customRole(id), targetCompanyId],
-    queryFn: () => customRolesService.getOne(id, targetCompanyId),
+    queryKey: [...permissionKeys.customRole(id), targetTenantId],
+    queryFn: () => customRolesService.getOne(id, targetTenantId),
     enabled: !!id,
   });
 }
 
-export function useCreateCustomRole(targetCompanyId?: string) {
+export function useCreateCustomRole(targetTenantId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dto: CreateCustomRoleDto) => customRolesService.create(dto, targetCompanyId),
+    mutationFn: (dto: CreateCustomRoleDto) => customRolesService.create(dto, targetTenantId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.customRoles() });
       toast.success("Papel criado com sucesso!");
@@ -91,10 +91,10 @@ export function useCreateCustomRole(targetCompanyId?: string) {
   });
 }
 
-export function useUpdateCustomRole(id: string, targetCompanyId?: string) {
+export function useUpdateCustomRole(id: string, targetTenantId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dto: UpdateCustomRoleDto) => customRolesService.update(id, dto, targetCompanyId),
+    mutationFn: (dto: UpdateCustomRoleDto) => customRolesService.update(id, dto, targetTenantId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.customRoles() });
       toast.success("Papel atualizado!");
@@ -103,10 +103,10 @@ export function useUpdateCustomRole(id: string, targetCompanyId?: string) {
   });
 }
 
-export function useDeleteCustomRole(targetCompanyId?: string) {
+export function useDeleteCustomRole(targetTenantId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => customRolesService.remove(id, targetCompanyId),
+    mutationFn: (id: string) => customRolesService.remove(id, targetTenantId),
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.customRoles() });
       toast.success(res.message);
@@ -128,11 +128,11 @@ export function useAssignCustomRole() {
   });
 }
 
-export function useSetCustomRolePermissions(id: string, targetCompanyId?: string) {
+export function useSetCustomRolePermissions(id: string, targetTenantId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (permissions: { resource: string; action: string }[]) =>
-      customRolesService.setPermissions(id, permissions, targetCompanyId),
+      customRolesService.setPermissions(id, permissions, targetTenantId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.customRoles() });
       toast.success("Permissões salvas!");

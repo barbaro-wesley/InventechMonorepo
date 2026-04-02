@@ -15,8 +15,8 @@ import { Prisma } from '@prisma/client'
 
 const LOCATION_SELECT = {
     id: true,
-    companyId: true,
-    clientId: true,
+    tenantId: true,
+    organizationId: true,
     costCenterId: true,
     name: true,
     parentId: true,
@@ -34,15 +34,15 @@ export class LocationsService {
     constructor(private prisma: PrismaService) { }
 
     async findAll(
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         filters: ListLocationsDto,
     ) {
         const { search, parentId, costCenterId, isActive, page = 1, limit = 50 } = filters
 
         const where: Prisma.LocationWhereInput = {
-            clientId,
-            companyId,
+            organizationId,
+            tenantId,
             ...(isActive !== undefined && { isActive }),
             ...(parentId !== undefined && { parentId }),
             ...(costCenterId !== undefined && { costCenterId }),
@@ -66,9 +66,9 @@ export class LocationsService {
     }
 
     // Retorna árvore completa de localizações do cliente
-    async findTree(clientId: string, companyId: string) {
+    async findTree(organizationId: string, tenantId: string) {
         const all = await this.prisma.location.findMany({
-            where: { clientId, companyId, isActive: true },
+            where: { organizationId, tenantId, isActive: true },
             select: {
                 id: true,
                 name: true,
@@ -97,9 +97,9 @@ export class LocationsService {
         return roots
     }
 
-    async findOne(id: string, clientId: string, companyId: string) {
+    async findOne(id: string, organizationId: string, tenantId: string) {
         const location = await this.prisma.location.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: LOCATION_SELECT,
         })
 
@@ -110,13 +110,13 @@ export class LocationsService {
 
     async create(
         dto: CreateLocationDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
         // Valida parentId pertence ao mesmo cliente
         if (dto.parentId) {
             const parent = await this.prisma.location.findFirst({
-                where: { id: dto.parentId, clientId, companyId },
+                where: { id: dto.parentId, organizationId, tenantId },
                 select: { id: true },
             })
             if (!parent) {
@@ -127,7 +127,7 @@ export class LocationsService {
         // Valida costCenterId pertence ao mesmo cliente
         if (dto.costCenterId) {
             const cc = await this.prisma.costCenter.findFirst({
-                where: { id: dto.costCenterId, clientId, companyId },
+                where: { id: dto.costCenterId, organizationId, tenantId },
                 select: { id: true },
             })
             if (!cc) {
@@ -137,8 +137,8 @@ export class LocationsService {
 
         return this.prisma.location.create({
             data: {
-                companyId,
-                clientId,
+                tenantId,
+                organizationId,
                 name: dto.name,
                 description: dto.description,
                 parentId: dto.parentId ?? null,
@@ -151,11 +151,11 @@ export class LocationsService {
     async update(
         id: string,
         dto: UpdateLocationDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
         const existing = await this.prisma.location.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: { id: true },
         })
 
@@ -181,9 +181,9 @@ export class LocationsService {
         })
     }
 
-    async remove(id: string, clientId: string, companyId: string) {
+    async remove(id: string, organizationId: string, tenantId: string) {
         const location = await this.prisma.location.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, organizationId, tenantId },
             select: {
                 id: true,
                 name: true,

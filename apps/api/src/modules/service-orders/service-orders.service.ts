@@ -57,8 +57,8 @@ const APPROVER_ROLES: UserRole[] = [
 
 const OS_SELECT = {
     id: true,
-    companyId: true,
-    clientId: true,
+    tenantId: true,
+    organizationId: true,
     number: true,
     title: true,
     description: true,
@@ -106,8 +106,8 @@ export class ServiceOrdersService {
     ) { }
 
     async findAll(
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         filters: ListServiceOrdersDto,
         currentUser: AuthenticatedUser,
     ) {
@@ -117,8 +117,8 @@ export class ServiceOrdersService {
         } = filters
 
         const where: Prisma.ServiceOrderWhereInput = {
-            clientId,
-            companyId,
+            organizationId,
+            tenantId,
             deletedAt: null,
             ...(status && { status }),
             ...(priority && { priority }),
@@ -159,7 +159,7 @@ export class ServiceOrdersService {
     }
 
     async findAvailable(
-        companyId: string,
+        tenantId: string,
         filters: ListAvailableServiceOrdersDto,
         currentUser: AuthenticatedUser,
     ) {
@@ -178,7 +178,7 @@ export class ServiceOrdersService {
         }
 
         const where: Prisma.ServiceOrderWhereInput = {
-            companyId,
+            tenantId,
             isAvailable: true,
             status: ServiceOrderStatus.AWAITING_PICKUP,
             deletedAt: null,
@@ -201,12 +201,12 @@ export class ServiceOrdersService {
 
     async findOne(
         id: string,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: { id, organizationId, tenantId, deletedAt: null },
             select: {
                 ...OS_SELECT,
                 comments: {
@@ -264,12 +264,12 @@ export class ServiceOrdersService {
     // ─────────────────────────────────────────
     async create(
         dto: CreateServiceOrderDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: dto.equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: dto.equipmentId, organizationId, tenantId, deletedAt: null },
             select: { id: true, name: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado neste cliente')
@@ -277,7 +277,7 @@ export class ServiceOrdersService {
         let groupName: string | undefined
         if (dto.groupId) {
             const group = await this.prisma.maintenanceGroup.findFirst({
-                where: { id: dto.groupId, companyId, isActive: true },
+                where: { id: dto.groupId, tenantId, isActive: true },
                 select: { id: true, name: true },
             })
             if (!group) throw new BadRequestException('Grupo de manutenção não encontrado')
@@ -286,14 +286,14 @@ export class ServiceOrdersService {
 
         if (dto.technicianId) {
             const technician = await this.prisma.user.findFirst({
-                where: { id: dto.technicianId, companyId, role: UserRole.TECHNICIAN },
+                where: { id: dto.technicianId, tenantId, role: UserRole.TECHNICIAN },
                 select: { id: true },
             })
             if (!technician) throw new BadRequestException('Técnico não encontrado nesta empresa')
         }
 
-        const client = await this.prisma.client.findUnique({
-            where: { id: clientId },
+        const client = await this.prisma.organization.findUnique({
+            where: { id: organizationId },
             select: { name: true },
         })
 
@@ -304,7 +304,7 @@ export class ServiceOrdersService {
 
         const os = await this.prisma.$transaction(async (tx) => {
             const last = await tx.serviceOrder.findFirst({
-                where: { companyId },
+                where: { tenantId },
                 orderBy: { number: 'desc' },
                 select: { number: true },
             })
@@ -312,8 +312,8 @@ export class ServiceOrdersService {
 
             const created = await tx.serviceOrder.create({
                 data: {
-                    companyId,
-                    clientId,
+                    tenantId,
+                    organizationId,
                     number,
                     title: dto.title,
                     description: dto.description,
@@ -356,7 +356,7 @@ export class ServiceOrdersService {
         if (dto.technicianId) {
             await this.notificationsService.notify({
                 event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED,
-                companyId,
+                tenantId,
                 serviceOrderId: os.id,
                 data: {
                     technicianId: dto.technicianId,
@@ -378,12 +378,12 @@ export class ServiceOrdersService {
     // ─────────────────────────────────────────
     async assumeServiceOrder(
         id: string,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: { id, organizationId, tenantId, deletedAt: null },
             select: {
                 id: true, number: true, status: true,
                 isAvailable: true, groupId: true,
@@ -450,7 +450,7 @@ export class ServiceOrdersService {
         // ── Notificação ───────────────────────────────────────────
         await this.notificationsService.notify({
             event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSUMED,
-            companyId,
+            tenantId,
             serviceOrderId: id,
             data: {
                 technicianName: currentUser.email, // será enriquecido no service de notificações
@@ -467,17 +467,17 @@ export class ServiceOrdersService {
     async addTechnician(
         id: string,
         dto: AssignTechnicianDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
-        const os = await this.findExisting(id, clientId, companyId)
+        const os = await this.findExisting(id, organizationId, tenantId)
 
         if (os.status === ServiceOrderStatus.COMPLETED_APPROVED || os.status === ServiceOrderStatus.CANCELLED) {
             throw new ConflictException('Não é possível adicionar técnico neste status')
         }
 
         const technician = await this.prisma.user.findFirst({
-            where: { id: dto.technicianId, companyId, role: UserRole.TECHNICIAN },
+            where: { id: dto.technicianId, tenantId, role: UserRole.TECHNICIAN },
             select: { id: true, name: true },
         })
         if (!technician) throw new NotFoundException('Técnico não encontrado')
@@ -511,7 +511,7 @@ export class ServiceOrdersService {
             where: { id },
             select: {
                 number: true, title: true, priority: true,
-                client: { select: { name: true } },
+                organization: { select: { name: true } },
                 equipment: { select: { name: true } },
             },
         })
@@ -519,13 +519,13 @@ export class ServiceOrdersService {
         if (osData) {
             await this.notificationsService.notify({
                 event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED,
-                companyId,
+                tenantId,
                 serviceOrderId: id,
                 data: {
                     technicianId: dto.technicianId,
                     osNumber: osData.number,
                     osTitle: osData.title,
-                    clientName: osData.client?.name ?? '',
+                    clientName: osData.organization?.name ?? '',
                     equipmentName: osData.equipment?.name ?? '',
                     priority: osData.priority,
                 },
@@ -538,10 +538,10 @@ export class ServiceOrdersService {
     async removeTechnician(
         id: string,
         technicianId: string,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
-        await this.findExisting(id, clientId, companyId)
+        await this.findExisting(id, organizationId, tenantId)
 
         const link = await this.prisma.serviceOrderTechnician.findUnique({
             where: {
@@ -564,11 +564,11 @@ export class ServiceOrdersService {
     async update(
         id: string,
         dto: UpdateServiceOrderDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
-        const os = await this.findExisting(id, clientId, companyId)
+        const os = await this.findExisting(id, organizationId, tenantId)
 
         if (os.status === ServiceOrderStatus.COMPLETED_APPROVED || os.status === ServiceOrderStatus.CANCELLED) {
             throw new ConflictException('Esta OS não pode ser editada no status atual')
@@ -614,11 +614,11 @@ export class ServiceOrdersService {
     async updateStatus(
         id: string,
         dto: UpdateServiceOrderStatusDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
-        const os = await this.findExisting(id, clientId, companyId)
+        const os = await this.findExisting(id, organizationId, tenantId)
 
         const allowedTransitions = VALID_TRANSITIONS[os.status]
         if (!allowedTransitions.includes(dto.status)) {
@@ -719,21 +719,21 @@ export class ServiceOrdersService {
         if (finalStatus === ServiceOrderStatus.COMPLETED) {
             await this.notificationsService.notify({
                 event: NOTIFICATION_EVENTS.OS_COMPLETED,
-                companyId,
+                tenantId,
                 serviceOrderId: id,
                 data: notifyData,
             })
         } else if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED) {
             await this.notificationsService.notify({
                 event: NOTIFICATION_EVENTS.OS_APPROVED,
-                companyId,
+                tenantId,
                 serviceOrderId: id,
                 data: notifyData,
             })
         } else if (finalStatus === ServiceOrderStatus.COMPLETED_REJECTED) {
             await this.notificationsService.notify({
                 event: NOTIFICATION_EVENTS.OS_REJECTED,
-                companyId,
+                tenantId,
                 serviceOrderId: id,
                 data: notifyData,
             })
@@ -743,9 +743,9 @@ export class ServiceOrdersService {
         return updated
     }
 
-    private async findExisting(id: string, clientId: string, companyId: string) {
+    private async findExisting(id: string, organizationId: string, tenantId: string) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: { id, organizationId, tenantId, deletedAt: null },
             select: { id: true, number: true, status: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')

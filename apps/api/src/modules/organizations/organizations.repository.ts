@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
-import { ListClientsDto } from './dto/list-clients.dto'
+import { ListClientsDto } from './dto/list-organizations.dto'
 
 export const CLIENT_SELECT = {
   id: true,
-  companyId: true,
+  tenantId: true,
   name: true,
   document: true,
   email: true,
@@ -22,22 +22,22 @@ export const CLIENT_SELECT = {
       serviceOrders: true,
     },
   },
-} satisfies Prisma.ClientSelect
+} satisfies Prisma.OrganizationSelect
 
-export type SafeClient = Prisma.ClientGetPayload<{
+export type SafeClient = Prisma.OrganizationGetPayload<{
   select: typeof CLIENT_SELECT
 }>
 
 @Injectable()
-export class ClientsRepository {
+export class OrganizationsRepository {
   constructor(private prisma: PrismaService) {}
 
   // ─────────────────────────────────────────
   // Busca por ID garantindo que pertence à empresa
   // ─────────────────────────────────────────
-  async findById(id: string, companyId: string): Promise<SafeClient | null> {
-    return this.prisma.client.findFirst({
-      where: { id, companyId, deletedAt: null },
+  async findById(id: string, tenantId: string): Promise<SafeClient | null> {
+    return this.prisma.organization.findFirst({
+      where: { id, tenantId, deletedAt: null },
       select: CLIENT_SELECT,
     })
   }
@@ -46,13 +46,13 @@ export class ClientsRepository {
   // Listagem filtrada por empresa (tenant)
   // ─────────────────────────────────────────
   async findMany(
-    companyId: string,
+    tenantId: string,
     filters: ListClientsDto,
   ): Promise<{ data: SafeClient[]; total: number; page: number; limit: number }> {
     const { search, status, page = 1, limit = 20 } = filters
 
-    const where: Prisma.ClientWhereInput = {
-      companyId,
+    const where: Prisma.OrganizationWhereInput = {
+      tenantId,
       deletedAt: null,
       ...(status && { status }),
       ...(search && {
@@ -65,28 +65,28 @@ export class ClientsRepository {
     }
 
     const [data, total] = await this.prisma.$transaction([
-      this.prisma.client.findMany({
+      this.prisma.organization.findMany({
         where,
         select: CLIENT_SELECT,
         orderBy: { name: 'asc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      this.prisma.client.count({ where }),
+      this.prisma.organization.count({ where }),
     ])
 
     return { data, total, page, limit }
   }
 
-  async create(data: Prisma.ClientCreateInput): Promise<SafeClient> {
-    return this.prisma.client.create({
+  async create(data: Prisma.OrganizationCreateInput): Promise<SafeClient> {
+    return this.prisma.organization.create({
       data,
       select: CLIENT_SELECT,
     })
   }
 
-  async update(id: string, data: Prisma.ClientUpdateInput): Promise<SafeClient> {
-    return this.prisma.client.update({
+  async update(id: string, data: Prisma.OrganizationUpdateInput): Promise<SafeClient> {
+    return this.prisma.organization.update({
       where: { id },
       data,
       select: CLIENT_SELECT,
@@ -94,7 +94,7 @@ export class ClientsRepository {
   }
 
   async softDelete(id: string): Promise<void> {
-    await this.prisma.client.update({
+    await this.prisma.organization.update({
       where: { id },
       data: { deletedAt: new Date() },
     })
@@ -102,13 +102,13 @@ export class ClientsRepository {
 
   async documentExists(
     document: string,
-    companyId: string,
+    tenantId: string,
     excludeId?: string,
   ): Promise<boolean> {
-    const client = await this.prisma.client.findFirst({
+    const client = await this.prisma.organization.findFirst({
       where: {
         document,
-        companyId,
+        tenantId,
         deletedAt: null,
         ...(excludeId && { id: { not: excludeId } }),
       },

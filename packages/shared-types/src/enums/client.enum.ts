@@ -1,5 +1,5 @@
-export const ClientStatus = {
+export const OrganizationStatus = {
   ACTIVE: 'ACTIVE',
   INACTIVE: 'INACTIVE',
 } as const;
-export type ClientStatus = (typeof ClientStatus)[keyof typeof ClientStatus];
+export type OrganizationStatus = (typeof OrganizationStatus)[keyof typeof OrganizationStatus];

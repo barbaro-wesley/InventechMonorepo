@@ -21,19 +21,19 @@ export class MaintenanceGroupsController {
     @Get()
     @Permission('maintenance-group:list')
     findAll(@Query() filters: ListMaintenanceGroupsDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.maintenanceGroupsService.findAll(cu.companyId!, filters)
+        return this.maintenanceGroupsService.findAll(cu.tenantId!, filters)
     }
 
     @Get(':id')
     @Permission('maintenance-group:read')
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-        return this.maintenanceGroupsService.findOne(id, cu.companyId!)
+        return this.maintenanceGroupsService.findOne(id, cu.tenantId!)
     }
 
     @Post()
     @Permission('maintenance-group:create')
     create(@Body() dto: CreateMaintenanceGroupDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.maintenanceGroupsService.create(dto, cu.companyId!)
+        return this.maintenanceGroupsService.create(dto, cu.tenantId!)
     }
 
     @Patch(':id')
@@ -43,14 +43,14 @@ export class MaintenanceGroupsController {
         @Body() dto: UpdateMaintenanceGroupDto,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.maintenanceGroupsService.update(id, dto, cu.companyId!)
+        return this.maintenanceGroupsService.update(id, dto, cu.tenantId!)
     }
 
     @Delete(':id')
     @HttpCode(HttpStatus.OK)
     @Permission('maintenance-group:delete')
     remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-        return this.maintenanceGroupsService.remove(id, cu.companyId!)
+        return this.maintenanceGroupsService.remove(id, cu.tenantId!)
     }
 
     @Post(':id/technicians')
@@ -60,7 +60,7 @@ export class MaintenanceGroupsController {
         @Body() dto: AssignTechnicianToGroupDto,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.maintenanceGroupsService.assignTechnician(groupId, dto, cu.companyId!)
+        return this.maintenanceGroupsService.assignTechnician(groupId, dto, cu.tenantId!)
     }
 
     @Delete(':id/technicians/:technicianId')
@@ -71,7 +71,7 @@ export class MaintenanceGroupsController {
         @Param('technicianId', ParseUUIDPipe) technicianId: string,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.maintenanceGroupsService.removeTechnician(groupId, technicianId, cu.companyId!)
+        return this.maintenanceGroupsService.removeTechnician(groupId, technicianId, cu.tenantId!)
     }
 
     @Get('technician/:technicianId')
@@ -80,6 +80,6 @@ export class MaintenanceGroupsController {
         @Param('technicianId', ParseUUIDPipe) technicianId: string,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.maintenanceGroupsService.findTechnicianGroups(technicianId, cu.companyId!)
+        return this.maintenanceGroupsService.findTechnicianGroups(technicianId, cu.tenantId!)
     }
 }

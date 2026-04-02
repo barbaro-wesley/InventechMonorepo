@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { ServiceOrderStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
-import { CompaniesService } from '../companies/companies.service'
+import { TenantsService } from '../tenants/tenants.service'
 
 // Tipos de filtro para os relatórios
 
@@ -17,7 +17,7 @@ export interface ReportTemplate {
 }
 
 export interface ReportFilters {
-  clientId?: string
+  organizationId?: string
   groupId?: string
   technicianId?: string
   status?: ServiceOrderStatus
@@ -29,17 +29,17 @@ export interface ReportFilters {
 export class ReportsService {
   constructor(
     private prisma: PrismaService,
-    private companiesService: CompaniesService,
+    private tenantsService: TenantsService,
   ) { }
 
   // ─────────────────────────────────────────
   // Busca dados das OS para os relatórios
   // ─────────────────────────────────────────
-  async getServiceOrdersData(companyId: string, filters: ReportFilters) {
+  async getServiceOrdersData(tenantId: string, filters: ReportFilters) {
     const where: any = {
-      companyId,
+      tenantId,
       deletedAt: null,
-      ...(filters.clientId && { clientId: filters.clientId }),
+      ...(filters.organizationId && { organizationId: filters.organizationId }),
       ...(filters.groupId && { groupId: filters.groupId }),
       ...(filters.status && { status: filters.status }),
       ...((filters.dateFrom || filters.dateTo) && {
@@ -66,7 +66,7 @@ export class ReportsService {
         startedAt: true,
         completedAt: true,
         approvedAt: true,
-        client: { select: { name: true } },
+        organization: { select: { name: true } },
         equipment: { select: { name: true, brand: true, model: true, serialNumber: true } },
         group: { select: { name: true } },
         requester: { select: { name: true } },
@@ -82,11 +82,11 @@ export class ReportsService {
   // ─────────────────────────────────────────
   // Gera Excel (XLSX) das OS
   // ─────────────────────────────────────────
-  async exportServiceOrdersExcel(companyId: string, filters: ReportFilters): Promise<Buffer> {
+  async exportServiceOrdersExcel(tenantId: string, filters: ReportFilters): Promise<Buffer> {
     const ExcelJS = await import('exceljs')
     const [orders, template] = await Promise.all([
-      this.getServiceOrdersData(companyId, filters),
-      this.companiesService.getReportTemplate(companyId),
+      this.getServiceOrdersData(tenantId, filters),
+      this.tenantsService.getReportTemplate(tenantId),
     ])
 
     const workbook = new ExcelJS.default.Workbook()
@@ -173,7 +173,7 @@ export class ReportsService {
       const row = sheet.addRow({
         number: os.number,
         title: os.title,
-        client: os.client?.name ?? '-',
+        organization: os.organization?.name ?? '-',
         equipment: [os.equipment?.name, os.equipment?.brand, os.equipment?.model]
           .filter(Boolean).join(' — '),
         type: typeLabels[os.maintenanceType] ?? os.maintenanceType,
@@ -236,11 +236,11 @@ export class ReportsService {
   // Gera PDF das OS usando HTML → puppeteer-like (sem deps pesadas)
   // Usamos uma abordagem leve com html-pdf ou PDFKit
   // ─────────────────────────────────────────
-  async exportServiceOrdersPdf(companyId: string, filters: ReportFilters): Promise<Buffer> {
+  async exportServiceOrdersPdf(tenantId: string, filters: ReportFilters): Promise<Buffer> {
     const PDFDocument = (await import('pdfkit')).default
     const [orders, template] = await Promise.all([
-      this.getServiceOrdersData(companyId, filters),
-      this.companiesService.getReportTemplate(companyId),
+      this.getServiceOrdersData(tenantId, filters),
+      this.tenantsService.getReportTemplate(tenantId),
     ])
 
     return new Promise((resolve, reject) => {
@@ -330,7 +330,7 @@ export class ReportsService {
         const cells = [
           String(os.number),
           os.title,
-          os.client?.name ?? '-',
+          os.organization?.name ?? '-',
           typeLabels[os.maintenanceType] ?? '-',
           statusLabels[os.status] ?? '-',
           os.technicians[0]?.technician.name ?? '-',
@@ -370,12 +370,12 @@ export class ReportsService {
   // ─────────────────────────────────────────
   // RELATÓRIO DE EQUIPAMENTOS
   // ─────────────────────────────────────────
-  async getEquipmentData(companyId: string, filters: { clientId?: string; status?: string; typeId?: string }) {
+  async getEquipmentData(tenantId: string, filters: { organizationId?: string; status?: string; typeId?: string }) {
   return this.prisma.equipment.findMany({
     where: {
-      companyId,
+      tenantId,
       deletedAt: null,
-      ...(filters.clientId && { clientId: filters.clientId }),
+      ...(filters.organizationId && { organizationId: filters.organizationId }),
       ...(filters.status && { status: filters.status as any }),
       ...(filters.typeId && { typeId: filters.typeId }),
     },
@@ -393,21 +393,21 @@ export class ReportsService {
       currentValue: true,
       voltage: true,
       observations: true,
-      client: { select: { name: true } },
+      organization: { select: { name: true } },
       location: { select: { name: true } },
       type: { select: { name: true } },
       subtype: { select: { name: true } },
       costCenter: { select: { name: true, code: true } },
     },
-    orderBy: [{ client: { name: 'asc' } }, { name: 'asc' }],
+    orderBy: [{ organization: { name: 'asc' } }, { name: 'asc' }],
   })
 }
 
-  async exportEquipmentExcel(companyId: string, filters: { clientId?: string; status?: string }): Promise < Buffer > {
+  async exportEquipmentExcel(tenantId: string, filters: { organizationId?: string; status?: string }): Promise < Buffer > {
   const ExcelJS = await import('exceljs')
     const [items, template] = await Promise.all([
-    this.getEquipmentData(companyId, filters),
-    this.companiesService.getReportTemplate(companyId),
+    this.getEquipmentData(tenantId, filters),
+    this.tenantsService.getReportTemplate(tenantId),
   ])
 
     const workbook = new ExcelJS.default.Workbook()
@@ -460,7 +460,7 @@ items.forEach((eq, idx) => {
     name: eq.name,
     brand: [eq.brand, eq.model].filter(Boolean).join(' / ') || '-',
     type: [eq.type?.name, eq.subtype?.name].filter(Boolean).join(' › ') || '-',
-    client: eq.client?.name ?? '-',
+    organization: eq.organization?.name ?? '-',
     location: eq.location?.name ?? '-',
     cc: eq.costCenter ? `${eq.costCenter.code ? eq.costCenter.code + ' — ' : ''}${eq.costCenter.name}` : '-',
     status: statusLabels[eq.status] ?? eq.status,
@@ -503,11 +503,11 @@ const buffer = await workbook.xlsx.writeBuffer()
 return Buffer.from(buffer)
   }
 
-  async exportEquipmentPdf(companyId: string, filters: { clientId?: string; status?: string }): Promise < Buffer > {
+  async exportEquipmentPdf(tenantId: string, filters: { organizationId?: string; status?: string }): Promise < Buffer > {
   const PDFDocument = (await import('pdfkit')).default
     const [items, template] = await Promise.all([
-    this.getEquipmentData(companyId, filters),
-    this.companiesService.getReportTemplate(companyId),
+    this.getEquipmentData(tenantId, filters),
+    this.tenantsService.getReportTemplate(tenantId),
   ])
 
     return new Promise((resolve, reject) => {
@@ -569,7 +569,7 @@ return Buffer.from(buffer)
         eq.patrimonyNumber ?? '-',
         eq.name,
         [eq.brand, eq.model].filter(Boolean).join(' ') || '-',
-        eq.client?.name ?? '-',
+        eq.organization?.name ?? '-',
         eq.location?.name ?? '-',
         statusLabels[eq.status] ?? '-',
         critLabels[eq.criticality] ?? '-',
@@ -595,11 +595,11 @@ return Buffer.from(buffer)
   // ─────────────────────────────────────────
   // RELATÓRIO DE PREVENTIVAS
   // ─────────────────────────────────────────
-  async getPreventiveData(companyId: string, filters: { clientId?: string; isActive?: boolean }) {
+  async getPreventiveData(tenantId: string, filters: { organizationId?: string; isActive?: boolean }) {
   return this.prisma.maintenanceSchedule.findMany({
     where: {
-      companyId,
-      ...(filters.clientId && { clientId: filters.clientId }),
+      tenantId,
+      ...(filters.organizationId && { organizationId: filters.organizationId }),
       ...(filters.isActive !== undefined && { isActive: filters.isActive }),
     },
     select: {
@@ -613,7 +613,7 @@ return Buffer.from(buffer)
       nextRunAt: true,
       lastRunAt: true,
       isActive: true,
-      client: { select: { name: true } },
+      organization: { select: { name: true } },
       equipment: { select: { name: true, brand: true, serialNumber: true, patrimonyNumber: true } },
       group: { select: { name: true } },
       _count: { select: { maintenances: true } },
@@ -622,11 +622,11 @@ return Buffer.from(buffer)
   })
 }
 
-  async exportPreventiveExcel(companyId: string, filters: { clientId?: string; isActive?: boolean }): Promise < Buffer > {
+  async exportPreventiveExcel(tenantId: string, filters: { organizationId?: string; isActive?: boolean }): Promise < Buffer > {
   const ExcelJS = await import('exceljs')
     const [items, template] = await Promise.all([
-    this.getPreventiveData(companyId, filters),
-    this.companiesService.getReportTemplate(companyId),
+    this.getPreventiveData(tenantId, filters),
+    this.tenantsService.getReportTemplate(tenantId),
   ])
 
     const workbook = new ExcelJS.default.Workbook()
@@ -677,7 +677,7 @@ items.forEach((s, idx) => {
   const isOverdue = s.isActive && s.nextRunAt < now
   const row = sheet.addRow({
     title: s.title,
-    client: s.client?.name ?? '-',
+    organization: s.organization?.name ?? '-',
     equipment: [s.equipment?.name, s.equipment?.brand].filter(Boolean).join(' — '),
     group: s.group?.name ?? '-',
     type: typeLabels[s.maintenanceType] ?? s.maintenanceType,
@@ -728,11 +728,11 @@ const buffer = await workbook.xlsx.writeBuffer()
 return Buffer.from(buffer)
   }
 
-  async exportPreventivePdf(companyId: string, filters: { clientId?: string; isActive?: boolean }): Promise < Buffer > {
+  async exportPreventivePdf(tenantId: string, filters: { organizationId?: string; isActive?: boolean }): Promise < Buffer > {
   const PDFDocument = (await import('pdfkit')).default
     const [items, template] = await Promise.all([
-    this.getPreventiveData(companyId, filters),
-    this.companiesService.getReportTemplate(companyId),
+    this.getPreventiveData(tenantId, filters),
+    this.tenantsService.getReportTemplate(tenantId),
   ])
 
     return new Promise((resolve, reject) => {
@@ -794,7 +794,7 @@ return Buffer.from(buffer)
 
       const cells = [
         s.title,
-        s.client?.name ?? '-',
+        s.organization?.name ?? '-',
         s.equipment?.name ?? '-',
         recurrenceLabels[s.recurrenceType] ?? s.recurrenceType,
         fmt(s.nextRunAt),

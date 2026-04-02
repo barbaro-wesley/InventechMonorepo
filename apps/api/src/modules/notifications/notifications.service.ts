@@ -16,7 +16,7 @@ import {
 export interface NotificationJobPayload {
     event: NotificationEvent
     data: Record<string, any>
-    companyId: string
+    tenantId: string
     serviceOrderId?: string
 }
 
@@ -96,45 +96,45 @@ export class NotificationsService {
     // Decide quem notificar e por quais canais
     // ─────────────────────────────────────────
     async dispatch(payload: NotificationJobPayload): Promise<void> {
-        const { event, data, companyId, serviceOrderId } = payload
+        const { event, data, tenantId, serviceOrderId } = payload
 
-        this.logger.log(`Disparando notificação: ${event} | Empresa: ${companyId}`)
+        this.logger.log(`Disparando notificação: ${event} | Empresa: ${tenantId}`)
 
         switch (event) {
             case NOTIFICATION_EVENTS.OS_CREATED_NO_TECHNICIAN:
-                await this.notifyOsCreatedNoTechnician(data, companyId, serviceOrderId)
+                await this.notifyOsCreatedNoTechnician(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED:
-                await this.notifyTechnicianAssigned(data, companyId, serviceOrderId)
+                await this.notifyTechnicianAssigned(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSUMED:
-                await this.notifyTechnicianAssumed(data, companyId, serviceOrderId)
+                await this.notifyTechnicianAssumed(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.OS_COMPLETED:
-                await this.notifyOsCompleted(data, companyId, serviceOrderId)
+                await this.notifyOsCompleted(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.OS_APPROVED:
-                await this.notifyOsApproved(data, companyId, serviceOrderId)
+                await this.notifyOsApproved(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.OS_REJECTED:
-                await this.notifyOsRejected(data, companyId, serviceOrderId)
+                await this.notifyOsRejected(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.OS_UNASSIGNED_ALERT:
-                await this.notifyUnassignedAlert(data, companyId, serviceOrderId)
+                await this.notifyUnassignedAlert(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.PREVENTIVE_GENERATED:
-                await this.notifyPreventiveGenerated(data, companyId, serviceOrderId)
+                await this.notifyPreventiveGenerated(data, tenantId, serviceOrderId)
                 break
 
             case NOTIFICATION_EVENTS.DAILY_SUMMARY:
-                await this.sendDailySummary(data, companyId)
+                await this.sendDailySummary(data, tenantId)
                 break
 
             default:
@@ -147,12 +147,12 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyOsCreatedNoTechnician(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
         // Busca técnicos do grupo + gestores da empresa
         const recipients = await this.getGroupTechniciansAndManagers(
-            companyId,
+            tenantId,
             data.groupId,
         )
 
@@ -168,12 +168,12 @@ export class NotificationsService {
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
 
         // Atualiza o painel em tempo real para todos da empresa
-        this.gateway.sendPanelUpdate(companyId, {
+        this.gateway.sendPanelUpdate(tenantId, {
             event: 'os.panel.new',
             title: 'Nova OS disponível',
             body: `OS #${data.osNumber} — ${data.osTitle}`,
@@ -186,7 +186,7 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyTechnicianAssigned(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
         const technician = await this.prisma.user.findUnique({
@@ -213,7 +213,7 @@ export class NotificationsService {
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
 
@@ -232,11 +232,11 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyTechnicianAssumed(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
         // Notifica o solicitante e os gestores
-        const recipients = await this.getManagersAndRequester(companyId, data.requesterId)
+        const recipients = await this.getManagersAndRequester(tenantId, data.requesterId)
 
         await this.sendToRecipients(recipients, {
             email: {
@@ -250,12 +250,12 @@ export class NotificationsService {
                 body: `${data.technicianName} assumiu a OS #${data.osNumber}`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
 
         // Remove do painel em tempo real
-        this.gateway.sendPanelUpdate(companyId, {
+        this.gateway.sendPanelUpdate(tenantId, {
             event: 'os.panel.removed',
             title: 'OS removida do painel',
             body: `OS #${data.osNumber} foi assumida`,
@@ -277,10 +277,10 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyOsCompleted(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
-        const recipients = await this.getManagersAndRequester(companyId, data.requesterId)
+        const recipients = await this.getManagersAndRequester(tenantId, data.requesterId)
         const emailTemplate = this.emailChannel.buildOsCompletedEmail(data)
 
         await this.sendToRecipients(recipients, {
@@ -292,7 +292,7 @@ export class NotificationsService {
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
 
@@ -311,7 +311,7 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyOsApproved(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
         const technicians = await this.getOsTechnicians(serviceOrderId)
@@ -328,7 +328,7 @@ export class NotificationsService {
                 body: `OS #${data.osNumber} foi aprovada`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
 
@@ -347,11 +347,11 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyOsRejected(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
         const technicians = await this.getOsTechnicians(serviceOrderId)
-        const managers = await this.getManagers(companyId)
+        const managers = await this.getManagers(tenantId)
         const recipients = [...technicians, ...managers]
 
         const emailTemplate = this.emailChannel.buildOsRejectedEmail(data)
@@ -365,7 +365,7 @@ export class NotificationsService {
                 body: `OS #${data.osNumber} — ${data.reason}`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
 
@@ -384,10 +384,10 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyUnassignedAlert(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
-        const recipients = await this.getGroupTechniciansAndManagers(companyId, data.groupId)
+        const recipients = await this.getGroupTechniciansAndManagers(tenantId, data.groupId)
         const emailTemplate = this.emailChannel.buildUnassignedAlertEmail(data)
 
         await this.sendToRecipients(recipients, {
@@ -399,7 +399,7 @@ export class NotificationsService {
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
     }
@@ -409,10 +409,10 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     private async notifyPreventiveGenerated(
         data: any,
-        companyId: string,
+        tenantId: string,
         serviceOrderId?: string,
     ) {
-        const recipients = await this.getGroupTechniciansAndManagers(companyId, data.groupId)
+        const recipients = await this.getGroupTechniciansAndManagers(tenantId, data.groupId)
 
         await this.sendToRecipients(recipients, {
             email: {
@@ -426,12 +426,12 @@ export class NotificationsService {
                 body: `OS #${data.osNumber} — ${data.equipmentName}`,
                 data,
             },
-            companyId,
+            tenantId,
             serviceOrderId,
         })
 
         // Atualiza o painel
-        this.gateway.sendPanelUpdate(companyId, {
+        this.gateway.sendPanelUpdate(tenantId, {
             event: 'os.panel.new',
             title: 'Nova preventiva no painel',
             body: `OS #${data.osNumber} — ${data.equipmentName}`,
@@ -442,21 +442,21 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     // Resumo diário de OS
     // ─────────────────────────────────────────
-    private async sendDailySummary(data: any, companyId: string) {
+    private async sendDailySummary(data: any, tenantId: string) {
         // Busca métricas do dia
         const [open, inProgress, completedPending, overdue] = await Promise.all([
             this.prisma.serviceOrder.count({
-                where: { companyId, status: 'AWAITING_PICKUP', deletedAt: null },
+                where: { tenantId, status: 'AWAITING_PICKUP', deletedAt: null },
             }),
             this.prisma.serviceOrder.count({
-                where: { companyId, status: 'IN_PROGRESS', deletedAt: null },
+                where: { tenantId, status: 'IN_PROGRESS', deletedAt: null },
             }),
             this.prisma.serviceOrder.count({
-                where: { companyId, status: 'COMPLETED', deletedAt: null },
+                where: { tenantId, status: 'COMPLETED', deletedAt: null },
             }),
             this.prisma.serviceOrder.count({
                 where: {
-                    companyId,
+                    tenantId,
                     isAvailable: true,
                     alertSentAt: { not: null },
                     deletedAt: null,
@@ -464,12 +464,12 @@ export class NotificationsService {
             }),
         ])
 
-        const company = await this.prisma.company.findUnique({
-            where: { id: companyId },
+        const company = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
             select: { name: true },
         })
 
-        const admins = await this.getManagers(companyId)
+        const admins = await this.getManagers(tenantId)
         const date = new Date().toLocaleDateString('pt-BR')
 
         const emailTemplate = this.emailChannel.buildDailySummaryEmail({
@@ -483,7 +483,7 @@ export class NotificationsService {
 
         for (const admin of admins) {
             if (admin.email) {
-                await this.saveAndSendEmail(admin.id, companyId, emailTemplate, undefined)
+                await this.saveAndSendEmail(admin.id, tenantId, emailTemplate, undefined)
             }
         }
     }
@@ -498,7 +498,7 @@ export class NotificationsService {
             email: { subject: string; html: string }
             telegram: string
             ws: { event: string; title: string; body: string; data?: any }
-            companyId: string
+            tenantId: string
             serviceOrderId?: string
         },
     ) {
@@ -509,7 +509,7 @@ export class NotificationsService {
             // Persiste notificação no banco
             await this.saveAndSendEmail(
                 recipient.id,
-                options.companyId,
+                options.tenantId,
                 options.email,
                 options.serviceOrderId,
             )
@@ -518,7 +518,7 @@ export class NotificationsService {
             if (recipient.telegramChatId) {
                 await this.saveAndSendTelegram(
                     recipient.id,
-                    options.companyId,
+                    options.tenantId,
                     recipient.telegramChatId,
                     options.telegram,
                     options.serviceOrderId,
@@ -529,7 +529,7 @@ export class NotificationsService {
 
     private async saveAndSendEmail(
         userId: string,
-        companyId: string,
+        tenantId: string,
         template: { subject: string; html: string },
         serviceOrderId?: string,
     ) {
@@ -542,7 +542,7 @@ export class NotificationsService {
         // Cria o registro de notificação como PENDING
         const notification = await this.prisma.notification.create({
             data: {
-                companyId,
+                tenantId,
                 userId,
                 serviceOrderId,
                 channel: NotificationChannel.EMAIL,
@@ -563,14 +563,14 @@ export class NotificationsService {
 
     private async saveAndSendTelegram(
         userId: string,
-        companyId: string,
+        tenantId: string,
         chatId: string,
         message: string,
         serviceOrderId?: string,
     ) {
         const notification = await this.prisma.notification.create({
             data: {
-                companyId,
+                tenantId,
                 userId,
                 serviceOrderId,
                 channel: NotificationChannel.TELEGRAM,
@@ -647,12 +647,12 @@ export class NotificationsService {
     // ─────────────────────────────────────────
     // Helpers para buscar destinatários
     // ─────────────────────────────────────────
-    private async getGroupTechniciansAndManagers(companyId: string, groupId?: string) {
+    private async getGroupTechniciansAndManagers(tenantId: string, groupId?: string) {
         const [technicians, managers] = await Promise.all([
             groupId
                 ? this.prisma.user.findMany({
                     where: {
-                        companyId,
+                        tenantId,
                         role: UserRole.TECHNICIAN,
                         deletedAt: null,
                         status: 'ACTIVE',
@@ -661,10 +661,10 @@ export class NotificationsService {
                     select: { id: true, email: true, telegramChatId: true },
                 })
                 : this.prisma.user.findMany({
-                    where: { companyId, role: UserRole.TECHNICIAN, deletedAt: null, status: 'ACTIVE' },
+                    where: { tenantId, role: UserRole.TECHNICIAN, deletedAt: null, status: 'ACTIVE' },
                     select: { id: true, email: true, telegramChatId: true },
                 }),
-            this.getManagers(companyId),
+            this.getManagers(tenantId),
         ])
 
         // Remove duplicatas
@@ -672,10 +672,10 @@ export class NotificationsService {
         return [...new Map(all.map((u) => [u.id, u])).values()]
     }
 
-    private async getManagers(companyId: string) {
+    private async getManagers(tenantId: string) {
         return this.prisma.user.findMany({
             where: {
-                companyId,
+                tenantId,
                 role: { in: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER] },
                 deletedAt: null,
                 status: 'ACTIVE',
@@ -684,8 +684,8 @@ export class NotificationsService {
         })
     }
 
-    private async getManagersAndRequester(companyId: string, requesterId?: string) {
-        const managers = await this.getManagers(companyId)
+    private async getManagersAndRequester(tenantId: string, requesterId?: string) {
+        const managers = await this.getManagers(tenantId)
 
         if (requesterId) {
             const requester = await this.prisma.user.findUnique({

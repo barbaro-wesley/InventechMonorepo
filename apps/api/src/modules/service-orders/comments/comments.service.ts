@@ -27,13 +27,13 @@ export class CommentsService {
     async create(
         serviceOrderId: string,
         dto: CreateCommentDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
         currentUser: AuthenticatedUser,
     ) {
         // Verifica que a OS pertence ao tenant
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id: serviceOrderId, clientId, companyId, deletedAt: null },
+            where: { id: serviceOrderId, organizationId, tenantId, deletedAt: null },
             select: { id: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')

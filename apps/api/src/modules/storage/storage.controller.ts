@@ -52,8 +52,8 @@ export class StorageController {
     return this.storageService.upload(
       file,
       dto,
-      currentUser.companyId!,
-      currentUser.clientId,
+      currentUser.tenantId!,
+      currentUser.organizationId,
       currentUser,
     )
   }
@@ -83,7 +83,7 @@ export class StorageController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.storageService.getPresignedUrl(id, currentUser.companyId!)
+    return this.storageService.getPresignedUrl(id, currentUser.tenantId!)
   }
 
   @Get('entity/:entity/:entityId')
@@ -101,7 +101,7 @@ export class StorageController {
     return this.storageService.listByEntity(
       entity as AttachmentEntity,
       entityId,
-      currentUser.companyId!,
+      currentUser.tenantId!,
     )
   }
 
@@ -112,6 +112,6 @@ export class StorageController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
-    return this.storageService.delete(id, currentUser.companyId!, currentUser)
+    return this.storageService.delete(id, currentUser.tenantId!, currentUser)
   }
 }

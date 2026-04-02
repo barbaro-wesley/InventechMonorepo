@@ -23,7 +23,7 @@ import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { ALLOWED_MIME_LIST } from '../storage/storage.constants'
 
-@Controller('clients/:clientId/service-orders')
+@Controller('clients/:organizationId/service-orders')
 export class ServiceOrdersController {
   constructor(
     private readonly serviceOrdersService: ServiceOrdersService,
@@ -35,31 +35,31 @@ export class ServiceOrdersController {
   @Get('available')
   @Permission('service-order:assume')
   findAvailable(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Query() filters: ListAvailableServiceOrdersDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.findAvailable(cu.companyId!, filters, cu)
+    return this.serviceOrdersService.findAvailable(cu.tenantId!, filters, cu)
   }
 
   @Get()
   @Permission('service-order:list')
   findAll(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Query() filters: ListServiceOrdersDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.findAll(clientId, cu.companyId!, filters, cu)
+    return this.serviceOrdersService.findAll(organizationId, cu.tenantId!, filters, cu)
   }
 
   @Get(':id')
   @Permission('service-order:read')
   findOne(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.findOne(id, clientId, cu.companyId!, cu)
+    return this.serviceOrdersService.findOne(id, organizationId, cu.tenantId!, cu)
   }
 
   @Post()
@@ -75,20 +75,20 @@ export class ServiceOrdersController {
     }),
   )
   async create(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Body() dto: CreateServiceOrderDto,
     @UploadedFiles() files: Express.Multer.File[],
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    const os = await this.serviceOrdersService.create(dto, clientId, cu.companyId!, cu)
+    const os = await this.serviceOrdersService.create(dto, organizationId, cu.tenantId!, cu)
     if (files?.length > 0) {
       await Promise.all(
         files.map((file) =>
           this.storageService.upload(
             file,
             { entity: AttachmentEntity.SERVICE_ORDER, entityId: os.id },
-            cu.companyId!,
-            clientId,
+            cu.tenantId!,
+            organizationId,
             cu,
           ),
         ),
@@ -100,58 +100,58 @@ export class ServiceOrdersController {
   @Patch(':id')
   @Permission('service-order:update')
   update(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateServiceOrderDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.update(id, dto, clientId, cu.companyId!, cu)
+    return this.serviceOrdersService.update(id, dto, organizationId, cu.tenantId!, cu)
   }
 
   @Patch(':id/status')
   @HttpCode(HttpStatus.OK)
   @Permission('service-order:update-status')
   updateStatus(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateServiceOrderStatusDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.updateStatus(id, dto, clientId, cu.companyId!, cu)
+    return this.serviceOrdersService.updateStatus(id, dto, organizationId, cu.tenantId!, cu)
   }
 
   @Post(':id/assume')
   @HttpCode(HttpStatus.OK)
   @Permission('service-order:assume')
   assume(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.assumeServiceOrder(id, clientId, cu.companyId!, cu)
+    return this.serviceOrdersService.assumeServiceOrder(id, organizationId, cu.tenantId!, cu)
   }
 
   @Post(':id/technicians')
   @Permission('service-order:manage-techs')
   addTechnician(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignTechnicianDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.addTechnician(id, dto, clientId, cu.companyId!)
+    return this.serviceOrdersService.addTechnician(id, dto, organizationId, cu.tenantId!)
   }
 
   @Delete(':id/technicians/:technicianId')
   @HttpCode(HttpStatus.OK)
   @Permission('service-order:manage-techs')
   removeTechnician(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('technicianId', ParseUUIDPipe) technicianId: string,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.serviceOrdersService.removeTechnician(id, technicianId, clientId, cu.companyId!)
+    return this.serviceOrdersService.removeTechnician(id, technicianId, organizationId, cu.tenantId!)
   }
 
   @Post(':id/comments')
@@ -167,21 +167,21 @@ export class ServiceOrdersController {
     }),
   )
   async createComment(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) serviceOrderId: string,
     @Body() dto: CreateCommentDto,
     @UploadedFiles() files: Express.Multer.File[],
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    const comment = await this.commentsService.create(serviceOrderId, dto, clientId, cu.companyId!, cu)
+    const comment = await this.commentsService.create(serviceOrderId, dto, organizationId, cu.tenantId!, cu)
     if (files?.length > 0) {
       await Promise.all(
         files.map((file) =>
           this.storageService.upload(
             file,
             { entity: AttachmentEntity.COMMENT, entityId: comment.id },
-            cu.companyId!,
-            clientId,
+            cu.tenantId!,
+            organizationId,
             cu,
           ),
         ),
@@ -213,22 +213,22 @@ export class ServiceOrdersController {
   @Get(':id/tasks')
   @Permission('service-order:list')
   findTasks(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) serviceOrderId: string,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.tasksService.findAll(serviceOrderId, clientId, cu.companyId!)
+    return this.tasksService.findAll(serviceOrderId, organizationId, cu.tenantId!)
   }
 
   @Post(':id/tasks')
   @Permission('service-order:task')
   createTask(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) serviceOrderId: string,
     @Body() dto: CreateTaskDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.tasksService.create(serviceOrderId, dto, clientId, cu.companyId!)
+    return this.tasksService.create(serviceOrderId, dto, organizationId, cu.tenantId!)
   }
 
   @Patch(':osId/tasks/:taskId')
@@ -245,12 +245,12 @@ export class ServiceOrdersController {
   @HttpCode(HttpStatus.OK)
   @Permission('service-order:task')
   reorderTasks(
-    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
     @Param('id', ParseUUIDPipe) serviceOrderId: string,
     @Body() dto: ReorderTasksDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.tasksService.reorder(serviceOrderId, dto, clientId, cu.companyId!)
+    return this.tasksService.reorder(serviceOrderId, dto, organizationId, cu.tenantId!)
   }
 
   @Delete(':osId/tasks/:taskId')

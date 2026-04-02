@@ -1,43 +1,43 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { companiesService } from "@/services/companies/companies.service";
+import { tenantsService } from "@/services/companies/companies.service";
 import { getErrorMessage } from "@/lib/api";
 import type {
-  CreateCompanyDto,
-  UpdateCompanyDto,
+  CreateTenantDto,
+  UpdateTenantDto,
   UpdateReportSettingsDto,
-  ListCompaniesParams,
+  ListTenantsParams,
 } from "@/types/company";
 
-export const companyKeys = {
-  all: ["companies"] as const,
-  list: (params?: ListCompaniesParams) =>
-    ["companies", "list", params] as const,
-  detail: (id: string) => ["companies", "detail", id] as const,
-  license: (id: string) => ["companies", "license", id] as const,
-  licenses: (params?: object) => ["companies", "licenses", params] as const,
+export const tenantKeys = {
+  all: ["tenants"] as const,
+  list: (params?: ListTenantsParams) =>
+    ["tenants", "list", params] as const,
+  detail: (id: string) => ["tenants", "detail", id] as const,
+  license: (id: string) => ["tenants", "license", id] as const,
+  licenses: (params?: object) => ["tenants", "licenses", params] as const,
 };
 
-export function useCompanies(params?: ListCompaniesParams) {
+export function useTenants(params?: ListTenantsParams) {
   return useQuery({
-    queryKey: companyKeys.list(params),
-    queryFn: () => companiesService.list(params),
+    queryKey: tenantKeys.list(params),
+    queryFn: () => tenantsService.list(params),
   });
 }
 
-export function useCompany(id: string) {
+export function useTenant(id: string) {
   return useQuery({
-    queryKey: companyKeys.detail(id),
-    queryFn: () => companiesService.getById(id),
+    queryKey: tenantKeys.detail(id),
+    queryFn: () => tenantsService.getById(id),
     enabled: !!id,
   });
 }
 
-export function useCompanyLicense(id: string) {
+export function useTenantLicense(id: string) {
   return useQuery({
-    queryKey: companyKeys.license(id),
-    queryFn: () => companiesService.getLicense(id),
+    queryKey: tenantKeys.license(id),
+    queryFn: () => tenantsService.getLicense(id),
     enabled: !!id,
   });
 }
@@ -47,17 +47,17 @@ export function useAllLicenses(params?: {
   status?: string;
 }) {
   return useQuery({
-    queryKey: companyKeys.licenses(params),
-    queryFn: () => companiesService.getAllLicenses(params),
+    queryKey: tenantKeys.licenses(params),
+    queryFn: () => tenantsService.getAllLicenses(params),
   });
 }
 
-export function useCreateCompany() {
+export function useCreateTenant() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dto: CreateCompanyDto) => companiesService.create(dto),
+    mutationFn: (dto: CreateTenantDto) => tenantsService.create(dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Empresa criada com sucesso!");
     },
     onError: (error) => {
@@ -66,12 +66,12 @@ export function useCreateCompany() {
   });
 }
 
-export function useUpdateCompany(id: string) {
+export function useUpdateTenant(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dto: UpdateCompanyDto) => companiesService.update(id, dto),
+    mutationFn: (dto: UpdateTenantDto) => tenantsService.update(id, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Empresa atualizada com sucesso!");
     },
     onError: (error) => {
@@ -80,13 +80,13 @@ export function useUpdateCompany(id: string) {
   });
 }
 
-export function useSuspendCompany() {
+export function useSuspendTenant() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      companiesService.suspend(id, reason),
+      tenantsService.suspend(id, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Empresa suspensa com sucesso!");
     },
     onError: (error) => {
@@ -95,12 +95,12 @@ export function useSuspendCompany() {
   });
 }
 
-export function useActivateCompany() {
+export function useActivateTenant() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => companiesService.activate(id),
+    mutationFn: (id: string) => tenantsService.activate(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Empresa reativada com sucesso!");
     },
     onError: (error) => {
@@ -109,13 +109,13 @@ export function useActivateCompany() {
   });
 }
 
-export function useUpdateLicense(companyId: string) {
+export function useUpdateLicense(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: { expiresAt?: string; notes?: string }) =>
-      companiesService.updateLicense(companyId, dto),
+      tenantsService.updateLicense(tenantId, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Licença atualizada com sucesso!");
     },
     onError: (error) => {
@@ -124,13 +124,13 @@ export function useUpdateLicense(companyId: string) {
   });
 }
 
-export function useUpdateTrial(companyId: string) {
+export function useUpdateTrial(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: { trialEndsAt: string }) =>
-      companiesService.updateTrial(companyId, dto),
+      tenantsService.updateTrial(tenantId, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Período de trial atualizado!");
     },
     onError: (error) => {
@@ -139,12 +139,12 @@ export function useUpdateTrial(companyId: string) {
   });
 }
 
-export function useUploadCompanyLogo(companyId: string) {
+export function useUploadTenantLogo(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (file: File) => companiesService.uploadLogo(companyId, file),
+    mutationFn: (file: File) => tenantsService.uploadLogo(tenantId, file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Logo atualizado com sucesso!");
     },
     onError: (error) => {
@@ -153,13 +153,13 @@ export function useUploadCompanyLogo(companyId: string) {
   });
 }
 
-export function useUpdateReportSettings(companyId: string) {
+export function useUpdateReportSettings(tenantId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: UpdateReportSettingsDto) =>
-      companiesService.updateReportSettings(companyId, dto),
+      tenantsService.updateReportSettings(tenantId, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: tenantKeys.all });
       toast.success("Configurações de relatório salvas!");
     },
     onError: (error) => {

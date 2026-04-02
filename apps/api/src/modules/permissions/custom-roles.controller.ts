@@ -19,10 +19,10 @@ import {
 export class CustomRolesController {
   constructor(private readonly customRolesService: CustomRolesService) {}
 
-  /** Resolve o companyId efetivo. SUPER_ADMIN pode passar ?targetCompanyId= para agir em nome de uma empresa. */
+  /** Resolve o tenantId efetivo. SUPER_ADMIN pode passar ?targetCompanyId= para agir em nome de uma empresa. */
   private resolveCompanyId(cu: AuthenticatedUser, targetCompanyId?: string): string {
     if (cu.role === UserRole.SUPER_ADMIN && targetCompanyId) return targetCompanyId
-    if (cu.companyId) return cu.companyId
+    if (cu.tenantId) return cu.tenantId
     throw new BadRequestException('Selecione uma empresa para gerenciar os papéis personalizados')
   }
 
@@ -99,6 +99,6 @@ export class CustomRolesController {
     @Body() dto: AssignCustomRoleDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.customRolesService.assignToUser(userId, cu.companyId!, dto.customRoleId ?? null)
+    return this.customRolesService.assignToUser(userId, cu.tenantId!, dto.customRoleId ?? null)
   }
 }

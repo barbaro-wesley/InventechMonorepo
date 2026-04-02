@@ -101,8 +101,8 @@ export class AuthService {
             sub: user.id,
             email: user.email,
             role: user.role,
-            companyId: user.companyId,
-            clientId: user.clientId,
+            tenantId: user.tenantId,
+            organizationId: user.organizationId,
             customRoleId: user.customRoleId ?? null,
         }
 
@@ -171,8 +171,8 @@ export class AuthService {
             sub: user.id,
             email: user.email,
             role: user.role,
-            companyId: user.companyId,
-            clientId: user.clientId,
+            tenantId: user.tenantId,
+            organizationId: user.organizationId,
             customRoleId: user.customRoleId ?? null,
         }
 
@@ -197,11 +197,11 @@ export class AuthService {
                 avatarUrl: true,
                 phone: true,
                 telegramChatId: true,
-                companyId: true,
-                clientId: true,
+                tenantId: true,
+                organizationId: true,
                 customRoleId: true,
-                company: { select: { id: true, name: true, slug: true, logoUrl: true } },
-                client: { select: { id: true, name: true, logoUrl: true } },
+                tenant: { select: { id: true, name: true, logoUrl: true } },
+                organization: { select: { id: true, name: true, logoUrl: true } },
                 customRole: {
                     select: {
                         id: true,

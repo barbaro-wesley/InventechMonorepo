@@ -1,6 +1,6 @@
-import type { CompanyStatus } from '../enums/company.enum';
+import type { TenantStatus } from '../enums/company.enum';
 
-export interface Company {
+export interface Tenant {
   id: string;
   platformId: string;
   name: string;
@@ -13,13 +13,13 @@ export interface Company {
   reportSecondaryColor?: string | null;
   reportHeaderTitle?: string | null;
   reportFooterText?: string | null;
-  status: CompanyStatus;
+  status: TenantStatus;
   trialEndsAt?: string | null;
   settings?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   _count?: {
-    clients: number;
+    organizations: number;
     users: number;
   };
 }
@@ -32,7 +32,7 @@ export interface UpdateReportSettingsDto {
 }
 
 export interface License {
-  status: CompanyStatus;
+  status: TenantStatus;
   isActive: boolean;
   isSuspended: boolean;
   isTrial: boolean;
@@ -46,14 +46,14 @@ export interface License {
   notes?: string | null;
   expiryWarning?: boolean;
   users?: number;
-  clients?: number;
+  organizations?: number;
 }
 
-export interface CompanyWithLicense extends Company {
+export interface TenantWithLicense extends Tenant {
   license?: License | null;
 }
 
-export interface CreateCompanyDto {
+export interface CreateTenantDto {
   name: string;
   document?: string;
   email?: string;
@@ -66,8 +66,8 @@ export interface CreateCompanyDto {
   };
 }
 
-export interface CreateCompanyResponse {
-  company: Company;
+export interface CreateTenantResponse {
+  tenant: Tenant;
   admin: {
     id: string;
     name: string;
@@ -76,18 +76,18 @@ export interface CreateCompanyResponse {
   };
 }
 
-export interface UpdateCompanyDto {
+export interface UpdateTenantDto {
   name?: string;
   document?: string;
   email?: string;
   phone?: string;
 }
 
-export interface CompanyLicenseRow {
+export interface TenantLicenseRow {
   id: string;
   name: string;
   slug: string;
-  status: CompanyStatus;
+  status: TenantStatus;
   licenseExpiresAt: string | null;
   trialEndsAt: string | null;
   suspendedAt: string | null;
@@ -96,12 +96,12 @@ export interface CompanyLicenseRow {
   isLicenseExpired: boolean;
   isTrialExpired: boolean;
   expiryWarning: boolean;
-  _count: { users: number; clients: number };
+  _count: { users: number; organizations: number };
 }
 
-export interface ListCompaniesParams {
+export interface ListTenantsParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: CompanyStatus;
+  status?: TenantStatus;
 }

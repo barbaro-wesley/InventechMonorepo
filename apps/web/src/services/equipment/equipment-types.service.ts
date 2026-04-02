@@ -12,7 +12,7 @@ export interface EquipmentSubtype {
 
 export interface EquipmentType {
   id: string;
-  companyId: string;
+  tenantId: string;
   name: string;
   description: string | null;
   isActive: boolean;

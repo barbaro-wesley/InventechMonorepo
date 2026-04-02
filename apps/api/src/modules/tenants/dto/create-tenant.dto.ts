@@ -8,7 +8,7 @@ import {
   IsDateString,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { CompanyStatus } from '@prisma/client'
+import { TenantStatus } from '@prisma/client'
 
 // Admin inicial criado junto com a empresa
 export class CreateCompanyAdminDto {
@@ -44,8 +44,8 @@ export class CreateCompanyDto {
   phone?: string
 
   @IsOptional()
-  @IsEnum(CompanyStatus)
-  status?: CompanyStatus = CompanyStatus.ACTIVE
+  @IsEnum(TenantStatus)
+  status?: TenantStatus = TenantStatus.ACTIVE
 
   @IsOptional()
   @IsDateString()

@@ -40,19 +40,19 @@ export class UsersService {
   async findAll(currentUser: AuthenticatedUser, filters: ListUsersDto) {
     this.ensureCompanyScope(currentUser)
     // SUPER_ADMIN pode filtrar por empresa via query param
-    const companyId = currentUser.role === UserRole.SUPER_ADMIN
-      ? (filters.companyId ?? currentUser.companyId!)
-      : currentUser.companyId!
+    const tenantId = currentUser.role === UserRole.SUPER_ADMIN
+      ? (filters.tenantId ?? currentUser.tenantId!)
+      : currentUser.tenantId!
     // CLIENT_ADMIN vê apenas usuários do seu próprio cliente
-    const effectiveFilters = currentUser.clientId
-      ? { ...filters, clientId: currentUser.clientId }
+    const effectiveFilters = currentUser.organizationId
+      ? { ...filters, organizationId: currentUser.organizationId }
       : filters
-    return this.usersRepository.findMany(companyId, effectiveFilters)
+    return this.usersRepository.findMany(tenantId, effectiveFilters)
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser) {
     this.ensureCompanyScope(currentUser)
-    const user = await this.usersRepository.findById(id, currentUser.companyId!)
+    const user = await this.usersRepository.findById(id, currentUser.tenantId!)
     if (!user) throw new NotFoundException('Usuário não encontrado')
     return user
   }
@@ -67,10 +67,10 @@ export class UsersService {
     const emailTaken = await this.usersRepository.emailExists(dto.email)
     if (emailTaken) throw new ConflictException('Este email já está em uso')
 
-    const { companyId, clientId } = this.resolveTenantIds(dto, currentUser)
+    const { tenantId, organizationId } = this.resolveTenantIds(dto, currentUser)
 
-    if ((CLIENT_ROLES as UserRole[]).includes(dto.role) && !clientId) {
-      throw new BadRequestException('clientId é obrigatório para usuários do tipo cliente')
+    if ((CLIENT_ROLES as UserRole[]).includes(dto.role) && !organizationId) {
+      throw new BadRequestException('organizationId é obrigatório para usuários do tipo cliente')
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10)
@@ -84,8 +84,8 @@ export class UsersService {
       status: UserStatus.UNVERIFIED,  // ← era ACTIVE antes
       phone: dto.phone,
       telegramChatId: dto.telegramChatId,
-      company: companyId ? { connect: { id: companyId } } : undefined,
-      client: clientId ? { connect: { id: clientId } } : undefined,
+      tenant: tenantId ? { connect: { id: tenantId } } : undefined,
+      organization: organizationId ? { connect: { id: organizationId } } : undefined,
     })
 
     // ✅ Envia email de verificação automaticamente
@@ -101,7 +101,7 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto, currentUser: AuthenticatedUser) {
     this.ensureCompanyScope(currentUser)
 
-    const existing = await this.usersRepository.findById(id, currentUser.companyId!)
+    const existing = await this.usersRepository.findById(id, currentUser.tenantId!)
     if (!existing) throw new NotFoundException('Usuário não encontrado')
 
     this.validateRoleHierarchy(existing.role as UserRole, currentUser)
@@ -117,7 +117,7 @@ export class UsersService {
       data.passwordHash = await bcrypt.hash(dto.password, 10)
     }
 
-    return this.usersRepository.update(id, currentUser.companyId!, data)
+    return this.usersRepository.update(id, currentUser.tenantId!, data)
   }
 
   async remove(id: string, currentUser: AuthenticatedUser) {
@@ -127,12 +127,12 @@ export class UsersService {
       throw new ForbiddenException('Você não pode remover sua própria conta')
     }
 
-    const existing = await this.usersRepository.findById(id, currentUser.companyId!)
+    const existing = await this.usersRepository.findById(id, currentUser.tenantId!)
     if (!existing) throw new NotFoundException('Usuário não encontrado')
 
     this.validateRoleHierarchy(existing.role as UserRole, currentUser)
 
-    await this.usersRepository.softDelete(id, currentUser.companyId!)
+    await this.usersRepository.softDelete(id, currentUser.tenantId!)
     return { message: 'Usuário removido com sucesso' }
   }
 
@@ -151,7 +151,7 @@ export class UsersService {
       select: {
         id: true, name: true, email: true, role: true, status: true,
         avatarUrl: true, phone: true, telegramChatId: true,
-        companyId: true, clientId: true,
+        tenantId: true, organizationId: true,
       },
     })
   }
@@ -192,7 +192,7 @@ export class UsersService {
   // Helpers
   // ─────────────────────────────────────────
   private ensureCompanyScope(user: AuthenticatedUser) {
-    if (user.role !== UserRole.SUPER_ADMIN && !user.companyId) {
+    if (user.role !== UserRole.SUPER_ADMIN && !user.tenantId) {
       throw new ForbiddenException('Acesso sem escopo de empresa')
     }
   }
@@ -230,10 +230,10 @@ export class UsersService {
 
   private resolveTenantIds(dto: CreateUserDto, currentUser: AuthenticatedUser) {
     if (currentUser.role === UserRole.SUPER_ADMIN) {
-      return { companyId: dto.companyId ?? null, clientId: dto.clientId ?? null }
+      return { tenantId: dto.tenantId ?? null, organizationId: dto.organizationId ?? null }
     }
-    const companyId = currentUser.companyId!
-    const clientId = dto.clientId ?? ((CLIENT_ROLES as UserRole[]).includes(dto.role) ? currentUser.clientId : null)
-    return { companyId, clientId }
+    const tenantId = currentUser.tenantId!
+    const organizationId = dto.organizationId ?? ((CLIENT_ROLES as UserRole[]).includes(dto.role) ? currentUser.organizationId : null)
+    return { tenantId, organizationId }
   }
 }

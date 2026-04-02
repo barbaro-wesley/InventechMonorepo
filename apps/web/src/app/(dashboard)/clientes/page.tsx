@@ -20,10 +20,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { useClients, useCreateClient, useUpdateClient, useUploadClientLogo } from "@/hooks/clients/use-clients";
+import { useOrganizations, useCreateOrganization, useUpdateOrganization, useUploadOrganizationLogo } from "@/hooks/clients/use-clients";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
-import type { Client } from "@/types/client";
+import type { Organization } from "@/types/client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,7 +142,7 @@ function ClientCard({
   client,
   onEdit,
 }: {
-  client: Client;
+  client: Organization;
   onEdit: () => void;
 }) {
   const status = STATUS_CONFIG[client.status];
@@ -293,18 +293,18 @@ export default function ClientesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
-  const [editClient, setEditClient] = useState<Client | null>(null);
+  const [editClient, setEditClient] = useState<Organization | null>(null);
   const [clientLogoPreview, setClientLogoPreview] = useState<string | null>(null);
 
-  const { data, isLoading } = useClients({
+  const { data, isLoading } = useOrganizations({
     page,
     limit: 12,
     search: search || undefined,
   });
 
-  const createClient = useCreateClient();
-  const updateClient = useUpdateClient(editClient?.id ?? "");
-  const uploadClientLogo = useUploadClientLogo(editClient?.id ?? "");
+  const createClient = useCreateOrganization();
+  const updateClient = useUpdateOrganization(editClient?.id ?? "");
+  const uploadClientLogo = useUploadOrganizationLogo(editClient?.id ?? "");
 
   const createForm = useForm<CreateClientForm>({
     resolver: zodResolver(createClientSchema),

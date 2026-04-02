@@ -7,10 +7,10 @@ import {
 } from '@nestjs/common'
 import { UserRole } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
-import { CompaniesRepository } from './companies.repository'
-import { CreateCompanyDto } from './dto/create-company.dto'
-import { UpdateCompanyDto } from './dto/update-company.dto'
-import { ListCompaniesDto } from './dto/list-companies.dto'
+import { TenantsRepository } from './tenants.repository'
+import { CreateCompanyDto } from './dto/create-tenant.dto'
+import { UpdateCompanyDto } from './dto/update-tenant.dto'
+import { ListCompaniesDto } from './dto/list-tenants.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ConfigService } from '@nestjs/config'
@@ -26,17 +26,17 @@ function toSlug(name: string): string {
 }
 
 @Injectable()
-export class CompaniesService {
-  private readonly logger = new Logger(CompaniesService.name)
+export class TenantsService {
+  private readonly logger = new Logger(TenantsService.name)
 
   constructor(
-    private companiesRepository: CompaniesRepository,
+    private tenantsRepository: TenantsRepository,
     private prisma: PrismaService,
     private configService: ConfigService, // 👈 adicionado
   ) { }
 
   async findAll(filters: ListCompaniesDto) {
-    return this.companiesRepository.findMany(filters)
+    return this.tenantsRepository.findMany(filters)
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser) {
@@ -44,12 +44,12 @@ export class CompaniesService {
       currentUser.role === UserRole.COMPANY_ADMIN ||
       currentUser.role === UserRole.COMPANY_MANAGER
     ) {
-      if (currentUser.companyId !== id) {
+      if (currentUser.tenantId !== id) {
         throw new ForbiddenException('Acesso negado a esta empresa')
       }
     }
 
-    const company = await this.companiesRepository.findById(id)
+    const company = await this.tenantsRepository.findById(id)
 
     if (!company) {
       throw new NotFoundException('Empresa não encontrada')
@@ -60,14 +60,14 @@ export class CompaniesService {
 
   async create(dto: CreateCompanyDto) {
     let slug = toSlug(dto.name)
-    const slugTaken = await this.companiesRepository.slugExists(slug)
+    const slugTaken = await this.tenantsRepository.slugExists(slug)
 
     if (slugTaken) {
       slug = `${slug}-${Date.now().toString(36)}`
     }
 
     if (dto.document) {
-      const documentTaken = await this.companiesRepository.documentExists(dto.document)
+      const documentTaken = await this.tenantsRepository.documentExists(dto.document)
       if (documentTaken) {
         throw new ConflictException('Já existe uma empresa com este CNPJ')
       }
@@ -89,7 +89,7 @@ export class CompaniesService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const company = await tx.company.create({
+      const company = await tx.tenant.create({
         data: {
           platformId: platform.id,
           name: dto.name,
@@ -104,7 +104,7 @@ export class CompaniesService {
 
       const admin = await tx.user.create({
         data: {
-          companyId: company.id,
+          tenantId: company.id,
           name: dto.admin.name,
           email: dto.admin.email,
           passwordHash,
@@ -138,14 +138,14 @@ export class CompaniesService {
     dto: UpdateCompanyDto,
     currentUser: AuthenticatedUser,
   ) {
-    const company = await this.companiesRepository.findById(id)
+    const company = await this.tenantsRepository.findById(id)
 
     if (!company) {
       throw new NotFoundException('Empresa não encontrada')
     }
 
     if (currentUser.role !== UserRole.SUPER_ADMIN) {
-      if (currentUser.companyId !== id) {
+      if (currentUser.tenantId !== id) {
         throw new ForbiddenException('Acesso negado a esta empresa')
       }
       delete dto.status
@@ -153,7 +153,7 @@ export class CompaniesService {
     }
 
     if (dto.document && dto.document !== company.document) {
-      const documentTaken = await this.companiesRepository.documentExists(
+      const documentTaken = await this.tenantsRepository.documentExists(
         dto.document,
         id,
       )
@@ -162,7 +162,7 @@ export class CompaniesService {
       }
     }
 
-    return this.companiesRepository.update(id, {
+    return this.tenantsRepository.update(id, {
       ...(dto.name && { name: dto.name }),
       ...(dto.document !== undefined && { document: dto.document }),
       ...(dto.email !== undefined && { email: dto.email }),
@@ -176,13 +176,13 @@ export class CompaniesService {
   }
 
   async remove(id: string) {
-    const company = await this.companiesRepository.findById(id)
+    const company = await this.tenantsRepository.findById(id)
 
     if (!company) {
       throw new NotFoundException('Empresa não encontrada')
     }
 
-    await this.companiesRepository.softDelete(id)
+    await this.tenantsRepository.softDelete(id)
 
     this.logger.warn(`Empresa removida: ${company.name} (id: ${id})`)
 
@@ -228,7 +228,7 @@ export class CompaniesService {
     const protocol = useSSL ? 'https' : 'http'
     const logoUrl = `${protocol}://${endpoint}:${port}/${bucket}/${key}`
 
-    await this.prisma.company.update({
+    await this.prisma.tenant.update({
       where: { id },
       data: { logoUrl },
     })
@@ -252,7 +252,7 @@ export class CompaniesService {
   ) {
     await this.findOne(id, currentUser)
 
-    return this.prisma.company.update({
+    return this.prisma.tenant.update({
       where: { id },
       data: {
         ...(dto.reportPrimaryColor !== undefined && { reportPrimaryColor: dto.reportPrimaryColor }),
@@ -275,9 +275,9 @@ export class CompaniesService {
   // ─────────────────────────────────────────
   // Busca template completo para os relatórios
   // ─────────────────────────────────────────
-  async getReportTemplate(companyId: string) {
-    const company = await this.prisma.company.findUnique({
-      where: { id: companyId },
+  async getReportTemplate(tenantId: string) {
+    const company = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
       select: {
         name: true,
         logoUrl: true,

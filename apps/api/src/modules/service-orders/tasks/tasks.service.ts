@@ -12,9 +12,9 @@ import { CreateTaskDto, UpdateTaskDto, ReorderTasksDto } from './dto/task.dto'
 export class TasksService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll(serviceOrderId: string, clientId: string, companyId: string) {
+    async findAll(serviceOrderId: string, organizationId: string, tenantId: string) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id: serviceOrderId, clientId, companyId, deletedAt: null },
+            where: { id: serviceOrderId, organizationId, tenantId, deletedAt: null },
             select: { id: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
@@ -39,11 +39,11 @@ export class TasksService {
     async create(
         serviceOrderId: string,
         dto: CreateTaskDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id: serviceOrderId, clientId, companyId, deletedAt: null },
+            where: { id: serviceOrderId, organizationId, tenantId, deletedAt: null },
             select: { id: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
@@ -129,11 +129,11 @@ export class TasksService {
     async reorder(
         serviceOrderId: string,
         dto: ReorderTasksDto,
-        clientId: string,
-        companyId: string,
+        organizationId: string,
+        tenantId: string,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id: serviceOrderId, clientId, companyId, deletedAt: null },
+            where: { id: serviceOrderId, organizationId, tenantId, deletedAt: null },
             select: { id: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
@@ -147,7 +147,7 @@ export class TasksService {
             ),
         )
 
-        return this.findAll(serviceOrderId, clientId, companyId)
+        return this.findAll(serviceOrderId, organizationId, tenantId)
     }
 
     async remove(taskId: string) {

@@ -47,12 +47,12 @@ export class CompanyLicenseGuard implements CanActivate {
     // ── 3. SUPER_ADMIN → nunca bloqueado ─────────────────────────
     if (user.role === UserRole.SUPER_ADMIN) return true
 
-    // ── 4. Sem companyId → nada a verificar ──────────────────────
-    const companyId = user.companyId
-    if (!companyId) return true
+    // ── 4. Sem tenantId → nada a verificar ──────────────────────
+    const tenantId = user.tenantId
+    if (!tenantId) return true
 
     // ── 5. Busca status da empresa (com cache) ────────────────────
-    const company = await this.fetchCompanyStatus(companyId)
+    const company = await this.fetchCompanyStatus(tenantId)
     if (!company) return true
 
     const now = new Date()
@@ -104,8 +104,8 @@ export class CompanyLicenseGuard implements CanActivate {
   // Busca com cache — evita query no banco
   // em todo request
   // ─────────────────────────────────────────
-  private async fetchCompanyStatus(companyId: string) {
-    const cached = licenseCache.get(companyId)
+  private async fetchCompanyStatus(tenantId: string) {
+    const cached = licenseCache.get(tenantId)
     const now = Date.now()
 
     if (cached && now - cached.cachedAt < CACHE_TTL_MS) {
@@ -122,7 +122,7 @@ export class CompanyLicenseGuard implements CanActivate {
       }>>`
         SELECT status, license_expires_at, trial_ends_at, suspended_reason
         FROM companies
-        WHERE id = ${companyId}
+        WHERE id = ${tenantId}
         AND deleted_at IS NULL
         LIMIT 1
       `
@@ -138,10 +138,10 @@ export class CompanyLicenseGuard implements CanActivate {
         cachedAt: now,
       }
 
-      licenseCache.set(companyId, data)
+      licenseCache.set(tenantId, data)
       return data
     } catch (err) {
-      this.logger.error(`Erro ao verificar licença da empresa ${companyId}: ${err.message}`)
+      this.logger.error(`Erro ao verificar licença da empresa ${tenantId}: ${err.message}`)
       return null // fail open — não bloqueia se o banco falhar
     }
   }
@@ -149,7 +149,7 @@ export class CompanyLicenseGuard implements CanActivate {
   // ─────────────────────────────────────────
   // Invalida o cache — chamar após suspender/reativar
   // ─────────────────────────────────────────
-  static invalidateCache(companyId: string) {
-    licenseCache.delete(companyId)
+  static invalidateCache(tenantId: string) {
+    licenseCache.delete(tenantId)
   }
 }

@@ -28,8 +28,8 @@ export class PermissionsController {
   @Get()
   @Permission('permission:read')
   findAll(@CurrentUser() cu: AuthenticatedUser) {
-    if (!cu.companyId) return []
-    return this.permissionsService.findAllByCompany(cu.companyId)
+    if (!cu.tenantId) return []
+    return this.permissionsService.findAllByCompany(cu.tenantId)
   }
 
   // Retorna a matriz completa efetiva (defaults + overrides mesclados) para a UI
@@ -37,8 +37,8 @@ export class PermissionsController {
   @Permission('permission:read')
   async getMatrix(@CurrentUser() cu: AuthenticatedUser) {
     let overrideMap = new Map<string, string[]>()
-    if (cu.companyId) {
-      const overrides = await this.permissionsService.findAllByCompany(cu.companyId)
+    if (cu.tenantId) {
+      const overrides = await this.permissionsService.findAllByCompany(cu.tenantId)
       overrideMap = new Map(overrides.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles]))
     }
 
@@ -65,7 +65,7 @@ export class PermissionsController {
     @CurrentUser() cu: AuthenticatedUser,
   ) {
     return this.permissionsService.upsert(
-      cu.companyId!,
+      cu.tenantId!,
       dto.resource,
       dto.action,
       dto.allowedRoles,
@@ -79,13 +79,13 @@ export class PermissionsController {
     @Body() dto: RemoveResourcePermissionDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.permissionsService.remove(cu.companyId!, dto.resource, dto.action)
+    return this.permissionsService.remove(cu.tenantId!, dto.resource, dto.action)
   }
 
   @Patch('reset')
   @HttpCode(HttpStatus.OK)
   @Permission('permission:manage')
   reset(@CurrentUser() cu: AuthenticatedUser) {
-    return this.permissionsService.reset(cu.companyId!)
+    return this.permissionsService.reset(cu.tenantId!)
   }
 }

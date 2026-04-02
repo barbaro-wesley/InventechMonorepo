@@ -63,16 +63,16 @@ export class StorageService implements OnModuleInit {
   async upload(
     file: UploadedFile,
     dto: UploadFileDto,
-    companyId: string,
-    clientId: string | null,
+    tenantId: string,
+    organizationId: string | null,
     currentUser: AuthenticatedUser,
   ) {
     this.validateMimeType(file.mimetype)
     this.validateFileSize(file.mimetype, file.size)
-    await this.validateEntityOwnership(dto.entity, dto.entityId, companyId, clientId)
+    await this.validateEntityOwnership(dto.entity, dto.entityId, tenantId, organizationId)
 
     const bucket = ENTITY_BUCKET_MAP[dto.entity]
-    const key = this.buildKey(dto.entity, dto.entityId, file.originalname, companyId, clientId)
+    const key = this.buildKey(dto.entity, dto.entityId, file.originalname, tenantId, organizationId)
 
     await this.client.putObject(bucket, key, file.buffer, file.size, {
       'Content-Type': file.mimetype,
@@ -84,8 +84,8 @@ export class StorageService implements OnModuleInit {
 
     const attachment = await this.prisma.attachment.create({
       data: {
-        companyId,
-        clientId,
+        tenantId,
+        organizationId,
         entity: dto.entity,
         fileName: file.originalname,
         storedName: key.split('/').pop()!,
@@ -124,11 +124,11 @@ export class StorageService implements OnModuleInit {
   // ─────────────────────────────────────────
   async getPresignedUrl(
     attachmentId: string,
-    companyId: string,
+    tenantId: string,
     expiresIn: number = PRESIGNED_URL_TTL,
   ) {
     const attachment = await this.prisma.attachment.findFirst({
-      where: { id: attachmentId, companyId },
+      where: { id: attachmentId, tenantId },
       select: {
         id: true,
         fileName: true,
@@ -172,10 +172,10 @@ export class StorageService implements OnModuleInit {
   async listByEntity(
     entity: AttachmentEntity,
     entityId: string,
-    companyId: string,
+    tenantId: string,
   ) {
     const attachments = await this.prisma.attachment.findMany({
-      where: { entity, companyId, ...this.buildEntityFilter(entity, entityId) },
+      where: { entity, tenantId, ...this.buildEntityFilter(entity, entityId) },
       select: {
         id: true,
         fileName: true,
@@ -198,9 +198,9 @@ export class StorageService implements OnModuleInit {
   // ─────────────────────────────────────────
   // Deletar arquivo
   // ─────────────────────────────────────────
-  async delete(attachmentId: string, companyId: string, currentUser: AuthenticatedUser) {
+  async delete(attachmentId: string, tenantId: string, currentUser: AuthenticatedUser) {
     const attachment = await this.prisma.attachment.findFirst({
-      where: { id: attachmentId, companyId },
+      where: { id: attachmentId, tenantId },
       select: {
         id: true,
         bucket: true,
@@ -309,8 +309,8 @@ export class StorageService implements OnModuleInit {
     entity: AttachmentEntity,
     entityId: string,
     originalName: string,
-    companyId: string,
-    clientId: string | null,
+    tenantId: string,
+    organizationId: string | null,
   ): string {
     const mimeType = this.getMimeFromName(originalName)
     const ext = ALLOWED_MIME_TYPES[mimeType as keyof typeof ALLOWED_MIME_TYPES]?.ext
@@ -322,8 +322,8 @@ export class StorageService implements OnModuleInit {
       return uniqueName
     }
 
-    const parts = [companyId]
-    if (clientId) parts.push(clientId)
+    const parts = [tenantId]
+    if (organizationId) parts.push(organizationId)
     parts.push(entityId)
     parts.push(uniqueName)
 
@@ -350,10 +350,10 @@ export class StorageService implements OnModuleInit {
   private async validateEntityOwnership(
     entity: AttachmentEntity,
     entityId: string,
-    companyId: string,
-    clientId: string | null,
+    tenantId: string,
+    organizationId: string | null,
   ) {
-    const tenantFilter = { companyId, ...(clientId && { clientId }) }
+    const tenantFilter = { tenantId, ...(organizationId && { organizationId }) }
 
     const checks: Record<string, () => Promise<any>> = {
       SERVICE_ORDER: () => this.prisma.serviceOrder.findFirst({

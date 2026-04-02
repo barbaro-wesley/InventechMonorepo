@@ -58,11 +58,11 @@ export class ReportPermissionsService {
         // SUPER_ADMIN sempre tem acesso
         if (currentUser.role === UserRole.SUPER_ADMIN) return
 
-        if (!currentUser.companyId) {
+        if (!currentUser.tenantId) {
             throw new ForbiddenException('Acesso sem escopo de empresa')
         }
 
-        const allowedRoles = await this.getEffectiveRoles(currentUser.companyId, reportType)
+        const allowedRoles = await this.getEffectiveRoles(currentUser.tenantId, reportType)
 
         if (!allowedRoles.includes(currentUser.role)) {
             throw new ForbiddenException(
@@ -76,9 +76,9 @@ export class ReportPermissionsService {
     // Retorna os roles efetivos para um relatório
     // Configuração da empresa > padrão do sistema
     // ─────────────────────────────────────────
-    async getEffectiveRoles(companyId: string, reportType: ReportType): Promise<UserRole[]> {
+    async getEffectiveRoles(tenantId: string, reportType: ReportType): Promise<UserRole[]> {
         const custom = await this.prisma.reportPermission.findUnique({
-            where: { companyId_reportType: { companyId, reportType } },
+            where: { tenantId_reportType: { tenantId, reportType } },
             select: { allowedRoles: true },
         })
 
@@ -94,9 +94,9 @@ export class ReportPermissionsService {
     // Lista todas as permissões da empresa
     // Mescla configurações customizadas com padrões
     // ─────────────────────────────────────────
-    async findAll(companyId: string) {
+    async findAll(tenantId: string) {
         const customs = await this.prisma.reportPermission.findMany({
-            where: { companyId },
+            where: { tenantId },
         })
 
         const customMap = new Map(customs.map((p) => [p.reportType, p.allowedRoles]))
@@ -123,7 +123,7 @@ export class ReportPermissionsService {
     // ─────────────────────────────────────────
     // Cria ou atualiza permissão de um relatório
     // ─────────────────────────────────────────
-    async upsert(companyId: string, reportType: ReportType, allowedRoles: string[]) {
+    async upsert(tenantId: string, reportType: ReportType, allowedRoles: string[]) {
         // Valida os roles informados
         const validRoles = allowedRoles.filter((r) =>
             Object.values(UserRole).includes(r as UserRole),
@@ -138,10 +138,10 @@ export class ReportPermissionsService {
 
         const permission = await this.prisma.reportPermission.upsert({
             where: {
-                companyId_reportType: { companyId, reportType },
+                tenantId_reportType: { tenantId, reportType },
             },
             create: {
-                companyId,
+                tenantId,
                 reportType,
                 allowedRoles: ensured,
             },
@@ -161,8 +161,8 @@ export class ReportPermissionsService {
     // ─────────────────────────────────────────
     // Reseta para os padrões do sistema
     // ─────────────────────────────────────────
-    async reset(companyId: string) {
-        await this.prisma.reportPermission.deleteMany({ where: { companyId } })
+    async reset(tenantId: string) {
+        await this.prisma.reportPermission.deleteMany({ where: { tenantId } })
         return {
             message: 'Permissões restauradas para os padrões do sistema',
             defaults: DEFAULT_PERMISSIONS,

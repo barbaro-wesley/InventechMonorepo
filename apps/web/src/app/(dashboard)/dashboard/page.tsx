@@ -21,7 +21,7 @@ import {
   Activity,
 } from "lucide-react";
 
-import { usePlatformDashboard, useCompanyDashboard } from "@/hooks/dashboard/use-dashboard";
+import { usePlatformDashboard, useTenantDashboard } from "@/hooks/dashboard/use-dashboard";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { useCurrentUser } from "@/store/auth.store";
 import { cn } from "@/lib/utils";
@@ -197,7 +197,7 @@ function SuperAdminDashboard() {
     );
   }
 
-  const { companyMetrics, userMetrics, clientMetrics, equipmentTotal, osMetrics, licenseAlerts, recentCompanies } = data;
+  const { tenantMetrics: companyMetrics, userMetrics, organizationMetrics: clientMetrics, equipmentTotal, osMetrics, licenseAlerts, recentTenants: recentCompanies } = data;
   const totalAlerts =
     companyMetrics.byStatus.suspended +
     companyMetrics.byStatus.inactive +
@@ -454,7 +454,7 @@ function SuperAdminDashboard() {
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs text-slate-400">{company._count.users} usuário{company._count.users !== 1 ? "s" : ""}</span>
                         <span className="text-slate-300">·</span>
-                        <span className="text-xs text-slate-400">{company._count.clients} cliente{company._count.clients !== 1 ? "s" : ""}</span>
+                        <span className="text-xs text-slate-400">{company._count.organizations} org.</span>
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -482,7 +482,7 @@ function SuperAdminDashboard() {
 
 function CompanyDashboard() {
   const user = useCurrentUser();
-  const { data, isLoading, isError, refetch, isFetching } = useCompanyDashboard();
+  const { data, isLoading, isError, refetch, isFetching } = useTenantDashboard();
 
   if (isLoading) return <SkeletonDash />;
   if (isError || !data) {

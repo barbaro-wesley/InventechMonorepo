@@ -41,11 +41,11 @@ export class MaintenanceProcessor {
             serviceOrderId: string
             number: number
             title: string
-            companyId: string
+            tenantId: string
             groupId: string | null
         }>,
     ) {
-        const { number, title, companyId, groupId } = job.data
+        const { number, title, tenantId, groupId } = job.data
 
         this.logger.warn(
             `Alerta: OS #${number} "${title}" está sem técnico há muito tempo`,
@@ -65,7 +65,7 @@ export class MaintenanceProcessor {
     // ─────────────────────────────────────────
     @Process('notify-preventive-generated')
     async handleNotifyPreventiveGenerated(
-        job: Job<{ scheduleId: string; companyId: string }>,
+        job: Job<{ scheduleId: string; tenantId: string }>,
     ) {
         this.logger.log(
             `Notificando geração de preventiva — Schedule: ${job.data.scheduleId}`,
