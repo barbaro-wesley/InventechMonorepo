@@ -46,6 +46,18 @@ const EQUIPMENT_SELECT = {
     },
 } satisfies Prisma.EquipmentSelect
 
+type EquipmentRaw = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT }>
+
+/** Converte campos Decimal do Prisma para number puro antes de retornar ao cliente */
+function normalizeEquipment(eq: EquipmentRaw) {
+    return {
+        ...eq,
+        purchaseValue: eq.purchaseValue != null ? Number(eq.purchaseValue) : null,
+        currentValue: eq.currentValue != null ? Number(eq.currentValue) : null,
+        depreciationRate: eq.depreciationRate != null ? Number(eq.depreciationRate) : null,
+    }
+}
+
 @Injectable()
 export class EquipmentService {
     constructor(
@@ -92,7 +104,7 @@ export class EquipmentService {
             this.prisma.equipment.count({ where }),
         ])
 
-        return { data, total, page, limit }
+        return { data: data.map(normalizeEquipment), total, page, limit }
     }
 
     async findOne(id: string, companyId: string) {
@@ -101,7 +113,7 @@ export class EquipmentService {
             select: EQUIPMENT_SELECT,
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
-        return equipment
+        return normalizeEquipment(equipment)
     }
 
     async create(
@@ -182,7 +194,7 @@ export class EquipmentService {
             )
         }
 
-        return equipment
+        return normalizeEquipment(equipment)
     }
 
     async update(
@@ -205,7 +217,7 @@ export class EquipmentService {
             if (conflict) throw new ConflictException('Número de série já em uso nesta empresa')
         }
 
-        return this.prisma.equipment.update({
+        const updated = await this.prisma.equipment.update({
             where: { id },
             data: {
                 ...(dto.name && { name: dto.name }),
@@ -237,6 +249,7 @@ export class EquipmentService {
             },
             select: EQUIPMENT_SELECT,
         })
+        return normalizeEquipment(updated)
     }
 
     async remove(id: string, companyId: string) {

@@ -14,13 +14,13 @@ export interface Equipment {
   anvisaNumber: string | null;
   status: EquipmentStatus;
   criticality: EquipmentCriticality;
-  purchaseValue: string | null;
+  purchaseValue: number | null;
   purchaseDate: string | null;
   invoiceNumber: string | null;
   warrantyStart: string | null;
   warrantyEnd: string | null;
-  depreciationRate: string | null;
-  currentValue: string | null;
+  depreciationRate: number | null;
+  currentValue: number | null;
   lastDepreciationCalc: string | null;
   ipAddress: string | null;
   operatingSystem: string | null;

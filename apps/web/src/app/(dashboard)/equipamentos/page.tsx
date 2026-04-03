@@ -143,7 +143,7 @@ const equipmentSchema = z.object({
   voltage: z.string().optional(),
   ipAddress: z.string().optional(),
   operatingSystem: z.string().optional(),
-  criticality: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).default("MEDIUM"),
+  criticality: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional().default("MEDIUM"),
   observations: z.string().optional(),
 });
 type EquipmentForm = z.infer<typeof equipmentSchema>;
@@ -171,7 +171,8 @@ function EquipmentSheet({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EquipmentForm>({
-    resolver: zodResolver(equipmentSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(equipmentSchema) as any,
     values: editTarget ? {
       name: editTarget.name,
       brand: editTarget.brand ?? "",
@@ -182,10 +183,10 @@ function EquipmentSheet({
       subtypeId: editTarget.subtype?.id ?? "",
       locationId: editTarget.location?.id ?? "",
       costCenterId: editTarget.costCenter?.id ?? "",
-      purchaseValue: editTarget.purchaseValue ?? "",
+      purchaseValue: editTarget.purchaseValue != null ? String(editTarget.purchaseValue) : "",
       purchaseDate: editTarget.purchaseDate ? editTarget.purchaseDate.substring(0, 10) : "",
       warrantyEnd: editTarget.warrantyEnd ? editTarget.warrantyEnd.substring(0, 10) : "",
-      depreciationRate: editTarget.depreciationRate ?? "",
+      depreciationRate: editTarget.depreciationRate != null ? String(editTarget.depreciationRate) : "",
       btus: editTarget.btus?.toString() ?? "",
       voltage: editTarget.voltage ?? "",
       ipAddress: editTarget.ipAddress ?? "",
@@ -701,6 +702,8 @@ function AttachmentRow({
 
 // ─── Detail Section Card ──────────────────────────────────────────────────────
 
+// ─── Detail Section Card ──────────────────────────────────────────────────────
+
 function SectionCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-border bg-white overflow-hidden">
@@ -724,6 +727,19 @@ function InfoRow({ label, value, mono, highlight }: { label: string; value: stri
 }
 
 // ─── Detail Sheet ─────────────────────────────────────────────────────────────
+
+function fmtDate(d?: string | null) {
+  if (!d) return null;
+  return new Date(d).toLocaleDateString("pt-BR");
+}
+function fmtCurrency(v?: number | null) {
+  if (v == null) return null;
+  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+}
+function fmtPercent(v?: number | null) {
+  if (v == null) return null;
+  return `${v.toFixed(2)}% /ano`;
+}
 
 function DetailSheet({
   open,
@@ -750,8 +766,8 @@ function DetailSheet({
   const activeMovement = movements.find((m) => m.status === "ACTIVE");
   const warrantyOk = equipment.warrantyEnd ? new Date(equipment.warrantyEnd) > new Date() : null;
 
-  const hasFinancial = equipment.purchaseValue || equipment.warrantyEnd || equipment.currentValue;
-  const hasTechnical = equipment.btus || equipment.voltage || equipment.ipAddress || equipment.operatingSystem;
+  const hasFinancial = equipment.purchaseValue || equipment.warrantyEnd || equipment.currentValue || equipment.invoiceNumber;
+  const hasTechnical = equipment.btus || equipment.voltage || equipment.ipAddress || equipment.operatingSystem || equipment.power || equipment.anvisaNumber;
 
   function handleOpenFile(attachmentId: string) {
     openUrl.mutate(attachmentId, {
@@ -761,18 +777,18 @@ function DetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent className="overflow-y-auto" style={{ maxWidth: "600px", width: "100%" }}>
+      <SheetContent className="overflow-y-auto" style={{ maxWidth: "640px", width: "100%" }}>
 
         {/* ── Header ── */}
-        <div className="px-4 pt-5 pb-4 border-b border-border">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "var(--primary)15" }}>
-              <Wrench className="w-5 h-5" style={{ color: "var(--primary)" }} />
+        <div className="px-5 pt-5 pb-4 border-b border-border">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10">
+              <Wrench className="w-6 h-6 text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-sm leading-snug">{equipment.name}</h2>
+              <h2 className="font-bold text-base leading-snug">{equipment.name}</h2>
               {(equipment.brand || equipment.model) && (
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   {[equipment.brand, equipment.model].filter(Boolean).join(" · ")}
                 </p>
               )}
@@ -780,8 +796,13 @@ function DetailSheet({
                 <StatusBadge status={equipment.status} />
                 <CriticalityBadge criticality={equipment.criticality} />
                 {equipment._count.serviceOrders > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                     <ClipboardList className="w-3 h-3" />{equipment._count.serviceOrders} OS
+                  </span>
+                )}
+                {equipment._count.maintenances > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    <Wrench className="w-3 h-3" />{equipment._count.maintenances} manutenções
                   </span>
                 )}
               </div>
@@ -808,71 +829,13 @@ function DetailSheet({
               <Button size="sm" variant="outline" disabled={recalc.isPending}
                 onClick={() => recalc.mutate(equipment.id)}>
                 <BarChart2 className="w-3.5 h-3.5 mr-1.5" />
-                {recalc.isPending ? "Calculando..." : "Depreciar"}
+                {recalc.isPending ? "Calculando..." : "Recalcular depreciação"}
               </Button>
             )}
           </div>
         </div>
 
         <div className="p-4 space-y-4">
-          {/* ── Identificação ── */}
-          <SectionCard title="Identificação" icon={Tag}>
-            {equipment.type && (
-              <InfoRow label="Tipo" value={[equipment.type.name, equipment.subtype?.name].filter(Boolean).join(" › ")} />
-            )}
-            {equipment.serialNumber && <InfoRow label="Nº de Série" value={equipment.serialNumber} mono />}
-            {equipment.patrimonyNumber && <InfoRow label="Patrimônio" value={equipment.patrimonyNumber} mono />}
-          </SectionCard>
-
-          {/* ── Localização ── */}
-          {(equipment.costCenter || equipment.currentLocation) && (
-            <SectionCard title="Localização" icon={MapPin}>
-              {equipment.costCenter && (
-                <InfoRow label="Centro de Custo" value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`} />
-              )}
-              {equipment.location && equipment.location.id !== equipment.currentLocation?.id && (
-                <InfoRow label="Localização original" value={equipment.location.name} />
-              )}
-              {equipment.currentLocation && (
-                <InfoRow label="Localização atual" value={equipment.currentLocation.name} />
-              )}
-            </SectionCard>
-          )}
-
-          {/* ── Financeiro ── */}
-          {hasFinancial && (
-            <SectionCard title="Financeiro" icon={DollarSign}>
-              {equipment.purchaseValue && (
-                <InfoRow label="Valor de compra" value={`R$ ${Number(equipment.purchaseValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
-              )}
-              {equipment.currentValue && (
-                <InfoRow label="Valor atual" value={`R$ ${Number(equipment.currentValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
-              )}
-              {equipment.depreciationRate && (
-                <InfoRow label="Taxa de depreciação" value={`${equipment.depreciationRate}% /ano`} />
-              )}
-              {equipment.purchaseDate && (
-                <InfoRow label="Data de compra" value={new Date(equipment.purchaseDate).toLocaleDateString("pt-BR")} />
-              )}
-              {warrantyOk !== null && equipment.warrantyEnd && (
-                <InfoRow
-                  label="Garantia"
-                  value={`${warrantyOk ? "Em vigor" : "Expirada"} · ${new Date(equipment.warrantyEnd).toLocaleDateString("pt-BR")}`}
-                  highlight={warrantyOk ? "green" : "red"}
-                />
-              )}
-            </SectionCard>
-          )}
-
-          {/* ── Técnico ── */}
-          {hasTechnical && (
-            <SectionCard title="Técnico" icon={Monitor}>
-              {equipment.btus && <InfoRow label="BTUs" value={equipment.btus.toLocaleString("pt-BR")} />}
-              {equipment.voltage && <InfoRow label="Tensão" value={equipment.voltage} />}
-              {equipment.ipAddress && <InfoRow label="Endereço IP" value={equipment.ipAddress} mono />}
-              {equipment.operatingSystem && <InfoRow label="Sistema Operacional" value={equipment.operatingSystem} />}
-            </SectionCard>
-          )}
 
           {/* ── Movimentação ativa ── */}
           {activeMovement && (
@@ -887,11 +850,93 @@ function DetailSheet({
                 </p>
                 {activeMovement.expectedReturnAt && (
                   <p className="text-xs text-amber-600 mt-0.5">
-                    Devolução prevista: {new Date(activeMovement.expectedReturnAt).toLocaleDateString("pt-BR")}
+                    Devolução prevista: {fmtDate(activeMovement.expectedReturnAt)}
                   </p>
                 )}
               </div>
             </div>
+          )}
+
+          {/* ── Identificação ── */}
+          <SectionCard title="Identificação" icon={Tag}>
+            {equipment.type && (
+              <InfoRow label="Tipo" value={[equipment.type.name, equipment.subtype?.name].filter(Boolean).join(" › ")} />
+            )}
+            {equipment.serialNumber && <InfoRow label="Nº de Série" value={equipment.serialNumber} mono />}
+            {equipment.patrimonyNumber && <InfoRow label="Nº de Patrimônio" value={equipment.patrimonyNumber} mono />}
+            {equipment.anvisaNumber && <InfoRow label="Nº ANVISA" value={equipment.anvisaNumber} mono />}
+            <InfoRow label="Cadastrado em" value={fmtDate(equipment.createdAt) ?? "—"} />
+            <InfoRow label="Atualizado em" value={fmtDate(equipment.updatedAt) ?? "—"} />
+          </SectionCard>
+
+          {/* ── Localização ── */}
+          {(equipment.costCenter || equipment.currentLocation || equipment.location) && (
+            <SectionCard title="Localização" icon={MapPin}>
+              {equipment.costCenter && (
+                <InfoRow label="Centro de Custo" value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`} />
+              )}
+              {equipment.location && equipment.location.id !== equipment.currentLocation?.id && (
+                <InfoRow label="Localização original" value={equipment.location.name} />
+              )}
+              {equipment.currentLocation && (
+                <InfoRow label="Localização atual" value={equipment.currentLocation.name} />
+              )}
+              {!equipment.currentLocation && equipment.location && (
+                <InfoRow label="Localização" value={equipment.location.name} />
+              )}
+            </SectionCard>
+          )}
+
+          {/* ── Financeiro ── */}
+          {hasFinancial && (
+            <SectionCard title="Financeiro & Garantia" icon={DollarSign}>
+              {fmtCurrency(equipment.purchaseValue) && (
+                <InfoRow label="Valor de compra" value={fmtCurrency(equipment.purchaseValue)!} />
+              )}
+              {fmtCurrency(equipment.currentValue) && (
+                <InfoRow label="Valor atual (depreciado)" value={fmtCurrency(equipment.currentValue)!} />
+              )}
+              {fmtPercent(equipment.depreciationRate) && (
+                <InfoRow label="Taxa de depreciação" value={fmtPercent(equipment.depreciationRate)!} />
+              )}
+              {equipment.lastDepreciationCalc && (
+                <InfoRow label="Último cálculo de depreciação" value={fmtDate(equipment.lastDepreciationCalc) ?? "—"} />
+              )}
+              {fmtDate(equipment.purchaseDate) && (
+                <InfoRow label="Data de compra" value={fmtDate(equipment.purchaseDate)!} />
+              )}
+              {equipment.invoiceNumber && (
+                <InfoRow label="Nº Nota Fiscal" value={equipment.invoiceNumber} mono />
+              )}
+              {fmtDate(equipment.warrantyStart) && (
+                <InfoRow label="Início da garantia" value={fmtDate(equipment.warrantyStart)!} />
+              )}
+              {warrantyOk !== null && equipment.warrantyEnd && (
+                <InfoRow
+                  label="Fim da garantia"
+                  value={`${warrantyOk ? "✓ Em vigor" : "✗ Expirada"} · ${fmtDate(equipment.warrantyEnd)}`}
+                  highlight={warrantyOk ? "green" : "red"}
+                />
+              )}
+            </SectionCard>
+          )}
+
+          {/* ── Técnico ── */}
+          {hasTechnical && (
+            <SectionCard title="Dados Técnicos" icon={Monitor}>
+              {equipment.btus && <InfoRow label="BTUs" value={equipment.btus.toLocaleString("pt-BR")} />}
+              {equipment.voltage && <InfoRow label="Tensão" value={equipment.voltage} />}
+              {equipment.power && <InfoRow label="Potência" value={equipment.power} />}
+              {equipment.ipAddress && <InfoRow label="Endereço IP" value={equipment.ipAddress} mono />}
+              {equipment.operatingSystem && <InfoRow label="Sistema Operacional" value={equipment.operatingSystem} />}
+            </SectionCard>
+          )}
+
+          {/* ── Observações ── */}
+          {equipment.observations && (
+            <SectionCard title="Observações" icon={Eye}>
+              <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{equipment.observations}</p>
+            </SectionCard>
           )}
 
           {/* ── Anexos ── */}
