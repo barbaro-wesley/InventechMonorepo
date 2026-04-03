@@ -76,7 +76,7 @@ const navSections: NavSection[] = [
         items: [
             {
                 label: "Ordens de Serviço",
-                href: "/ordens-de-servico",
+                href: "/operacional",
                 icon: ClipboardList,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
                 permission: "service-order:list",

@@ -11,12 +11,17 @@ import {
     MAINTENANCE_QUEUE,
     MAINTENANCE_JOBS,
 } from '../maintenance.service'
+import { NotificationsService } from '../../notifications/notifications.service'
+import { NOTIFICATION_EVENTS } from '../../notifications/notifications.constants'
 
 @Processor(MAINTENANCE_QUEUE)
 export class MaintenanceProcessor {
     private readonly logger = new Logger(MaintenanceProcessor.name)
 
-    constructor(private readonly maintenanceService: MaintenanceService) { }
+    constructor(
+        private readonly maintenanceService: MaintenanceService,
+        private readonly notificationsService: NotificationsService,
+    ) { }
 
     // ─────────────────────────────────────────
     // Job: gera OS preventivas para schedules vencidos
@@ -43,19 +48,26 @@ export class MaintenanceProcessor {
             title: string
             companyId: string
             groupId: string | null
+            hoursWaiting: number
         }>,
     ) {
-        const { number, title, companyId, groupId } = job.data
+        const { serviceOrderId, number, title, companyId, groupId, hoursWaiting } = job.data
 
         this.logger.warn(
-            `Alerta: OS #${number} "${title}" está sem técnico há muito tempo`,
+            `Alerta: OS #${number} "${title}" está sem técnico há ${hoursWaiting}h`,
         )
 
-        // TODO: integrar com NotificationsModule quando implementado
-        // O NotificationsService vai enviar email + telegram para:
-        // - Todos os técnicos do grupo (se groupId definido)
-        // - Todos os técnicos da empresa (se sem grupo)
-        // - COMPANY_ADMIN e COMPANY_MANAGER
+        await this.notificationsService.notify({
+            event: NOTIFICATION_EVENTS.OS_UNASSIGNED_ALERT,
+            companyId,
+            serviceOrderId,
+            data: {
+                osNumber: number,
+                osTitle: title,
+                groupId,
+                hoursWaiting,
+            },
+        })
 
         return { notified: true }
     }
@@ -65,13 +77,32 @@ export class MaintenanceProcessor {
     // ─────────────────────────────────────────
     @Process('notify-preventive-generated')
     async handleNotifyPreventiveGenerated(
-        job: Job<{ scheduleId: string; companyId: string }>,
+        job: Job<{
+            scheduleId: string
+            companyId: string
+            osId: string
+            osNumber: number
+            equipmentName: string
+            groupId: string | null
+        }>,
     ) {
+        const { companyId, osId, osNumber, equipmentName, groupId, scheduleId } = job.data
+
         this.logger.log(
-            `Notificando geração de preventiva — Schedule: ${job.data.scheduleId}`,
+            `Notificando geração de preventiva — Schedule: ${scheduleId} | OS #${osNumber}`,
         )
 
-        // TODO: integrar com NotificationsModule
+        await this.notificationsService.notify({
+            event: NOTIFICATION_EVENTS.PREVENTIVE_GENERATED,
+            companyId,
+            serviceOrderId: osId,
+            data: {
+                osNumber,
+                equipmentName,
+                groupId,
+            },
+        })
+
         return { notified: true }
     }
 

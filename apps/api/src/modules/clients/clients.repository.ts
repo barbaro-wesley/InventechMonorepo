@@ -11,6 +11,8 @@ export const CLIENT_SELECT = {
   email: true,
   phone: true,
   address: true,
+  logoUrl: true,
+  reportName: true,
   status: true,
   settings: true,
   createdAt: true,

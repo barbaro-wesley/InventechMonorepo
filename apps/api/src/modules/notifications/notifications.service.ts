@@ -280,7 +280,14 @@ export class NotificationsService {
         companyId: string,
         serviceOrderId?: string,
     ) {
-        const recipients = await this.getManagersAndRequester(companyId, data.requesterId)
+        const [managersAndRequester, clientAdmins] = await Promise.all([
+            this.getManagersAndRequester(companyId, data.requesterId),
+            this.getClientAdmins(data.clientId),
+        ])
+        const recipients = [...new Map(
+            [...managersAndRequester, ...clientAdmins].map((u) => [u.id, u])
+        ).values()]
+
         const emailTemplate = this.emailChannel.buildOsCompletedEmail(data)
 
         await this.sendToRecipients(recipients, {
@@ -708,6 +715,20 @@ export class NotificationsService {
                 serviceOrderTechnicians: {
                     some: { serviceOrderId, releasedAt: null },
                 },
+            },
+            select: { id: true, email: true, telegramChatId: true },
+        })
+    }
+
+    private async getClientAdmins(clientId?: string) {
+        if (!clientId) return []
+
+        return this.prisma.user.findMany({
+            where: {
+                clientId,
+                role: UserRole.CLIENT_ADMIN,
+                deletedAt: null,
+                status: 'ACTIVE',
             },
             select: { id: true, email: true, telegramChatId: true },
         })

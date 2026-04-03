@@ -79,6 +79,7 @@ const OS_SELECT = {
     createdAt: true,
     updatedAt: true,
     equipment: { select: { id: true, name: true, brand: true, model: true } },
+    client: { select: { id: true, name: true, logoUrl: true } },
     requester: { select: { id: true, name: true, email: true } },
     group: { select: { id: true, name: true, color: true } },
     technicians: {
@@ -142,6 +143,63 @@ export class ServiceOrdersService {
             where.technicians = {
                 some: { technicianId: currentUser.sub, releasedAt: null },
             }
+        }
+
+        const [data, total] = await this.prisma.$transaction([
+            this.prisma.serviceOrder.findMany({
+                where,
+                select: OS_SELECT,
+                orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.serviceOrder.count({ where }),
+        ])
+
+        return { data, total, page, limit }
+    }
+
+    // Visão company-wide — painel operacional (sem clientId)
+    async findAllForCompany(
+        companyId: string,
+        filters: ListServiceOrdersDto,
+        currentUser: AuthenticatedUser,
+    ) {
+        const {
+            search, status, priority, equipmentId,
+            groupId, dateFrom, dateTo, page = 1, limit = 50,
+        } = filters
+
+        const where: Prisma.ServiceOrderWhereInput = {
+            companyId,
+            deletedAt: null,
+            ...(status && { status }),
+            ...(priority && { priority }),
+            ...(equipmentId && { equipmentId }),
+            ...(groupId && { groupId }),
+            ...((dateFrom || dateTo) && {
+                createdAt: {
+                    ...(dateFrom && { gte: new Date(dateFrom) }),
+                    ...(dateTo && { lte: new Date(dateTo) }),
+                },
+            }),
+            ...(search && {
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { description: { contains: search, mode: 'insensitive' } },
+                    { client: { name: { contains: search, mode: 'insensitive' } } },
+                ],
+            }),
+        }
+
+        if (currentUser.role === UserRole.TECHNICIAN) {
+            where.technicians = {
+                some: { technicianId: currentUser.sub, releasedAt: null },
+            }
+        }
+
+        if (currentUser.role === UserRole.CLIENT_ADMIN || currentUser.role === UserRole.CLIENT_USER) {
+            where.clientId = currentUser.clientId!
         }
 
         const [data, total] = await this.prisma.$transaction([
@@ -352,8 +410,8 @@ export class ServiceOrdersService {
         })
 
         // ── Notificações ──────────────────────────────────────────
-        // Técnico designado na criação
         if (dto.technicianId) {
+            // Técnico designado na criação
             await this.notificationsService.notify({
                 event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED,
                 companyId,
@@ -362,6 +420,21 @@ export class ServiceOrdersService {
                     technicianId: dto.technicianId,
                     osNumber: os.number,
                     osTitle: os.title,
+                    clientName: client?.name ?? '',
+                    equipmentName: equipment.name,
+                    priority: os.priority,
+                },
+            })
+        } else {
+            // OS sem técnico → vai para o painel
+            await this.notificationsService.notify({
+                event: NOTIFICATION_EVENTS.OS_CREATED_NO_TECHNICIAN,
+                companyId,
+                serviceOrderId: os.id,
+                data: {
+                    osNumber: os.number,
+                    osTitle: os.title,
+                    groupId: dto.groupId ?? null,
                     clientName: client?.name ?? '',
                     equipmentName: equipment.name,
                     priority: os.priority,
@@ -678,6 +751,7 @@ export class ServiceOrdersService {
                 number: true,
                 title: true,
                 requesterId: true,
+                clientId: true,
                 resolution: true,
                 technicians: {
                     where: { releasedAt: null },
@@ -711,6 +785,7 @@ export class ServiceOrdersService {
             osNumber: osDetails?.number,
             osTitle: osDetails?.title,
             requesterId: osDetails?.requesterId,
+            clientId: osDetails?.clientId,
             technicianNames: osDetails?.technicians.map((t) => t.technician.name) ?? [],
             resolution: dto.resolution ?? osDetails?.resolution ?? '',
             reason: dto.reason,

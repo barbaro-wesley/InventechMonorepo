@@ -392,6 +392,7 @@ export class MaintenanceService {
                 assignedTechnicianId: true,
                 groupId: true,
                 equipmentId: true,
+                equipment: { select: { name: true } },
             },
         })
 
@@ -406,7 +407,7 @@ export class MaintenanceService {
 
         for (const schedule of dueSchedules) {
             try {
-                await this.prisma.$transaction(async (tx) => {
+                const txResult = await this.prisma.$transaction(async (tx) => {
                     // Número sequencial da OS
                     const last = await tx.serviceOrder.findFirst({
                         where: { companyId: schedule.companyId },
@@ -494,14 +495,23 @@ export class MaintenanceService {
                         `OS #${number} preventiva gerada | Schedule: ${schedule.title} | ` +
                         `Próxima: ${nextRunAt.toISOString()}`,
                     )
+
+                    return { osId: os.id, osNumber: number }
                 })
 
                 generated++
 
-                // Enfileira notificação para cada OS gerada
+                // Enfileira notificação para cada OS gerada com dados enriquecidos
                 await this.maintenanceQueue.add(
                     'notify-preventive-generated',
-                    { scheduleId: schedule.id, companyId: schedule.companyId },
+                    {
+                        scheduleId: schedule.id,
+                        companyId: schedule.companyId,
+                        osId: txResult.osId,
+                        osNumber: txResult.osNumber,
+                        equipmentName: schedule.equipment.name,
+                        groupId: schedule.groupId,
+                    },
                     { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
                 )
             } catch (error) {
@@ -548,6 +558,8 @@ export class MaintenanceService {
             alertTime.setHours(alertTime.getHours() + os.alertAfterHours)
 
             if (now >= alertTime) {
+                const hoursWaiting = Math.floor((now.getTime() - os.createdAt.getTime()) / (1000 * 60 * 60))
+
                 // Enfileira alerta
                 await this.maintenanceQueue.add(
                     MAINTENANCE_JOBS.SEND_UNASSIGNED_ALERT,
@@ -557,6 +569,7 @@ export class MaintenanceService {
                         title: os.title,
                         companyId: os.companyId,
                         groupId: os.groupId,
+                        hoursWaiting,
                     },
                     { attempts: 3, backoff: { type: 'exponential', delay: 3000 } },
                 )

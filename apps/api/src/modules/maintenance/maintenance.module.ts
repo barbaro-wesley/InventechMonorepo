@@ -4,6 +4,7 @@ import { MaintenanceService, MAINTENANCE_QUEUE } from './maintenance.service'
 import { MaintenanceController, ScheduleController } from './maintenance.controller'
 import { MaintenanceProcessor } from './processors/maintenance.processor'
 import { MaintenanceCronJobs } from './schedule/maintenance-cron.jobs'
+import { NotificationsModule } from '../notifications/notifications.module'
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { MaintenanceCronJobs } from './schedule/maintenance-cron.jobs'
                 removeOnFail: 50,
             },
         }),
+        NotificationsModule,
     ],
     controllers: [
         MaintenanceController,
