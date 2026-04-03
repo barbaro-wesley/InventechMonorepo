@@ -14,7 +14,6 @@ import {
 const COST_CENTER_SELECT = {
     id: true,
     companyId: true,
-    clientId: true,
     name: true,
     code: true,
     description: true,
@@ -40,11 +39,10 @@ const COST_CENTER_SELECT = {
 export class CostCentersService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll(clientId: string, companyId: string, filters: ListCostCentersDto) {
+    async findAll(companyId: string, filters: ListCostCentersDto) {
         const { search, isActive, page = 1, limit = 50 } = filters
 
         const where: Prisma.CostCenterWhereInput = {
-            clientId,
             companyId,
             ...(isActive !== undefined && { isActive }),
             ...(search && {
@@ -69,49 +67,47 @@ export class CostCentersService {
         return { data, total, page, limit }
     }
 
-    async findOne(id: string, clientId: string, companyId: string) {
+    async findOne(id: string, companyId: string) {
         const cc = await this.prisma.costCenter.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: COST_CENTER_SELECT,
         })
         if (!cc) throw new NotFoundException('Centro de custo não encontrado')
         return cc
     }
 
-    async create(dto: CreateCostCenterDto, clientId: string, companyId: string) {
-        // Código único por cliente
+    async create(dto: CreateCostCenterDto, companyId: string) {
         if (dto.code) {
             const exists = await this.prisma.costCenter.findUnique({
-                where: { clientId_code: { clientId, code: dto.code } },
+                where: { companyId_code: { companyId, code: dto.code } },
                 select: { id: true },
             })
             if (exists) {
                 throw new ConflictException(
-                    'Já existe um centro de custo com este código neste cliente',
+                    'Já existe um centro de custo com este código nesta empresa',
                 )
             }
         }
 
         return this.prisma.costCenter.create({
-            data: { companyId, clientId, name: dto.name, code: dto.code, description: dto.description },
+            data: { companyId, name: dto.name, code: dto.code, description: dto.description },
             select: COST_CENTER_SELECT,
         })
     }
 
-    async update(id: string, dto: UpdateCostCenterDto, clientId: string, companyId: string) {
+    async update(id: string, dto: UpdateCostCenterDto, companyId: string) {
         const existing = await this.prisma.costCenter.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: { id: true, code: true },
         })
         if (!existing) throw new NotFoundException('Centro de custo não encontrado')
 
-        // Valida código único se estiver mudando
         if (dto.code && dto.code !== existing.code) {
             const exists = await this.prisma.costCenter.findUnique({
-                where: { clientId_code: { clientId, code: dto.code } },
+                where: { companyId_code: { companyId, code: dto.code } },
                 select: { id: true },
             })
-            if (exists) throw new ConflictException('Código já em uso neste cliente')
+            if (exists) throw new ConflictException('Código já em uso nesta empresa')
         }
 
         return this.prisma.costCenter.update({
@@ -126,9 +122,9 @@ export class CostCentersService {
         })
     }
 
-    async remove(id: string, clientId: string, companyId: string) {
+    async remove(id: string, companyId: string) {
         const cc = await this.prisma.costCenter.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: { id: true, name: true, _count: { select: { equipments: true, locations: true } } },
         })
         if (!cc) throw new NotFoundException('Centro de custo não encontrado')

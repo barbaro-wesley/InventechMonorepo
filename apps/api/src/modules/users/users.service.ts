@@ -106,11 +106,16 @@ export class UsersService {
 
     this.validateRoleHierarchy(existing.role as UserRole, currentUser)
 
+    if (dto.role) {
+      this.validateRolePermission(dto.role, currentUser)
+    }
+
     const data: Record<string, any> = {
       ...(dto.name && { name: dto.name }),
       ...(dto.phone !== undefined && { phone: dto.phone }),
       ...(dto.telegramChatId !== undefined && { telegramChatId: dto.telegramChatId }),
       ...(dto.status && { status: dto.status }),
+      ...(dto.role && { role: dto.role }),
     }
 
     if (dto.password) {

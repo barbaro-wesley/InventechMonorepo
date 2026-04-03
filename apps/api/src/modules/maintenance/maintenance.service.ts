@@ -46,7 +46,6 @@ const MAINTENANCE_SELECT = {
 const SCHEDULE_SELECT = {
     id: true,
     companyId: true,
-    clientId: true,
     title: true,
     description: true,
     maintenanceType: true,
@@ -129,7 +128,7 @@ export class MaintenanceService {
         currentUser: AuthenticatedUser,
     ) {
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: dto.equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: dto.equipmentId, companyId, deletedAt: null },
             select: { id: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
@@ -194,14 +193,12 @@ export class MaintenanceService {
     // ─────────────────────────────────────────
 
     async findAllSchedules(
-        clientId: string,
         companyId: string,
         filters: ListSchedulesDto,
     ) {
         const { equipmentId, recurrenceType, isActive, page = 1, limit = 20 } = filters
 
         const where: Prisma.MaintenanceScheduleWhereInput = {
-            clientId,
             companyId,
             ...(equipmentId && { equipmentId }),
             ...(recurrenceType && { recurrenceType }),
@@ -222,9 +219,9 @@ export class MaintenanceService {
         return { data, total, page, limit }
     }
 
-    async findOneSchedule(id: string, clientId: string, companyId: string) {
+    async findOneSchedule(id: string, companyId: string) {
         const schedule = await this.prisma.maintenanceSchedule.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: SCHEDULE_SELECT,
         })
         if (!schedule) throw new NotFoundException('Agendamento não encontrado')
@@ -246,7 +243,7 @@ export class MaintenanceService {
 
         // Valida equipamento
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: dto.equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: dto.equipmentId, companyId, deletedAt: null },
             select: { id: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
@@ -261,7 +258,6 @@ export class MaintenanceService {
         const schedule = await this.prisma.maintenanceSchedule.create({
             data: {
                 companyId,
-                clientId,
                 title: dto.title,
                 description: dto.description,
                 maintenanceType: dto.maintenanceType,
@@ -292,11 +288,10 @@ export class MaintenanceService {
     async updateSchedule(
         id: string,
         dto: UpdateScheduleDto,
-        clientId: string,
         companyId: string,
     ) {
         const existing = await this.prisma.maintenanceSchedule.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: { id: true, recurrenceType: true, customIntervalDays: true },
         })
         if (!existing) throw new NotFoundException('Agendamento não encontrado')
@@ -339,9 +334,9 @@ export class MaintenanceService {
         })
     }
 
-    async removeSchedule(id: string, clientId: string, companyId: string) {
+    async removeSchedule(id: string, companyId: string) {
         const schedule = await this.prisma.maintenanceSchedule.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: { id: true, title: true },
         })
         if (!schedule) throw new NotFoundException('Agendamento não encontrado')
@@ -389,7 +384,6 @@ export class MaintenanceService {
             select: {
                 id: true,
                 companyId: true,
-                clientId: true,
                 title: true,
                 description: true,
                 maintenanceType: true,
@@ -430,7 +424,6 @@ export class MaintenanceService {
                     const os = await tx.serviceOrder.create({
                         data: {
                             companyId: schedule.companyId,
-                            clientId: schedule.clientId,
                             equipmentId: schedule.equipmentId,
                             number,
                             title: `[PREVENTIVA] ${schedule.title}`,
@@ -474,7 +467,6 @@ export class MaintenanceService {
                     await tx.maintenance.create({
                         data: {
                             companyId: schedule.companyId,
-                            clientId: schedule.clientId,
                             equipmentId: schedule.equipmentId,
                             scheduleId: schedule.id,
                             type: schedule.maintenanceType,

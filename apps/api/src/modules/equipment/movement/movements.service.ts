@@ -13,9 +13,9 @@ import { CreateMovementDto, ReturnMovementDto } from './dto/movement.dto'
 export class MovementsService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll(equipmentId: string, clientId: string, companyId: string) {
+    async findAll(equipmentId: string, companyId: string) {
         return this.prisma.equipmentMovement.findMany({
-            where: { equipmentId, clientId, companyId },
+            where: { equipmentId, companyId },
             orderBy: { createdAt: 'desc' },
             include: {
                 origin: { select: { id: true, name: true } },
@@ -29,13 +29,12 @@ export class MovementsService {
     async create(
         equipmentId: string,
         dto: CreateMovementDto,
-        clientId: string,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
         // Verifica equipamento
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: equipmentId, companyId, deletedAt: null },
             select: { id: true, name: true, status: true, currentLocationId: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
@@ -54,20 +53,20 @@ export class MovementsService {
             throw new ConflictException('Equipamento já possui uma movimentação em andamento')
         }
 
-        // Origem e destino pertencem ao mesmo cliente
+        // Origem e destino pertencem à mesma empresa
         const [origin, destination] = await Promise.all([
             this.prisma.location.findFirst({
-                where: { id: dto.originLocationId, clientId, companyId },
+                where: { id: dto.originLocationId, companyId },
                 select: { id: true, name: true },
             }),
             this.prisma.location.findFirst({
-                where: { id: dto.destinationLocationId, clientId, companyId },
+                where: { id: dto.destinationLocationId, companyId },
                 select: { id: true, name: true },
             }),
         ])
 
-        if (!origin) throw new BadRequestException('Local de origem não encontrado neste cliente')
-        if (!destination) throw new BadRequestException('Local de destino não encontrado neste cliente')
+        if (!origin) throw new BadRequestException('Local de origem não encontrado nesta empresa')
+        if (!destination) throw new BadRequestException('Local de destino não encontrado nesta empresa')
         if (dto.originLocationId === dto.destinationLocationId) {
             throw new BadRequestException('Origem e destino não podem ser iguais')
         }
@@ -82,7 +81,6 @@ export class MovementsService {
             const movement = await tx.equipmentMovement.create({
                 data: {
                     companyId,
-                    clientId,
                     equipmentId,
                     requesterId: currentUser.sub,
                     type: dto.type,

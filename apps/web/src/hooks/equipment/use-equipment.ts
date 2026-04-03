@@ -10,75 +10,72 @@ import {
 } from "@/services/equipment/equipment.service";
 
 export const equipmentKeys = {
-  all: (clientId: string) => ["equipment", clientId] as const,
-  list: (clientId: string, params?: ListEquipmentParams) =>
-    ["equipment", clientId, "list", params] as const,
-  detail: (clientId: string, id: string) =>
-    ["equipment", clientId, id] as const,
+  all: () => ["equipment"] as const,
+  list: (params?: ListEquipmentParams) =>
+    ["equipment", "list", params] as const,
+  detail: (id: string) => ["equipment", id] as const,
 };
 
-export function useEquipment(clientId: string, params?: ListEquipmentParams) {
+export function useEquipment(params?: ListEquipmentParams) {
   return useQuery({
-    queryKey: equipmentKeys.list(clientId, params),
-    queryFn: () => equipmentService.list(clientId, params),
-    enabled: !!clientId,
+    queryKey: equipmentKeys.list(params),
+    queryFn: () => equipmentService.list(params),
     staleTime: 30 * 1000,
   });
 }
 
-export function useEquipmentById(clientId: string, id: string) {
+export function useEquipmentById(id: string) {
   return useQuery<Equipment>({
-    queryKey: equipmentKeys.detail(clientId, id),
-    queryFn: () => equipmentService.getById(clientId, id),
-    enabled: !!clientId && !!id,
+    queryKey: equipmentKeys.detail(id),
+    queryFn: () => equipmentService.getById(id),
+    enabled: !!id,
   });
 }
 
-export function useCreateEquipment(clientId: string) {
+export function useCreateEquipment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (dto: CreateEquipmentDto | FormData) =>
-      equipmentService.create(clientId, dto),
+      equipmentService.create(dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: equipmentKeys.all() });
       toast.success("Equipamento cadastrado!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useUpdateEquipment(clientId: string) {
+export function useUpdateEquipment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateEquipmentDto }) =>
-      equipmentService.update(clientId, id, dto),
+      equipmentService.update(id, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: equipmentKeys.all() });
       toast.success("Equipamento atualizado!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useDeleteEquipment(clientId: string) {
+export function useDeleteEquipment() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => equipmentService.remove(clientId, id),
+    mutationFn: (id: string) => equipmentService.remove(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: equipmentKeys.all() });
       toast.success("Equipamento removido!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useRecalculateDepreciation(clientId: string) {
+export function useRecalculateDepreciation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) =>
-      equipmentService.recalculateDepreciation(clientId, id),
+    mutationFn: (id: string) => equipmentService.recalculateDepreciation(id),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: equipmentKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: equipmentKeys.all() });
       if (result?.currentValue !== undefined) {
         toast.success(
           `Depreciação calculada — Valor atual: R$ ${Number(result.currentValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`

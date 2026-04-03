@@ -285,11 +285,10 @@ async function main() {
     console.log('📍 Criando centros de custo e localizações...')
 
     const ccManutencao = await prisma.costCenter.upsert({
-        where: { clientId_code: { clientId: clienteHospital.id, code: 'CC-001' } },
+        where: { companyId_code: { companyId: company.id, code: 'CC-001' } },
         update: {},
         create: {
             companyId: company.id,
-            clientId: clienteHospital.id,
             name: 'Manutenção Geral',
             code: 'CC-001',
             description: 'Centro de custo para manutenções prediais',
@@ -298,11 +297,10 @@ async function main() {
     })
 
     const ccTI = await prisma.costCenter.upsert({
-        where: { clientId_code: { clientId: clienteHospital.id, code: 'CC-002' } },
+        where: { companyId_code: { companyId: company.id, code: 'CC-002' } },
         update: {},
         create: {
             companyId: company.id,
-            clientId: clienteHospital.id,
             name: 'Tecnologia da Informação',
             code: 'CC-002',
             isActive: true,
@@ -315,7 +313,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000020',
             companyId: company.id,
-            clientId: clienteHospital.id,
             name: 'UTI Adulto — 2º andar',
             description: 'Unidade de Terapia Intensiva',
             isActive: true,
@@ -328,7 +325,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000021',
             companyId: company.id,
-            clientId: clienteHospital.id,
             name: 'CME — Subsolo',
             description: 'Central de Material e Esterilização',
             isActive: true,
@@ -341,7 +337,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000022',
             companyId: company.id,
-            clientId: clienteHospital.id,
             name: 'Emergência — Térreo',
             description: 'Pronto-atendimento e triagem',
             isActive: true,
@@ -412,7 +407,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000040',
             companyId: company.id,
-            clientId: clienteHospital.id,
             typeId: tipoHospitalar.id,
             subtypeId: subtipoMonitor.id,
             locationId: locUTI.id,
@@ -440,7 +434,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000041',
             companyId: company.id,
-            clientId: clienteHospital.id,
             typeId: tipoHospitalar.id,
             subtypeId: subtipoMonitor.id,
             locationId: locEmergencia.id,
@@ -465,7 +458,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000042',
             companyId: company.id,
-            clientId: clienteHospital.id,
             typeId: tipoInfra.id,
             subtypeId: subtipoAC.id,
             locationId: locUTI.id,
@@ -491,7 +483,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000043',
             companyId: company.id,
-            clientId: clienteHospital.id,
             typeId: tipoInfra.id,
             locationId: locCME.id,
             currentLocationId: locCME.id,
@@ -521,7 +512,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000050',
             companyId: company.id,
-            clientId: clienteHospital.id,
             equipmentId: equipMonitor1.id,
             groupId: grupoEletrica.id,
             assignedTechnicianId: tecnico1.id,
@@ -542,7 +532,6 @@ async function main() {
         create: {
             id: '00000000-0000-0000-0000-000000000051',
             companyId: company.id,
-            clientId: clienteHospital.id,
             equipmentId: equipAC.id,
             groupId: grupoEletrica.id,
             title: 'Preventiva semestral — AC UTI',
@@ -567,7 +556,6 @@ async function main() {
         update: {},
         create: {
             companyId: company.id,
-            clientId: clienteHospital.id,
             equipmentId: equipMonitor2.id,
             groupId: grupoEletrica.id,
             requesterId: clientUser.id,
@@ -614,7 +602,6 @@ async function main() {
         update: {},
         create: {
             companyId: company.id,
-            clientId: clienteHospital.id,
             equipmentId: equipAC.id,
             groupId: grupoEletrica.id,
             requesterId: clientAdmin.id,
@@ -666,7 +653,6 @@ async function main() {
         update: {},
         create: {
             companyId: company.id,
-            clientId: clienteHospital.id,
             equipmentId: equipBomba.id,
             groupId: grupoHidraulica.id,
             requesterId: clientUser.id,
@@ -687,7 +673,6 @@ async function main() {
         update: {},
         create: {
             companyId: company.id,
-            clientId: clienteHospital.id,
             equipmentId: equipMonitor1.id,
             groupId: grupoEletrica.id,
             requesterId: clientAdmin.id,

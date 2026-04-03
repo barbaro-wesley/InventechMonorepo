@@ -10,52 +10,50 @@ import {
 } from "@/services/equipment/cost-centers.service";
 
 export const costCenterKeys = {
-  all: (clientId: string) => ["cost-centers", clientId] as const,
-  list: (clientId: string, params?: ListCostCentersParams) =>
-    ["cost-centers", clientId, "list", params] as const,
+  all: () => ["cost-centers"] as const,
+  list: (params?: ListCostCentersParams) =>
+    ["cost-centers", "list", params] as const,
 };
 
-export function useCostCenters(clientId: string, params?: ListCostCentersParams) {
+export function useCostCenters(params?: ListCostCentersParams) {
   return useQuery<CostCenter[]>({
-    queryKey: costCenterKeys.list(clientId, params),
-    queryFn: () => costCentersService.list(clientId, params),
-    enabled: !!clientId,
+    queryKey: costCenterKeys.list(params),
+    queryFn: () => costCentersService.list(params),
     staleTime: 60 * 1000,
   });
 }
 
-export function useCreateCostCenter(clientId: string) {
+export function useCreateCostCenter() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (dto: CreateCostCenterDto) =>
-      costCentersService.create(clientId, dto),
+    mutationFn: (dto: CreateCostCenterDto) => costCentersService.create(dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: costCenterKeys.all() });
       toast.success("Centro de custo criado!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useUpdateCostCenter(clientId: string) {
+export function useUpdateCostCenter() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, dto }: { id: string; dto: UpdateCostCenterDto }) =>
-      costCentersService.update(clientId, id, dto),
+      costCentersService.update(id, dto),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: costCenterKeys.all() });
       toast.success("Centro de custo atualizado!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
-export function useDeleteCostCenter(clientId: string) {
+export function useDeleteCostCenter() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => costCentersService.remove(clientId, id),
+    mutationFn: (id: string) => costCentersService.remove(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: costCenterKeys.all(clientId) });
+      queryClient.invalidateQueries({ queryKey: costCenterKeys.all() });
       toast.success("Centro de custo removido!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),

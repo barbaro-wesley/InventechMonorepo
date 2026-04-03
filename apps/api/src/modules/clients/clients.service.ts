@@ -178,10 +178,9 @@ export class ClientsService {
     }
 
     const { _count } = existing
-    if (_count.equipments > 0 || _count.serviceOrders > 0) {
+    if (_count.serviceOrders > 0) {
       throw new ConflictException(
         `Não é possível remover este cliente pois possui ` +
-        `${_count.equipments} equipamento(s) e ` +
         `${_count.serviceOrders} ordem(ns) de serviço vinculados.`,
       )
     }

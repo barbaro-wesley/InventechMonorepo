@@ -43,7 +43,7 @@ export class DashboardService {
     async getClientDashboard(companyId: string, clientId: string) {
         const [osMetrics, equipmentMetrics, recentOs] = await Promise.all([
             this.getOsMetrics(companyId, clientId),
-            this.getEquipmentMetrics(companyId, clientId),
+            this.getEquipmentMetrics(companyId),
             this.getRecentOs(companyId, clientId),
         ])
 
@@ -177,8 +177,8 @@ export class DashboardService {
     // ─────────────────────────────────────────
     // Métricas de equipamentos
     // ─────────────────────────────────────────
-    private async getEquipmentMetrics(companyId: string, clientId?: string) {
-        const where = { companyId, ...(clientId && { clientId }), deletedAt: null }
+    private async getEquipmentMetrics(companyId: string) {
+        const where = { companyId, deletedAt: null }
 
         const [total, active, underMaintenance, inactive, scrapped, critical] =
             await Promise.all([

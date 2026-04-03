@@ -6,7 +6,6 @@ import {
   Search,
   Loader2,
   Building2,
-  Wrench,
   ClipboardList,
   Mail,
   FileText,
@@ -226,14 +225,6 @@ function ClientCard({
 
       {/* Stats footer */}
       <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3 flex-shrink-0">
-        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-          <Wrench className="w-3.5 h-3.5 text-slate-400" />
-          <span className="font-medium text-slate-700 dark:text-slate-300">
-            {client._count?.equipments ?? 0}
-          </span>
-          <span className="text-slate-400 hidden sm:inline">equip.</span>
-        </div>
-        <div className="w-px h-3 bg-slate-200 dark:bg-slate-700" />
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
           <ClipboardList className="w-3.5 h-3.5 text-slate-400" />
           <span className="font-medium text-slate-700 dark:text-slate-300">

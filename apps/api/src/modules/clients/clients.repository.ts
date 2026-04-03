@@ -17,7 +17,6 @@ export const CLIENT_SELECT = {
   updatedAt: true,
   _count: {
     select: {
-      equipments: true,
       users: true,
       serviceOrders: true,
     },

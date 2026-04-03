@@ -6,7 +6,6 @@ export type EquipmentCriticality = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export interface Equipment {
   id: string;
   companyId: string;
-  clientId: string;
   name: string;
   brand: string | null;
   model: string | null;
@@ -88,34 +87,33 @@ export interface EquipmentListResponse {
 }
 
 export const equipmentService = {
-  async list(clientId: string, params?: ListEquipmentParams): Promise<EquipmentListResponse> {
-    const { data } = await api.get(`/clients/${clientId}/equipment`, { params });
-    // Response has pagination → interceptor keeps full envelope
+  async list(params?: ListEquipmentParams): Promise<EquipmentListResponse> {
+    const { data } = await api.get(`/equipment`, { params });
     if (data?.data) return data;
     return { data: Array.isArray(data) ? data : [], total: 0, page: 1, limit: 20 };
   },
 
-  async getById(clientId: string, id: string): Promise<Equipment> {
-    const { data } = await api.get(`/clients/${clientId}/equipment/${id}`);
+  async getById(id: string): Promise<Equipment> {
+    const { data } = await api.get(`/equipment/${id}`);
     return data;
   },
 
-  async create(clientId: string, payload: CreateEquipmentDto | FormData): Promise<Equipment> {
-    const { data } = await api.post(`/clients/${clientId}/equipment`, payload);
+  async create(payload: CreateEquipmentDto | FormData): Promise<Equipment> {
+    const { data } = await api.post(`/equipment`, payload);
     return data;
   },
 
-  async update(clientId: string, id: string, dto: UpdateEquipmentDto): Promise<Equipment> {
-    const { data } = await api.patch(`/clients/${clientId}/equipment/${id}`, dto);
+  async update(id: string, dto: UpdateEquipmentDto): Promise<Equipment> {
+    const { data } = await api.patch(`/equipment/${id}`, dto);
     return data;
   },
 
-  async remove(clientId: string, id: string): Promise<void> {
-    await api.delete(`/clients/${clientId}/equipment/${id}`);
+  async remove(id: string): Promise<void> {
+    await api.delete(`/equipment/${id}`);
   },
 
-  async recalculateDepreciation(clientId: string, id: string) {
-    const { data } = await api.post(`/clients/${clientId}/equipment/${id}/depreciation`);
+  async recalculateDepreciation(id: string) {
+    const { data } = await api.post(`/equipment/${id}/depreciation`);
     return data;
   },
 };

@@ -39,6 +39,7 @@ export interface UpdateUserDto {
   phone?: string;
   telegramChatId?: string;
   status?: UserStatus;
+  role?: UserRole;
 }
 
 export interface ListUsersParams {

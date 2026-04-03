@@ -30,6 +30,7 @@ import {
   Monitor,
   DollarSign,
   ClipboardList,
+  MoreHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,8 +53,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useClients } from "@/hooks/clients/use-clients";
-import { useCurrentUser } from "@/store/auth.store";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   useEquipment,
   useCreateEquipment,
@@ -148,21 +153,19 @@ type EquipmentForm = z.infer<typeof equipmentSchema>;
 function EquipmentSheet({
   open,
   editTarget,
-  clientId,
   onClose,
 }: {
   open: boolean;
   editTarget: Equipment | null;
-  clientId: string;
   onClose: () => void;
 }) {
-  const create = useCreateEquipment(clientId);
-  const update = useUpdateEquipment(clientId);
+  const create = useCreateEquipment();
+  const update = useUpdateEquipment();
   const uploadAttachment = useUploadAttachment("EQUIPMENT", editTarget?.id ?? "");
   const isPending = create.isPending || update.isPending || uploadAttachment.isPending;
 
   const { data: types = [] } = useEquipmentTypes();
-  const { data: costCenters = [] } = useCostCenters(clientId, { limit: 100 });
+  const { data: costCenters = [] } = useCostCenters({ limit: 100 });
 
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -528,16 +531,14 @@ type MovementForm = z.infer<typeof movementSchema>;
 function MovementSheet({
   open,
   equipment,
-  clientId,
   onClose,
 }: {
   open: boolean;
   equipment: Equipment | null;
-  clientId: string;
   onClose: () => void;
 }) {
-  const create = useCreateMovement(clientId, equipment?.id ?? "");
-  const { data: costCenters = [] } = useCostCenters(clientId, { limit: 100 });
+  const create = useCreateMovement(equipment?.id ?? "");
+  const { data: costCenters = [] } = useCostCenters({ limit: 100 });
   const allLocations = costCenters.flatMap((cc) => cc.locations);
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<MovementForm>({
@@ -727,22 +728,20 @@ function InfoRow({ label, value, mono, highlight }: { label: string; value: stri
 function DetailSheet({
   open,
   equipment,
-  clientId,
   onClose,
   onEdit,
   onMove,
 }: {
   open: boolean;
   equipment: Equipment | null;
-  clientId: string;
   onClose: () => void;
   onEdit: (e: Equipment) => void;
   onMove: (e: Equipment) => void;
 }) {
-  const { data: movements = [], isLoading: movLoading } = useMovements(clientId, equipment?.id ?? "");
+  const { data: movements = [], isLoading: movLoading } = useMovements(equipment?.id ?? "");
   const { data: attachments = [], isLoading: attLoading } = useAttachments("EQUIPMENT", equipment?.id ?? "");
-  const returnEquip = useReturnEquipment(clientId, equipment?.id ?? "");
-  const recalc = useRecalculateDepreciation(clientId);
+  const returnEquip = useReturnEquipment(equipment?.id ?? "");
+  const recalc = useRecalculateDepreciation();
   const openUrl = usePresignedUrl();
   const deleteAtt = useDeleteAttachment("EQUIPMENT", equipment?.id ?? "");
 
@@ -961,9 +960,9 @@ function MovementRow({ movement }: { movement: Movement }) {
   );
 }
 
-// ─── Equipment Row ────────────────────────────────────────────────────────────
+// ─── Equipment Card ───────────────────────────────────────────────────────────
 
-function EquipmentRow({
+function EquipmentCard({
   equipment,
   onView,
   onEdit,
@@ -977,57 +976,97 @@ function EquipmentRow({
   onDelete: (e: Equipment) => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 bg-white border border-border rounded-xl hover:shadow-sm transition-shadow group">
-      {/* Icon */}
-      <div className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center bg-muted/50">
-        <Wrench className="w-4 h-4 text-muted-foreground" />
+    <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between p-5 pb-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
+        >
+          <Wrench className="w-5 h-5 text-white" />
+        </div>
+        <StatusBadge status={equipment.status} />
       </div>
 
-      {/* Main info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold truncate">{equipment.name}</span>
-          <StatusBadge status={equipment.status} />
+      {/* Title */}
+      <div className="px-5 pb-3">
+        <p className="font-semibold text-sm leading-snug truncate" style={{ color: "var(--foreground)" }}>
+          {equipment.name}
+        </p>
+        {equipment.type && (
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+            {[equipment.type.name, equipment.subtype?.name].filter(Boolean).join(" › ")}
+          </p>
+        )}
+        <div className="mt-1.5">
           <CriticalityBadge criticality={equipment.criticality} />
         </div>
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-          {equipment.brand && (
-            <span className="text-xs text-muted-foreground">{equipment.brand}{equipment.model ? ` ${equipment.model}` : ""}</span>
-          )}
-          {equipment.type && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Tag className="w-3 h-3" />{equipment.type.name}
-            </span>
-          )}
-          {equipment.currentLocation && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="w-3 h-3" />{equipment.currentLocation.name}
-            </span>
-          )}
-        </div>
+      </div>
+
+      {/* Fields */}
+      <div className="px-5 pb-4 space-y-1.5 flex-1">
+        {equipment.patrimonyNumber && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground w-20 flex-shrink-0">Patrimônio</span>
+            <span className="font-mono text-slate-700 dark:text-slate-300 truncate">{equipment.patrimonyNumber}</span>
+          </div>
+        )}
+        {(equipment.brand || equipment.model) && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground w-20 flex-shrink-0">Modelo</span>
+            <span className="text-slate-700 dark:text-slate-300 truncate">{[equipment.brand, equipment.model].filter(Boolean).join(" ")}</span>
+          </div>
+        )}
+        {equipment.serialNumber && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground w-20 flex-shrink-0">Série</span>
+            <span className="font-mono text-slate-700 dark:text-slate-300 truncate">{equipment.serialNumber}</span>
+          </div>
+        )}
+        {equipment.costCenter && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground w-20 flex-shrink-0">Centro</span>
+            <span className="text-slate-700 dark:text-slate-300 truncate">{equipment.costCenter.name}</span>
+          </div>
+        )}
+        {equipment.currentLocation && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground w-20 flex-shrink-0">Localização</span>
+            <span className="text-slate-700 dark:text-slate-300 truncate">{equipment.currentLocation.name}</span>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Ver detalhes" onClick={() => onView(equipment)}>
-          <Eye className="w-3.5 h-3.5 text-muted-foreground" />
+      <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-shrink-0">
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
+          <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
         </Button>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => onEdit(equipment)}>
-          <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onView(equipment)}>
+          <Eye className="w-3.5 h-3.5 mr-1.5" />Detalhes
         </Button>
-        {equipment.status === "ACTIVE" && (
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Movimentar" onClick={() => onMove(equipment)}>
-            <ArrowRightLeft className="w-3.5 h-3.5 text-muted-foreground" />
-          </Button>
-        )}
-        <Button
-          variant="ghost" size="sm" className="h-7 w-7 p-0"
-          onClick={() => onDelete(equipment)}
-          disabled={equipment._count.serviceOrders > 0}
-          title={equipment._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
-        >
-          <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+              <MoreHorizontal className="w-3.5 h-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {equipment.status === "ACTIVE" && (
+              <DropdownMenuItem onClick={() => onMove(equipment)}>
+                <ArrowRightLeft className="w-3.5 h-3.5 mr-2" />Movimentar
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              disabled={equipment._count.serviceOrders > 0}
+              onClick={() => onDelete(equipment)}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-2" />
+              {equipment._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
@@ -1036,10 +1075,6 @@ function EquipmentRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EquipamentosPage() {
-  const user = useCurrentUser();
-  const fixedClientId = user?.clientId ?? null;
-
-  const [selectedClientId, setSelectedClientId] = useState(fixedClientId ?? "");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | "">("");
   const [criticalityFilter, setCriticalityFilter] = useState<EquipmentCriticality | "">("");
@@ -1049,10 +1084,7 @@ export default function EquipamentosPage() {
   const [moveSheet, setMoveSheet] = useState<Equipment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
 
-  const { data: clientsData } = useClients({ limit: 100 });
-  const clients = clientsData?.data ?? [];
-
-  const { data: listData, isLoading } = useEquipment(selectedClientId, {
+  const { data: listData, isLoading } = useEquipment({
     search: search || undefined,
     status: statusFilter || undefined,
     criticality: criticalityFilter || undefined,
@@ -1062,7 +1094,7 @@ export default function EquipamentosPage() {
   const equipments = listData?.data ?? [];
   const total = listData?.total ?? 0;
 
-  const remove = useDeleteEquipment(selectedClientId);
+  const remove = useDeleteEquipment();
 
   return (
     <div className="space-y-6">
@@ -1073,81 +1105,53 @@ export default function EquipamentosPage() {
             Equipamentos
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Gerencie o parque de equipamentos dos seus clientes.
+            Gerencie o parque de equipamentos.
           </p>
         </div>
-        {selectedClientId && (
-          <Button onClick={() => setFormSheet({ open: true, target: null })}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo equipamento
-          </Button>
-        )}
+        <Button onClick={() => setFormSheet({ open: true, target: null })}>
+          <Plus className="w-4 h-4 mr-2" />
+          Novo equipamento
+        </Button>
       </div>
 
-      {/* Client selector + Filters */}
+      {/* Filters */}
       <div className="bg-white rounded-xl border border-border p-4 flex flex-wrap items-center gap-3">
-        {!fixedClientId && (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Label htmlFor="client-sel" className="text-sm font-medium whitespace-nowrap">Cliente</Label>
-            <select
-              id="client-sel"
-              value={selectedClientId}
-              onChange={(e) => { setSelectedClientId(e.target.value); setSearch(""); }}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[180px]"
-            >
-              <option value="">— Selecione —</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {selectedClientId && (
-          <>
-            <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-              <Input
-                className="pl-8 h-9 text-sm"
-                placeholder="Buscar por nome, marca, série..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as EquipmentStatus | "")}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="">Todos os status</option>
-              {(Object.keys(STATUS_LABEL) as EquipmentStatus[]).map((s) => (
-                <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-              ))}
-            </select>
-            <select
-              value={criticalityFilter}
-              onChange={(e) => setCriticalityFilter(e.target.value as EquipmentCriticality | "")}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="">Todas as criticidades</option>
-              {(Object.keys(CRITICALITY_LABEL) as EquipmentCriticality[]).map((c) => (
-                <option key={c} value={c}>{CRITICALITY_LABEL[c]}</option>
-              ))}
-            </select>
-          </>
-        )}
+        <div className="relative flex-1 min-w-[180px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Input
+            className="pl-8 h-9 text-sm"
+            placeholder="Buscar por nome, marca, série..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as EquipmentStatus | "")}
+          className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <option value="">Todos os status</option>
+          {(Object.keys(STATUS_LABEL) as EquipmentStatus[]).map((s) => (
+            <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+          ))}
+        </select>
+        <select
+          value={criticalityFilter}
+          onChange={(e) => setCriticalityFilter(e.target.value as EquipmentCriticality | "")}
+          className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          <option value="">Todas as criticidades</option>
+          {(Object.keys(CRITICALITY_LABEL) as EquipmentCriticality[]).map((c) => (
+            <option key={c} value={c}>{CRITICALITY_LABEL[c]}</option>
+          ))}
+        </select>
       </div>
 
       {/* Content */}
-      {!selectedClientId ? (
-        <div className="bg-white rounded-xl border border-border py-14 text-center">
-          <Wrench className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Selecione um cliente para ver os equipamentos</p>
-        </div>
-      ) : isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 rounded-xl border border-border bg-white animate-pulse" />
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-52 rounded-2xl border border-border bg-white animate-pulse" />
           ))}
         </div>
       ) : equipments.length === 0 ? (
@@ -1163,35 +1167,35 @@ export default function EquipamentosPage() {
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {equipments.map((eq) => (
-            <EquipmentRow
-              key={eq.id}
-              equipment={eq}
-              onView={setDetailSheet}
-              onEdit={(e) => setFormSheet({ open: true, target: e })}
-              onMove={setMoveSheet}
-              onDelete={setDeleteTarget}
-            />
-          ))}
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {equipments.map((eq) => (
+              <EquipmentCard
+                key={eq.id}
+                equipment={eq}
+                onView={setDetailSheet}
+                onEdit={(e) => setFormSheet({ open: true, target: e })}
+                onMove={setMoveSheet}
+                onDelete={setDeleteTarget}
+              />
+            ))}
+          </div>
           <p className="text-xs text-muted-foreground pt-1">
             {equipments.length} de {total} equipamento(s)
           </p>
-        </div>
+        </>
       )}
 
       {/* ── Sheets ── */}
       <EquipmentSheet
         open={formSheet.open}
         editTarget={formSheet.target}
-        clientId={selectedClientId}
         onClose={() => setFormSheet({ open: false, target: null })}
       />
 
       <DetailSheet
         open={!!detailSheet}
         equipment={detailSheet}
-        clientId={selectedClientId}
         onClose={() => setDetailSheet(null)}
         onEdit={(e) => { setDetailSheet(null); setFormSheet({ open: true, target: e }); }}
         onMove={(e) => { setDetailSheet(null); setMoveSheet(e); }}
@@ -1200,7 +1204,6 @@ export default function EquipamentosPage() {
       <MovementSheet
         open={!!moveSheet}
         equipment={moveSheet}
-        clientId={selectedClientId}
         onClose={() => setMoveSheet(null)}
       />
 

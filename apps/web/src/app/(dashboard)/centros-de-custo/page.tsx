@@ -13,7 +13,6 @@ import {
   Building2,
   MapPin,
   RefreshCw,
-  FolderOpen,
   Hash,
   Wrench,
   ArrowRight,
@@ -39,8 +38,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useClients } from "@/hooks/clients/use-clients";
-import { useCurrentUser } from "@/store/auth.store";
 import {
   useCostCenters,
   useCreateCostCenter,
@@ -74,16 +71,14 @@ type LocForm = z.infer<typeof locSchema>;
 function CostCenterSheet({
   open,
   editTarget,
-  clientId,
   onClose,
 }: {
   open: boolean;
   editTarget: CostCenter | null;
-  clientId: string;
   onClose: () => void;
 }) {
-  const create = useCreateCostCenter(clientId);
-  const update = useUpdateCostCenter(clientId);
+  const create = useCreateCostCenter();
+  const update = useUpdateCostCenter();
   const isPending = create.isPending || update.isPending;
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CcForm>({
@@ -148,17 +143,15 @@ function EmbeddedLocationSheet({
   open,
   context, // { type: 'root', cc } | { type: 'child', parent }
   editTarget,
-  clientId,
   onClose,
 }: {
   open: boolean;
   context: { type: "root"; cc: CostCenter } | { type: "child"; parent: EmbeddedLocation } | null;
   editTarget: EmbeddedLocation | null;
-  clientId: string;
   onClose: () => void;
 }) {
-  const create = useCreateLocation(clientId);
-  const update = useUpdateLocation(clientId);
+  const create = useCreateLocation();
+  const update = useUpdateLocation();
   const isPending = create.isPending || update.isPending;
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<LocForm>({
@@ -468,11 +461,6 @@ function CostCenterCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CostCentersPage() {
-  const user = useCurrentUser();
-  const fixedClientId = user?.clientId ?? null;
-
-  const [selectedClientId, setSelectedClientId] = useState(fixedClientId ?? "");
-
   // Sheet state
   type SheetState =
     | { type: "cc"; editTarget: CostCenter | null }
@@ -483,13 +471,10 @@ export default function CostCentersPage() {
   const [deleteCc, setDeleteCc] = useState<CostCenter | null>(null);
   const [deleteLoc, setDeleteLoc] = useState<EmbeddedLocation | null>(null);
 
-  const { data: clientsData } = useClients({ limit: 100 });
-  const clients = clientsData?.data ?? [];
+  const removeCc = useDeleteCostCenter();
+  const removeLoc = useDeleteLocation();
 
-  const removeCc = useDeleteCostCenter(selectedClientId);
-  const removeLoc = useDeleteLocation(selectedClientId);
-
-  const { data: costCenters = [], isLoading } = useCostCenters(selectedClientId, { limit: 100 });
+  const { data: costCenters = [], isLoading } = useCostCenters({ limit: 100 });
 
   return (
     <div className="space-y-6">
@@ -503,67 +488,13 @@ export default function CostCentersPage() {
             Organize onde os equipamentos estão instalados dentro de cada cliente.
           </p>
         </div>
-        {selectedClientId && (
-          <Button onClick={() => setSheet({ type: "cc", editTarget: null })}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo centro de custo
-          </Button>
-        )}
+        <Button onClick={() => setSheet({ type: "cc", editTarget: null })}>
+          <Plus className="w-4 h-4 mr-2" />
+          Novo centro de custo
+        </Button>
       </div>
 
-      {/* How it works — only shown before client selection (and only when client selector is visible) */}
-      {!fixedClientId && !selectedClientId && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-          <p className="font-semibold mb-2">Como funciona:</p>
-          <div className="flex items-start gap-3 flex-wrap sm:flex-nowrap">
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">1</div>
-              <span>Crie um <strong>Centro de Custo</strong> (ex: TI, Produção)</span>
-            </div>
-            <ArrowRight className="w-4 h-4 text-blue-400 hidden sm:block mt-0.5 flex-shrink-0" />
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</div>
-              <span>Adicione <strong>Localizações</strong> (ex: RH, Financeiro)</span>
-            </div>
-            <ArrowRight className="w-4 h-4 text-blue-400 hidden sm:block mt-0.5 flex-shrink-0" />
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">3</div>
-              <span>Crie <strong>Sublocalizações</strong> se precisar (ex: Sala 01)</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Client selector — hidden for client-scoped users */}
-      {!fixedClientId && (
-        <div className="bg-white rounded-xl border border-border p-4 flex items-center gap-4">
-          <Label htmlFor="client-sel" className="text-sm font-medium whitespace-nowrap">
-            Cliente
-          </Label>
-          <select
-            id="client-sel"
-            value={selectedClientId}
-            onChange={(e) => setSelectedClientId(e.target.value)}
-            className="flex-1 max-w-sm text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-            style={{ color: selectedClientId ? "var(--foreground)" : "var(--muted-foreground)" }}
-          >
-            <option value="">— Selecione um cliente —</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Empty state — no client */}
-      {!selectedClientId ? (
-        <div className="bg-white rounded-xl border border-border py-14 text-center">
-          <FolderOpen className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">
-            Selecione um cliente para começar
-          </p>
-        </div>
-      ) : isLoading ? (
+      {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-16 rounded-xl border border-border bg-white animate-pulse" />
@@ -607,7 +538,6 @@ export default function CostCentersPage() {
       <CostCenterSheet
         open={sheet?.type === "cc"}
         editTarget={sheet?.type === "cc" ? sheet.editTarget : null}
-        clientId={selectedClientId}
         onClose={() => setSheet(null)}
       />
 
@@ -615,7 +545,6 @@ export default function CostCentersPage() {
         open={sheet?.type === "loc"}
         context={sheet?.type === "loc" ? sheet.context : null}
         editTarget={sheet?.type === "loc" ? sheet.editTarget : null}
-        clientId={selectedClientId}
         onClose={() => setSheet(null)}
       />
 

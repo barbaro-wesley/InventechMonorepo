@@ -269,7 +269,7 @@ export class ServiceOrdersService {
         currentUser: AuthenticatedUser,
     ) {
         const equipment = await this.prisma.equipment.findFirst({
-            where: { id: dto.equipmentId, clientId, companyId, deletedAt: null },
+            where: { id: dto.equipmentId, companyId, deletedAt: null },
             select: { id: true, name: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado neste cliente')

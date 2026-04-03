@@ -6,12 +6,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/users/use-users";
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/users/use-users";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { useCustomRoles, useAssignCustomRole } from "@/hooks/permissions/use-permissions";
 import { useCurrentUser } from "@/store/auth.store";
 import { ROLE_LABELS } from "@/types/auth";
-import type { User } from "@/types/user";
+import type { User, UpdateUserDto } from "@/types/user";
 import type { Role } from "@/types/auth";
 import { cn } from "@/lib/utils";
 
@@ -118,6 +118,78 @@ function getInitials(name: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Edit User Form
+// ---------------------------------------------------------------------------
+
+function EditUserForm({
+    user,
+    roleOptions,
+    isPending,
+    onSave,
+    onCancel,
+}: {
+    user: User;
+    roleOptions: { value: Role; label: string }[];
+    isPending: boolean;
+    onSave: (dto: UpdateUserDto) => void;
+    onCancel: () => void;
+}) {
+    const [name, setName] = useState(user.name);
+    const [phone, setPhone] = useState(user.phone ?? "");
+    const [status, setStatus] = useState<UpdateUserDto["status"]>(user.status);
+    const [role, setRole] = useState<Role>(user.role as Role);
+
+    return (
+        <div className="mt-6 space-y-4">
+            <div>
+                <Label htmlFor="edit-name">Nome</Label>
+                <Input id="edit-name" className="mt-1.5" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div>
+                <Label htmlFor="edit-phone">Telefone</Label>
+                <Input id="edit-phone" className="mt-1.5" placeholder="(51) 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div>
+                <Label>Status</Label>
+                <Select value={status} onValueChange={(v) => setStatus(v as UpdateUserDto["status"])}>
+                    <SelectTrigger className="mt-1.5">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {Object.entries(STATUS_CONFIG).map(([val, cfg]) => (
+                            <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <div>
+                <Label>Papel de sistema</Label>
+                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                    <SelectTrigger className="mt-1.5">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {/* Always show the current role even if not in roleOptions */}
+                        {!roleOptions.find((o) => o.value === role) && (
+                            <SelectItem value={role}>{ROLE_LABELS[role]}</SelectItem>
+                        )}
+                        {roleOptions.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <SheetFooter className="pt-4">
+                <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+                <Button disabled={isPending || !name.trim()} onClick={() => onSave({ name, phone: phone || undefined, status, role })}>
+                    {isPending ? "Salvando..." : "Salvar"}
+                </Button>
+            </SheetFooter>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Página
 // ---------------------------------------------------------------------------
 
@@ -127,12 +199,14 @@ export default function UsuariosPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [createOpen, setCreateOpen] = useState(false);
+    const [editUser, setEditUser] = useState<User | null>(null);
     const [deleteUser, setDeleteUser] = useState<User | null>(null);
     const [assignRoleUser, setAssignRoleUser] = useState<User | null>(null);
     const [selectedCustomRoleId, setSelectedCustomRoleId] = useState<string>("");
 
     const { data, isLoading } = useUsers({ page, limit: 10, search: search || undefined });
     const createUser = useCreateUser();
+    const updateUser = useUpdateUser(editUser?.id ?? "");
     const deleteUserMutation = useDeleteUser();
     const assignCustomRole = useAssignCustomRole();
 
@@ -291,6 +365,9 @@ export default function UsuariosPage() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem onClick={() => setEditUser(user)}>
+                                                            Editar
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem
                                                             onClick={() => {
                                                                 setAssignRoleUser(user);
@@ -509,6 +586,25 @@ export default function UsuariosPage() {
                     </DrawerFooter>
                 </DrawerContent>
             </Drawer>
+
+            {/* Sheet — Editar usuário */}
+            <Sheet open={!!editUser} onOpenChange={(open) => { if (!open) setEditUser(null); }}>
+                <SheetContent>
+                    <SheetHeader>
+                        <SheetTitle>Editar usuário</SheetTitle>
+                        <p className="text-sm text-muted-foreground">{editUser?.name}</p>
+                    </SheetHeader>
+                    {editUser && (
+                        <EditUserForm
+                            user={editUser}
+                            roleOptions={roleOptions}
+                            isPending={updateUser.isPending}
+                            onSave={(dto) => updateUser.mutate(dto, { onSuccess: () => setEditUser(null) })}
+                            onCancel={() => setEditUser(null)}
+                        />
+                    )}
+                </SheetContent>
+            </Sheet>
 
             {/* Sheet — Atribuir papel personalizado */}
             <Sheet

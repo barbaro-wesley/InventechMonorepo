@@ -5,7 +5,6 @@ import {
     BadRequestException,
 } from '@nestjs/common'
 import { PrismaService } from '../../../prisma/prisma.service'
-import { AuthenticatedUser } from '../../../common/interfaces/authenticated-user.interface'
 import {
     CreateLocationDto,
     UpdateLocationDto,
@@ -16,7 +15,6 @@ import { Prisma } from '@prisma/client'
 const LOCATION_SELECT = {
     id: true,
     companyId: true,
-    clientId: true,
     costCenterId: true,
     name: true,
     parentId: true,
@@ -34,14 +32,12 @@ export class LocationsService {
     constructor(private prisma: PrismaService) { }
 
     async findAll(
-        clientId: string,
         companyId: string,
         filters: ListLocationsDto,
     ) {
         const { search, parentId, costCenterId, isActive, page = 1, limit = 50 } = filters
 
         const where: Prisma.LocationWhereInput = {
-            clientId,
             companyId,
             ...(isActive !== undefined && { isActive }),
             ...(parentId !== undefined && { parentId }),
@@ -65,10 +61,10 @@ export class LocationsService {
         return { data, total, page, limit }
     }
 
-    // Retorna árvore completa de localizações do cliente
-    async findTree(clientId: string, companyId: string) {
+    // Retorna árvore completa de localizações da empresa
+    async findTree(companyId: string) {
         const all = await this.prisma.location.findMany({
-            where: { clientId, companyId, isActive: true },
+            where: { companyId, isActive: true },
             select: {
                 id: true,
                 name: true,
@@ -97,9 +93,9 @@ export class LocationsService {
         return roots
     }
 
-    async findOne(id: string, clientId: string, companyId: string) {
+    async findOne(id: string, companyId: string) {
         const location = await this.prisma.location.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: LOCATION_SELECT,
         })
 
@@ -110,35 +106,33 @@ export class LocationsService {
 
     async create(
         dto: CreateLocationDto,
-        clientId: string,
         companyId: string,
     ) {
-        // Valida parentId pertence ao mesmo cliente
+        // Valida parentId pertence à mesma empresa
         if (dto.parentId) {
             const parent = await this.prisma.location.findFirst({
-                where: { id: dto.parentId, clientId, companyId },
+                where: { id: dto.parentId, companyId },
                 select: { id: true },
             })
             if (!parent) {
-                throw new BadRequestException('Localização pai não encontrada neste cliente')
+                throw new BadRequestException('Localização pai não encontrada nesta empresa')
             }
         }
 
-        // Valida costCenterId pertence ao mesmo cliente
+        // Valida costCenterId pertence à mesma empresa
         if (dto.costCenterId) {
             const cc = await this.prisma.costCenter.findFirst({
-                where: { id: dto.costCenterId, clientId, companyId },
+                where: { id: dto.costCenterId, companyId },
                 select: { id: true },
             })
             if (!cc) {
-                throw new BadRequestException('Centro de custo não encontrado neste cliente')
+                throw new BadRequestException('Centro de custo não encontrado nesta empresa')
             }
         }
 
         return this.prisma.location.create({
             data: {
                 companyId,
-                clientId,
                 name: dto.name,
                 description: dto.description,
                 parentId: dto.parentId ?? null,
@@ -151,11 +145,10 @@ export class LocationsService {
     async update(
         id: string,
         dto: UpdateLocationDto,
-        clientId: string,
         companyId: string,
     ) {
         const existing = await this.prisma.location.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: { id: true },
         })
 
@@ -181,9 +174,9 @@ export class LocationsService {
         })
     }
 
-    async remove(id: string, clientId: string, companyId: string) {
+    async remove(id: string, companyId: string) {
         const location = await this.prisma.location.findFirst({
-            where: { id, clientId, companyId },
+            where: { id, companyId },
             select: {
                 id: true,
                 name: true,

@@ -9,7 +9,6 @@ export interface LocationCostCenter {
 export interface Location {
   id: string;
   companyId: string;
-  clientId: string;
   costCenterId: string | null;
   name: string;
   parentId: string | null;
@@ -48,22 +47,22 @@ export interface UpdateLocationDto {
 }
 
 export const locationsService = {
-  async list(clientId: string, params?: ListLocationsParams): Promise<Location[]> {
-    const { data } = await api.get(`/clients/${clientId}/locations`, { params });
+  async list(params?: ListLocationsParams): Promise<Location[]> {
+    const { data } = await api.get(`/locations`, { params });
     return Array.isArray(data) ? data : (data?.data ?? []);
   },
 
-  async create(clientId: string, dto: CreateLocationDto): Promise<Location> {
-    const { data } = await api.post(`/clients/${clientId}/locations`, dto);
+  async create(dto: CreateLocationDto): Promise<Location> {
+    const { data } = await api.post(`/locations`, dto);
     return data;
   },
 
-  async update(clientId: string, id: string, dto: UpdateLocationDto): Promise<Location> {
-    const { data } = await api.patch(`/clients/${clientId}/locations/${id}`, dto);
+  async update(id: string, dto: UpdateLocationDto): Promise<Location> {
+    const { data } = await api.patch(`/locations/${id}`, dto);
     return data;
   },
 
-  async remove(clientId: string, id: string): Promise<void> {
-    await api.delete(`/clients/${clientId}/locations/${id}`);
+  async remove(id: string): Promise<void> {
+    await api.delete(`/locations/${id}`);
   },
 };

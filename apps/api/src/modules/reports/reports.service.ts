@@ -370,12 +370,11 @@ export class ReportsService {
   // ─────────────────────────────────────────
   // RELATÓRIO DE EQUIPAMENTOS
   // ─────────────────────────────────────────
-  async getEquipmentData(companyId: string, filters: { clientId?: string; status?: string; typeId?: string }) {
+  async getEquipmentData(companyId: string, filters: { status?: string; typeId?: string }) {
   return this.prisma.equipment.findMany({
     where: {
       companyId,
       deletedAt: null,
-      ...(filters.clientId && { clientId: filters.clientId }),
       ...(filters.status && { status: filters.status as any }),
       ...(filters.typeId && { typeId: filters.typeId }),
     },
@@ -393,13 +392,12 @@ export class ReportsService {
       currentValue: true,
       voltage: true,
       observations: true,
-      client: { select: { name: true } },
       location: { select: { name: true } },
-      type: { select: { name: true } },
+      type: { select: { name: true, group: { select: { name: true } } } },
       subtype: { select: { name: true } },
       costCenter: { select: { name: true, code: true } },
     },
-    orderBy: [{ client: { name: 'asc' } }, { name: 'asc' }],
+    orderBy: { name: 'asc' },
   })
 }
 
@@ -460,7 +458,7 @@ items.forEach((eq, idx) => {
     name: eq.name,
     brand: [eq.brand, eq.model].filter(Boolean).join(' / ') || '-',
     type: [eq.type?.name, eq.subtype?.name].filter(Boolean).join(' › ') || '-',
-    client: eq.client?.name ?? '-',
+    client: eq.type?.group?.name ?? '-',
     location: eq.location?.name ?? '-',
     cc: eq.costCenter ? `${eq.costCenter.code ? eq.costCenter.code + ' — ' : ''}${eq.costCenter.name}` : '-',
     status: statusLabels[eq.status] ?? eq.status,
@@ -569,7 +567,7 @@ return Buffer.from(buffer)
         eq.patrimonyNumber ?? '-',
         eq.name,
         [eq.brand, eq.model].filter(Boolean).join(' ') || '-',
-        eq.client?.name ?? '-',
+        eq.type?.group?.name ?? '-',
         eq.location?.name ?? '-',
         statusLabels[eq.status] ?? '-',
         critLabels[eq.criticality] ?? '-',
@@ -595,11 +593,10 @@ return Buffer.from(buffer)
   // ─────────────────────────────────────────
   // RELATÓRIO DE PREVENTIVAS
   // ─────────────────────────────────────────
-  async getPreventiveData(companyId: string, filters: { clientId?: string; isActive?: boolean }) {
+  async getPreventiveData(companyId: string, filters: { isActive?: boolean }) {
   return this.prisma.maintenanceSchedule.findMany({
     where: {
       companyId,
-      ...(filters.clientId && { clientId: filters.clientId }),
       ...(filters.isActive !== undefined && { isActive: filters.isActive }),
     },
     select: {
@@ -613,7 +610,6 @@ return Buffer.from(buffer)
       nextRunAt: true,
       lastRunAt: true,
       isActive: true,
-      client: { select: { name: true } },
       equipment: { select: { name: true, brand: true, serialNumber: true, patrimonyNumber: true } },
       group: { select: { name: true } },
       _count: { select: { maintenances: true } },
@@ -677,7 +673,7 @@ items.forEach((s, idx) => {
   const isOverdue = s.isActive && s.nextRunAt < now
   const row = sheet.addRow({
     title: s.title,
-    client: s.client?.name ?? '-',
+    client: s.group?.name ?? '-',
     equipment: [s.equipment?.name, s.equipment?.brand].filter(Boolean).join(' — '),
     group: s.group?.name ?? '-',
     type: typeLabels[s.maintenanceType] ?? s.maintenanceType,
@@ -794,7 +790,7 @@ return Buffer.from(buffer)
 
       const cells = [
         s.title,
-        s.client?.name ?? '-',
+        s.group?.name ?? '-',
         s.equipment?.name ?? '-',
         recurrenceLabels[s.recurrenceType] ?? s.recurrenceType,
         fmt(s.nextRunAt),
