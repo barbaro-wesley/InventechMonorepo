@@ -85,3 +85,41 @@ export function useUploadClientLogo(clientId: string) {
     },
   });
 }
+
+// ── Grupos de Manutenção ──────────────────────────────────────────────────────
+
+export const clientGroupKeys = {
+  list: (clientId: string) => ["clients", clientId, "maintenance-groups"] as const,
+};
+
+export function useClientMaintenanceGroups(clientId: string) {
+  return useQuery({
+    queryKey: clientGroupKeys.list(clientId),
+    queryFn: () => clientsService.listMaintenanceGroups(clientId),
+    enabled: !!clientId,
+  });
+}
+
+export function useAssignMaintenanceGroup(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => clientsService.assignMaintenanceGroup(clientId, groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientGroupKeys.list(clientId) });
+      toast.success("Grupo vinculado ao cliente!");
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+}
+
+export function useRemoveMaintenanceGroup(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => clientsService.removeMaintenanceGroup(clientId, groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientGroupKeys.list(clientId) });
+      toast.success("Grupo removido do cliente!");
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+}

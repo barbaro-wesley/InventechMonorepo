@@ -120,13 +120,11 @@ export class StorageService implements OnModuleInit {
   }
 
   // ─────────────────────────────────────────
-  // Gera presigned URL para acesso direto
+  // Stream do arquivo diretamente pela API
+  // O arquivo nunca é exposto publicamente —
+  // o acesso exige sessão autenticada.
   // ─────────────────────────────────────────
-  async getPresignedUrl(
-    attachmentId: string,
-    companyId: string,
-    expiresIn: number = PRESIGNED_URL_TTL,
-  ) {
+  async download(attachmentId: string, companyId: string) {
     const attachment = await this.prisma.attachment.findFirst({
       where: { id: attachmentId, companyId },
       select: {
@@ -136,8 +134,6 @@ export class StorageService implements OnModuleInit {
         sizeBytes: true,
         bucket: true,
         key: true,
-        entity: true,
-        createdAt: true,
       },
     })
 
@@ -145,24 +141,13 @@ export class StorageService implements OnModuleInit {
       throw new NotFoundException('Arquivo não encontrado')
     }
 
-    const url = await this.client.presignedGetObject(
-      attachment.bucket,
-      attachment.key,
-      expiresIn,
-      {
-        'response-content-disposition': `inline; filename="${encodeURIComponent(attachment.fileName)}"`,
-        'response-content-type': attachment.mimeType,
-      },
-    )
+    const stream = await this.client.getObject(attachment.bucket, attachment.key)
 
     return {
-      url,
+      stream,
       fileName: attachment.fileName,
       mimeType: attachment.mimeType,
       sizeBytes: attachment.sizeBytes,
-      sizeFormatted: this.formatSize(attachment.sizeBytes),
-      expiresIn,
-      expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
     }
   }
 

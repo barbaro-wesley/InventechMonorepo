@@ -17,6 +17,7 @@ export interface EquipmentType {
   description: string | null;
   isActive: boolean;
   createdAt: string;
+  group: { id: string; name: string; color: string | null } | null;
   subtypes: EquipmentSubtype[];
   _count: { equipments: number };
 }
@@ -38,12 +39,14 @@ export interface ListEquipmentTypesParams {
 export interface CreateEquipmentTypeDto {
   name: string;
   description?: string;
+  groupId?: string;
 }
 
 export interface UpdateEquipmentTypeDto {
   name?: string;
   description?: string;
   isActive?: boolean;
+  groupId?: string | null;
 }
 
 export interface CreateEquipmentSubtypeDto {

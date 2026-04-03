@@ -16,6 +16,7 @@ const TYPE_SELECT = {
     description: true,
     isActive: true,
     createdAt: true,
+    group: { select: { id: true, name: true, color: true } },
     subtypes: {
         where: { isActive: true },
         select: { id: true, name: true, description: true, isActive: true },
@@ -68,7 +69,12 @@ export class EquipmentTypesService {
         if (exists) throw new ConflictException('Já existe um tipo com este nome')
 
         return this.prisma.equipmentType.create({
-            data: { companyId, name: dto.name, description: dto.description },
+            data: {
+                companyId,
+                name: dto.name,
+                description: dto.description,
+                ...(dto.groupId && { groupId: dto.groupId }),
+            },
             select: TYPE_SELECT,
         })
     }
@@ -85,6 +91,7 @@ export class EquipmentTypesService {
                 ...(dto.name && { name: dto.name }),
                 ...(dto.description !== undefined && { description: dto.description }),
                 ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+                ...('groupId' in dto && { groupId: dto.groupId ?? null }),
             },
             select: TYPE_SELECT,
         })

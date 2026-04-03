@@ -11,7 +11,9 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common'
+import type { Response } from 'express'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { AttachmentEntity } from '@prisma/client'
 import { StorageService } from './storage.service'
@@ -77,13 +79,23 @@ export class StorageController {
     return this.storageService.uploadAvatar(file, currentUser.sub)
   }
 
-  @Get(':id/url')
+  @Get(':id/download')
   @Permission('storage:download')
-  getPresignedUrl(
+  async download(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() currentUser: AuthenticatedUser,
+    @Res() res: Response,
   ) {
-    return this.storageService.getPresignedUrl(id, currentUser.companyId!)
+    const { stream, fileName, mimeType, sizeBytes } = await this.storageService.download(
+      id,
+      currentUser.companyId!,
+    )
+
+    res.setHeader('Content-Type', mimeType)
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`)
+    res.setHeader('Content-Length', sizeBytes)
+    res.setHeader('Cache-Control', 'no-store')
+    stream.pipe(res)
   }
 
   @Get('entity/:entity/:entityId')

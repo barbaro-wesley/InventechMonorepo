@@ -17,14 +17,6 @@ export function useAttachments(entity: string, entityId: string) {
   });
 }
 
-export function usePresignedUrl() {
-  return useMutation({
-    mutationFn: (attachmentId: string) =>
-      storageService.getPresignedUrl(attachmentId),
-    onError: (error) => toast.error(getErrorMessage(error)),
-  });
-}
-
 export function useUploadAttachment(entity: string, entityId: string) {
   const queryClient = useQueryClient();
   return useMutation({

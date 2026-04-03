@@ -48,4 +48,31 @@ export const clientsService = {
     });
     return data;
   },
+
+  async listMaintenanceGroups(clientId: string): Promise<ClientMaintenanceGroupAssignment[]> {
+    const { data } = await api.get(`/clients/${clientId}/maintenance-groups`);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  },
+
+  async assignMaintenanceGroup(clientId: string, groupId: string): Promise<void> {
+    await api.post(`/clients/${clientId}/maintenance-groups/${groupId}`);
+  },
+
+  async removeMaintenanceGroup(clientId: string, groupId: string): Promise<void> {
+    await api.delete(`/clients/${clientId}/maintenance-groups/${groupId}`);
+  },
 };
+
+export interface ClientMaintenanceGroupAssignment {
+  id: string;
+  isActive: boolean;
+  assignedAt: string;
+  group: {
+    id: string;
+    name: string;
+    description: string | null;
+    color: string | null;
+    isActive: boolean;
+    equipmentTypes: { id: string; name: string }[];
+  };
+}

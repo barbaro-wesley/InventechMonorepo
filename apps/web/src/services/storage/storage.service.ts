@@ -14,16 +14,6 @@ export interface Attachment {
   uploadedById: string;
 }
 
-export interface PresignedUrlResult {
-  url: string;
-  fileName: string;
-  mimeType: string;
-  sizeBytes: number;
-  sizeFormatted: string;
-  expiresIn: number;
-  expiresAt: string;
-}
-
 export const storageService = {
   async listByEntity(entity: string, entityId: string): Promise<Attachment[]> {
     const { data } = await api.get(`/storage/entity/${entity}/${entityId}`);
@@ -39,9 +29,9 @@ export const storageService = {
     return data;
   },
 
-  async getPresignedUrl(attachmentId: string): Promise<PresignedUrlResult> {
-    const { data } = await api.get(`/storage/${attachmentId}/url`);
-    return data;
+  getDownloadUrl(attachmentId: string): string {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+    return `${base}/storage/${attachmentId}/download`;
   },
 
   async delete(attachmentId: string): Promise<void> {

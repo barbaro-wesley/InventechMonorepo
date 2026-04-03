@@ -48,6 +48,7 @@ import {
   useUpdateEquipmentSubtype,
   useDeleteEquipmentSubtype,
 } from "@/hooks/equipment/use-equipment-types";
+import { useMaintenanceGroups } from "@/hooks/maintenance-groups/use-maintenance-groups";
 import type {
   EquipmentType,
   EquipmentSubtype,
@@ -58,6 +59,7 @@ import type {
 const typeSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres"),
   description: z.string().optional(),
+  groupId: z.string().optional(),
 });
 type TypeForm = z.infer<typeof typeSchema>;
 
@@ -81,6 +83,7 @@ function TypeSheet({
   const create = useCreateEquipmentType();
   const update = useUpdateEquipmentType();
   const isPending = create.isPending || update.isPending;
+  const { data: groups = [] } = useMaintenanceGroups({ isActive: true });
 
   const {
     register,
@@ -90,15 +93,19 @@ function TypeSheet({
   } = useForm<TypeForm>({
     resolver: zodResolver(typeSchema),
     values: editTarget
-      ? { name: editTarget.name, description: editTarget.description ?? "" }
-      : { name: "", description: "" },
+      ? { name: editTarget.name, description: editTarget.description ?? "", groupId: editTarget.group?.id ?? "" }
+      : { name: "", description: "", groupId: "" },
   });
 
   function onSubmit(data: TypeForm) {
-    const dto = { name: data.name, description: data.description || undefined };
+    const dto = {
+      name: data.name,
+      description: data.description || undefined,
+      groupId: data.groupId || undefined,
+    };
     if (editTarget) {
       update.mutate(
-        { id: editTarget.id, dto },
+        { id: editTarget.id, dto: { ...dto, groupId: data.groupId || null } },
         { onSuccess: () => { reset(); onClose(); } }
       );
     } else {
@@ -134,6 +141,22 @@ function TypeSheet({
               placeholder="Breve descrição do tipo"
               {...register("description")}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="type-group">Grupo de manutenção</Label>
+            <select
+              id="type-group"
+              {...register("groupId")}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">— Sem grupo —</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Define quais clientes podem ver equipamentos deste tipo.
+            </p>
           </div>
 
           <SheetFooter className="mt-auto pt-4">
@@ -310,6 +333,15 @@ function TypeRow({
           </div>
           {type.description && (
             <p className="text-xs text-muted-foreground truncate">{type.description}</p>
+          )}
+          {type.group && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <span
+                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: type.group.color ?? "#94a3b8" }}
+              />
+              <span className="text-xs text-muted-foreground">{type.group.name}</span>
+            </div>
           )}
         </div>
 

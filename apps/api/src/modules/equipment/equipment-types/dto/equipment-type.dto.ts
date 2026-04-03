@@ -8,6 +8,10 @@ export class CreateEquipmentTypeDto {
     @IsOptional()
     @IsString()
     description?: string
+
+    @IsOptional()
+    @IsUUID()
+    groupId?: string
 }
 
 export class UpdateEquipmentTypeDto {
@@ -22,6 +26,10 @@ export class UpdateEquipmentTypeDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean
+
+    @IsOptional()
+    @IsUUID()
+    groupId?: string | null
 }
 
 export class CreateEquipmentSubtypeDto {

@@ -110,6 +110,13 @@ const navSections: NavSection[] = [
                 permission: "client:list",
             },
             {
+                label: "Grupos de Manutenção",
+                href: "/grupos-manutencao",
+                icon: Wrench,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
+                permission: "maintenance-group:list",
+            },
+            {
                 label: "Tipos de Equipamento",
                 href: "/tipos-de-equipamento",
                 icon: Layers,

@@ -87,4 +87,38 @@ export class ClientsController {
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
     return this.clientsService.remove(id, cu)
   }
+
+  // ─────────────────────────────────────────
+  // Grupos de manutenção do cliente
+  // ─────────────────────────────────────────
+
+  @Get(':id/maintenance-groups')
+  @Permission('client:update')
+  listMaintenanceGroups(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.listMaintenanceGroups(id, cu)
+  }
+
+  @Post(':id/maintenance-groups/:groupId')
+  @Permission('client:update')
+  assignMaintenanceGroup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.assignMaintenanceGroup(id, groupId, cu)
+  }
+
+  @Delete(':id/maintenance-groups/:groupId')
+  @HttpCode(HttpStatus.OK)
+  @Permission('client:update')
+  removeMaintenanceGroup(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('groupId', ParseUUIDPipe) groupId: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.removeMaintenanceGroup(id, groupId, cu)
+  }
 }

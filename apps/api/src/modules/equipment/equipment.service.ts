@@ -2,6 +2,7 @@ import {
     Injectable,
     NotFoundException,
     ConflictException,
+    ForbiddenException,
 } from '@nestjs/common'
 import { Prisma, AttachmentEntity } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
@@ -65,18 +66,74 @@ export class EquipmentService {
         private storageService: StorageService,
     ) { }
 
-    async findAll(
-        companyId: string,
-        filters: ListEquipmentsDto,
-    ) {
+    /**
+     * Resolve o companyId e os typeIds permitidos com base no usuário logado.
+     * - Usuários da empresa: veem todos os equipamentos da empresa.
+     * - Usuários cliente: veem apenas equipamentos cujo tipo está vinculado
+     *   aos grupos de manutenção atribuídos ao cliente.
+     */
+    private async resolveScope(currentUser: AuthenticatedUser) {
+        if (!currentUser.clientId) {
+            // Usuário da empresa — acesso total
+            return { companyId: currentUser.companyId!, allowedTypeIds: null }
+        }
+
+        // Usuário cliente — busca a empresa do cliente e os tipos permitidos
+        const client = await this.prisma.client.findUnique({
+            where: { id: currentUser.clientId },
+            select: {
+                companyId: true,
+                maintenanceGroups: {
+                    where: { isActive: true },
+                    select: {
+                        group: {
+                            select: {
+                                equipmentTypes: { select: { id: true } },
+                            },
+                        },
+                    },
+                },
+            },
+        })
+
+        if (!client) throw new ForbiddenException('Cliente não encontrado')
+
+        const allowedTypeIds = client.maintenanceGroups
+            .flatMap((cg) => cg.group.equipmentTypes.map((et) => et.id))
+
+        return { companyId: client.companyId, allowedTypeIds }
+    }
+
+    async findAll(currentUser: AuthenticatedUser, filters: ListEquipmentsDto) {
         const { search, ipAddress, patrimonyNumber, status, criticality, typeId, locationId, costCenterId, page = 1, limit = 20 } = filters
+
+        const { companyId, allowedTypeIds } = await this.resolveScope(currentUser)
+
+        // Restrição de tipo: para clientes, intersecta o filtro do usuário com os tipos permitidos
+        const effectiveTypeId = (() => {
+            if (allowedTypeIds === null) {
+                // Empresa — usa o filtro tal como veio (ou nenhum)
+                return typeId ? { typeId } : {}
+            }
+            if (allowedTypeIds.length === 0) {
+                // Cliente sem nenhum grupo atribuído — não vê nada
+                return { typeId: '__none__' }
+            }
+            if (typeId) {
+                // Cliente aplicou filtro de tipo: só mostra se estiver nos permitidos
+                return allowedTypeIds.includes(typeId)
+                    ? { typeId }
+                    : { typeId: '__none__' }
+            }
+            return { typeId: { in: allowedTypeIds } }
+        })()
 
         const where: Prisma.EquipmentWhereInput = {
             companyId,
             deletedAt: null,
+            ...effectiveTypeId,
             ...(status && { status }),
             ...(criticality && { criticality }),
-            ...(typeId && { typeId }),
             ...(locationId && { locationId }),
             ...(costCenterId && { costCenterId }),
             ...(ipAddress && { ipAddress: { contains: ipAddress, mode: 'insensitive' } }),
@@ -107,12 +164,23 @@ export class EquipmentService {
         return { data: data.map(normalizeEquipment), total, page, limit }
     }
 
-    async findOne(id: string, companyId: string) {
+    async findOne(id: string, currentUser: AuthenticatedUser) {
+        const { companyId, allowedTypeIds } = await this.resolveScope(currentUser)
+
         const equipment = await this.prisma.equipment.findFirst({
             where: { id, companyId, deletedAt: null },
             select: EQUIPMENT_SELECT,
         })
+
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
+
+        // Valida se o cliente tem permissão para ver este equipamento específico
+        if (allowedTypeIds !== null) {
+            if (!equipment.type || !allowedTypeIds.includes(equipment.type.id)) {
+                throw new NotFoundException('Equipamento não encontrado')
+            }
+        }
+
         return normalizeEquipment(equipment)
     }
 

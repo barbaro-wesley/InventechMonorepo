@@ -23,7 +23,7 @@ export class EquipmentController {
     @Query() filters: ListEquipmentsDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.equipmentService.findAll(cu.companyId!, filters)
+    return this.equipmentService.findAll(cu, filters)
   }
 
   @Get(':id')
@@ -32,7 +32,7 @@ export class EquipmentController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.equipmentService.findOne(id, cu.companyId!)
+    return this.equipmentService.findOne(id, cu)
   }
 
   @Post()

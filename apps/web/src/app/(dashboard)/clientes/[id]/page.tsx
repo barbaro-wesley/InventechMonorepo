@@ -23,6 +23,8 @@ import {
   Save,
   CheckCircle2,
   XCircle,
+  Wrench,
+  X,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,7 +34,11 @@ import {
   useClient,
   useUpdateClient,
   useUploadClientLogo,
+  useClientMaintenanceGroups,
+  useAssignMaintenanceGroup,
+  useRemoveMaintenanceGroup,
 } from "@/hooks/clients/use-clients";
+import { useMaintenanceGroups } from "@/hooks/maintenance-groups/use-maintenance-groups";
 import {
   useUsers,
   useCreateUser,
@@ -541,6 +547,122 @@ function HeaderSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
+// GroupsTab
+// ---------------------------------------------------------------------------
+
+function GroupsTab({ clientId }: { clientId: string }) {
+  const { data: assigned = [], isLoading: assignedLoading } = useClientMaintenanceGroups(clientId);
+  const { data: allGroups = [], isLoading: groupsLoading } = useMaintenanceGroups({ isActive: true });
+  const assign = useAssignMaintenanceGroup(clientId);
+  const remove = useRemoveMaintenanceGroup(clientId);
+
+  const assignedGroupIds = new Set(assigned.map((a) => a.group.id));
+  const available = allGroups.filter((g) => !assignedGroupIds.has(g.id));
+
+  const isLoading = assignedLoading || groupsLoading;
+
+  return (
+    <div className="space-y-6">
+      {/* Grupos vinculados */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+          Grupos vinculados
+          <span className="ml-2 text-xs font-normal text-slate-400">
+            Definem quais tipos de equipamento este cliente pode visualizar
+          </span>
+        </h3>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <div key={i} className="h-16 rounded-xl border border-slate-200 bg-slate-50 animate-pulse" />)}
+          </div>
+        ) : assigned.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 py-10 text-center">
+            <Wrench className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">Nenhum grupo vinculado</p>
+            <p className="text-xs text-slate-400 mt-1">Vincule um grupo abaixo para liberar acesso aos equipamentos</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {assigned.map((a) => (
+              <div
+                key={a.group.id}
+                className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+              >
+                {/* Color dot */}
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ background: a.group.color ?? "#94a3b8" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{a.group.name}</p>
+                  {a.group.description && (
+                    <p className="text-xs text-slate-500 truncate">{a.group.description}</p>
+                  )}
+                  {a.group.equipmentTypes.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {a.group.equipmentTypes.map((t) => (
+                        <span key={t.id} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">
+                          {t.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={remove.isPending}
+                  onClick={() => remove.mutate(a.group.id)}
+                  className="flex-shrink-0 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                  title="Remover vínculo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Adicionar grupo */}
+      {available.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Adicionar grupo</h3>
+          <div className="space-y-2">
+            {available.map((g) => (
+              <div
+                key={g.id}
+                className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+              >
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ background: g.color ?? "#94a3b8" }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{g.name}</p>
+                  {g.description && (
+                    <p className="text-xs text-slate-500 truncate">{g.description}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  disabled={assign.isPending}
+                  onClick={() => assign.mutate(g.id)}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Vincular
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 
@@ -676,6 +798,10 @@ export default function ClientDetailPage() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="groups" className="gap-2">
+            <Wrench className="w-4 h-4" />
+            Grupos
+          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Pencil className="w-4 h-4" />
             Configurações
@@ -752,6 +878,17 @@ export default function ClientDetailPage() {
                 </Button>
               </Link>
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Grupos de Manutenção */}
+        <TabsContent value="groups" className="mt-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+            {client ? (
+              <GroupsTab clientId={client.id} />
+            ) : isLoading ? (
+              <Skeleton className="h-48 w-full rounded-xl" />
+            ) : null}
           </div>
         </TabsContent>
 

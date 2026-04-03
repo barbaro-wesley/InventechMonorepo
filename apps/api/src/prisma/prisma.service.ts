@@ -170,6 +170,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   get maintenanceGroup() { return this._db.maintenanceGroup }
   get technicianGroup() { return this._db.technicianGroup }
+  get clientMaintenanceGroup() { return this._db.clientMaintenanceGroup }
 
   // ─── Localização & Centro de Custo ─────────────────────────────────────────
 

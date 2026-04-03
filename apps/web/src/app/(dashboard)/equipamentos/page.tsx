@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,6 +32,7 @@ import {
   DollarSign,
   ClipboardList,
   MoreHorizontal,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +63,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   useEquipment,
+  useEquipmentById,
   useCreateEquipment,
   useUpdateEquipment,
   useDeleteEquipment,
@@ -69,13 +72,12 @@ import {
 import { useMovements, useCreateMovement, useReturnEquipment } from "@/hooks/equipment/use-movements";
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
-import { useAttachments, usePresignedUrl, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
+import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
+
 import type { Equipment, EquipmentStatus, EquipmentCriticality } from "@/services/equipment/equipment.service";
 import type { Movement } from "@/services/equipment/movements.service";
 import { storageService } from "@/services/storage/storage.service";
-import type { Attachment } from "@/services/storage/storage.service";
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+import QRCode from "react-qr-code";
 
 const STATUS_LABEL: Record<EquipmentStatus, string> = {
   ACTIVE: "Ativo",
@@ -517,471 +519,6 @@ function EquipmentSheet({
     </Sheet>
   );
 }
-
-// ─── Movement Sheet ───────────────────────────────────────────────────────────
-
-const movementSchema = z.object({
-  type: z.enum(["TRANSFER", "LOAN"]),
-  originLocationId: z.string().min(1, "Selecione a origem"),
-  destinationLocationId: z.string().min(1, "Selecione o destino"),
-  reason: z.string().optional(),
-  expectedReturnAt: z.string().optional(),
-});
-type MovementForm = z.infer<typeof movementSchema>;
-
-function MovementSheet({
-  open,
-  equipment,
-  onClose,
-}: {
-  open: boolean;
-  equipment: Equipment | null;
-  onClose: () => void;
-}) {
-  const create = useCreateMovement(equipment?.id ?? "");
-  const { data: costCenters = [] } = useCostCenters({ limit: 100 });
-  const allLocations = costCenters.flatMap((cc) => cc.locations);
-
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<MovementForm>({
-    resolver: zodResolver(movementSchema),
-    defaultValues: { type: "TRANSFER", originLocationId: equipment?.location?.id ?? "", destinationLocationId: "" },
-  });
-
-  const type = watch("type");
-
-  function onSubmit(data: MovementForm) {
-    create.mutate(
-      {
-        type: data.type,
-        originLocationId: data.originLocationId,
-        destinationLocationId: data.destinationLocationId,
-        reason: data.reason || undefined,
-        expectedReturnAt: data.expectedReturnAt || undefined,
-      },
-      { onSuccess: () => { reset(); onClose(); } }
-    );
-  }
-
-  return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>Registrar movimentação</SheetTitle>
-          {equipment && (
-            <p className="text-sm text-muted-foreground">{equipment.name}</p>
-          )}
-        </SheetHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label>Tipo de movimentação</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["TRANSFER", "LOAN"] as const).map((t) => {
-                const active = type === t;
-                return (
-                  <label
-                    key={t}
-                    className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/20"}`}
-                  >
-                    <input type="radio" {...register("type")} value={t} className="hidden" />
-                    {t === "TRANSFER" ? <ArrowRightLeft className="w-4 h-4" /> : <HandCoins className="w-4 h-4" />}
-                    <div>
-                      <p className="text-sm font-medium">{t === "TRANSFER" ? "Transferência" : "Empréstimo"}</p>
-                      <p className="text-xs text-muted-foreground">{t === "TRANSFER" ? "Permanente" : "Temporário"}</p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Origem</Label>
-            <select
-              {...register("originLocationId")}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="">— Selecione —</option>
-              {allLocations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-            {errors.originLocationId && <p className="text-xs text-destructive">{errors.originLocationId.message}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Destino</Label>
-            <select
-              {...register("destinationLocationId")}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="">— Selecione —</option>
-              {allLocations.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
-              ))}
-            </select>
-            {errors.destinationLocationId && <p className="text-xs text-destructive">{errors.destinationLocationId.message}</p>}
-          </div>
-
-          {type === "LOAN" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="mv-return">Data prevista de devolução *</Label>
-              <Input id="mv-return" type="date" {...register("expectedReturnAt")} />
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label htmlFor="mv-reason">Motivo <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-            <Input id="mv-reason" placeholder="Ex: Transferência para manutenção" {...register("reason")} />
-          </div>
-
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={create.isPending}>
-              {create.isPending
-                ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Registrando...</>
-                : "Registrar movimentação"}
-            </Button>
-          </SheetFooter>
-        </form>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-// ─── Attachment helpers ───────────────────────────────────────────────────────
-
-function AttachmentIcon({ category, mimeType }: { category: string; mimeType: string }) {
-  if (category === "image") return <FileImage className="w-4 h-4 text-blue-500" />;
-  if (category === "spreadsheet") return <FileSpreadsheet className="w-4 h-4 text-emerald-500" />;
-  if (category === "archive") return <FileArchive className="w-4 h-4 text-amber-500" />;
-  return <FileText className="w-4 h-4 text-red-400" />;
-}
-
-function AttachmentRow({
-  attachment,
-  onOpen,
-  onDelete,
-  isDeleting,
-}: {
-  attachment: Attachment;
-  onOpen: (id: string) => void;
-  onDelete: (id: string) => void;
-  isDeleting: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border bg-white hover:bg-muted/30 transition-colors group">
-      <div className="flex-shrink-0">
-        <AttachmentIcon category={attachment.category} mimeType={attachment.mimeType} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate">{attachment.fileName}</p>
-        <p className="text-xs text-muted-foreground">
-          {attachment.sizeFormatted} · {new Date(attachment.createdAt).toLocaleDateString("pt-BR")}
-        </p>
-      </div>
-      <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          variant="ghost" size="sm" className="h-7 w-7 p-0"
-          title="Abrir arquivo"
-          onClick={() => onOpen(attachment.id)}
-        >
-          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-        </Button>
-        <Button
-          variant="ghost" size="sm" className="h-7 w-7 p-0"
-          title="Remover"
-          disabled={isDeleting}
-          onClick={() => onDelete(attachment.id)}
-        >
-          <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Detail Section Card ──────────────────────────────────────────────────────
-
-// ─── Detail Section Card ──────────────────────────────────────────────────────
-
-function SectionCard({ title, icon: Icon, children }: { title: string; icon: React.ElementType; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-border bg-white overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/30 border-b border-border">
-        <Icon className="w-3.5 h-3.5 text-muted-foreground" />
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</p>
-      </div>
-      <div className="px-4 py-3 space-y-2.5">{children}</div>
-    </div>
-  );
-}
-
-function InfoRow({ label, value, mono, highlight }: { label: string; value: string; mono?: boolean; highlight?: "green" | "red" }) {
-  const valueClass = highlight === "green" ? "text-emerald-600" : highlight === "red" ? "text-red-500" : "";
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-xs text-muted-foreground flex-shrink-0">{label}</span>
-      <span className={`text-xs font-medium text-right truncate ${mono ? "font-mono" : ""} ${valueClass}`}>{value}</span>
-    </div>
-  );
-}
-
-// ─── Detail Sheet ─────────────────────────────────────────────────────────────
-
-function fmtDate(d?: string | null) {
-  if (!d) return null;
-  return new Date(d).toLocaleDateString("pt-BR");
-}
-function fmtCurrency(v?: number | null) {
-  if (v == null) return null;
-  return `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
-}
-function fmtPercent(v?: number | null) {
-  if (v == null) return null;
-  return `${v.toFixed(2)}% /ano`;
-}
-
-function DetailSheet({
-  open,
-  equipment,
-  onClose,
-  onEdit,
-  onMove,
-}: {
-  open: boolean;
-  equipment: Equipment | null;
-  onClose: () => void;
-  onEdit: (e: Equipment) => void;
-  onMove: (e: Equipment) => void;
-}) {
-  const { data: movements = [], isLoading: movLoading } = useMovements(equipment?.id ?? "");
-  const { data: attachments = [], isLoading: attLoading } = useAttachments("EQUIPMENT", equipment?.id ?? "");
-  const returnEquip = useReturnEquipment(equipment?.id ?? "");
-  const recalc = useRecalculateDepreciation();
-  const openUrl = usePresignedUrl();
-  const deleteAtt = useDeleteAttachment("EQUIPMENT", equipment?.id ?? "");
-
-  if (!equipment) return null;
-
-  const activeMovement = movements.find((m) => m.status === "ACTIVE");
-  const warrantyOk = equipment.warrantyEnd ? new Date(equipment.warrantyEnd) > new Date() : null;
-
-  const hasFinancial = equipment.purchaseValue || equipment.warrantyEnd || equipment.currentValue || equipment.invoiceNumber;
-  const hasTechnical = equipment.btus || equipment.voltage || equipment.ipAddress || equipment.operatingSystem || equipment.power || equipment.anvisaNumber;
-
-  function handleOpenFile(attachmentId: string) {
-    openUrl.mutate(attachmentId, {
-      onSuccess: (result) => window.open(result.url, "_blank", "noopener,noreferrer"),
-    });
-  }
-
-  return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent className="overflow-y-auto" style={{ maxWidth: "640px", width: "100%" }}>
-
-        {/* ── Header ── */}
-        <div className="px-5 pt-5 pb-4 border-b border-border">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10">
-              <Wrench className="w-6 h-6 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-base leading-snug">{equipment.name}</h2>
-              {(equipment.brand || equipment.model) && (
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {[equipment.brand, equipment.model].filter(Boolean).join(" · ")}
-                </p>
-              )}
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <StatusBadge status={equipment.status} />
-                <CriticalityBadge criticality={equipment.criticality} />
-                {equipment._count.serviceOrders > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    <ClipboardList className="w-3 h-3" />{equipment._count.serviceOrders} OS
-                  </span>
-                )}
-                {equipment._count.maintenances > 0 && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    <Wrench className="w-3 h-3" />{equipment._count.maintenances} manutenções
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-wrap gap-2 mt-4">
-            <Button size="sm" variant="outline" onClick={() => onEdit(equipment)}>
-              <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
-            </Button>
-            {equipment.status === "ACTIVE" && (
-              <Button size="sm" variant="outline" onClick={() => onMove(equipment)}>
-                <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />Movimentar
-              </Button>
-            )}
-            {activeMovement?.type === "LOAN" && (
-              <Button size="sm" variant="outline" disabled={returnEquip.isPending}
-                onClick={() => returnEquip.mutate({ movementId: activeMovement.id })}>
-                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />Devolver
-              </Button>
-            )}
-            {equipment.purchaseValue && equipment.depreciationRate && (
-              <Button size="sm" variant="outline" disabled={recalc.isPending}
-                onClick={() => recalc.mutate(equipment.id)}>
-                <BarChart2 className="w-3.5 h-3.5 mr-1.5" />
-                {recalc.isPending ? "Calculando..." : "Recalcular depreciação"}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="p-4 space-y-4">
-
-          {/* ── Movimentação ativa ── */}
-          {activeMovement && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
-              <HandCoins className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-amber-800">
-                  {activeMovement.type === "LOAN" ? "Empréstimo em andamento" : "Transferência em andamento"}
-                </p>
-                <p className="text-xs text-amber-700 mt-0.5">
-                  {activeMovement.origin.name} → {activeMovement.destination.name}
-                </p>
-                {activeMovement.expectedReturnAt && (
-                  <p className="text-xs text-amber-600 mt-0.5">
-                    Devolução prevista: {fmtDate(activeMovement.expectedReturnAt)}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── Identificação ── */}
-          <SectionCard title="Identificação" icon={Tag}>
-            {equipment.type && (
-              <InfoRow label="Tipo" value={[equipment.type.name, equipment.subtype?.name].filter(Boolean).join(" › ")} />
-            )}
-            {equipment.serialNumber && <InfoRow label="Nº de Série" value={equipment.serialNumber} mono />}
-            {equipment.patrimonyNumber && <InfoRow label="Nº de Patrimônio" value={equipment.patrimonyNumber} mono />}
-            {equipment.anvisaNumber && <InfoRow label="Nº ANVISA" value={equipment.anvisaNumber} mono />}
-            <InfoRow label="Cadastrado em" value={fmtDate(equipment.createdAt) ?? "—"} />
-            <InfoRow label="Atualizado em" value={fmtDate(equipment.updatedAt) ?? "—"} />
-          </SectionCard>
-
-          {/* ── Localização ── */}
-          {(equipment.costCenter || equipment.currentLocation || equipment.location) && (
-            <SectionCard title="Localização" icon={MapPin}>
-              {equipment.costCenter && (
-                <InfoRow label="Centro de Custo" value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`} />
-              )}
-              {equipment.location && equipment.location.id !== equipment.currentLocation?.id && (
-                <InfoRow label="Localização original" value={equipment.location.name} />
-              )}
-              {equipment.currentLocation && (
-                <InfoRow label="Localização atual" value={equipment.currentLocation.name} />
-              )}
-              {!equipment.currentLocation && equipment.location && (
-                <InfoRow label="Localização" value={equipment.location.name} />
-              )}
-            </SectionCard>
-          )}
-
-          {/* ── Financeiro ── */}
-          {hasFinancial && (
-            <SectionCard title="Financeiro & Garantia" icon={DollarSign}>
-              {fmtCurrency(equipment.purchaseValue) && (
-                <InfoRow label="Valor de compra" value={fmtCurrency(equipment.purchaseValue)!} />
-              )}
-              {fmtCurrency(equipment.currentValue) && (
-                <InfoRow label="Valor atual (depreciado)" value={fmtCurrency(equipment.currentValue)!} />
-              )}
-              {fmtPercent(equipment.depreciationRate) && (
-                <InfoRow label="Taxa de depreciação" value={fmtPercent(equipment.depreciationRate)!} />
-              )}
-              {equipment.lastDepreciationCalc && (
-                <InfoRow label="Último cálculo de depreciação" value={fmtDate(equipment.lastDepreciationCalc) ?? "—"} />
-              )}
-              {fmtDate(equipment.purchaseDate) && (
-                <InfoRow label="Data de compra" value={fmtDate(equipment.purchaseDate)!} />
-              )}
-              {equipment.invoiceNumber && (
-                <InfoRow label="Nº Nota Fiscal" value={equipment.invoiceNumber} mono />
-              )}
-              {fmtDate(equipment.warrantyStart) && (
-                <InfoRow label="Início da garantia" value={fmtDate(equipment.warrantyStart)!} />
-              )}
-              {warrantyOk !== null && equipment.warrantyEnd && (
-                <InfoRow
-                  label="Fim da garantia"
-                  value={`${warrantyOk ? "✓ Em vigor" : "✗ Expirada"} · ${fmtDate(equipment.warrantyEnd)}`}
-                  highlight={warrantyOk ? "green" : "red"}
-                />
-              )}
-            </SectionCard>
-          )}
-
-          {/* ── Técnico ── */}
-          {hasTechnical && (
-            <SectionCard title="Dados Técnicos" icon={Monitor}>
-              {equipment.btus && <InfoRow label="BTUs" value={equipment.btus.toLocaleString("pt-BR")} />}
-              {equipment.voltage && <InfoRow label="Tensão" value={equipment.voltage} />}
-              {equipment.power && <InfoRow label="Potência" value={equipment.power} />}
-              {equipment.ipAddress && <InfoRow label="Endereço IP" value={equipment.ipAddress} mono />}
-              {equipment.operatingSystem && <InfoRow label="Sistema Operacional" value={equipment.operatingSystem} />}
-            </SectionCard>
-          )}
-
-          {/* ── Observações ── */}
-          {equipment.observations && (
-            <SectionCard title="Observações" icon={Eye}>
-              <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">{equipment.observations}</p>
-            </SectionCard>
-          )}
-
-          {/* ── Anexos ── */}
-          <SectionCard title={`Anexos${attachments.length > 0 ? ` (${attachments.length})` : ""}`} icon={Paperclip}>
-            {attLoading ? (
-              <div className="space-y-2">
-                {[1, 2].map((i) => <div key={i} className="h-10 rounded-lg bg-muted/40 animate-pulse" />)}
-              </div>
-            ) : attachments.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2 text-center">Nenhum arquivo anexado</p>
-            ) : (
-              <div className="space-y-1.5">
-                {attachments.map((att) => (
-                  <AttachmentRow
-                    key={att.id}
-                    attachment={att}
-                    onOpen={handleOpenFile}
-                    onDelete={(id) => deleteAtt.mutate(id)}
-                    isDeleting={deleteAtt.isPending}
-                  />
-                ))}
-              </div>
-            )}
-          </SectionCard>
-
-          {/* ── Histórico de movimentações ── */}
-          <SectionCard title={`Movimentações${movements.length > 0 ? ` (${movements.length})` : ""}`} icon={ArrowRightLeft}>
-            {movLoading ? (
-              <div className="space-y-2">
-                {[1, 2].map((i) => <div key={i} className="h-12 rounded-lg bg-muted/40 animate-pulse" />)}
-              </div>
-            ) : movements.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-2 text-center">Nenhuma movimentação registrada</p>
-            ) : (
-              <div className="space-y-2">
-                {movements.map((mv) => <MovementRow key={mv.id} movement={mv} />)}
-              </div>
-            )}
-          </SectionCard>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
 function MovementRow({ movement }: { movement: Movement }) {
   const isActive = movement.status === "ACTIVE";
   const isLoan = movement.type === "LOAN";
@@ -1005,20 +542,20 @@ function MovementRow({ movement }: { movement: Movement }) {
   );
 }
 
-// ─── Equipment Card ───────────────────────────────────────────────────────────
-
 function EquipmentCard({
   equipment,
   onView,
   onEdit,
   onMove,
   onDelete,
+  onPrint,
 }: {
   equipment: Equipment;
   onView: (e: Equipment) => void;
   onEdit: (e: Equipment) => void;
   onMove: (e: Equipment) => void;
   onDelete: (e: Equipment) => void;
+  onPrint: (e: Equipment) => void;
 }) {
   return (
     <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -1082,13 +619,16 @@ function EquipmentCard({
         )}
       </div>
 
-{/* Actions */}
+      {/* Actions */}
       <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-shrink-0">
         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
           <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
         </Button>
         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onView(equipment)}>
           <Eye className="w-3.5 h-3.5 mr-1.5" />Detalhes
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => onPrint(equipment)}>
+          <Printer className="w-3.5 h-3.5 mr-1.5" />QR Code
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -1117,6 +657,668 @@ function EquipmentCard({
   );
 }
 
+// ─── Detail Sheet ─────────────────────────────────────────────────────────────
+
+function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      <p className={`font-medium ${mono ? "font-mono text-xs" : ""}`} style={{ color: "var(--foreground)" }}>{value}</p>
+    </div>
+  );
+}
+
+function AttachmentIcon({ category }: { category: string }) {
+  if (category === "image") return <FileImage className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />;
+  if (category === "spreadsheet") return <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />;
+  if (category === "archive") return <FileArchive className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />;
+  return <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />;
+}
+
+function DetailSheet({
+  open,
+  equipment,
+  onClose,
+  onEdit,
+  onMove,
+  onPrint,
+}: {
+  open: boolean;
+  equipment: Equipment | null;
+  onClose: () => void;
+  onEdit: (e: Equipment) => void;
+  onMove: (e: Equipment) => void;
+  onPrint: (e: Equipment) => void;
+}) {
+  const [tab, setTab] = React.useState<"info" | "movements" | "attachments">("info");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: movements = [], isLoading: movementsLoading } = useMovements(equipment?.id ?? "");
+  const { data: attachments = [], isLoading: attachmentsLoading } = useAttachments("EQUIPMENT", equipment?.id ?? "");
+  const returnEquipment = useReturnEquipment(equipment?.id ?? "");
+  const deleteAttachment = useDeleteAttachment("EQUIPMENT", equipment?.id ?? "");
+  const uploadAttachment = useUploadAttachment("EQUIPMENT", equipment?.id ?? "");
+  const recalcDepreciation = useRecalculateDepreciation();
+
+  if (!equipment) return null;
+
+  const activeMovement = movements.find((m) => m.status === "ACTIVE");
+
+  function handleClose() {
+    setTab("info");
+    onClose();
+  }
+
+  function handleOpenFile(attachmentId: string) {
+    window.open(storageService.getDownloadUrl(attachmentId), "_blank");
+  }
+
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadAttachment.mutate(file);
+    e.target.value = "";
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <SheetContent className="overflow-y-auto" style={{ maxWidth: "680px", width: "100%" }}>
+        <SheetHeader>
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
+            >
+              <Wrench className="w-5 h-5 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="truncate">{equipment.name}</SheetTitle>
+              <p className="text-xs text-muted-foreground truncate">
+                {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(" › ") || "Sem tipo"}
+              </p>
+            </div>
+            <div className="flex-shrink-0">
+              <StatusBadge status={equipment.status} />
+            </div>
+          </div>
+        </SheetHeader>
+
+        {/* Action bar */}
+        <div className="flex items-center gap-2 mt-4">
+          <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { handleClose(); onEdit(equipment); }}>
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
+          </Button>
+          {equipment.status === "ACTIVE" && (
+            <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { handleClose(); onMove(equipment); }}>
+              <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />Movimentar
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { handleClose(); onPrint(equipment); }}>
+            <Printer className="w-3.5 h-3.5 mr-1.5" />QR
+          </Button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-0 mt-4 border-b border-border">
+          {(["info", "movements", "attachments"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
+                tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t === "info"
+                ? "Informações"
+                : t === "movements"
+                ? `Movimentações${movements.length ? ` (${movements.length})` : ""}`
+                : `Anexos${attachments.length ? ` (${attachments.length})` : ""}`}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Info tab ── */}
+        {tab === "info" && (
+          <div className="mt-4 space-y-5 pb-6">
+            <div className="flex items-center gap-2">
+              <CriticalityBadge criticality={equipment.criticality} />
+            </div>
+
+            <fieldset className="space-y-3">
+              <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</legend>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
+                {equipment.patrimonyNumber && <DetailRow label="Patrimônio" value={equipment.patrimonyNumber} mono />}
+                {equipment.serialNumber && <DetailRow label="Nº Série" value={equipment.serialNumber} mono />}
+                {equipment.brand && <DetailRow label="Marca" value={equipment.brand} />}
+                {equipment.model && <DetailRow label="Modelo" value={equipment.model} />}
+                {equipment.anvisaNumber && <DetailRow label="ANVISA" value={equipment.anvisaNumber} mono />}
+              </div>
+            </fieldset>
+
+            <fieldset className="space-y-3">
+              <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Localização</legend>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
+                {equipment.costCenter && (
+                  <DetailRow label="Centro de Custo" value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`} />
+                )}
+                {equipment.currentLocation && <DetailRow label="Localização Atual" value={equipment.currentLocation.name} />}
+              </div>
+            </fieldset>
+
+            {(equipment.purchaseValue != null || equipment.purchaseDate || equipment.warrantyEnd || equipment.depreciationRate != null) && (
+              <fieldset className="space-y-3">
+                <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Financeiro</legend>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
+                  {equipment.purchaseValue != null && (
+                    <DetailRow label="Valor de Compra" value={`R$ ${equipment.purchaseValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                  )}
+                  {equipment.currentValue != null && (
+                    <DetailRow label="Valor Atual" value={`R$ ${equipment.currentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                  )}
+                  {equipment.purchaseDate && (
+                    <DetailRow label="Data de Compra" value={new Date(equipment.purchaseDate).toLocaleDateString("pt-BR")} />
+                  )}
+                  {equipment.warrantyEnd && (
+                    <DetailRow label="Fim Garantia" value={new Date(equipment.warrantyEnd).toLocaleDateString("pt-BR")} />
+                  )}
+                  {equipment.depreciationRate != null && (
+                    <DetailRow label="Depreciação" value={`${equipment.depreciationRate}% /ano`} />
+                  )}
+                  {equipment.invoiceNumber && <DetailRow label="Nota Fiscal" value={equipment.invoiceNumber} mono />}
+                </div>
+                {equipment.purchaseValue != null && (
+                  <Button
+                    size="sm" variant="outline" className="h-7 text-xs"
+                    disabled={recalcDepreciation.isPending}
+                    onClick={() => recalcDepreciation.mutate(equipment.id)}
+                  >
+                    <BarChart2 className="w-3.5 h-3.5 mr-1.5" />
+                    {recalcDepreciation.isPending ? "Recalculando..." : "Recalcular depreciação"}
+                  </Button>
+                )}
+              </fieldset>
+            )}
+
+            {(equipment.btus || equipment.voltage || equipment.ipAddress || equipment.operatingSystem || equipment.power) && (
+              <fieldset className="space-y-3">
+                <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Técnico</legend>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
+                  {equipment.btus && <DetailRow label="BTUs" value={equipment.btus.toLocaleString("pt-BR")} />}
+                  {equipment.voltage && <DetailRow label="Tensão" value={equipment.voltage} />}
+                  {equipment.power && <DetailRow label="Potência" value={equipment.power} />}
+                  {equipment.ipAddress && <DetailRow label="Endereço IP" value={equipment.ipAddress} mono />}
+                  {equipment.operatingSystem && <DetailRow label="Sistema Op." value={equipment.operatingSystem} />}
+                </div>
+              </fieldset>
+            )}
+
+            {equipment.observations && (
+              <fieldset className="space-y-2">
+                <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações</legend>
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{equipment.observations}</p>
+              </fieldset>
+            )}
+
+            <div className="space-y-0.5 pt-2 border-t border-border/50">
+              <p className="text-[10px] font-mono text-muted-foreground/60">ID: {equipment.id}</p>
+              <p className="text-[10px] text-muted-foreground/60">
+                Criado em {new Date(equipment.createdAt).toLocaleString("pt-BR")}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Movements tab ── */}
+        {tab === "movements" && (
+          <div className="mt-4 space-y-3 pb-6">
+            {activeMovement && (
+              <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 flex items-start justify-between gap-3">
+                <div className="text-xs space-y-0.5">
+                  <p className="font-semibold text-amber-800">Movimentação ativa</p>
+                  <p className="text-amber-700">{activeMovement.origin.name} → {activeMovement.destination.name}</p>
+                  {activeMovement.expectedReturnAt && (
+                    <p className="text-amber-600">
+                      Retorno previsto: {new Date(activeMovement.expectedReturnAt).toLocaleDateString("pt-BR")}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  size="sm" variant="outline"
+                  className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-100 flex-shrink-0"
+                  disabled={returnEquipment.isPending}
+                  onClick={() => returnEquipment.mutate({ movementId: activeMovement.id })}
+                >
+                  <RotateCcw className="w-3 h-3 mr-1.5" />
+                  {returnEquipment.isPending ? "..." : "Devolver"}
+                </Button>
+              </div>
+            )}
+
+            {movementsLoading ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => <div key={i} className="h-16 rounded-lg border border-border bg-muted/30 animate-pulse" />)}
+              </div>
+            ) : movements.length === 0 ? (
+              <div className="py-10 text-center">
+                <ArrowRightLeft className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Nenhuma movimentação registrada</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {movements.map((m) => <MovementRow key={m.id} movement={m} />)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Attachments tab ── */}
+        {tab === "attachments" && (
+          <div className="mt-4 space-y-3 pb-6">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
+              className="hidden"
+              onChange={handleUpload}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadAttachment.isPending}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-border hover:border-primary/50 hover:bg-primary/5 transition-colors text-sm text-muted-foreground hover:text-primary disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" />
+              {uploadAttachment.isPending ? "Enviando..." : "Adicionar arquivo"}
+            </button>
+
+            {attachmentsLoading ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => <div key={i} className="h-10 rounded-lg border border-border bg-muted/30 animate-pulse" />)}
+              </div>
+            ) : attachments.length === 0 ? (
+              <div className="py-10 text-center">
+                <Paperclip className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Nenhum arquivo anexado</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {attachments.map((att) => (
+                  <div key={att.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border">
+                    <AttachmentIcon category={att.category} />
+                    <span className="flex-1 text-xs truncate">{att.fileName}</span>
+                    <span className="text-xs text-muted-foreground flex-shrink-0">{att.sizeFormatted}</span>
+                    <button
+                      type="button"
+                      className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() => handleOpenFile(att.id)}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                      onClick={() => deleteAttachment.mutate(att.id)}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── Movement Sheet ────────────────────────────────────────────────────────────
+
+const movementSchema = z.object({
+  type: z.enum(["LOAN", "TRANSFER"]),
+  destinationLocationId: z.string().min(1, "Selecione o destino"),
+  reason: z.string().optional(),
+  expectedReturnAt: z.string().optional(),
+  notes: z.string().optional(),
+});
+type MovementForm = z.infer<typeof movementSchema>;
+
+function MovementSheet({
+  open,
+  equipment,
+  onClose,
+}: {
+  open: boolean;
+  equipment: Equipment | null;
+  onClose: () => void;
+}) {
+  const { data: costCenters = [] } = useCostCenters({ limit: 100 });
+  const allLocations = costCenters.flatMap((cc) =>
+    cc.locations.map((l) => ({ ...l, ccName: cc.name }))
+  );
+
+  const create = useCreateMovement(equipment?.id ?? "");
+
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<MovementForm>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(movementSchema) as any,
+    defaultValues: { type: "LOAN" },
+  });
+
+  const watchedType = watch("type");
+
+  function handleClose() {
+    reset();
+    onClose();
+  }
+
+  function onSubmit(data: MovementForm) {
+    if (!equipment) return;
+    create.mutate(
+      {
+        type: data.type,
+        originLocationId: equipment.currentLocation?.id ?? equipment.location?.id ?? "",
+        destinationLocationId: data.destinationLocationId,
+        reason: data.reason || undefined,
+        expectedReturnAt: data.expectedReturnAt || undefined,
+        notes: data.notes || undefined,
+      },
+      { onSuccess: handleClose }
+    );
+  }
+
+  if (!equipment) return null;
+
+  return (
+    <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <SheetContent className="overflow-y-auto" style={{ maxWidth: "480px", width: "100%" }}>
+        <SheetHeader>
+          <SheetTitle>Movimentar equipamento</SheetTitle>
+          <p className="text-sm text-muted-foreground truncate">{equipment.name}</p>
+        </SheetHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-6 pb-6">
+          {/* Origin info */}
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/40 border border-border text-xs">
+            <MapPin className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+            <div>
+              <span className="text-muted-foreground">Origem: </span>
+              <span className="font-medium">
+                {equipment.currentLocation?.name ?? equipment.location?.name ?? "Localização não definida"}
+              </span>
+            </div>
+          </div>
+
+          {/* Type selector */}
+          <div className="space-y-2">
+            <Label>Tipo de movimentação</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["LOAN", "TRANSFER"] as const).map((t) => (
+                <label
+                  key={t}
+                  className={`flex items-center gap-2.5 px-3 py-3 rounded-lg border cursor-pointer transition-colors text-xs ${
+                    watchedType === t ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/30"
+                  }`}
+                >
+                  <input type="radio" {...register("type")} value={t} className="hidden" />
+                  {t === "LOAN" ? <HandCoins className="w-4 h-4 flex-shrink-0" /> : <ArrowRightLeft className="w-4 h-4 flex-shrink-0" />}
+                  <div>
+                    <p className="font-medium">{t === "LOAN" ? "Empréstimo" : "Transferência"}</p>
+                    <p className="text-muted-foreground text-[10px] mt-0.5">
+                      {t === "LOAN" ? "Temporário, com retorno" : "Permanente"}
+                    </p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Destination */}
+          <div className="space-y-2">
+            <Label>Destino *</Label>
+            <select
+              {...register("destinationLocationId")}
+              className="w-full text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">— Selecione o destino —</option>
+              {allLocations
+                .filter((l) => l.id !== (equipment.currentLocation?.id ?? equipment.location?.id))
+                .map((l) => (
+                  <option key={l.id} value={l.id}>{l.name} — {l.ccName}</option>
+                ))}
+            </select>
+            {errors.destinationLocationId && (
+              <p className="text-xs text-destructive">{errors.destinationLocationId.message}</p>
+            )}
+          </div>
+
+          {/* Expected return (LOAN only) */}
+          {watchedType === "LOAN" && (
+            <div className="space-y-2">
+              <Label htmlFor="mv-return">Data prevista de retorno</Label>
+              <Input id="mv-return" type="date" {...register("expectedReturnAt")} />
+            </div>
+          )}
+
+          {/* Reason */}
+          <div className="space-y-2">
+            <Label htmlFor="mv-reason">Motivo</Label>
+            <Input id="mv-reason" placeholder="Ex: Manutenção preventiva" {...register("reason")} />
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="mv-notes">Observações</Label>
+            <Textarea id="mv-notes" placeholder="Observações adicionais..." rows={3} {...register("notes")} />
+          </div>
+
+          <SheetFooter className="mt-auto pt-2">
+            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
+            <Button type="submit" disabled={create.isPending}>
+              {create.isPending
+                ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Registrando...</>
+                : "Registrar movimentação"}
+            </Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ─── QR Label Print ──────────────────────────────────────────────────────────
+
+const LABEL_SIZES = [
+  { id: "62x29", label: "62 × 29 mm (Brother DK-11209)", w: 234, h: 110 },
+  { id: "62x38", label: "62 × 38 mm (Brother DK-11208)", w: 234, h: 144 },
+  { id: "57x32", label: "57 × 32 mm (Brother DK-11221)", w: 216, h: 121 },
+  { id: "100x62", label: "100 × 62 mm (Zebra / Genérica)", w: 378, h: 234 },
+];
+
+function QRLabelModal({
+  open,
+  equipment,
+  onClose,
+}: {
+  open: boolean;
+  equipment: Equipment | null;
+  onClose: () => void;
+}) {
+  const [sizeId, setSizeId] = React.useState("62x38");
+  const labelSize = LABEL_SIZES.find((s) => s.id === sizeId) ?? LABEL_SIZES[1];
+
+  if (!equipment) return null;
+
+  const qrUrl =
+    typeof window !== "undefined"
+      ? `${window.location.host}/equipamentos?detail=${equipment.id}`
+      : `/equipamentos?detail=${equipment.id}`;
+
+  function handlePrint() {
+    const printWin = window.open("", "_blank", "width=800,height=600");
+    if (!printWin) return;
+
+    const svgEl = document.getElementById("qr-label-svg");
+    const svgHtml = svgEl ? svgEl.outerHTML : "";
+
+    const labelHtml = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Etiqueta — ${equipment.name}</title>
+  <style>
+    @page {
+      size: ${labelSize.id === "100x62" ? "100mm 62mm" : labelSize.id === "62x38" ? "62mm 38mm" : labelSize.id === "57x32" ? "57mm 32mm" : "62mm 29mm"};
+      margin: 1mm;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, "Helvetica Neue", sans-serif; background: #fff; }
+    .label {
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      width: 100%;
+      height: 100%;
+      padding: 1.5mm;
+      border: 0.3mm solid #ddd;
+      border-radius: 1mm;
+      overflow: hidden;
+    }
+    .qr-wrap { flex-shrink: 0; }
+    .qr-wrap svg { display: block; }
+    .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1mm; justify-content: center; }
+    .name { font-size: ${labelSize.id === "62x29" ? "6pt" : "7pt"}; font-weight: 700; line-height: 1.15; word-break: break-word; }
+    .row { font-size: ${labelSize.id === "62x29" ? "4.5pt" : "5.5pt"}; color: #333; line-height: 1.2; }
+    .row span { font-weight: 600; color: #000; }
+    .id-row { font-size: 3.5pt; color: #777; margin-top: 0.5mm; font-family: monospace; word-break: break-all; }
+  </style>
+</head>
+<body>
+<div class="label">
+  <div class="qr-wrap">${svgHtml}</div>
+  <div class="info">
+    <p class="name">${equipment.name}</p>
+    ${equipment.patrimonyNumber ? `<p class="row">Pat: <span>${equipment.patrimonyNumber}</span></p>` : ""}
+    ${equipment.serialNumber ? `<p class="row">S/N: <span>${equipment.serialNumber}</span></p>` : ""}
+    ${equipment.type ? `<p class="row">Tipo: <span>${equipment.type.name}</span></p>` : ""}
+    ${equipment.costCenter ? `<p class="row">CC: <span>${equipment.costCenter.name}</span></p>` : ""}
+    ${equipment.currentLocation ? `<p class="row">Local: <span>${equipment.currentLocation.name}</span></p>` : ""}
+    <p class="id-row">ID: ${equipment.id}</p>
+  </div>
+</div>
+<script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
+</body></html>`;
+
+    printWin.document.open();
+    printWin.document.write(labelHtml);
+    printWin.document.close();
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <AlertDialogContent className="max-w-lg">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            <Printer className="w-4 h-4" />
+            Imprimir etiqueta QR
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            Geração de etiqueta para impressora de etiquetas. Escaneie o QR para acessar os detalhes do equipamento.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {/* Size selector */}
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tamanho da etiqueta</p>
+          <div className="grid grid-cols-2 gap-2">
+            {LABEL_SIZES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSizeId(s.id)}
+                className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${sizeId === s.id
+                    ? "border-primary bg-primary/5 text-primary font-medium"
+                    : "border-border hover:bg-muted/40"
+                  }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Label preview */}
+        <div className="mt-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Prévia</p>
+          <div className="bg-gray-50 rounded-xl border border-border p-4 flex items-center justify-center">
+            <div
+              className="bg-white border border-gray-300 rounded flex items-center gap-3 shadow-sm overflow-hidden"
+              style={{ width: labelSize.w, height: labelSize.h, padding: "6px 8px" }}
+            >
+              {/* QR code — sized to fit ~60% of label height */}
+              <div style={{ flexShrink: 0, width: labelSize.h - 16, height: labelSize.h - 16 }}>
+                <QRCode
+                  id="qr-label-svg"
+                  value={qrUrl}
+                  size={labelSize.h - 16}
+                  level="M"
+                  style={{ display: "block" }}
+                />
+              </div>
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                <p style={{ fontSize: 9, fontWeight: 700, lineHeight: 1.2, wordBreak: "break-word" as const }}>
+                  {equipment.name}
+                </p>
+                {equipment.patrimonyNumber && (
+                  <p style={{ fontSize: 7.5, color: "#444", lineHeight: 1.2 }}>
+                    Pat: <strong>{equipment.patrimonyNumber}</strong>
+                  </p>
+                )}
+                {equipment.serialNumber && (
+                  <p style={{ fontSize: 7.5, color: "#444", lineHeight: 1.2 }}>
+                    S/N: <strong>{equipment.serialNumber}</strong>
+                  </p>
+                )}
+                {equipment.type && (
+                  <p style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>
+                    {equipment.type.name}
+                    {equipment.subtype ? ` › ${equipment.subtype.name}` : ""}
+                  </p>
+                )}
+                {equipment.costCenter && (
+                  <p style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>
+                    {equipment.costCenter.name}
+                  </p>
+                )}
+                {equipment.currentLocation && (
+                  <p style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>
+                    📍 {equipment.currentLocation.name}
+                  </p>
+                )}
+                <p style={{ fontSize: 5.5, color: "#aaa", marginTop: 2, fontFamily: "monospace", wordBreak: "break-all" as const }}>
+                  {equipment.id}
+                </p>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            A impressão abre em nova janela com formatação otimizada para a etiqueta selecionada.
+          </p>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onClose}>Cancelar</AlertDialogCancel>
+          <Button onClick={handlePrint} className="gap-2">
+            <Printer className="w-4 h-4" />
+            Imprimir etiqueta
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EquipamentosPage() {
@@ -1129,6 +1331,7 @@ export default function EquipamentosPage() {
   const [locationFilter, setLocationFilter] = useState("");
   const [costCenterFilter, setCostCenterFilter] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [qrTarget, setQrTarget] = useState<Equipment | null>(null);
 
   const { data: allTypes = [] } = useEquipmentTypes();
   const { data: allCostCenters = [] } = useCostCenters({ limit: 100 });
@@ -1138,6 +1341,16 @@ export default function EquipamentosPage() {
   const [detailSheet, setDetailSheet] = useState<Equipment | null>(null);
   const [moveSheet, setMoveSheet] = useState<Equipment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
+
+  const searchParams = useSearchParams();
+  const detailId = searchParams.get("detail");
+  const { data: detailData } = useEquipmentById(detailId ?? "");
+
+  useEffect(() => {
+    if (detailData) {
+      setDetailSheet(detailData);
+    }
+  }, [detailData]);
 
   const { data: listData, isLoading } = useEquipment({
     search: search || undefined,
@@ -1169,7 +1382,6 @@ export default function EquipamentosPage() {
   }
 
   const remove = useDeleteEquipment();
-
 
   return (
     <div className="space-y-6">
@@ -1225,11 +1437,10 @@ export default function EquipamentosPage() {
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors ${
-              showAdvanced || activeFilterCount > 0
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors ${showAdvanced || activeFilterCount > 0
                 ? "border-primary text-primary bg-primary/5"
                 : "border-border text-muted-foreground hover:bg-muted/30"
-            }`}
+              }`}
           >
             <Tag className="w-3.5 h-3.5" />
             Filtros avançados
@@ -1339,6 +1550,7 @@ export default function EquipamentosPage() {
                 onEdit={(e) => setFormSheet({ open: true, target: e })}
                 onMove={setMoveSheet}
                 onDelete={setDeleteTarget}
+                onPrint={setQrTarget}
               />
             ))}
           </div>
@@ -1361,12 +1573,19 @@ export default function EquipamentosPage() {
         onClose={() => setDetailSheet(null)}
         onEdit={(e) => { setDetailSheet(null); setFormSheet({ open: true, target: e }); }}
         onMove={(e) => { setDetailSheet(null); setMoveSheet(e); }}
+        onPrint={(e) => { setDetailSheet(null); setQrTarget(e); }}
       />
 
       <MovementSheet
         open={!!moveSheet}
         equipment={moveSheet}
         onClose={() => setMoveSheet(null)}
+      />
+
+      <QRLabelModal
+        open={!!qrTarget}
+        equipment={qrTarget}
+        onClose={() => setQrTarget(null)}
       />
 
       {/* ── Delete ── */}

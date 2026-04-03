@@ -238,6 +238,85 @@ export class ClientsService {
   }
 
   // ─────────────────────────────────────────
+  // Grupos de manutenção do cliente
+  // ─────────────────────────────────────────
+
+  async listMaintenanceGroups(clientId: string, currentUser: AuthenticatedUser) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    return this.prisma.clientMaintenanceGroup.findMany({
+      where: { clientId },
+      select: {
+        id: true,
+        isActive: true,
+        assignedAt: true,
+        group: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            color: true,
+            isActive: true,
+            equipmentTypes: { select: { id: true, name: true } },
+          },
+        },
+      },
+      orderBy: { group: { name: 'asc' } },
+    })
+  }
+
+  async assignMaintenanceGroup(
+    clientId: string,
+    groupId: string,
+    currentUser: AuthenticatedUser,
+  ) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const [client, group] = await Promise.all([
+      this.clientsRepository.findById(clientId, companyId),
+      this.prisma.maintenanceGroup.findFirst({ where: { id: groupId, companyId } }),
+    ])
+
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+    if (!group) throw new NotFoundException('Grupo de manutenção não encontrado')
+
+    return this.prisma.clientMaintenanceGroup.upsert({
+      where: { clientId_groupId: { clientId, groupId } },
+      create: { clientId, groupId, isActive: true, assignedAt: new Date() },
+      update: { isActive: true },
+      select: { id: true, isActive: true, assignedAt: true, group: { select: { id: true, name: true } } },
+    })
+  }
+
+  async removeMaintenanceGroup(
+    clientId: string,
+    groupId: string,
+    currentUser: AuthenticatedUser,
+  ) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    const assignment = await this.prisma.clientMaintenanceGroup.findUnique({
+      where: { clientId_groupId: { clientId, groupId } },
+    })
+    if (!assignment) throw new NotFoundException('Vínculo não encontrado')
+
+    await this.prisma.clientMaintenanceGroup.delete({
+      where: { clientId_groupId: { clientId, groupId } },
+    })
+
+    return { message: 'Grupo removido do cliente com sucesso' }
+  }
+
+  // ─────────────────────────────────────────
   // Helpers privados
   // ─────────────────────────────────────────
 
