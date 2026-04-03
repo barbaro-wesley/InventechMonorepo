@@ -125,8 +125,8 @@ const createUserSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
   email: z.email("E-mail inválido"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
-  role: z.enum(["CLIENT_ADMIN", "CLIENT_USER", "CLIENT_VIEWER"], {
-    message: "O papel base é obrigatório.",
+  role: z.enum(["TECHNICIAN", "CLIENT_VIEWER"], {
+    message: "Selecione o papel do usuário.",
   }),
   phone: z.string().optional(),
 });
@@ -197,6 +197,9 @@ function UsersTab({ client }: { client: Client }) {
   });
 
   function handleCreate(formData: CreateUserForm) {
+    // TECHNICIAN é funcionário da empresa — não leva clientId
+    // CLIENT_VIEWER é usuário do cliente — leva clientId
+    const isTechnician = formData.role === "TECHNICIAN";
     createUser.mutate(
       {
         name: formData.name,
@@ -204,7 +207,7 @@ function UsersTab({ client }: { client: Client }) {
         password: formData.password,
         role: formData.role,
         phone: formData.phone || undefined,
-        clientId: client.id,
+        clientId: isTechnician ? undefined : client.id,
         companyId: client.companyId,
       },
       {
@@ -274,8 +277,7 @@ function UsersTab({ client }: { client: Client }) {
                     <SelectValue placeholder="Selecionar..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="CLIENT_ADMIN">Admin do Cliente</SelectItem>
-                    <SelectItem value="CLIENT_USER">Usuário do Cliente</SelectItem>
+                    <SelectItem value="TECHNICIAN">Técnico</SelectItem>
                     <SelectItem value="CLIENT_VIEWER">Visualizador</SelectItem>
                   </SelectContent>
                 </Select>
