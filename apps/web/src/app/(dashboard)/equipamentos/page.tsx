@@ -1037,7 +1037,7 @@ function EquipmentCard({
         )}
       </div>
 
-      {/* Actions */}
+{/* Actions */}
       <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-shrink-0">
         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
           <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
@@ -1076,8 +1076,18 @@ function EquipmentCard({
 
 export default function EquipamentosPage() {
   const [search, setSearch] = useState("");
+  const [ipFilter, setIpFilter] = useState("");
+  const [patrimonyFilter, setPatrimonyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<EquipmentStatus | "">("");
   const [criticalityFilter, setCriticalityFilter] = useState<EquipmentCriticality | "">("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [costCenterFilter, setCostCenterFilter] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const { data: allTypes = [] } = useEquipmentTypes();
+  const { data: allCostCenters = [] } = useCostCenters({ limit: 100 });
+  const allLocations = allCostCenters.flatMap((cc) => cc.locations);
 
   const [formSheet, setFormSheet] = useState<{ open: boolean; target: Equipment | null }>({ open: false, target: null });
   const [detailSheet, setDetailSheet] = useState<Equipment | null>(null);
@@ -1086,15 +1096,35 @@ export default function EquipamentosPage() {
 
   const { data: listData, isLoading } = useEquipment({
     search: search || undefined,
-    status: statusFilter || undefined,
-    criticality: criticalityFilter || undefined,
+    ipAddress: ipFilter || undefined,
+    patrimonyNumber: patrimonyFilter || undefined,
+    status: (statusFilter as EquipmentStatus) || undefined,
+    criticality: (criticalityFilter as EquipmentCriticality) || undefined,
+    typeId: typeFilter || undefined,
+    locationId: locationFilter || undefined,
+    costCenterId: costCenterFilter || undefined,
     limit: 50,
   });
 
   const equipments = listData?.data ?? [];
   const total = listData?.total ?? 0;
 
+  const activeFilterCount = [statusFilter, criticalityFilter, typeFilter, locationFilter, costCenterFilter, ipFilter, patrimonyFilter]
+    .filter(Boolean).length;
+
+  function clearAll() {
+    setSearch("");
+    setIpFilter("");
+    setStatusFilter("");
+    setCriticalityFilter("");
+    setTypeFilter("");
+    setLocationFilter("");
+    setCostCenterFilter("");
+    setPatrimonyFilter("");
+  }
+
   const remove = useDeleteEquipment();
+
 
   return (
     <div className="space-y-6">
@@ -1115,36 +1145,123 @@ export default function EquipamentosPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-border p-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-          <Input
-            className="pl-8 h-9 text-sm"
-            placeholder="Buscar por nome, marca, série..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+        {/* Row 1: search + toggle */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              className="pl-8 h-9 text-sm"
+              placeholder="Buscar por nome, marca, série, IP..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as EquipmentStatus | "")}
+            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            <option value="">Todos os status</option>
+            {(Object.keys(STATUS_LABEL) as EquipmentStatus[]).map((s) => (
+              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+            ))}
+          </select>
+          <select
+            value={criticalityFilter}
+            onChange={(e) => setCriticalityFilter(e.target.value as EquipmentCriticality | "")}
+            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            <option value="">Todas as criticidades</option>
+            {(Object.keys(CRITICALITY_LABEL) as EquipmentCriticality[]).map((c) => (
+              <option key={c} value={c}>{CRITICALITY_LABEL[c]}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors ${
+              showAdvanced || activeFilterCount > 0
+                ? "border-primary text-primary bg-primary/5"
+                : "border-border text-muted-foreground hover:bg-muted/30"
+            }`}
+          >
+            <Tag className="w-3.5 h-3.5" />
+            Filtros avançados
+            {activeFilterCount > 0 && (
+              <span className="ml-1 bg-primary text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {(search || activeFilterCount > 0) && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1"
+            >
+              <X className="w-3.5 h-3.5" />
+              Limpar
+            </button>
+          )}
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as EquipmentStatus | "")}
-          className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-        >
-          <option value="">Todos os status</option>
-          {(Object.keys(STATUS_LABEL) as EquipmentStatus[]).map((s) => (
-            <option key={s} value={s}>{STATUS_LABEL[s]}</option>
-          ))}
-        </select>
-        <select
-          value={criticalityFilter}
-          onChange={(e) => setCriticalityFilter(e.target.value as EquipmentCriticality | "")}
-          className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-        >
-          <option value="">Todas as criticidades</option>
-          {(Object.keys(CRITICALITY_LABEL) as EquipmentCriticality[]).map((c) => (
-            <option key={c} value={c}>{CRITICALITY_LABEL[c]}</option>
-          ))}
-        </select>
+
+        {/* Row 2: advanced filters */}
+        {showAdvanced && (
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/60">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">Todos os tipos</option>
+              {allTypes.filter((t) => t.isActive).map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <select
+              value={costCenterFilter}
+              onChange={(e) => { setCostCenterFilter(e.target.value); setLocationFilter(""); }}
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">Todos os CC</option>
+              {allCostCenters.map((cc) => (
+                <option key={cc.id} value={cc.id}>{cc.name}{cc.code ? ` (${cc.code})` : ""}</option>
+              ))}
+            </select>
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            >
+              <option value="">Todas as localizações</option>
+              {(costCenterFilter
+                ? allLocations.filter((l) => allCostCenters.find(cc => cc.id === costCenterFilter)?.locations.some(ll => ll.id === l.id))
+                : allLocations
+              ).map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+            <div className="relative">
+              <Monitor className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                className="pl-8 h-9 text-sm w-44"
+                placeholder="Filtrar por IP..."
+                value={ipFilter}
+                onChange={(e) => setIpFilter(e.target.value)}
+              />
+            </div>
+            <div className="relative">
+              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                className="pl-8 h-9 text-sm w-44"
+                placeholder="Patrimônio..."
+                value={patrimonyFilter}
+                onChange={(e) => setPatrimonyFilter(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -1158,9 +1275,9 @@ export default function EquipamentosPage() {
         <div className="bg-white rounded-xl border border-dashed border-border py-14 text-center">
           <Wrench className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-            {search || statusFilter || criticalityFilter ? "Nenhum equipamento encontrado" : "Nenhum equipamento cadastrado"}
+            {search || activeFilterCount > 0 ? "Nenhum equipamento encontrado" : "Nenhum equipamento cadastrado"}
           </p>
-          {!search && !statusFilter && !criticalityFilter && (
+          {!search && activeFilterCount === 0 && (
             <Button size="sm" className="mt-4" onClick={() => setFormSheet({ open: true, target: null })}>
               <Plus className="w-4 h-4 mr-2" />Cadastrar equipamento
             </Button>

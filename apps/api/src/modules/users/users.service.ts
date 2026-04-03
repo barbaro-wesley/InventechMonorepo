@@ -41,7 +41,7 @@ export class UsersService {
     this.ensureCompanyScope(currentUser)
     // SUPER_ADMIN pode filtrar por empresa via query param
     const companyId = currentUser.role === UserRole.SUPER_ADMIN
-      ? (filters.companyId ?? currentUser.companyId!)
+      ? (filters.companyId ?? undefined)
       : currentUser.companyId!
     // CLIENT_ADMIN vê apenas usuários do seu próprio cliente
     const effectiveFilters = currentUser.clientId
@@ -52,7 +52,8 @@ export class UsersService {
 
   async findOne(id: string, currentUser: AuthenticatedUser) {
     this.ensureCompanyScope(currentUser)
-    const user = await this.usersRepository.findById(id, currentUser.companyId!)
+    const companyScope = currentUser.role === UserRole.SUPER_ADMIN ? undefined : currentUser.companyId!
+    const user = await this.usersRepository.findById(id, companyScope)
     if (!user) throw new NotFoundException('Usuário não encontrado')
     return user
   }
@@ -86,6 +87,7 @@ export class UsersService {
       telegramChatId: dto.telegramChatId,
       company: companyId ? { connect: { id: companyId } } : undefined,
       client: clientId ? { connect: { id: clientId } } : undefined,
+      ...(dto.customRoleId && { customRole: { connect: { id: dto.customRoleId } } }),
     })
 
     // ✅ Envia email de verificação automaticamente
@@ -101,7 +103,8 @@ export class UsersService {
   async update(id: string, dto: UpdateUserDto, currentUser: AuthenticatedUser) {
     this.ensureCompanyScope(currentUser)
 
-    const existing = await this.usersRepository.findById(id, currentUser.companyId!)
+    const companyScope = currentUser.role === UserRole.SUPER_ADMIN ? undefined : currentUser.companyId!
+    const existing = await this.usersRepository.findById(id, companyScope)
     if (!existing) throw new NotFoundException('Usuário não encontrado')
 
     this.validateRoleHierarchy(existing.role as UserRole, currentUser)
@@ -116,13 +119,14 @@ export class UsersService {
       ...(dto.telegramChatId !== undefined && { telegramChatId: dto.telegramChatId }),
       ...(dto.status && { status: dto.status }),
       ...(dto.role && { role: dto.role }),
+      ...(dto.customRoleId !== undefined && { customRoleId: dto.customRoleId }),
     }
 
     if (dto.password) {
       data.passwordHash = await bcrypt.hash(dto.password, 10)
     }
 
-    return this.usersRepository.update(id, currentUser.companyId!, data)
+    return this.usersRepository.update(id, data)
   }
 
   async remove(id: string, currentUser: AuthenticatedUser) {
@@ -132,12 +136,13 @@ export class UsersService {
       throw new ForbiddenException('Você não pode remover sua própria conta')
     }
 
-    const existing = await this.usersRepository.findById(id, currentUser.companyId!)
+    const companyScope = currentUser.role === UserRole.SUPER_ADMIN ? undefined : currentUser.companyId!
+    const existing = await this.usersRepository.findById(id, companyScope)
     if (!existing) throw new NotFoundException('Usuário não encontrado')
 
     this.validateRoleHierarchy(existing.role as UserRole, currentUser)
 
-    await this.usersRepository.softDelete(id, currentUser.companyId!)
+    await this.usersRepository.softDelete(id)
     return { message: 'Usuário removido com sucesso' }
   }
 

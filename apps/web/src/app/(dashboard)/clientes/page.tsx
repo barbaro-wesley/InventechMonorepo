@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   Plus,
   Search,
@@ -23,6 +24,8 @@ import { useClients, useCreateClient, useUpdateClient, useUploadClientLogo } fro
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Client } from "@/types/client";
+
+import { ClientUsersDrawer } from "@/components/clients/client-users-drawer";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,9 +143,11 @@ function getInitials(name: string): string {
 function ClientCard({
   client,
   onEdit,
+  onManageUsers,
 }: {
   client: Client;
   onEdit: () => void;
+  onManageUsers: () => void;
 }) {
   const status = STATUS_CONFIG[client.status];
   const avatarBg = getAvatarColor(client.name);
@@ -179,6 +184,12 @@ function ClientCard({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={onEdit}>
                   Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onManageUsers}>
+                  Gerenciar usuários
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/clientes/${client.id}`}>Ver detalhes</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -286,6 +297,7 @@ export default function ClientesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [clientLogoPreview, setClientLogoPreview] = useState<string | null>(null);
+  const [manageUsersClient, setManageUsersClient] = useState<Client | null>(null);
 
   const { data, isLoading } = useClients({
     page,
@@ -443,6 +455,7 @@ export default function ClientesPage() {
               key={client.id}
               client={client}
               onEdit={() => handleEdit(client)}
+              onManageUsers={() => setManageUsersClient(client)}
             />
           ))}
         </div>
@@ -850,6 +863,12 @@ export default function ClientesPage() {
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
+
+      <ClientUsersDrawer
+        client={manageUsersClient}
+        open={!!manageUsersClient}
+        onOpenChange={(open) => !open && setManageUsersClient(null)}
+      />
     </div>
   );
 }

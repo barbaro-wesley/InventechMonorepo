@@ -55,6 +55,8 @@ import type { User } from "@/types/user";
 import type { Client } from "@/types/client";
 import { cn } from "@/lib/utils";
 
+import { UserManagementSheets } from "@/components/users/user-management-sheets";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -187,7 +189,10 @@ const createUserSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
   email: z.email("E-mail inválido"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
-  role: z.enum(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER", "CLIENT_VIEWER"]),
+  role: z.enum(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER", "CLIENT_VIEWER"], {
+    message: "O papel base é obrigatório para definir a hierarquia no sistema."
+  }),
+  customRoleId: z.string().optional(),
   phone: z.string().optional(),
 });
 
@@ -327,6 +332,8 @@ function UsersTab({ companyId }: { companyId: string }) {
   const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [editUser, setEditUser] = useState<User | null>(null);
+  const [assignRoleUser, setAssignRoleUser] = useState<User | null>(null);
 
   const { data, isLoading } = useUsers({ companyId, search: search || undefined, limit: 50 });
   const createUser = useCreateUser();
@@ -334,7 +341,7 @@ function UsersTab({ companyId }: { companyId: string }) {
 
   const createForm = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { name: "", email: "", password: "", role: "COMPANY_MANAGER", phone: "" },
+    defaultValues: { name: "", email: "", password: "", phone: "", customRoleId: "", role: "" as any },
   });
 
   function handleCreate(formData: CreateUserForm) {
@@ -448,6 +455,12 @@ function UsersTab({ companyId }: { companyId: string }) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setEditUser(user)}>
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setAssignRoleUser(user)}>
+                            Atribuir papel personalizado
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-red-600 focus:text-red-600"
                             onClick={() => setDeleteTarget(user)}
@@ -557,6 +570,13 @@ function UsersTab({ companyId }: { companyId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UserManagementSheets 
+        editUser={editUser}
+        assignRoleUser={assignRoleUser}
+        onEditUserChange={setEditUser}
+        onAssignRoleUserChange={setAssignRoleUser}
+      />
     </>
   );
 }

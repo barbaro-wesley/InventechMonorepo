@@ -57,7 +57,7 @@ export class EquipmentService {
         companyId: string,
         filters: ListEquipmentsDto,
     ) {
-        const { search, status, criticality, typeId, locationId, costCenterId, page = 1, limit = 20 } = filters
+        const { search, ipAddress, patrimonyNumber, status, criticality, typeId, locationId, costCenterId, page = 1, limit = 20 } = filters
 
         const where: Prisma.EquipmentWhereInput = {
             companyId,
@@ -67,6 +67,8 @@ export class EquipmentService {
             ...(typeId && { typeId }),
             ...(locationId && { locationId }),
             ...(costCenterId && { costCenterId }),
+            ...(ipAddress && { ipAddress: { contains: ipAddress, mode: 'insensitive' } }),
+            ...(patrimonyNumber && { patrimonyNumber: { contains: patrimonyNumber, mode: 'insensitive' } }),
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: 'insensitive' } },
@@ -74,6 +76,7 @@ export class EquipmentService {
                     { model: { contains: search, mode: 'insensitive' } },
                     { serialNumber: { contains: search, mode: 'insensitive' } },
                     { patrimonyNumber: { contains: search, mode: 'insensitive' } },
+                    { ipAddress: { contains: search, mode: 'insensitive' } },
                 ],
             }),
         }

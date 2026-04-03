@@ -40,6 +40,8 @@ export interface Equipment {
 
 export interface ListEquipmentParams {
   search?: string;
+  ipAddress?: string;
+  patrimonyNumber?: string;
   status?: EquipmentStatus;
   criticality?: EquipmentCriticality;
   typeId?: string;

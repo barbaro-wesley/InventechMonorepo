@@ -130,6 +130,8 @@ export class UpdateEquipmentDto {
 
 export class ListEquipmentsDto {
     @IsOptional() @IsString() search?: string
+    @IsOptional() @IsString() ipAddress?: string
+    @IsOptional() @IsString() patrimonyNumber?: string
     @IsOptional() @IsEnum(EquipmentStatus) status?: EquipmentStatus
     @IsOptional() @IsEnum(EquipmentCriticality) criticality?: EquipmentCriticality
     @IsOptional() @IsUUID() typeId?: string

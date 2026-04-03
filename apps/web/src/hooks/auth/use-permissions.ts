@@ -39,8 +39,7 @@ export function usePermissions() {
      */
     function canSeeNav(roles: Role[], permission?: string): boolean {
         if (!user) return false;
-        if (user.role === "SUPER_ADMIN") return true;
-        if (user.customRoleId && permission) {
+        if (user.customRoleId && permission && user.role !== "SUPER_ADMIN") {
             const [resource, action] = permission.split(":");
             return canAccess(resource, action);
         }
