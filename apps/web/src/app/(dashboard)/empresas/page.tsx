@@ -138,6 +138,15 @@ const createCompanySchema = z.object({
   document: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   phone: z.string().optional(),
+  licenseExpiresAt: z.string().optional(),
+  // Endereço
+  zipCode: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  complement: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
   admin: z.object({
     name: z.string().min(1, "Nome do admin obrigatório"),
     email: z.string().min(1, "E-mail obrigatório").email("E-mail inválido"),
@@ -744,6 +753,55 @@ export default function EmpresasPage() {
                     className="mt-1.5"
                     {...createForm.register("email")}
                   />
+                </div>
+                <div>
+                  <Label htmlFor="licenseExpiresAt">Vencimento da licença</Label>
+                  <Input
+                    id="licenseExpiresAt"
+                    type="date"
+                    className="mt-1.5"
+                    {...createForm.register("licenseExpiresAt")}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
+                  Endereço
+                </p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="zipCode">CEP</Label>
+                    <Input id="zipCode" placeholder="00000-000" className="mt-1.5" {...createForm.register("zipCode")} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="street">Logradouro</Label>
+                    <Input id="street" placeholder="Rua, Av..." className="mt-1.5" {...createForm.register("street")} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <Label htmlFor="number">Número</Label>
+                    <Input id="number" placeholder="Nº" className="mt-1.5" {...createForm.register("number")} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="complement">Complemento</Label>
+                    <Input id="complement" placeholder="Sala, andar..." className="mt-1.5" {...createForm.register("complement")} />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="neighborhood">Bairro</Label>
+                  <Input id="neighborhood" className="mt-1.5" {...createForm.register("neighborhood")} />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input id="city" className="mt-1.5" {...createForm.register("city")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="state">Estado</Label>
+                    <Input id="state" placeholder="SP" maxLength={2} className="mt-1.5 uppercase" {...createForm.register("state")} />
+                  </div>
                 </div>
               </div>
 

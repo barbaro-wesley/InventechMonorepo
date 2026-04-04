@@ -191,8 +191,16 @@ model Company {
   // Configurações de relatório
   reportPrimaryColor   String?  @default("#1E40AF") @map("report_primary_color")
   reportSecondaryColor String?  @default("#DBEAFE") @map("report_secondary_color")
-  reportHeaderTitle    String?  @map("report_header_title")  // Ex: "Relatório Técnico"
-  reportFooterText     String?  @map("report_footer_text")   // Ex: "Documento confidencial"
+  reportHeaderTitle    String?  @map("report_header_title")
+  reportFooterText     String?  @map("report_footer_text")
+  // Endereço
+  street       String?  @map("street")
+  number       String?  @map("number")
+  complement   String?  @map("complement")
+  neighborhood String?  @map("neighborhood")
+  city         String?  @map("city")
+  state        String?  @map("state")
+  zipCode      String?  @map("zip_code")
   status      CompanyStatus @default(ACTIVE)
   trialEndsAt DateTime?     @map("trial_ends_at")
   settings    Json?

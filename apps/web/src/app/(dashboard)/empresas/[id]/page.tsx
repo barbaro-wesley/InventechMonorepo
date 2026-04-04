@@ -174,6 +174,18 @@ const editSchema = z.object({
   document: z.string().optional(),
   email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   phone: z.string().optional(),
+  // Endereço
+  zipCode: z.string().optional(),
+  street: z.string().optional(),
+  number: z.string().optional(),
+  complement: z.string().optional(),
+  neighborhood: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  // Visual relatórios
+  reportPrimaryColor: z.string().optional(),
+  reportSecondaryColor: z.string().optional(),
+  reportFooterText: z.string().optional(),
 });
 
 const suspendSchema = z.object({
@@ -881,6 +893,16 @@ export default function EmpresaDetailPage() {
       document: company?.document ?? "",
       email: company?.email ?? "",
       phone: company?.phone ?? "",
+      zipCode: company?.zipCode ?? "",
+      street: company?.street ?? "",
+      number: company?.number ?? "",
+      complement: company?.complement ?? "",
+      neighborhood: company?.neighborhood ?? "",
+      city: company?.city ?? "",
+      state: company?.state ?? "",
+      reportPrimaryColor: company?.reportPrimaryColor ?? "#1E40AF",
+      reportSecondaryColor: company?.reportSecondaryColor ?? "#DBEAFE",
+      reportFooterText: company?.reportFooterText ?? "",
     },
   });
 
@@ -1291,30 +1313,124 @@ export default function EmpresaDetailPage() {
           </DrawerHeader>
 
           <DrawerBody>
-            <form id="edit-company-form" onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-4">
+            <form id="edit-company-form" onSubmit={editForm.handleSubmit(handleEdit)} className="space-y-5">
+              {/* Dados básicos */}
               <div>
-                <Label htmlFor="edit-name">Nome *</Label>
-                <Input id="edit-name" className="mt-1.5" {...editForm.register("name")} />
-                {editForm.formState.errors.name && (
-                  <p className="mt-1 text-xs text-red-500">{editForm.formState.errors.name.message}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="edit-document">CNPJ</Label>
-                  <Input id="edit-document" placeholder="00.000.000/0001-00" className="mt-1.5" {...editForm.register("document")} />
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Dados básicos</p>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="edit-name">Nome *</Label>
+                    <Input id="edit-name" className="mt-1.5" {...editForm.register("name")} />
+                    {editForm.formState.errors.name && (
+                      <p className="mt-1 text-xs text-red-500">{editForm.formState.errors.name.message}</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="edit-document">CNPJ</Label>
+                      <Input id="edit-document" placeholder="00.000.000/0001-00" className="mt-1.5" {...editForm.register("document")} />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-phone">Telefone</Label>
+                      <Input id="edit-phone" placeholder="(00) 0000-0000" className="mt-1.5" {...editForm.register("phone")} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-email">E-mail</Label>
+                    <Input id="edit-email" type="email" placeholder="contato@empresa.com" className="mt-1.5" {...editForm.register("email")} />
+                    {editForm.formState.errors.email && (
+                      <p className="mt-1 text-xs text-red-500">{editForm.formState.errors.email.message}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="edit-phone">Telefone</Label>
-                  <Input id="edit-phone" placeholder="(00) 0000-0000" className="mt-1.5" {...editForm.register("phone")} />
-                </div>
               </div>
+
+              {/* Endereço */}
               <div>
-                <Label htmlFor="edit-email">E-mail</Label>
-                <Input id="edit-email" type="email" placeholder="contato@empresa.com" className="mt-1.5" {...editForm.register("email")} />
-                {editForm.formState.errors.email && (
-                  <p className="mt-1 text-xs text-red-500">{editForm.formState.errors.email.message}</p>
-                )}
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Endereço</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-1">
+                      <Label htmlFor="edit-zipCode">CEP</Label>
+                      <Input id="edit-zipCode" placeholder="00000-000" className="mt-1.5" {...editForm.register("zipCode")} />
+                    </div>
+                    <div className="col-span-2">
+                      <Label htmlFor="edit-street">Logradouro</Label>
+                      <Input id="edit-street" placeholder="Rua, Av..." className="mt-1.5" {...editForm.register("street")} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <Label htmlFor="edit-number">Número</Label>
+                      <Input id="edit-number" placeholder="Nº" className="mt-1.5" {...editForm.register("number")} />
+                    </div>
+                    <div className="col-span-2">
+                      <Label htmlFor="edit-complement">Complemento</Label>
+                      <Input id="edit-complement" placeholder="Sala, andar..." className="mt-1.5" {...editForm.register("complement")} />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-neighborhood">Bairro</Label>
+                    <Input id="edit-neighborhood" className="mt-1.5" {...editForm.register("neighborhood")} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <Label htmlFor="edit-city">Cidade</Label>
+                      <Input id="edit-city" className="mt-1.5" {...editForm.register("city")} />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-state">Estado</Label>
+                      <Input id="edit-state" placeholder="SP" maxLength={2} className="mt-1.5 uppercase" {...editForm.register("state")} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visual dos relatórios */}
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Visual dos relatórios</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="edit-primaryColor">Cor primária</Label>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <input
+                          id="edit-primaryColor"
+                          type="color"
+                          className="h-9 w-12 rounded border border-input cursor-pointer p-0.5"
+                          {...editForm.register("reportPrimaryColor")}
+                        />
+                        <Input
+                          className="font-mono text-xs"
+                          placeholder="#1E40AF"
+                          {...editForm.register("reportPrimaryColor")}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Cabeçalho do relatório</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-secondaryColor">Cor secundária</Label>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <input
+                          id="edit-secondaryColor"
+                          type="color"
+                          className="h-9 w-12 rounded border border-input cursor-pointer p-0.5"
+                          {...editForm.register("reportSecondaryColor")}
+                        />
+                        <Input
+                          className="font-mono text-xs"
+                          placeholder="#DBEAFE"
+                          {...editForm.register("reportSecondaryColor")}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">Linhas alternadas / destaque</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-footerText">Texto do rodapé</Label>
+                    <Input id="edit-footerText" placeholder="Ex: Documento confidencial" className="mt-1.5" {...editForm.register("reportFooterText")} />
+                  </div>
+                </div>
               </div>
             </form>
           </DrawerBody>

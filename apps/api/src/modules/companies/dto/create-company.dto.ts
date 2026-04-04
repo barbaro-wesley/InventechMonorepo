@@ -31,25 +31,21 @@ export class CreateCompanyDto {
   @IsString()
   name: string
 
-  @IsOptional()
-  @IsString()
-  document?: string  // CNPJ
+  @IsOptional() @IsString() document?: string  // CNPJ
+  @IsOptional() @IsEmail() email?: string
+  @IsOptional() @IsString() phone?: string
+  @IsOptional() @IsEnum(CompanyStatus) status?: CompanyStatus = CompanyStatus.ACTIVE
+  @IsOptional() @IsDateString() trialEndsAt?: string
+  @IsOptional() @IsDateString() licenseExpiresAt?: string
 
-  @IsOptional()
-  @IsEmail()
-  email?: string
-
-  @IsOptional()
-  @IsString()
-  phone?: string
-
-  @IsOptional()
-  @IsEnum(CompanyStatus)
-  status?: CompanyStatus = CompanyStatus.ACTIVE
-
-  @IsOptional()
-  @IsDateString()
-  trialEndsAt?: string
+  // Endereço
+  @IsOptional() @IsString() street?: string
+  @IsOptional() @IsString() number?: string
+  @IsOptional() @IsString() complement?: string
+  @IsOptional() @IsString() neighborhood?: string
+  @IsOptional() @IsString() city?: string
+  @IsOptional() @IsString() state?: string
+  @IsOptional() @IsString() zipCode?: string
 
   // Admin da empresa — criado junto na mesma transação
   @ValidateNested()

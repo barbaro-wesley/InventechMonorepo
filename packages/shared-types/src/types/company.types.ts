@@ -13,6 +13,14 @@ export interface Company {
   reportSecondaryColor?: string | null;
   reportHeaderTitle?: string | null;
   reportFooterText?: string | null;
+  // Endereço
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipCode?: string | null;
   status: CompanyStatus;
   trialEndsAt?: string | null;
   settings?: Record<string, unknown> | null;
@@ -58,6 +66,14 @@ export interface CreateCompanyDto {
   document?: string;
   email?: string;
   phone?: string;
+  licenseExpiresAt?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
   admin: {
     name: string;
     email: string;
@@ -81,6 +97,16 @@ export interface UpdateCompanyDto {
   document?: string;
   email?: string;
   phone?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  reportPrimaryColor?: string;
+  reportSecondaryColor?: string;
+  reportFooterText?: string;
 }
 
 export interface CompanyLicenseRow {

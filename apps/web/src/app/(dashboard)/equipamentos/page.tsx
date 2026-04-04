@@ -136,6 +136,8 @@ const equipmentSchema = z.object({
   model: z.string().optional(),
   serialNumber: z.string().optional(),
   patrimonyNumber: z.string().optional(),
+  anvisaNumber: z.string().optional(),
+  invoiceNumber: z.string().optional(),
   typeId: z.string().optional(),
   subtypeId: z.string().optional(),
   locationId: z.string().optional(),
@@ -184,6 +186,8 @@ function EquipmentSheet({
       model: editTarget.model ?? "",
       serialNumber: editTarget.serialNumber ?? "",
       patrimonyNumber: editTarget.patrimonyNumber ?? "",
+      anvisaNumber: editTarget.anvisaNumber ?? "",
+      invoiceNumber: editTarget.invoiceNumber ?? "",
       typeId: editTarget.type?.id ?? "",
       subtypeId: editTarget.subtype?.id ?? "",
       locationId: editTarget.location?.id ?? "",
@@ -199,7 +203,7 @@ function EquipmentSheet({
       criticality: editTarget.criticality,
       observations: editTarget.observations ?? "",
     } : {
-      name: "", brand: "", model: "", serialNumber: "", patrimonyNumber: "",
+      name: "", brand: "", model: "", serialNumber: "", patrimonyNumber: "", anvisaNumber: "", invoiceNumber: "",
       typeId: "", subtypeId: "", locationId: "", costCenterId: "",
       purchaseValue: "", purchaseDate: "", warrantyEnd: "", depreciationRate: "",
       btus: "", voltage: "", ipAddress: "", operatingSystem: "",
@@ -240,6 +244,8 @@ function EquipmentSheet({
       model: data.model || undefined,
       serialNumber: data.serialNumber || undefined,
       patrimonyNumber: data.patrimonyNumber || undefined,
+      anvisaNumber: data.anvisaNumber || undefined,
+      invoiceNumber: data.invoiceNumber || undefined,
       typeId: data.typeId || undefined,
       subtypeId: data.subtypeId || undefined,
       locationId: data.locationId || undefined,
@@ -317,6 +323,16 @@ function EquipmentSheet({
               <div className="space-y-2">
                 <Label htmlFor="eq-patri">Patrimônio</Label>
                 <Input id="eq-patri" placeholder="PAT-001" {...register("patrimonyNumber")} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="eq-anvisa">Nº ANVISA</Label>
+                <Input id="eq-anvisa" placeholder="80000000000" {...register("anvisaNumber")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="eq-invoice">Nº Nota Fiscal</Label>
+                <Input id="eq-invoice" placeholder="NF-001" {...register("invoiceNumber")} />
               </div>
             </div>
           </fieldset>

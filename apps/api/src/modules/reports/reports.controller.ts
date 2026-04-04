@@ -30,9 +30,15 @@ class OsFiltersDto {
 }
 
 class EquipmentFiltersDto {
-  @IsOptional() @IsUUID() clientId?: string
   @IsOptional() @IsString() status?: string
+  @IsOptional() @IsString() criticality?: string
   @IsOptional() @IsUUID() typeId?: string
+  @IsOptional() @IsUUID() locationId?: string
+  @IsOptional() @IsUUID() costCenterId?: string
+  /** 'status' | 'criticality' | 'type' | 'location' | 'costCenter' */
+  @IsOptional() @IsString() groupBy?: string
+  /** Comma-separated column keys, e.g. 'patrimony,name,brand,status' */
+  @IsOptional() @IsString() columns?: string
 }
 
 class PreventiveFiltersDto {
@@ -108,7 +114,8 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'EQUIPMENT')
-    const buffer = await this.reportsService.exportEquipmentExcel(cu.companyId!, filters)
+    const columns = filters.columns?.split(',').map((c) => c.trim()).filter(Boolean)
+    const buffer = await this.reportsService.exportEquipmentExcel(cu.companyId!, { ...filters, columns })
     this.sendFile(res, buffer, 'xlsx', `Equipamentos_${today()}`)
   }
 
@@ -121,7 +128,8 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'EQUIPMENT')
-    const buffer = await this.reportsService.exportEquipmentPdf(cu.companyId!, filters)
+    const columns = filters.columns?.split(',').map((c) => c.trim()).filter(Boolean)
+    const buffer = await this.reportsService.exportEquipmentPdf(cu.companyId!, { ...filters, columns })
     this.sendFile(res, buffer, 'pdf', `Equipamentos_${today()}`)
   }
 

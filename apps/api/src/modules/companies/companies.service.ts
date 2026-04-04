@@ -99,6 +99,14 @@ export class CompaniesService {
           phone: dto.phone,
           status: dto.status,
           trialEndsAt: dto.trialEndsAt ? new Date(dto.trialEndsAt) : null,
+          licenseExpiresAt: dto.licenseExpiresAt ? new Date(dto.licenseExpiresAt) : null,
+          street: dto.street,
+          number: dto.number,
+          complement: dto.complement,
+          neighborhood: dto.neighborhood,
+          city: dto.city,
+          state: dto.state,
+          zipCode: dto.zipCode,
         },
       })
 
@@ -172,6 +180,18 @@ export class CompaniesService {
         trialEndsAt: dto.trialEndsAt ? new Date(dto.trialEndsAt) : null,
       }),
       ...(dto.settings !== undefined && { settings: dto.settings }),
+      // Endereço
+      ...(dto.street !== undefined && { street: dto.street }),
+      ...(dto.number !== undefined && { number: dto.number }),
+      ...(dto.complement !== undefined && { complement: dto.complement }),
+      ...(dto.neighborhood !== undefined && { neighborhood: dto.neighborhood }),
+      ...(dto.city !== undefined && { city: dto.city }),
+      ...(dto.state !== undefined && { state: dto.state }),
+      ...(dto.zipCode !== undefined && { zipCode: dto.zipCode }),
+      // Visual dos relatórios
+      ...(dto.reportPrimaryColor !== undefined && { reportPrimaryColor: dto.reportPrimaryColor }),
+      ...(dto.reportSecondaryColor !== undefined && { reportSecondaryColor: dto.reportSecondaryColor }),
+      ...(dto.reportFooterText !== undefined && { reportFooterText: dto.reportFooterText }),
     })
   }
 
@@ -280,9 +300,17 @@ export class CompaniesService {
       where: { id: companyId },
       select: {
         name: true,
+        document: true,
         logoUrl: true,
         email: true,
         phone: true,
+        street: true,
+        number: true,
+        complement: true,
+        neighborhood: true,
+        city: true,
+        state: true,
+        zipCode: true,
         reportPrimaryColor: true,
         reportSecondaryColor: true,
         reportHeaderTitle: true,
@@ -290,15 +318,26 @@ export class CompaniesService {
       },
     })
 
+    const addressParts = [
+      company?.street && company?.number
+        ? `${company.street}, ${company.number}${company.complement ? ` ${company.complement}` : ''}`
+        : company?.street ?? null,
+      company?.neighborhood ?? null,
+      company?.city && company?.state ? `${company.city} — ${company.state}` : company?.city ?? null,
+      company?.zipCode ? `CEP ${company.zipCode}` : null,
+    ].filter(Boolean)
+
     return {
       companyName: company?.name ?? '',
+      document: company?.document ?? null,
       logoUrl: company?.logoUrl ?? null,
       primaryColor: company?.reportPrimaryColor ?? '#1E40AF',
       secondaryColor: company?.reportSecondaryColor ?? '#DBEAFE',
-      headerTitle: company?.reportHeaderTitle ?? `Relatório — ${company?.name}`,
+      headerTitle: company?.reportHeaderTitle ?? '',
       footerText: company?.reportFooterText ?? '',
       email: company?.email ?? '',
       phone: company?.phone ?? '',
+      address: addressParts.join(' · '),
     }
   }
 }
