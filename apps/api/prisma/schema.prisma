@@ -523,6 +523,8 @@ model Equipment {
   status               EquipmentStatus      @default(ACTIVE)
   criticality          EquipmentCriticality @default(MEDIUM)
   observations         String?
+  totalServiceOrders   Int                  @default(0)       @map("total_service_orders")
+  lastMaintenanceAt    DateTime?            @map("last_maintenance_at")
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt            DateTime             @updatedAt @map("updated_at")
   deletedAt            DateTime?            @map("deleted_at")
@@ -676,7 +678,7 @@ model ServiceOrder {
   @@index([companyId, status])
   @@index([groupId, isAvailable])
   @@index([isAvailable, createdAt])
-  @@index([equipmentId])
+  @@index([equipmentId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([createdAt])
   @@map("service_orders")
 }

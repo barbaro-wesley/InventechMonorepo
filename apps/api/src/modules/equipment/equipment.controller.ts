@@ -7,7 +7,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { EquipmentService } from './equipment.service'
-import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto } from './dto/equipment.dto'
+import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto, ListEquipmentServiceOrdersDto } from './dto/equipment.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -76,6 +76,16 @@ export class EquipmentController {
     @CurrentUser() cu: AuthenticatedUser,
   ) {
     return this.equipmentService.remove(id, cu.companyId!)
+  }
+
+  @Get(':id/service-orders')
+  @Permission('equipment:read')
+  findServiceOrders(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() filters: ListEquipmentServiceOrdersDto,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.equipmentService.findServiceOrders(id, cu, filters)
   }
 
   @Post(':id/depreciation')

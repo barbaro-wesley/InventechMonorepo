@@ -69,6 +69,7 @@ import {
   useUpdateEquipment,
   useDeleteEquipment,
   useRecalculateDepreciation,
+  useEquipmentServiceOrders,
 } from "@/hooks/equipment/use-equipment";
 import { useMovements, useCreateMovement, useReturnEquipment } from "@/hooks/equipment/use-movements";
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
@@ -76,8 +77,10 @@ import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
 import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-create-sheet";
 import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
+import { OsDetailDrawer } from "@/app/(operacional)/operacional/_components/os-detail-drawer";
 
-import type { Equipment, EquipmentStatus, EquipmentCriticality } from "@/services/equipment/equipment.service";
+import type { Equipment, EquipmentStatus, EquipmentCriticality, EquipmentServiceOrdersResponse } from "@/services/equipment/equipment.service";
+import type { InfiniteData } from "@tanstack/react-query";
 import type { Movement } from "@/services/equipment/movements.service";
 import { storageService } from "@/services/storage/storage.service";
 import QRCode from "react-qr-code";
@@ -704,6 +707,123 @@ function AttachmentIcon({ category }: { category: string }) {
   return <FileText className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />;
 }
 
+const OS_STATUS_LABEL: Record<string, string> = {
+  OPEN: "Aberta", AWAITING_PICKUP: "Aguardando", IN_PROGRESS: "Em andamento",
+  COMPLETED: "Concluída", COMPLETED_APPROVED: "Aprovada", COMPLETED_REJECTED: "Reprovada", CANCELLED: "Cancelada",
+};
+const OS_STATUS_COLOR: Record<string, string> = {
+  OPEN: "bg-slate-100 text-slate-700", AWAITING_PICKUP: "bg-amber-100 text-amber-700",
+  IN_PROGRESS: "bg-blue-100 text-blue-700", COMPLETED: "bg-violet-100 text-violet-700",
+  COMPLETED_APPROVED: "bg-emerald-100 text-emerald-700", COMPLETED_REJECTED: "bg-red-100 text-red-700",
+  CANCELLED: "bg-gray-100 text-gray-500",
+};
+const OS_TYPE_LABEL: Record<string, string> = {
+  PREVENTIVE: "Preventiva", CORRECTIVE: "Corretiva", INITIAL_ACCEPTANCE: "Aceite Inicial",
+  EXTERNAL_SERVICE: "Serviço Externo", TECHNOVIGILANCE: "Tecnovigilância",
+  TRAINING: "Treinamento", IMPROPER_USE: "Uso Indevido", DEACTIVATION: "Desativação",
+};
+const OS_PRIORITY_COLOR: Record<string, string> = {
+  LOW: "bg-slate-100 text-slate-600", MEDIUM: "bg-amber-100 text-amber-700",
+  HIGH: "bg-orange-100 text-orange-700", URGENT: "bg-red-100 text-red-700",
+};
+const OS_PRIORITY_LABEL: Record<string, string> = {
+  LOW: "Baixa", MEDIUM: "Média", HIGH: "Alta", URGENT: "Urgente",
+};
+
+function EquipmentHistoryTab({
+  historyData,
+  isLoading,
+  isFetchingNextPage,
+  hasNextPage,
+  onLoadMore,
+  onViewOs,
+}: {
+  historyData: InfiniteData<EquipmentServiceOrdersResponse> | undefined;
+  isLoading: boolean;
+  isFetchingNextPage: boolean;
+  hasNextPage: boolean;
+  onLoadMore: () => void;
+  onViewOs: (id: string, clientId: string | null) => void;
+}) {
+  const allItems = historyData?.pages.flatMap((p) => p.data) ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="mt-4 space-y-2 pb-6">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-20 rounded-lg border border-border bg-muted/30 animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (allItems.length === 0) {
+    return (
+      <div className="mt-4 py-12 text-center pb-6">
+        <ClipboardList className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+        <p className="text-xs text-muted-foreground">Nenhuma ordem de serviço registrada</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-2 pb-6">
+      {allItems.map((os) => (
+        <button
+          key={os.id}
+          type="button"
+          onClick={() => onViewOs(os.id, os.clientId)}
+          className="w-full text-left rounded-lg border border-border bg-card px-3 py-2.5 space-y-1.5 hover:bg-muted/40 transition-colors"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-mono text-muted-foreground flex-shrink-0">#{os.number}</span>
+              <span className="text-xs font-medium truncate">{os.title}</span>
+            </div>
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0 ${OS_STATUS_COLOR[os.status] ?? ""}`}>
+              {OS_STATUS_LABEL[os.status] ?? os.status}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+              {OS_TYPE_LABEL[os.maintenanceType] ?? os.maintenanceType}
+            </span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${OS_PRIORITY_COLOR[os.priority] ?? ""}`}>
+              {OS_PRIORITY_LABEL[os.priority] ?? os.priority}
+            </span>
+            {os.actualHours != null && (
+              <span className="text-[10px] text-muted-foreground">
+                {os.actualHours}h reais
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>
+              {os.technicians.length > 0
+                ? os.technicians.map((t) => t.technician.name).join(", ")
+                : os.requester?.name ?? "—"}
+            </span>
+            <span>{new Date(os.createdAt).toLocaleDateString("pt-BR")}</span>
+          </div>
+        </button>
+      ))}
+
+      {hasNextPage && (
+        <button
+          type="button"
+          disabled={isFetchingNextPage}
+          onClick={onLoadMore}
+          className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+        >
+          {isFetchingNextPage ? "Carregando..." : "Carregar mais"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DetailSheet({
   open,
   equipment,
@@ -719,7 +839,8 @@ function DetailSheet({
   onMove: (e: Equipment) => void;
   onPrint: (e: Equipment) => void;
 }) {
-  const [tab, setTab] = React.useState<"info" | "movements" | "attachments">("info");
+  const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history">("info");
+  const [selectedHistoryOs, setSelectedHistoryOs] = React.useState<{ id: string; clientId: string | null } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: movements = [], isLoading: movementsLoading } = useMovements(equipment?.id ?? "");
@@ -728,6 +849,13 @@ function DetailSheet({
   const deleteAttachment = useDeleteAttachment("EQUIPMENT", equipment?.id ?? "");
   const uploadAttachment = useUploadAttachment("EQUIPMENT", equipment?.id ?? "");
   const recalcDepreciation = useRecalculateDepreciation();
+  const {
+    data: historyData,
+    isLoading: historyLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useEquipmentServiceOrders(equipment?.id ?? "");
 
   if (!equipment) return null;
 
@@ -788,12 +916,12 @@ function DetailSheet({
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0 mt-4 border-b border-border">
-          {(["info", "movements", "attachments"] as const).map((t) => (
+        <div className="flex gap-0 mt-4 border-b border-border overflow-x-auto">
+          {(["info", "movements", "attachments", "history"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px ${
+              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
                 tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -801,7 +929,9 @@ function DetailSheet({
                 ? "Informações"
                 : t === "movements"
                 ? `Movimentações${movements.length ? ` (${movements.length})` : ""}`
-                : `Anexos${attachments.length ? ` (${attachments.length})` : ""}`}
+                : t === "attachments"
+                ? `Anexos${attachments.length ? ` (${attachments.length})` : ""}`
+                : `Histórico${equipment.totalServiceOrders ? ` (${equipment.totalServiceOrders})` : ""}`}
             </button>
           ))}
         </div>
@@ -939,6 +1069,25 @@ function DetailSheet({
             )}
           </div>
         )}
+
+        {/* ── History tab ── */}
+        {tab === "history" && (
+          <EquipmentHistoryTab
+            historyData={historyData}
+            isLoading={historyLoading}
+            isFetchingNextPage={isFetchingNextPage}
+            hasNextPage={!!hasNextPage}
+            onLoadMore={fetchNextPage}
+            onViewOs={(id, clientId) => setSelectedHistoryOs({ id, clientId })}
+          />
+        )}
+
+        <OsDetailDrawer
+          osId={selectedHistoryOs?.id ?? null}
+          clientId={selectedHistoryOs?.clientId ?? null}
+          open={!!selectedHistoryOs}
+          onClose={() => setSelectedHistoryOs(null)}
+        />
 
         {/* ── Attachments tab ── */}
         {tab === "attachments" && (

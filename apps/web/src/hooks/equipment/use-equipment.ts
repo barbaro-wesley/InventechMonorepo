@@ -1,10 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api";
 import {
   equipmentService,
   type Equipment,
   type ListEquipmentParams,
+  type ListEquipmentServiceOrdersParams,
   type CreateEquipmentDto,
   type UpdateEquipmentDto,
 } from "@/services/equipment/equipment.service";
@@ -14,6 +15,8 @@ export const equipmentKeys = {
   list: (params?: ListEquipmentParams) =>
     ["equipment", "list", params] as const,
   detail: (id: string) => ["equipment", id] as const,
+  history: (id: string, params?: Omit<ListEquipmentServiceOrdersParams, "cursor">) =>
+    ["equipment", id, "service-orders", params] as const,
 };
 
 export function useEquipment(params?: ListEquipmentParams) {
@@ -67,6 +70,24 @@ export function useDeleteEquipment() {
       toast.success("Equipamento removido!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
+  });
+}
+
+export function useEquipmentServiceOrders(
+  id: string,
+  params?: Omit<ListEquipmentServiceOrdersParams, "cursor">,
+) {
+  return useInfiniteQuery({
+    queryKey: equipmentKeys.history(id, params),
+    queryFn: ({ pageParam }) =>
+      equipmentService.listServiceOrders(id, {
+        ...params,
+        cursor: pageParam as string | undefined,
+      }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: !!id,
+    staleTime: 30 * 1000,
   });
 }
 

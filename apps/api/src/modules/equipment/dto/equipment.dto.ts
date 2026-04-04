@@ -3,7 +3,7 @@ import {
     IsString, IsUUID, Max, Min,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { EquipmentCriticality, EquipmentStatus } from '@prisma/client'
+import { EquipmentCriticality, EquipmentStatus, MaintenanceType, ServiceOrderStatus } from '@prisma/client'
 
 export class CreateEquipmentDto {
     @IsString()
@@ -146,5 +146,33 @@ export class ListEquipmentsDto {
     @IsOptional()
     @Type(() => Number)
     @IsInt() @Min(1) @Max(100)
+    limit?: number = 20
+}
+
+export class ListEquipmentServiceOrdersDto {
+    /** Cursor opaco (base64) retornado pela resposta anterior */
+    @IsOptional()
+    @IsString()
+    cursor?: string
+
+    @IsOptional()
+    @IsEnum(ServiceOrderStatus)
+    status?: ServiceOrderStatus
+
+    @IsOptional()
+    @IsEnum(MaintenanceType)
+    maintenanceType?: MaintenanceType
+
+    @IsOptional()
+    @IsDateString()
+    dateFrom?: string
+
+    @IsOptional()
+    @IsDateString()
+    dateTo?: string
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt() @Min(1) @Max(50)
     limit?: number = 20
 }

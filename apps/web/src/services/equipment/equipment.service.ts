@@ -35,7 +35,54 @@ export interface Equipment {
   location: { id: string; name: string } | null;
   currentLocation: { id: string; name: string } | null;
   costCenter: { id: string; name: string; code: string | null } | null;
+  totalServiceOrders: number;
+  lastMaintenanceAt: string | null;
   _count: { serviceOrders: number; maintenances: number; attachments: number };
+}
+
+export type ServiceOrderStatus =
+  | "OPEN" | "AWAITING_PICKUP" | "IN_PROGRESS"
+  | "COMPLETED" | "COMPLETED_APPROVED" | "COMPLETED_REJECTED" | "CANCELLED";
+
+export type ServiceOrderPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
+export type MaintenanceType =
+  | "PREVENTIVE" | "CORRECTIVE" | "INITIAL_ACCEPTANCE"
+  | "EXTERNAL_SERVICE" | "TECHNOVIGILANCE" | "TRAINING" | "IMPROPER_USE" | "DEACTIVATION";
+
+export interface EquipmentServiceOrder {
+  id: string;
+  clientId: string | null;
+  number: number;
+  title: string;
+  maintenanceType: MaintenanceType;
+  status: ServiceOrderStatus;
+  priority: ServiceOrderPriority;
+  estimatedHours: number | null;
+  actualHours: number | null;
+  scheduledFor: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  requester: { id: string; name: string } | null;
+  technicians: { role: string; technician: { id: string; name: string } }[];
+  _count: { comments: number; tasks: number };
+}
+
+export interface ListEquipmentServiceOrdersParams {
+  cursor?: string;
+  status?: ServiceOrderStatus;
+  maintenanceType?: MaintenanceType;
+  dateFrom?: string;
+  dateTo?: string;
+  limit?: number;
+}
+
+export interface EquipmentServiceOrdersResponse {
+  data: EquipmentServiceOrder[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
 export interface ListEquipmentParams {
@@ -116,6 +163,14 @@ export const equipmentService = {
 
   async recalculateDepreciation(id: string) {
     const { data } = await api.post(`/equipment/${id}/depreciation`);
+    return data;
+  },
+
+  async listServiceOrders(
+    id: string,
+    params?: ListEquipmentServiceOrdersParams,
+  ): Promise<EquipmentServiceOrdersResponse> {
+    const { data } = await api.get(`/equipment/${id}/service-orders`, { params });
     return data;
   },
 };

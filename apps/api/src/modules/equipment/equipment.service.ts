@@ -7,7 +7,7 @@ import {
 import { Prisma, AttachmentEntity } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
-import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto } from './dto/equipment.dto'
+import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto, ListEquipmentServiceOrdersDto } from './dto/equipment.dto'
 import { StorageService } from '../storage/storage.service'
 
 const EQUIPMENT_SELECT = {
@@ -35,6 +35,8 @@ const EQUIPMENT_SELECT = {
     voltage: true,
     power: true,
     observations: true,
+    totalServiceOrders: true,
+    lastMaintenanceAt: true,
     createdAt: true,
     updatedAt: true,
     type: { select: { id: true, name: true, group: { select: { id: true, name: true } } } },
@@ -388,5 +390,104 @@ export class EquipmentService {
             yearsElapsed: Number(yearsElapsed.toFixed(2)),
             depreciationRate: Number(equipment.depreciationRate),
         }
+    }
+
+    async findServiceOrders(
+        id: string,
+        currentUser: AuthenticatedUser,
+        filters: ListEquipmentServiceOrdersDto,
+    ) {
+        const { companyId } = await this.resolveScope(currentUser)
+
+        const equipment = await this.prisma.equipment.findFirst({
+            where: { id, companyId, deletedAt: null },
+            select: { id: true },
+        })
+        if (!equipment) throw new NotFoundException('Equipamento não encontrado')
+
+        const { cursor: rawCursor, status, maintenanceType, dateFrom, dateTo, limit = 20 } = filters
+
+        let cursorCondition: Prisma.ServiceOrderWhereInput | null = null
+        if (rawCursor) {
+            const decoded = JSON.parse(Buffer.from(rawCursor, 'base64').toString('utf-8')) as {
+                createdAt: string
+                id: string
+            }
+            cursorCondition = {
+                OR: [
+                    { createdAt: { lt: new Date(decoded.createdAt) } },
+                    { createdAt: { equals: new Date(decoded.createdAt) }, id: { lt: decoded.id } },
+                ],
+            }
+        }
+
+        const dateCondition: Prisma.ServiceOrderWhereInput | null =
+            dateFrom || dateTo
+                ? {
+                      createdAt: {
+                          ...(dateFrom && { gte: new Date(dateFrom) }),
+                          ...(dateTo && { lte: new Date(dateTo) }),
+                      },
+                  }
+                : null
+
+        const where: Prisma.ServiceOrderWhereInput = {
+            equipmentId: id,
+            companyId,
+            deletedAt: null,
+            ...(status && { status }),
+            ...(maintenanceType && { maintenanceType }),
+            AND: [
+                ...(cursorCondition ? [cursorCondition] : []),
+                ...(dateCondition ? [dateCondition] : []),
+            ],
+        }
+
+        const HISTORY_SELECT = {
+            id: true,
+            clientId: true,
+            number: true,
+            title: true,
+            maintenanceType: true,
+            status: true,
+            priority: true,
+            estimatedHours: true,
+            actualHours: true,
+            scheduledFor: true,
+            startedAt: true,
+            completedAt: true,
+            approvedAt: true,
+            createdAt: true,
+            requester: { select: { id: true, name: true } },
+            technicians: {
+                where: { releasedAt: null },
+                select: {
+                    role: true,
+                    technician: { select: { id: true, name: true } },
+                },
+            },
+            _count: { select: { comments: true, tasks: true } },
+        } satisfies Prisma.ServiceOrderSelect
+
+        const items = await this.prisma.serviceOrder.findMany({
+            where,
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            take: limit + 1,
+            select: HISTORY_SELECT,
+        })
+
+        const hasMore = items.length > limit
+        const data = hasMore ? items.slice(0, limit) : items
+
+        const nextCursor = hasMore
+            ? Buffer.from(
+                  JSON.stringify({
+                      createdAt: data[data.length - 1].createdAt,
+                      id: data[data.length - 1].id,
+                  }),
+              ).toString('base64')
+            : null
+
+        return { data, nextCursor, hasMore }
     }
 }

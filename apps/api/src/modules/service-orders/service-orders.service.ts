@@ -441,7 +441,11 @@ export class ServiceOrdersService {
                 },
             })
 
-            // Marca equipamento como em manutenção (somente se estiver ACTIVE)
+            // Incrementa contador de OS e marca equipamento como em manutenção
+            await tx.equipment.update({
+                where: { id: dto.equipmentId },
+                data: { totalServiceOrders: { increment: 1 } },
+            })
             await tx.equipment.updateMany({
                 where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
                 data: { status: EquipmentStatus.UNDER_MAINTENANCE },
@@ -839,7 +843,7 @@ export class ServiceOrdersService {
                 if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED && os.maintenanceType === MaintenanceType.DEACTIVATION) {
                     await tx.equipment.updateMany({
                         where: { id: os.equipmentId },
-                        data: { status: EquipmentStatus.INACTIVE },
+                        data: { status: EquipmentStatus.INACTIVE, lastMaintenanceAt: new Date() },
                     })
                 } else {
                     // Demais casos: reverter para ACTIVE apenas se não houver mais OS ativas
@@ -850,10 +854,15 @@ export class ServiceOrdersService {
                             status: { notIn: TERMINAL },
                         },
                     })
-                    if (activeOsCount === 0) {
+                    const equipmentUpdate: Record<string, unknown> = {}
+                    if (activeOsCount === 0) equipmentUpdate.status = EquipmentStatus.ACTIVE
+                    if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED) {
+                        equipmentUpdate.lastMaintenanceAt = new Date()
+                    }
+                    if (Object.keys(equipmentUpdate).length > 0) {
                         await tx.equipment.updateMany({
                             where: { id: os.equipmentId, status: EquipmentStatus.UNDER_MAINTENANCE },
-                            data: { status: EquipmentStatus.ACTIVE },
+                            data: equipmentUpdate,
                         })
                     }
                 }
