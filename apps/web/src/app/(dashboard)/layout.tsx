@@ -7,11 +7,11 @@ import {
     LayoutDashboard,
     ClipboardList,
     Wrench,
+    CalendarClock,
     BarChart3,
     Settings,
     LogOut,
     Menu,
-    Bell,
     Users,
     Building2,
     Contact,
@@ -27,6 +27,7 @@ import {
 
 import { useAuth } from "@/hooks/auth/use-auth";
 import { useCurrentUser } from "@/store/auth.store";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/auth";
@@ -88,6 +89,13 @@ const navSections: NavSection[] = [
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
                 permission: "equipment:list",
             },
+            {
+                label: "Preventivas (PMOC)",
+                href: "/preventivas",
+                icon: CalendarClock,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"],
+                permission: "maintenance-schedule:list",
+            },
         ],
     },
     {
@@ -103,7 +111,7 @@ const navSections: NavSection[] = [
                 permission: "user:list",
             },
             {
-                label: "Clientes",
+                label: "Prestadores",
                 href: "/clientes",
                 icon: Contact,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
@@ -442,12 +450,7 @@ export default function DashboardLayout({
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <button
-                            className="p-2 rounded-full transition-colors hover:bg-muted relative"
-                            style={{ color: "var(--muted-foreground)" }}
-                        >
-                            <Bell className="w-5 h-5" />
-                        </button>
+                        <NotificationBell />
 
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

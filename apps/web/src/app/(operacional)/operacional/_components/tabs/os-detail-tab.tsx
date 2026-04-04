@@ -1,11 +1,25 @@
 'use client'
 
-import { Calendar, Clock, Wrench, User, Users, Building2, Tag, FileText } from 'lucide-react'
+import { useState } from 'react'
+import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import type { ServiceOrderDetail } from '@/services/service-orders/service-orders.types'
+import { useAddTechnician, useRemoveTechnician } from '@/hooks/service-orders/use-service-orders'
+import { useUsers } from '@/hooks/users/use-users'
 import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo, formatDuration } from '../os-utils'
 
 interface OsDetailTabProps {
   os: ServiceOrderDetail
+  clientId: string
+  osId: string
+  canManage: boolean
 }
 
 function InfoRow({ icon: Icon, label, children }: {
@@ -39,9 +53,28 @@ function TechAvatar({ name }: { name: string }) {
   )
 }
 
-export function OsDetailTab({ os }: OsDetailTabProps) {
+export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps) {
   const priority = PRIORITY_CONFIG[os.priority]
   const status = STATUS_CONFIG[os.status]
+
+  const [selectedTechId, setSelectedTechId] = useState('')
+  const addTechnician = useAddTechnician(clientId, osId)
+  const removeTechnician = useRemoveTechnician(clientId, osId)
+
+  // Busca técnicos do mesmo prestador da OS
+  const { data: techData } = useUsers({ role: 'TECHNICIAN', clientId: os.client.id, limit: 100 })
+  const linkedIds = new Set(os.technicians.map((t) => t.technician.id))
+  const availableTechs = (techData?.data ?? []).filter((u) => !linkedIds.has(u.id))
+
+  const isTerminal = os.status === 'COMPLETED_APPROVED' || os.status === 'CANCELLED'
+
+  const handleAddTechnician = () => {
+    if (!selectedTechId) return
+    addTechnician.mutate(
+      { technicianId: selectedTechId, role: 'ASSISTANT' },
+      { onSuccess: () => setSelectedTechId('') },
+    )
+  }
 
   return (
     <div className="space-y-5 py-1">
@@ -74,7 +107,7 @@ export function OsDetailTab({ os }: OsDetailTabProps) {
             <span>{MAINTENANCE_TYPE_LABELS[os.maintenanceType]}</span>
           </InfoRow>
 
-          <InfoRow icon={Building2} label="Cliente">
+          <InfoRow icon={Building2} label="Prestador">
             <span>{os.client.name}</span>
           </InfoRow>
 
@@ -163,29 +196,72 @@ export function OsDetailTab({ os }: OsDetailTabProps) {
       </div>
 
       {/* Técnicos */}
-      {os.technicians.length > 0 && (
-        <div>
-          <p className="text-[11px] text-[#6c7c93] mb-3 font-medium uppercase tracking-wide">Técnicos</p>
-          <div className="space-y-2">
-            {os.technicians.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb]">
-                <TechAvatar name={t.technician.name} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#1d2530]">{t.technician.name}</p>
-                  <p className="text-xs text-[#6c7c93]">{t.technician.email}</p>
-                </div>
-                <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                  t.role === 'LEAD'
-                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                    : 'bg-slate-50 text-slate-600 border border-slate-200'
-                }`}>
-                  {t.role === 'LEAD' ? 'Responsável' : 'Auxiliar'}
-                </span>
-              </div>
-            ))}
-          </div>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] text-[#6c7c93] font-medium uppercase tracking-wide">Técnicos</p>
         </div>
-      )}
+
+        <div className="space-y-2">
+          {os.technicians.length === 0 && (
+            <p className="text-xs text-[#6c7c93] italic">Nenhum técnico vinculado</p>
+          )}
+          {os.technicians.map((t) => (
+            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb]">
+              <TechAvatar name={t.technician.name} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#1d2530]">{t.technician.name}</p>
+                <p className="text-xs text-[#6c7c93]">{t.technician.email}</p>
+              </div>
+              <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                t.role === 'LEAD'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                  : 'bg-slate-50 text-slate-600 border border-slate-200'
+              }`}>
+                {t.role === 'LEAD' ? 'Responsável' : 'Auxiliar'}
+              </span>
+              {canManage && !isTerminal && t.role !== 'LEAD' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-[#6c7c93] hover:text-red-500 shrink-0"
+                  disabled={removeTechnician.isPending}
+                  onClick={() => removeTechnician.mutate(t.technician.id)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+          ))}
+
+          {/* Adicionar técnico auxiliar */}
+          {canManage && !isTerminal && availableTechs.length > 0 && (
+            <div className="flex items-center gap-2 pt-1">
+              <Select value={selectedTechId} onValueChange={setSelectedTechId}>
+                <SelectTrigger className="h-8 text-xs flex-1 bg-[#f3f4f7] border-transparent">
+                  <SelectValue placeholder="Adicionar técnico auxiliar..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTechs.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                className="h-8 text-xs px-3 shrink-0"
+                disabled={!selectedTechId || addTechnician.isPending}
+                onClick={handleAddTechnician}
+              >
+                {addTechnician.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Resolução */}
       {os.resolution && (

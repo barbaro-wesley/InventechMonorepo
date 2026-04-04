@@ -27,10 +27,10 @@ export const ALL_ROLE_OPTIONS: { value: Role; label: string; forRoles: Role[] }[
   { value: "SUPER_ADMIN",     label: "Super Admin",        forRoles: [] },
   { value: "COMPANY_ADMIN",   label: "Administrador",      forRoles: ["SUPER_ADMIN"] },
   { value: "COMPANY_MANAGER", label: "Gerente",            forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN"] },
-  { value: "TECHNICIAN",      label: "Técnico",            forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"] },
-  { value: "CLIENT_ADMIN",    label: "Admin do Cliente",   forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"] },
-  { value: "CLIENT_USER",     label: "Usuário do Cliente", forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
-  { value: "CLIENT_VIEWER",   label: "Visualizador",       forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
+  { value: "TECHNICIAN",      label: "Técnico",            forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
+  { value: "CLIENT_ADMIN",    label: "Admin do Prestador",   forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"] },
+  { value: "CLIENT_USER",     label: "Usuário do Prestador", forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
+  { value: "CLIENT_VIEWER",   label: "Visualizador Prestador", forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
   { value: "MEMBER",          label: "Membro",             forRoles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"] },
 ];
 

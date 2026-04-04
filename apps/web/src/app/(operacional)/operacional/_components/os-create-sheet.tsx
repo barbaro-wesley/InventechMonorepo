@@ -117,9 +117,9 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
         </SheetHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* Cliente */}
+          {/* Prestador */}
           <div className="space-y-1.5">
-            <Label>Cliente <span className="text-red-500">*</span></Label>
+            <Label>Prestador <span className="text-red-500">*</span></Label>
             <Select
               onValueChange={(v) => {
                 form.setValue('clientId', v)
@@ -127,7 +127,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
               }}
             >
               <SelectTrigger className={form.formState.errors.clientId ? 'border-red-500' : ''}>
-                <SelectValue placeholder="Selecione o cliente" />
+                <SelectValue placeholder="Selecione o prestador" />
               </SelectTrigger>
               <SelectContent>
                 {clients.map((c) => (
@@ -148,7 +148,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
               disabled={!selectedClientId}
             >
               <SelectTrigger className={form.formState.errors.equipmentId ? 'border-red-500' : ''}>
-                <SelectValue placeholder={selectedClientId ? 'Selecione o equipamento' : 'Selecione um cliente primeiro'} />
+                <SelectValue placeholder={selectedClientId ? 'Selecione o equipamento' : 'Selecione um prestador primeiro'} />
               </SelectTrigger>
               <SelectContent>
                 {equipment.map((e) => (

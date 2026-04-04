@@ -49,12 +49,19 @@ export class NotificationsGateway
     // ─────────────────────────────────────────
     // Conexão — autentica o socket via token JWT
     // ─────────────────────────────────────────
+    private parseCookieToken(cookieHeader: string | undefined): string | null {
+        if (!cookieHeader) return null
+        const match = cookieHeader.match(/(?:^|;\s*)access_token=([^;]+)/)
+        return match ? decodeURIComponent(match[1]) : null
+    }
+
     async handleConnection(client: Socket) {
         try {
-            // Extrai token do cookie ou do header
+            // Extrai token do cookie HTTP-only, do handshake.auth ou do header Authorization
             const token =
                 client.handshake.auth?.token ||
-                client.handshake.headers?.authorization?.replace('Bearer ', '')
+                client.handshake.headers?.authorization?.replace('Bearer ', '') ||
+                this.parseCookieToken(client.handshake.headers?.cookie as string)
 
             if (!token) {
                 this.logger.warn(`Socket desconectado — sem token: ${client.id}`)

@@ -217,7 +217,7 @@ export default function UsuariosPage() {
                             <TableHead>Perfil</TableHead>
                             <TableHead>Status</TableHead>
                             {isSuperAdmin && <TableHead>Empresa</TableHead>}
-                            {isSuperAdmin && <TableHead>Cliente</TableHead>}
+                            {isSuperAdmin && <TableHead>Prestador</TableHead>}
                             <TableHead>Último acesso</TableHead>
                             <TableHead className="w-10" />
                         </TableRow>

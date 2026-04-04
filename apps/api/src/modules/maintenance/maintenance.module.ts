@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bull'
 import { MaintenanceService, MAINTENANCE_QUEUE } from './maintenance.service'
-import { MaintenanceController, ScheduleController } from './maintenance.controller'
+import { MaintenanceController, ScheduleController, CompanyScheduleController } from './maintenance.controller'
 import { MaintenanceProcessor } from './processors/maintenance.processor'
 import { MaintenanceCronJobs } from './schedule/maintenance-cron.jobs'
 import { NotificationsModule } from '../notifications/notifications.module'
@@ -25,6 +25,7 @@ import { NotificationsModule } from '../notifications/notifications.module'
     ],
     controllers: [
         MaintenanceController,
+        CompanyScheduleController,
         ScheduleController,
     ],
     providers: [

@@ -87,7 +87,7 @@ export interface ServiceOrderStatusHistory {
   toStatus: ServiceOrderStatus
   reason: string | null
   createdAt: string
-  changedBy: { id: string; name: string }
+  changedBy: { id: string; name: string } | null
 }
 
 export interface ServiceOrderDetail extends ServiceOrder {

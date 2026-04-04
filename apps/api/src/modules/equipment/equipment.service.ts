@@ -37,7 +37,7 @@ const EQUIPMENT_SELECT = {
     observations: true,
     createdAt: true,
     updatedAt: true,
-    type: { select: { id: true, name: true } },
+    type: { select: { id: true, name: true, group: { select: { id: true, name: true } } } },
     subtype: { select: { id: true, name: true } },
     location: { select: { id: true, name: true } },
     currentLocation: { select: { id: true, name: true } },

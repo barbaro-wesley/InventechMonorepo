@@ -30,7 +30,7 @@ export interface Equipment {
   observations: string | null;
   createdAt: string;
   updatedAt: string;
-  type: { id: string; name: string } | null;
+  type: { id: string; name: string; group: { id: string; name: string } | null } | null;
   subtype: { id: string; name: string } | null;
   location: { id: string; name: string } | null;
   currentLocation: { id: string; name: string } | null;

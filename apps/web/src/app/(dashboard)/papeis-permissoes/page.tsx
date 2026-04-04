@@ -42,9 +42,9 @@ const ROLE_LABEL: Record<string, string> = {
   COMPANY_ADMIN: "Admin Empresa",
   COMPANY_MANAGER: "Gerente",
   TECHNICIAN: "Técnico",
-  CLIENT_ADMIN: "Admin Cliente",
-  CLIENT_USER: "Usuário Cliente",
-  CLIENT_VIEWER: "Visualizador",
+  CLIENT_ADMIN: "Admin Prestador",
+  CLIENT_USER: "Usuário Prestador",
+  CLIENT_VIEWER: "Visualizador Prestador",
 };
 
 const ROLE_COLOR: Record<string, string> = {
@@ -65,7 +65,7 @@ const RESOURCE_LABEL: Record<string, string> = {
   "movement": "Movimentos",
   "storage": "Arquivos",
   "user": "Usuários",
-  "client": "Clientes",
+  "client": "Prestadores",
   "service-order": "Ordens de Serviço",
   "maintenance": "Manutenções",
   "maintenance-schedule": "Agend. Preventivos",

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bull'
 import type { Queue } from 'bull'
-import { Prisma, RecurrenceType, ServiceOrderStatus, ServiceOrderTechnicianRole } from '@prisma/client'
+import { Prisma, RecurrenceType, ServiceOrderStatus, ServiceOrderTechnicianRole, EquipmentStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import {
@@ -46,6 +46,7 @@ const MAINTENANCE_SELECT = {
 const SCHEDULE_SELECT = {
     id: true,
     companyId: true,
+    clientId: true,
     title: true,
     description: true,
     maintenanceType: true,
@@ -59,8 +60,9 @@ const SCHEDULE_SELECT = {
     isActive: true,
     createdAt: true,
     updatedAt: true,
-    equipment: { select: { id: true, name: true } },
+    equipment: { select: { id: true, name: true, brand: true, model: true } },
     group: { select: { id: true, name: true, color: true } },
+    client: { select: { id: true, name: true } },
     _count: { select: { maintenances: true } },
 } satisfies Prisma.MaintenanceScheduleSelect
 
@@ -195,14 +197,31 @@ export class MaintenanceService {
     async findAllSchedules(
         companyId: string,
         filters: ListSchedulesDto,
+        clientId?: string,
     ) {
-        const { equipmentId, recurrenceType, isActive, page = 1, limit = 20 } = filters
+        const { search, equipmentId, maintenanceType, recurrenceType, isActive, page = 1, limit = 20 } = filters
+
+        // Restrição por grupo: mesma lógica do equipment service
+        // Usuário cliente só vê agendamentos dos grupos vinculados ao seu cliente
+        const allowedGroupIds = await this.resolveAllowedGroupIds(clientId)
 
         const where: Prisma.MaintenanceScheduleWhereInput = {
             companyId,
+            ...(clientId && { clientId }),
+            // Se allowedGroupIds for um array vazio, o cliente não tem grupos → retorna nada
+            // Se for null, usuário de empresa → sem restrição de grupo
+            ...(allowedGroupIds !== null && { groupId: { in: allowedGroupIds } }),
             ...(equipmentId && { equipmentId }),
+            ...(maintenanceType && { maintenanceType }),
             ...(recurrenceType && { recurrenceType }),
             ...(isActive !== undefined && { isActive }),
+            ...(search && {
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { equipment: { name: { contains: search, mode: 'insensitive' } } },
+                    { client: { name: { contains: search, mode: 'insensitive' } } },
+                ],
+            }),
         }
 
         const [data, total] = await this.prisma.$transaction([
@@ -219,9 +238,33 @@ export class MaintenanceService {
         return { data, total, page, limit }
     }
 
-    async findOneSchedule(id: string, companyId: string) {
+    /**
+     * Retorna os groupIds permitidos para um clientId.
+     * - null  → usuário de empresa, sem restrição de grupo
+     * - []    → cliente sem grupos atribuídos, não vê nada
+     * - [ids] → cliente com grupos ativos
+     */
+    private async resolveAllowedGroupIds(clientId?: string): Promise<string[] | null> {
+        if (!clientId) return null
+
+        const clientGroups = await this.prisma.clientMaintenanceGroup.findMany({
+            where: { clientId, isActive: true },
+            select: { groupId: true },
+        })
+
+        return clientGroups.map((cg) => cg.groupId)
+    }
+
+    async findOneSchedule(id: string, companyId: string, clientId?: string) {
+        const allowedGroupIds = await this.resolveAllowedGroupIds(clientId)
+
         const schedule = await this.prisma.maintenanceSchedule.findFirst({
-            where: { id, companyId },
+            where: {
+                id,
+                companyId,
+                ...(clientId && { clientId }),
+                ...(allowedGroupIds !== null && { groupId: { in: allowedGroupIds } }),
+            },
             select: SCHEDULE_SELECT,
         })
         if (!schedule) throw new NotFoundException('Agendamento não encontrado')
@@ -230,7 +273,7 @@ export class MaintenanceService {
 
     async createSchedule(
         dto: CreateScheduleDto,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
@@ -250,14 +293,15 @@ export class MaintenanceService {
 
         const startDate = new Date(dto.startDate)
 
-        // Primeira execução = startDate
-        const nextRunAt = startDate < new Date()
-            ? calculateNextRunAt(dto.recurrenceType, new Date(), dto.customIntervalDays)
-            : startDate
+        // Se startDate é no passado, usa startDate diretamente como nextRunAt
+        // para que o trigger dispare a geração imediatamente.
+        // Se for futuro, agenda para startDate.
+        const nextRunAt = startDate
 
         const schedule = await this.prisma.maintenanceSchedule.create({
             data: {
                 companyId,
+                ...(clientId && { clientId }),
                 title: dto.title,
                 description: dto.description,
                 maintenanceType: dto.maintenanceType,
@@ -267,9 +311,8 @@ export class MaintenanceService {
                 startDate,
                 endDate: dto.endDate ? new Date(dto.endDate) : null,
                 nextRunAt,
-                equipmentId: dto.equipmentId,        // ✅ ID direto
-                // ✅ Remove client: { connect } — clientId já está acima
-                ...(dto.groupId && { groupId: dto.groupId }), // ✅ ID direto
+                equipmentId: dto.equipmentId,
+                ...(dto.groupId && { groupId: dto.groupId }),
                 ...(dto.assignedTechnicianId && {
                     assignedTechnicianId: dto.assignedTechnicianId,
                 }),
@@ -384,6 +427,7 @@ export class MaintenanceService {
             select: {
                 id: true,
                 companyId: true,
+                clientId: true,
                 title: true,
                 description: true,
                 maintenanceType: true,
@@ -425,6 +469,7 @@ export class MaintenanceService {
                     const os = await tx.serviceOrder.create({
                         data: {
                             companyId: schedule.companyId,
+                            ...(schedule.clientId && { clientId: schedule.clientId }),
                             equipmentId: schedule.equipmentId,
                             number,
                             title: `[PREVENTIVA] ${schedule.title}`,
@@ -434,12 +479,8 @@ export class MaintenanceService {
                             isAvailable,
                             alertAfterHours: 4,
                             priority: 'MEDIUM',
-                            // ✅ Troca o objeto connect por ID direto
                             requesterId: await this.getCompanyAdminId(schedule.companyId, tx),
-                            // ✅ Remove equipment: { connect } — equipmentId já está acima
-                            ...(schedule.groupId && {
-                                groupId: schedule.groupId, // ✅ Usa ID direto também
-                            }),
+                            ...(schedule.groupId && { groupId: schedule.groupId }),
                         },
                         select: { id: true, number: true },
                     })
@@ -462,6 +503,12 @@ export class MaintenanceService {
                             changedById: await this.getCompanyAdminId(schedule.companyId, tx),
                             reason: `Gerada automaticamente pelo agendamento "${schedule.title}"`,
                         },
+                    })
+
+                    // Marca equipamento como em manutenção (somente se estiver ACTIVE)
+                    await tx.equipment.updateMany({
+                        where: { id: schedule.equipmentId, status: EquipmentStatus.ACTIVE },
+                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
                     })
 
                     // Cria registro de manutenção vinculado à OS

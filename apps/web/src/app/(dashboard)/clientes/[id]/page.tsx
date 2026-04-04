@@ -676,7 +676,7 @@ export default function ClientDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-96 gap-4">
         <XCircle className="w-12 h-12 text-red-400" />
-        <p className="text-slate-500">Cliente não encontrado ou sem permissão de acesso.</p>
+        <p className="text-slate-500">Prestador não encontrado ou sem permissão de acesso.</p>
         <Button variant="outline" onClick={() => router.push("/clientes")}>
           <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
         </Button>

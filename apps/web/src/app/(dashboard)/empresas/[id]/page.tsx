@@ -528,9 +528,9 @@ function UsersTab({ companyId }: { companyId: string }) {
                     <SelectItem value="COMPANY_ADMIN">Administrador</SelectItem>
                     <SelectItem value="COMPANY_MANAGER">Gerente</SelectItem>
                     <SelectItem value="TECHNICIAN">Técnico</SelectItem>
-                    <SelectItem value="CLIENT_ADMIN">Admin do Cliente</SelectItem>
-                    <SelectItem value="CLIENT_USER">Usuário do Cliente</SelectItem>
-                    <SelectItem value="CLIENT_VIEWER">Visualizador</SelectItem>
+                    <SelectItem value="CLIENT_ADMIN">Admin do Prestador</SelectItem>
+                    <SelectItem value="CLIENT_USER">Usuário do Prestador</SelectItem>
+                    <SelectItem value="CLIENT_VIEWER">Visualizador Prestador</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -968,7 +968,7 @@ export default function EmpresaDetailPage() {
   const TABS: { key: Tab; label: string; count?: number }[] = [
     { key: "overview", label: "Visão geral" },
     { key: "users", label: "Usuários", count: company._count?.users },
-    { key: "clients", label: "Clientes", count: company._count?.clients },
+    { key: "clients", label: "Prestadores", count: company._count?.clients },
   ];
 
   return (
@@ -1058,7 +1058,7 @@ export default function EmpresaDetailPage() {
               </div>
             </div>
             <div>
-              <p className="text-xs text-slate-400 mb-1">Clientes</p>
+              <p className="text-xs text-slate-400 mb-1">Prestadores</p>
               <div className="flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-slate-400" />
                 <span className="text-2xl font-semibold text-slate-900 dark:text-slate-100">

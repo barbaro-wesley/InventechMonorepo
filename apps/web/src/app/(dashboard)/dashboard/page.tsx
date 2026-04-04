@@ -240,7 +240,7 @@ function SuperAdminDashboard() {
           sub={`${userMetrics.active} ativos`}
         />
         <StatCard
-          label="Clientes"
+          label="Prestadores"
           value={clientMetrics.total}
           icon={Contact}
           accent="bg-emerald-500"

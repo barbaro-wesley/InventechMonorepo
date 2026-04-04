@@ -194,7 +194,7 @@ export function ClientUsersDrawer({
                         <SelectContent>
                           {createForm.watch("customRoleId") && <SelectItem value="_none">Nenhum</SelectItem>}
                           <SelectItem value="TECHNICIAN">Técnico</SelectItem>
-                          <SelectItem value="CLIENT_USER">Usuário do Cliente</SelectItem>
+                          <SelectItem value="CLIENT_USER">Usuário do Prestador</SelectItem>
                           <SelectItem value="MEMBER">Membro</SelectItem>
                         </SelectContent>
                       </Select>

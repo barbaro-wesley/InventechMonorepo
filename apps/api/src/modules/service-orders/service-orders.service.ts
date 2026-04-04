@@ -11,6 +11,8 @@ import {
     ServiceOrderStatus,
     ServiceOrderTechnicianRole,
     UserRole,
+    EquipmentStatus,
+    MaintenanceType,
 } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -305,6 +307,7 @@ export class ServiceOrdersService {
                         toStatus: true,
                         reason: true,
                         createdAt: true,
+                        changedBy: { select: { id: true, name: true } },
                     },
                     orderBy: { createdAt: 'asc' },
                 },
@@ -314,9 +317,14 @@ export class ServiceOrdersService {
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
 
         if (currentUser.role === UserRole.TECHNICIAN) {
-            const isLinked = os.technicians.some((t) => t.technician.id === currentUser.sub)
-            if (!isLinked && !os.isAvailable) {
-                throw new ForbiddenException('Acesso negado a esta OS')
+            // Técnico vinculado a um prestador pode ver qualquer OS do seu prestador
+            // (a query já está filtrada por clientId)
+            if (!currentUser.clientId) {
+                // Técnico interno: só vê OS em que está vinculado ou que estão disponíveis
+                const isLinked = os.technicians.some((t) => t.technician.id === currentUser.sub)
+                if (!isLinked && !os.isAvailable) {
+                    throw new ForbiddenException('Acesso negado a esta OS')
+                }
             }
         }
 
@@ -433,6 +441,12 @@ export class ServiceOrdersService {
                 },
             })
 
+            // Marca equipamento como em manutenção (somente se estiver ACTIVE)
+            await tx.equipment.updateMany({
+                where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
+                data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+            })
+
             return created
         })
 
@@ -497,11 +511,25 @@ export class ServiceOrdersService {
         }
 
         if (os.groupId) {
-            const inGroup = await this.prisma.technicianGroup.findFirst({
-                where: { userId: currentUser.sub, groupId: os.groupId, isActive: true },
-                select: { id: true },
-            })
-            if (!inGroup) {
+            let authorized = false
+
+            if (currentUser.clientId) {
+                // Técnico vinculado a um prestador: verifica se o prestador atende esse grupo
+                const clientGroup = await this.prisma.clientMaintenanceGroup.findFirst({
+                    where: { clientId: currentUser.clientId, groupId: os.groupId, isActive: true },
+                    select: { id: true },
+                })
+                authorized = !!clientGroup
+            } else {
+                // Técnico interno: verifica vínculo direto com o grupo
+                const techGroup = await this.prisma.technicianGroup.findFirst({
+                    where: { userId: currentUser.sub, groupId: os.groupId, isActive: true },
+                    select: { id: true },
+                })
+                authorized = !!techGroup
+            }
+
+            if (!authorized) {
                 throw new ForbiddenException('Você não pertence ao grupo responsável por esta OS')
             }
         }
@@ -804,6 +832,33 @@ export class ServiceOrdersService {
                 },
             })
 
+            // Se OS chegou a estado terminal, atualiza status do equipamento
+            const TERMINAL: ServiceOrderStatus[] = [ServiceOrderStatus.COMPLETED_APPROVED, ServiceOrderStatus.CANCELLED]
+            if (TERMINAL.includes(finalStatus) && os.equipmentId) {
+                // OS de desativação aprovada → inativar o equipamento diretamente
+                if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED && os.maintenanceType === MaintenanceType.DEACTIVATION) {
+                    await tx.equipment.updateMany({
+                        where: { id: os.equipmentId },
+                        data: { status: EquipmentStatus.INACTIVE },
+                    })
+                } else {
+                    // Demais casos: reverter para ACTIVE apenas se não houver mais OS ativas
+                    const activeOsCount = await tx.serviceOrder.count({
+                        where: {
+                            equipmentId: os.equipmentId,
+                            deletedAt: null,
+                            status: { notIn: TERMINAL },
+                        },
+                    })
+                    if (activeOsCount === 0) {
+                        await tx.equipment.updateMany({
+                            where: { id: os.equipmentId, status: EquipmentStatus.UNDER_MAINTENANCE },
+                            data: { status: EquipmentStatus.ACTIVE },
+                        })
+                    }
+                }
+            }
+
             return result
         })
 
@@ -848,7 +903,7 @@ export class ServiceOrdersService {
     private async findExisting(id: string, clientId: string, companyId: string) {
         const os = await this.prisma.serviceOrder.findFirst({
             where: { id, clientId, companyId, deletedAt: null },
-            select: { id: true, number: true, status: true },
+            select: { id: true, number: true, status: true, equipmentId: true, maintenanceType: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
         return os

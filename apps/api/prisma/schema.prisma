@@ -240,10 +240,11 @@ model Client {
 
   company Company @relation(fields: [companyId], references: [id])
 
-  users             User[]
-  serviceOrders     ServiceOrder[]
-  maintenances      Maintenance[]
-  maintenanceGroups ClientMaintenanceGroup[]
+  users                User[]
+  serviceOrders        ServiceOrder[]
+  maintenances         Maintenance[]
+  maintenanceSchedules MaintenanceSchedule[]
+  maintenanceGroups    ClientMaintenanceGroup[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -288,6 +289,7 @@ model User {
   movementsApproved       EquipmentMovement[]       @relation("MovementApprover")
   maintenancesExecuted    Maintenance[]
   technicianGroups        TechnicianGroup[]
+  statusHistoryChanges    ServiceOrderStatusHistory[]
   loginAttempts           LoginAttempt[]
   accountBlocks           AccountBlock[]
   twoFactorCodes          TwoFactorCode[]
@@ -544,6 +546,7 @@ model Equipment {
 model MaintenanceSchedule {
   id                   String          @id @default(uuid())
   companyId            String          @map("company_id")
+  clientId             String?         @map("client_id")
   equipmentId          String          @map("equipment_id")
   groupId              String?         @map("group_id")
   title                String
@@ -563,10 +566,12 @@ model MaintenanceSchedule {
 
   equipment Equipment         @relation(fields: [equipmentId], references: [id])
   group     MaintenanceGroup? @relation(fields: [groupId], references: [id])
+  client    Client?           @relation(fields: [clientId], references: [id])
 
   maintenances Maintenance[]
 
   @@index([companyId])
+  @@index([companyId, clientId])
   @@index([nextRunAt, isActive])
   @@index([equipmentId])
   @@map("maintenance_schedules")
@@ -704,6 +709,7 @@ model ServiceOrderStatusHistory {
   createdAt      DateTime            @default(now()) @map("created_at")
 
   serviceOrder ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  changedBy    User         @relation(fields: [changedById], references: [id])
 
   @@index([serviceOrderId])
   @@map("service_order_status_history")

@@ -31,6 +31,7 @@ import {
   Monitor,
   DollarSign,
   ClipboardList,
+  CalendarClock,
   MoreHorizontal,
   Printer,
 } from "lucide-react";
@@ -73,6 +74,8 @@ import { useMovements, useCreateMovement, useReturnEquipment } from "@/hooks/equ
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
+import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-create-sheet";
+import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
 
 import type { Equipment, EquipmentStatus, EquipmentCriticality } from "@/services/equipment/equipment.service";
 import type { Movement } from "@/services/equipment/movements.service";
@@ -549,6 +552,8 @@ function EquipmentCard({
   onMove,
   onDelete,
   onPrint,
+  onCreateOs,
+  onCreateSchedule,
 }: {
   equipment: Equipment;
   onView: (e: Equipment) => void;
@@ -556,6 +561,8 @@ function EquipmentCard({
   onMove: (e: Equipment) => void;
   onDelete: (e: Equipment) => void;
   onPrint: (e: Equipment) => void;
+  onCreateOs: (e: Equipment) => void;
+  onCreateSchedule: (e: Equipment) => void;
 }) {
   return (
     <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -637,6 +644,12 @@ function EquipmentCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onCreateOs(equipment)}>
+              <ClipboardList className="w-3.5 h-3.5 mr-2" />Nova OS
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onCreateSchedule(equipment)}>
+              <CalendarClock className="w-3.5 h-3.5 mr-2" />Agendar Preventiva
+            </DropdownMenuItem>
             {equipment.status === "ACTIVE" && (
               <DropdownMenuItem onClick={() => onMove(equipment)}>
                 <ArrowRightLeft className="w-3.5 h-3.5 mr-2" />Movimentar
@@ -1341,6 +1354,8 @@ export default function EquipamentosPage() {
   const [detailSheet, setDetailSheet] = useState<Equipment | null>(null);
   const [moveSheet, setMoveSheet] = useState<Equipment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
+  const [osSheet, setOsSheet] = useState<Equipment | null>(null);
+  const [scheduleSheet, setScheduleSheet] = useState<Equipment | null>(null);
 
   const searchParams = useSearchParams();
   const detailId = searchParams.get("detail");
@@ -1551,6 +1566,8 @@ export default function EquipamentosPage() {
                 onMove={setMoveSheet}
                 onDelete={setDeleteTarget}
                 onPrint={setQrTarget}
+                onCreateOs={setOsSheet}
+                onCreateSchedule={setScheduleSheet}
               />
             ))}
           </div>
@@ -1586,6 +1603,18 @@ export default function EquipamentosPage() {
         open={!!qrTarget}
         equipment={qrTarget}
         onClose={() => setQrTarget(null)}
+      />
+
+      <EquipmentOsCreateSheet
+        equipment={osSheet}
+        open={!!osSheet}
+        onClose={() => setOsSheet(null)}
+      />
+
+      <EquipmentScheduleCreateSheet
+        equipment={scheduleSheet}
+        open={!!scheduleSheet}
+        onClose={() => setScheduleSheet(null)}
       />
 
       {/* ── Delete ── */}

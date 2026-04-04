@@ -60,8 +60,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   COMPANY_ADMIN: 'Administrador',
   COMPANY_MANAGER: 'Gerente',
   TECHNICIAN: 'Técnico',
-  CLIENT_ADMIN: 'Admin do Cliente',
-  CLIENT_USER: 'Usuário',
-  CLIENT_VIEWER: 'Visualizador',
+  CLIENT_ADMIN: 'Admin do Prestador',
+  CLIENT_USER: 'Usuário do Prestador',
+  CLIENT_VIEWER: 'Visualizador do Prestador',
   MEMBER: 'Membro',
 };

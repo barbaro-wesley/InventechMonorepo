@@ -7,6 +7,7 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
+  SheetTitle,
 } from '@/components/ui/sheet'
 import {
   DropdownMenu,
@@ -133,6 +134,9 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           side="right"
           className="w-full sm:w-[680px] sm:max-w-[680px] p-0 flex flex-col gap-0"
         >
+          <SheetTitle className="sr-only">
+            {os ? `OS #${os.number} — ${os.title}` : 'Detalhes da OS'}
+          </SheetTitle>
           {isLoading || !os ? (
             <div className="flex-1 flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-[#6c7c93]" />
@@ -259,7 +263,14 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
 
               {/* Tab content */}
               <div className="flex-1 overflow-y-auto px-6 py-4">
-                {activeTab === 'details' && <OsDetailTab os={os} />}
+                {activeTab === 'details' && (
+                  <OsDetailTab
+                    os={os}
+                    clientId={clientId ?? ''}
+                    osId={osId}
+                    canManage={MANAGER_ROLES.includes(user?.role ?? '')}
+                  />
+                )}
                 {activeTab === 'tasks' && (
                   <OsTasksTab
                     clientId={clientId ?? ''}

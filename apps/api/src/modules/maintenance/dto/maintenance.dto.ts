@@ -186,10 +186,23 @@ export class UpdateScheduleDto {
     isActive?: boolean
 }
 
+export class ToggleScheduleDto {
+    @IsBoolean()
+    isActive: boolean
+}
+
 export class ListSchedulesDto {
+    @IsOptional()
+    @IsString()
+    search?: string
+
     @IsOptional()
     @IsUUID()
     equipmentId?: string
+
+    @IsOptional()
+    @IsEnum(MaintenanceType)
+    maintenanceType?: MaintenanceType
 
     @IsOptional()
     @IsEnum(RecurrenceType)
@@ -197,6 +210,7 @@ export class ListSchedulesDto {
 
     @IsOptional()
     @IsBoolean()
+    @Type(() => Boolean)
     isActive?: boolean
 
     @IsOptional()

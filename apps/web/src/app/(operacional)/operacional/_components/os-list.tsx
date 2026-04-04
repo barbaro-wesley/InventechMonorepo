@@ -27,7 +27,7 @@ export function OsList({ orders, onRowClick }: OsListProps) {
           <tr>
             <th className="text-left px-4 py-3 text-xs font-semibold text-[#6c7c93] w-16">#</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-[#6c7c93]">Título</th>
-            <th className="text-left px-4 py-3 text-xs font-semibold text-[#6c7c93] hidden md:table-cell">Cliente</th>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-[#6c7c93] hidden md:table-cell">Prestador</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-[#6c7c93] hidden lg:table-cell">Tipo</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-[#6c7c93]">Status</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-[#6c7c93]">Prioridade</th>

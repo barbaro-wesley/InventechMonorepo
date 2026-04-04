@@ -389,7 +389,7 @@ export default function ClientesPage() {
           </div>
           <div>
             <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Clientes
+              Prestadores
             </h1>
             <p className="text-sm text-slate-500 mt-0.5">
               {!isLoading && total > 0
@@ -403,7 +403,7 @@ export default function ClientesPage() {
 
         <Button onClick={() => setCreateOpen(true)} className="flex-shrink-0">
           <Plus className="w-4 h-4 mr-2" />
-          Novo cliente
+          Novo prestador
         </Button>
       </div>
 
@@ -411,7 +411,7 @@ export default function ClientesPage() {
       <div className="relative w-full sm:w-72">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         <Input
-          placeholder="Buscar cliente..."
+          placeholder="Buscar prestador..."
           className="pl-9"
           value={search}
           onChange={(e) => {
@@ -444,7 +444,7 @@ export default function ClientesPage() {
           {!hasFilters && (
             <Button size="sm" className="mt-5" onClick={() => setCreateOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              Novo cliente
+              Novo prestador
             </Button>
           )}
         </div>
@@ -496,9 +496,9 @@ export default function ClientesPage() {
       >
         <DrawerContent>
           <DrawerHeader>
-            <DrawerTitle>Novo cliente</DrawerTitle>
+            <DrawerTitle>Novo prestador</DrawerTitle>
             <DrawerDescription>
-              Preencha os dados abaixo para cadastrar um novo cliente.
+              Preencha os dados abaixo para cadastrar um novo prestador.
             </DrawerDescription>
           </DrawerHeader>
 
@@ -516,7 +516,7 @@ export default function ClientesPage() {
                   <Label htmlFor="name">Nome *</Label>
                   <Input
                     id="name"
-                    placeholder="Nome do cliente"
+                    placeholder="Nome do prestador"
                     className="mt-1.5"
                     {...createForm.register("name")}
                   />
@@ -551,7 +551,7 @@ export default function ClientesPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="contato@cliente.com"
+                    placeholder="contato@prestador.com"
                     className="mt-1.5"
                     {...createForm.register("email")}
                   />
@@ -649,7 +649,7 @@ export default function ClientesPage() {
                   <Input
                     id="admin-email"
                     type="email"
-                    placeholder="admin@cliente.com"
+                    placeholder="admin@prestador.com"
                     className="mt-1.5"
                     {...createForm.register("admin.email")}
                   />

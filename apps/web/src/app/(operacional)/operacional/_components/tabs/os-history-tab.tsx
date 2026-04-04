@@ -67,11 +67,13 @@ export function OsHistoryTab({ history }: OsHistoryTabProps) {
 
                     {/* Metadados */}
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[11px] font-medium text-[#1d2530]">
-                        {h.changedBy.name}
-                      </span>
+                      {h.changedBy && (
+                        <span className="text-[11px] font-medium text-[#1d2530]">
+                          {h.changedBy.name}
+                        </span>
+                      )}
                       <span className="text-[10px] text-[#6c7c93]">
-                        · {timeAgo(h.createdAt)}
+                        {h.changedBy ? '· ' : ''}{timeAgo(h.createdAt)}
                       </span>
                     </div>
                   </div>
