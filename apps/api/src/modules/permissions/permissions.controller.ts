@@ -36,14 +36,14 @@ export class PermissionsController {
   @Get('matrix')
   @Permission('permission:read')
   async getMatrix(@CurrentUser() cu: AuthenticatedUser) {
-    let overrideMap = new Map<string, string[]>()
-    if (cu.companyId) {
-      const overrides = await this.permissionsService.findAllByCompany(cu.companyId)
-      overrideMap = new Map(overrides.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles]))
-    }
+    // SA (companyId = null) → busca overrides globais
+    // CA/outros → busca overrides da empresa (com fallback nos globais)
+    const overrides = await this.permissionsService.findAllByCompany(cu.companyId ?? null)
+    const overrideMap = new Map(overrides.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles]))
 
     const matrix = Object.entries(DEFAULT_PERMISSIONS).map(([key, defaultRoles]) => {
-      const [resource, action] = key.split(':')
+      const [resource, ...rest] = key.split(':')
+      const action = rest.join(':')
       const override = overrideMap.get(key)
       return {
         resource,
@@ -64,12 +64,7 @@ export class PermissionsController {
     @Body() dto: UpsertResourcePermissionDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.permissionsService.upsert(
-      cu.companyId!,
-      dto.resource,
-      dto.action,
-      dto.allowedRoles,
-    )
+    return this.permissionsService.upsert(cu.companyId ?? null, dto.resource, dto.action, dto.allowedRoles)
   }
 
   @Delete()
@@ -79,13 +74,13 @@ export class PermissionsController {
     @Body() dto: RemoveResourcePermissionDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.permissionsService.remove(cu.companyId!, dto.resource, dto.action)
+    return this.permissionsService.remove(cu.companyId ?? null, dto.resource, dto.action)
   }
 
   @Patch('reset')
   @HttpCode(HttpStatus.OK)
   @Permission('permission:manage')
   reset(@CurrentUser() cu: AuthenticatedUser) {
-    return this.permissionsService.reset(cu.companyId!)
+    return this.permissionsService.reset(cu.companyId ?? null)
   }
 }

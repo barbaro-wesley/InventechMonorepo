@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
+import { Prisma, UserRole } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import {
   DEFAULT_PERMISSIONS,
@@ -70,41 +70,59 @@ export class PermissionsService {
     action: string,
   ): Promise<UserRole[]> {
     const permKey = `${resource}:${action}`
+    const protected_ = PROTECTED_MINIMUMS[permKey] ?? []
 
-    if (companyId) {
-      const cacheKey = `${companyId}:${permKey}`
+    const applyProtected = (roles: UserRole[]) =>
+      [...new Set([...roles, ...protected_])]
+
+    // Helper: busca override no banco (funciona com companyId null = global)
+    const fetchOverride = async (cid: string | null) => {
+      const cacheKey = `${cid ?? '__global__'}:${permKey}`
       const cached = this.systemCache.get(cacheKey)
-      if (cached && cached.expiresAt > Date.now()) {
-        return cached.value
+      if (cached && cached.expiresAt > Date.now()) return cached.value
+
+      const override = cid
+        ? await this.prisma.resourcePermission.findUnique({
+            where: { companyId_resource_action: { companyId: cid, resource, action } },
+            select: { allowedRoles: true },
+          })
+        : await this.prisma.resourcePermission.findFirst({
+            where: { companyId: null, resource, action } as Prisma.ResourcePermissionWhereInput,
+            select: { allowedRoles: true },
+          })
+
+      const value = override?.allowedRoles?.length
+        ? applyProtected(override.allowedRoles as UserRole[])
+        : null
+
+      if (value) {
+        this.systemCache.set(cacheKey, { value, expiresAt: Date.now() + CACHE_TTL_MS })
       }
-
-      const override = await this.prisma.resourcePermission.findUnique({
-        where: { companyId_resource_action: { companyId, resource, action } },
-        select: { allowedRoles: true },
-      })
-
-      if (override?.allowedRoles?.length) {
-        // Garante que os mínimos protegidos nunca sejam removidos
-        const protected_ = PROTECTED_MINIMUMS[permKey] ?? []
-        const merged = [...new Set([...override.allowedRoles as UserRole[], ...protected_])]
-
-        this.systemCache.set(cacheKey, {
-          value: merged,
-          expiresAt: Date.now() + CACHE_TTL_MS,
-        })
-        return merged
-      }
-
-      // Sem override → usa default (também cacheado)
-      const defaultRoles = DEFAULT_PERMISSIONS[permKey] ?? []
-      this.systemCache.set(cacheKey, {
-        value: defaultRoles,
-        expiresAt: Date.now() + CACHE_TTL_MS,
-      })
-      return defaultRoles
+      return value
     }
 
-    return DEFAULT_PERMISSIONS[permKey] ?? []
+    if (companyId) {
+      // 1. Override da empresa
+      const companyOverride = await fetchOverride(companyId)
+      if (companyOverride) return companyOverride
+
+      // 2. Override global (null)
+      const globalOverride = await fetchOverride(null)
+      if (globalOverride) return globalOverride
+    } else {
+      // SA sem empresa: verifica override global
+      const globalOverride = await fetchOverride(null)
+      if (globalOverride) return globalOverride
+    }
+
+    // 3. Default em código
+    const defaultRoles = DEFAULT_PERMISSIONS[permKey] ?? []
+    const cacheKey = `${companyId ?? '__global__'}:${permKey}`
+    this.systemCache.set(cacheKey, {
+      value: defaultRoles,
+      expiresAt: Date.now() + CACHE_TTL_MS,
+    })
+    return defaultRoles
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -138,11 +156,10 @@ export class PermissionsService {
   // Invalidação de cache — chamada após write operations
   // ─────────────────────────────────────────────────────────────────────────────
 
-  invalidateCompanyCache(companyId: string): void {
+  invalidateCompanyCache(companyId: string | null): void {
+    const prefix = `${companyId ?? '__global__'}:`
     for (const key of this.systemCache.keys()) {
-      if (key.startsWith(`${companyId}:`)) {
-        this.systemCache.delete(key)
-      }
+      if (key.startsWith(prefix)) this.systemCache.delete(key)
     }
   }
 
@@ -158,56 +175,76 @@ export class PermissionsService {
   // Helpers para o PermissionsController
   // ─────────────────────────────────────────────────────────────────────────────
 
-  async findAllByCompany(companyId: string) {
+  async findAllByCompany(companyId: string | null) {
     return this.prisma.resourcePermission.findMany({
-      where: { companyId },
+      where: { companyId } as Prisma.ResourcePermissionWhereInput,
       orderBy: [{ resource: 'asc' }, { action: 'asc' }],
     })
   }
 
   async upsert(
-    companyId: string,
+    companyId: string | null,
     resource: string,
     action: string,
     allowedRoles: string[],
   ) {
     const permKey = `${resource}:${action}`
 
-    // Valida roles
     const valid = allowedRoles.filter((r) =>
       Object.values(UserRole).includes(r as UserRole),
     ) as UserRole[]
 
-    // Força os mínimos protegidos
     const protected_ = PROTECTED_MINIMUMS[permKey] ?? []
     const merged = [...new Set([...valid, ...protected_])]
 
-    const result = await this.prisma.resourcePermission.upsert({
-      where: { companyId_resource_action: { companyId, resource, action } },
-      create: { companyId, resource, action, allowedRoles: merged },
-      update: { allowedRoles: merged },
-    })
+    let result: Awaited<ReturnType<typeof this.prisma.resourcePermission.create>>
+
+    if (companyId) {
+      result = await this.prisma.resourcePermission.upsert({
+        where: { companyId_resource_action: { companyId, resource, action } },
+        create: { companyId, resource, action, allowedRoles: merged },
+        update: { allowedRoles: merged },
+      })
+    } else {
+      // global (null): upsert manual pois compound unique não suporta null no Prisma
+      const existing = await this.prisma.resourcePermission.findFirst({
+        where: { companyId: null, resource, action } as Prisma.ResourcePermissionWhereInput,
+      })
+      result = existing
+        ? await this.prisma.resourcePermission.update({
+            where: { id: existing.id },
+            data: { allowedRoles: merged },
+          })
+        : await this.prisma.resourcePermission.create({
+            data: { companyId: null, resource, action, allowedRoles: merged },
+          })
+    }
 
     this.invalidateCompanyCache(companyId)
     return result
   }
 
-  async remove(companyId: string, resource: string, action: string) {
-    const existing = await this.prisma.resourcePermission.findUnique({
-      where: { companyId_resource_action: { companyId, resource, action } },
-    })
+  async remove(companyId: string | null, resource: string, action: string) {
+    const existing = companyId
+      ? await this.prisma.resourcePermission.findUnique({
+          where: { companyId_resource_action: { companyId, resource, action } },
+        })
+      : await this.prisma.resourcePermission.findFirst({
+          where: { companyId: null, resource, action } as Prisma.ResourcePermissionWhereInput,
+        })
+
     if (!existing) return { message: 'Override não encontrado — já usa o padrão' }
 
-    await this.prisma.resourcePermission.delete({
-      where: { companyId_resource_action: { companyId, resource, action } },
-    })
+    await this.prisma.resourcePermission.delete({ where: { id: existing.id } })
 
     this.invalidateCompanyCache(companyId)
     return { message: `Override de ${resource}:${action} removido — voltou ao padrão` }
   }
 
-  async reset(companyId: string) {
-    await this.prisma.resourcePermission.deleteMany({ where: { companyId } })
+  async reset(companyId: string | null) {
+    await this.prisma.resourcePermission.deleteMany({
+      where: { companyId } as Prisma.ResourcePermissionWhereInput,
+    })
     this.invalidateCompanyCache(companyId)
     return { message: 'Todas as permissões restauradas para os padrões do sistema' }
   }

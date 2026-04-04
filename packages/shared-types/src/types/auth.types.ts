@@ -48,6 +48,7 @@ export const ROLE_HIERARCHY: Record<UserRole, number> = {
   CLIENT_ADMIN: 3,
   CLIENT_USER: 2,
   CLIENT_VIEWER: 1,
+  MEMBER: 0,
 };
 
 export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
@@ -62,4 +63,5 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   CLIENT_ADMIN: 'Admin do Cliente',
   CLIENT_USER: 'Usuário',
   CLIENT_VIEWER: 'Visualizador',
+  MEMBER: 'Membro',
 };

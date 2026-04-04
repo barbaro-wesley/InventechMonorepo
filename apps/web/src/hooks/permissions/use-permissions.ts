@@ -30,10 +30,29 @@ export function useUpsertPermission() {
   return useMutation({
     mutationFn: ({ resource, action, allowedRoles }: { resource: string; action: string; allowedRoles: string[] }) =>
       permissionsService.upsert(resource, action, allowedRoles),
-    onSuccess: () => {
+    onMutate: async ({ resource, action, allowedRoles }) => {
+      await queryClient.cancelQueries({ queryKey: permissionKeys.matrix() });
+      const previous = queryClient.getQueryData(permissionKeys.matrix());
+      queryClient.setQueryData(permissionKeys.matrix(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          matrix: old.matrix.map((item: any) =>
+            item.resource === resource && item.action === action
+              ? { ...item, effectiveRoles: allowedRoles, isOverridden: true }
+              : item,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (e, _, context) => {
+      queryClient.setQueryData(permissionKeys.matrix(), context?.previous);
+      toast.error(getErrorMessage(e));
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.all });
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
   });
 }
 
@@ -42,10 +61,29 @@ export function useRemovePermission() {
   return useMutation({
     mutationFn: ({ resource, action }: { resource: string; action: string }) =>
       permissionsService.remove(resource, action),
-    onSuccess: () => {
+    onMutate: async ({ resource, action }) => {
+      await queryClient.cancelQueries({ queryKey: permissionKeys.matrix() });
+      const previous = queryClient.getQueryData(permissionKeys.matrix());
+      queryClient.setQueryData(permissionKeys.matrix(), (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          matrix: old.matrix.map((item: any) =>
+            item.resource === resource && item.action === action
+              ? { ...item, effectiveRoles: item.defaultRoles, isOverridden: false }
+              : item,
+          ),
+        };
+      });
+      return { previous };
+    },
+    onError: (e, _, context) => {
+      queryClient.setQueryData(permissionKeys.matrix(), context?.previous);
+      toast.error(getErrorMessage(e));
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: permissionKeys.all });
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
   });
 }
 
@@ -67,7 +105,7 @@ export function useCustomRoles(targetCompanyId?: string) {
   return useQuery({
     queryKey: [...permissionKeys.customRoles(), targetCompanyId],
     queryFn: () => customRolesService.list(targetCompanyId),
-    enabled: targetCompanyId !== undefined ? !!targetCompanyId : true,
+    enabled: targetCompanyId !== undefined,
   });
 }
 

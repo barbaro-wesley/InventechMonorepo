@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     LayoutDashboard,
     ClipboardList,
@@ -152,7 +152,7 @@ const navSections: NavSection[] = [
                 label: "Papéis & Permissões",
                 href: "/papeis-permissoes",
                 icon: ShieldCheck,
-                roles: ["SUPER_ADMIN"],
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
                 permission: "permission:manage",
             },
         ],
@@ -188,10 +188,24 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const router = useRouter();
     const { logout, isLoggingOut } = useAuth();
     const user = useCurrentUser();
     const permissions = usePermissions();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    // Route guard: bloqueia acesso direto por URL a rotas sem permissão
+    useEffect(() => {
+        if (!user) return;
+        const allNavItems = navSections.flatMap((s) => s.items);
+        const matched = allNavItems.find(
+            (item) => pathname === item.href || pathname.startsWith(item.href + "/")
+        );
+        if (!matched) return; // /perfil e páginas não listadas são sempre acessíveis
+        if (!matched.roles.includes(user.role as Role)) {
+            router.replace("/dashboard");
+        }
+    }, [pathname, user, router]);
     const [collapsed, setCollapsed] = useState(false);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         operacoes: true,

@@ -54,10 +54,17 @@ const createUserSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
   email: z.email("E-mail inválido"),
   password: z.string().min(6, "Mínimo 6 caracteres"),
-  role: z.enum(["CLIENT_ADMIN", "CLIENT_USER", "CLIENT_VIEWER"], {
-    message: "O papel base é obrigatório para definir a hierarquia no sistema."
-  }),
+  role: z.enum(["TECHNICIAN", "CLIENT_USER", "MEMBER"]).optional(),
+  customRoleId: z.string().optional(),
   phone: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.role && !data.customRoleId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["role"],
+      message: "Informe o papel de sistema ou selecione um papel personalizado.",
+    });
+  }
 });
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
@@ -91,7 +98,7 @@ export function ClientUsersDrawer({
 
   const createForm = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { name: "", email: "", password: "", role: "" as any, phone: "" },
+    defaultValues: { name: "", email: "", password: "", role: undefined, customRoleId: "", phone: "" },
   });
 
   function handleCreate(formData: CreateUserForm) {
@@ -101,11 +108,11 @@ export function ClientUsersDrawer({
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        role: formData.role,
+        ...(formData.role ? { role: formData.role } : {}),
         phone: formData.phone || undefined,
         clientId: client.id,
         companyId: client.companyId,
-      },
+      } as any,
       {
         onSuccess: () => {
           setCreateOpen(false);
@@ -170,20 +177,30 @@ export function ClientUsersDrawer({
                       )}
                     </div>
                     <div>
-                      <Label htmlFor="u-role">Papel *</Label>
+                      <Label htmlFor="u-role">
+                        Papel
+                        {createForm.watch("customRoleId")
+                          ? <span className="ml-1 font-normal text-muted-foreground">(opcional)</span>
+                          : <span className="ml-0.5 text-red-500">*</span>
+                        }
+                      </Label>
                       <Select
-                        value={createForm.watch("role")}
-                        onValueChange={(v) => createForm.setValue("role", v as CreateUserForm["role"])}
+                        value={createForm.watch("role") ?? ""}
+                        onValueChange={(v) => createForm.setValue("role", (v === "_none" ? undefined : v) as CreateUserForm["role"])}
                       >
                         <SelectTrigger id="u-role" className="mt-1.5">
-                          <SelectValue />
+                          <SelectValue placeholder={createForm.watch("customRoleId") ? "Nenhum" : "Selecione"} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="CLIENT_ADMIN">Admin do Cliente</SelectItem>
+                          {createForm.watch("customRoleId") && <SelectItem value="_none">Nenhum</SelectItem>}
+                          <SelectItem value="TECHNICIAN">Técnico</SelectItem>
                           <SelectItem value="CLIENT_USER">Usuário do Cliente</SelectItem>
-                          <SelectItem value="CLIENT_VIEWER">Visualizador</SelectItem>
+                          <SelectItem value="MEMBER">Membro</SelectItem>
                         </SelectContent>
                       </Select>
+                      {createForm.formState.errors.role && (
+                        <p className="mt-1 text-xs text-red-500">{createForm.formState.errors.role.message}</p>
+                      )}
                     </div>
                     <div className="sm:col-span-2">
                       <Label htmlFor="u-phone">Telefone</Label>

@@ -22,6 +22,7 @@ enum UserRole {
   CLIENT_ADMIN
   CLIENT_USER
   CLIENT_VIEWER
+  MEMBER        // Sem permissões de sistema; acesso definido apenas pelo papel personalizado
 }
 
 enum UserStatus {
@@ -881,14 +882,14 @@ model ReportPermission {
 
 model ResourcePermission {
   id           String   @id @default(uuid())
-  companyId    String   @map("company_id")
+  companyId    String?  @map("company_id") // null = global (SA-managed)
   resource     String   // ex: "equipment", "service-order"
   action       String   // ex: "create", "delete", "list"
   allowedRoles String[] @map("allowed_roles") // ex: ["COMPANY_ADMIN", "TECHNICIAN"]
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, resource, action])
   @@index([companyId])

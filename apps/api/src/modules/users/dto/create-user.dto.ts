@@ -20,8 +20,9 @@ export class CreateUserDto {
   @MinLength(6, { message: 'Senha deve ter no mínimo 6 caracteres' })
   password: string
 
+  @IsOptional()
   @IsEnum(UserRole, { message: 'Papel inválido' })
-  role: UserRole
+  role?: UserRole
 
   // Opcional — preenchido automaticamente pelo service
   // com base no usuário logado quando não informado

@@ -20,6 +20,7 @@ export interface User {
     id: string;
     name: string;
   } | null;
+  lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, MoreHorizontal, Loader2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Loader2, Clock } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -87,11 +87,18 @@ const createUserSchema = z.object({
         "CLIENT_ADMIN",
         "CLIENT_USER",
         "CLIENT_VIEWER",
-    ], {
-        message: "O papel base é obrigatório para definir a hierarquia no sistema."
-    }),
+        "MEMBER",
+    ]).optional(),
     customRoleId: z.string().optional(),
     phone: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (!data.role && !data.customRoleId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["role"],
+            message: "Informe o papel de sistema ou selecione um papel personalizado.",
+        });
+    }
 });
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
@@ -111,6 +118,7 @@ function getInitials(name: string) {
 export default function UsuariosPage() {
     const permissions = usePermissions();
     const currentUser = useCurrentUser();
+    const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [createOpen, setCreateOpen] = useState(false);
@@ -135,12 +143,13 @@ export default function UsuariosPage() {
 
     const form = useForm<CreateUserForm>({
         resolver: zodResolver(createUserSchema),
-        defaultValues: { name: "", email: "", password: "", phone: "", customRoleId: "", role: "" as any },
+        defaultValues: { name: "", email: "", password: "", phone: "", customRoleId: "", role: undefined },
     });
 
     function handleCreate(formData: CreateUserForm) {
-        const { customRoleId, ...userDto } = formData;
-        createUser.mutate(userDto, {
+        const { customRoleId, role, ...rest } = formData;
+        const userDto = { ...rest, ...(role ? { role } : {}) };
+        createUser.mutate(userDto as any, {
             onSuccess: (created) => {
                 // Se papel personalizado selecionado, atribuir logo após criar
                 if (customRoleId && created?.id) {
@@ -207,20 +216,22 @@ export default function UsuariosPage() {
                             <TableHead>Usuário</TableHead>
                             <TableHead>Perfil</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead>Telefone</TableHead>
+                            {isSuperAdmin && <TableHead>Empresa</TableHead>}
+                            {isSuperAdmin && <TableHead>Cliente</TableHead>}
+                            <TableHead>Último acesso</TableHead>
                             <TableHead className="w-10" />
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-12">
+                                <TableCell colSpan={isSuperAdmin ? 7 : 5} className="text-center py-12">
                                     <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" />
                                 </TableCell>
                             </TableRow>
                         ) : (data?.data?.length ?? 0) === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center py-12 text-slate-400 text-sm">
+                                <TableCell colSpan={isSuperAdmin ? 7 : 5} className="text-center py-12 text-slate-400 text-sm">
                                     Nenhum usuário encontrado.
                                 </TableCell>
                             </TableRow>
@@ -264,10 +275,29 @@ export default function UsuariosPage() {
                                                 {status.label}
                                             </Badge>
                                         </TableCell>
+                                        {isSuperAdmin && (
+                                            <TableCell>
+                                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                                    {user.company?.name ?? <span className="text-slate-400">—</span>}
+                                                </span>
+                                            </TableCell>
+                                        )}
+                                        {isSuperAdmin && (
+                                            <TableCell>
+                                                <span className="text-sm text-slate-600 dark:text-slate-400">
+                                                    {user.client?.name ?? <span className="text-slate-400">—</span>}
+                                                </span>
+                                            </TableCell>
+                                        )}
                                         <TableCell>
-                                            <span className="text-sm text-slate-500">
-                                                {user.phone ?? "—"}
-                                            </span>
+                                            {user.lastLoginAt ? (
+                                                <div className="flex items-center gap-1.5 text-sm text-slate-500">
+                                                    <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                                                    <span>{new Date(user.lastLoginAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-slate-400">Nunca</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             {permissions.canManageUsers && (
@@ -404,16 +434,25 @@ export default function UsuariosPage() {
                             </div>
 
                             <div>
-                                <Label htmlFor="role">Papel de sistema</Label>
+                                <Label htmlFor="role">
+                                    Papel de sistema
+                                    {form.watch("customRoleId") && (
+                                        <span className="ml-1.5 font-normal text-muted-foreground">(opcional com papel personalizado)</span>
+                                    )}
+                                </Label>
                                 <Select
+                                    value={form.watch("role") ?? ""}
                                     onValueChange={(value: string) =>
-                                        form.setValue("role", value as CreateUserForm["role"])
+                                        form.setValue("role", (value === "_none" || !value ? undefined : value) as CreateUserForm["role"])
                                     }
                                 >
                                     <SelectTrigger className="mt-1.5">
-                                        <SelectValue placeholder="Selecione o papel" />
+                                        <SelectValue placeholder={form.watch("customRoleId") ? "Nenhum (usar só papel personalizado)" : "Selecione o papel"} />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        {form.watch("customRoleId") && (
+                                            <SelectItem value="_none">Nenhum</SelectItem>
+                                        )}
                                         <SelectGroup>
                                             <SelectLabel className="text-xs text-muted-foreground">Papéis de sistema</SelectLabel>
                                             {roleOptions.map((option) => (

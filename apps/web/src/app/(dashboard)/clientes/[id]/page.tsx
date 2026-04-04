@@ -197,9 +197,6 @@ function UsersTab({ client }: { client: Client }) {
   });
 
   function handleCreate(formData: CreateUserForm) {
-    // TECHNICIAN é funcionário da empresa — não leva clientId
-    // CLIENT_VIEWER é usuário do cliente — leva clientId
-    const isTechnician = formData.role === "TECHNICIAN";
     createUser.mutate(
       {
         name: formData.name,
@@ -207,7 +204,7 @@ function UsersTab({ client }: { client: Client }) {
         password: formData.password,
         role: formData.role,
         phone: formData.phone || undefined,
-        clientId: isTechnician ? undefined : client.id,
+        clientId: client.id,
         companyId: client.companyId,
       },
       {

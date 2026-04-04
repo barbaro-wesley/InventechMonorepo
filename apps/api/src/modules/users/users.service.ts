@@ -27,6 +27,7 @@ const CLIENT_ROLES = [
   UserRole.CLIENT_ADMIN,
   UserRole.CLIENT_USER,
   UserRole.CLIENT_VIEWER,
+  UserRole.MEMBER,
 ]
 
 @Injectable()
@@ -63,14 +64,20 @@ export class UsersService {
   // ─────────────────────────────────────────
   async create(dto: CreateUserDto, currentUser: AuthenticatedUser) {
     this.ensureCompanyScope(currentUser)
-    this.validateRolePermission(dto.role, currentUser)
+
+    if (!dto.role && !dto.customRoleId) {
+      throw new BadRequestException('Informe o papel de sistema ou um papel personalizado')
+    }
+
+    const role = dto.role ?? UserRole.MEMBER
+    this.validateRolePermission(role, currentUser)
 
     const emailTaken = await this.usersRepository.emailExists(dto.email)
     if (emailTaken) throw new ConflictException('Este email já está em uso')
 
-    const { companyId, clientId } = this.resolveTenantIds(dto, currentUser)
+    const { companyId, clientId } = this.resolveTenantIds({ ...dto, role }, currentUser)
 
-    if ((CLIENT_ROLES as UserRole[]).includes(dto.role) && !clientId) {
+    if ((CLIENT_ROLES as UserRole[]).includes(role) && !clientId) {
       throw new BadRequestException('clientId é obrigatório para usuários do tipo cliente')
     }
 
@@ -81,7 +88,7 @@ export class UsersService {
       name: dto.name,
       email: dto.email,
       passwordHash,
-      role: dto.role,
+      role,
       status: UserStatus.UNVERIFIED,  // ← era ACTIVE antes
       phone: dto.phone,
       telegramChatId: dto.telegramChatId,
@@ -213,12 +220,12 @@ export class UsersService {
     if (currentRole === UserRole.COMPANY_ADMIN && role !== UserRole.SUPER_ADMIN) return
     if (
       currentRole === UserRole.COMPANY_MANAGER &&
-      ([...CLIENT_ROLES, UserRole.TECHNICIAN] as UserRole[]).includes(role)
+      ([...CLIENT_ROLES, UserRole.TECHNICIAN, UserRole.MEMBER] as UserRole[]).includes(role)
     ) return
-    // CLIENT_ADMIN pode criar CLIENT_USER e CLIENT_VIEWER dentro do seu próprio cliente
+    // CLIENT_ADMIN pode criar CLIENT_USER, CLIENT_VIEWER, TECHNICIAN e MEMBER dentro do seu próprio cliente
     if (
       currentRole === UserRole.CLIENT_ADMIN &&
-      ([UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER] as UserRole[]).includes(role)
+      ([UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER, UserRole.TECHNICIAN, UserRole.MEMBER] as UserRole[]).includes(role)
     ) return
     throw new ForbiddenException(`Você não tem permissão para criar usuários com o papel: ${role}`)
   }
@@ -232,6 +239,7 @@ export class UsersService {
       [UserRole.CLIENT_ADMIN]: 30,
       [UserRole.CLIENT_USER]: 20,
       [UserRole.CLIENT_VIEWER]: 10,
+      [UserRole.MEMBER]: 5,
     }
     if (hierarchy[targetRole] >= hierarchy[currentUser.role]) {
       throw new ForbiddenException('Você não pode editar um usuário com papel igual ou superior ao seu')
@@ -243,7 +251,12 @@ export class UsersService {
       return { companyId: dto.companyId ?? null, clientId: dto.clientId ?? null }
     }
     const companyId = currentUser.companyId!
-    const clientId = dto.clientId ?? ((CLIENT_ROLES as UserRole[]).includes(dto.role) ? currentUser.clientId : null)
+    // CLIENT_ADMIN sempre cria usuários no contexto do seu cliente (mesmo técnicos)
+    const isClientRole = dto.role ? (CLIENT_ROLES as UserRole[]).includes(dto.role) : true
+    const fallbackClientId = (isClientRole || currentUser.role === UserRole.CLIENT_ADMIN)
+      ? currentUser.clientId
+      : null
+    const clientId = dto.clientId ?? fallbackClientId
     return { companyId, clientId }
   }
 }

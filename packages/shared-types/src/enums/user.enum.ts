@@ -6,6 +6,7 @@ export const UserRole = {
   CLIENT_ADMIN: 'CLIENT_ADMIN',
   CLIENT_USER: 'CLIENT_USER',
   CLIENT_VIEWER: 'CLIENT_VIEWER',
+  MEMBER: 'MEMBER',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 

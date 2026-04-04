@@ -20,6 +20,8 @@ export const USER_SAFE_SELECT = {
   lastLoginIp: true,
   createdAt: true,
   updatedAt: true,
+  company: { select: { id: true, name: true, slug: true } },
+  client: { select: { id: true, name: true } },
 } satisfies Prisma.UserSelect
 
 export type SafeUser = Prisma.UserGetPayload<{ select: typeof USER_SAFE_SELECT }>

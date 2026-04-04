@@ -27,10 +27,9 @@ export class CreateServiceOrderDto {
     @IsEnum(ServiceOrderPriority)
     priority?: ServiceOrderPriority = ServiceOrderPriority.MEDIUM
 
-    // Grupo responsável (Elétrica, Hidráulica, Predial...)
-    @IsOptional()
+    // Grupo responsável — obrigatório para garantir roteamento correto da OS
     @IsUUID()
-    groupId?: string
+    groupId: string
 
     // Técnico é opcional — se não informar, vai para o painel
     @IsOptional()

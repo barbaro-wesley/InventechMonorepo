@@ -139,7 +139,7 @@ export class ServiceOrdersService {
             }),
         }
 
-        if (currentUser.role === UserRole.TECHNICIAN) {
+        if (currentUser.role === UserRole.TECHNICIAN && !currentUser.clientId) {
             where.technicians = {
                 some: { technicianId: currentUser.sub, releasedAt: null },
             }
@@ -193,8 +193,14 @@ export class ServiceOrdersService {
         }
 
         if (currentUser.role === UserRole.TECHNICIAN) {
-            where.technicians = {
-                some: { technicianId: currentUser.sub, releasedAt: null },
+            if (currentUser.clientId) {
+                // Técnico vinculado a um cliente vê todas as OS do seu cliente
+                where.clientId = currentUser.clientId
+            } else {
+                // Técnico de empresa sem cliente fixo vê apenas as OS que assumiu
+                where.technicians = {
+                    some: { technicianId: currentUser.sub, releasedAt: null },
+                }
             }
         }
 
@@ -328,7 +334,11 @@ export class ServiceOrdersService {
     ) {
         const equipment = await this.prisma.equipment.findFirst({
             where: { id: dto.equipmentId, companyId, deletedAt: null },
-            select: { id: true, name: true },
+            select: {
+                id: true,
+                name: true,
+                type: { select: { id: true, name: true, groupId: true } },
+            },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado neste cliente')
 
@@ -340,6 +350,23 @@ export class ServiceOrdersService {
             })
             if (!group) throw new BadRequestException('Grupo de manutenção não encontrado')
             groupName = group.name
+
+            // Valida que o tipo do equipamento tem um grupo configurado
+            const equipmentGroupId = equipment.type?.groupId
+            if (!equipmentGroupId) {
+                throw new BadRequestException(
+                    `O tipo "${equipment.type?.name}" do equipamento não possui grupo vinculado. ` +
+                    'Configure o grupo no cadastro do tipo antes de abrir uma OS.',
+                )
+            }
+
+            // Valida que o grupo informado é o grupo do tipo do equipamento
+            if (equipmentGroupId !== dto.groupId) {
+                throw new BadRequestException(
+                    `Este equipamento pertence ao grupo "${equipment.type?.name}". ` +
+                    'Informe o grupo correto ou altere o tipo do equipamento.',
+                )
+            }
         }
 
         if (dto.technicianId) {
