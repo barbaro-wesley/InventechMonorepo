@@ -5,8 +5,9 @@ import {
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
-import { UserStatus, RefreshToken } from '@prisma/client'
+import { UserStatus, UserRole, RefreshToken } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
+import { createHash, timingSafeEqual } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service'
 import { LoginDto } from './dto/login.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -96,7 +97,32 @@ export class AuthService {
             throw new UnauthorizedException('Credenciais inválidas')
         }
 
-        // 5. Gera tokens
+        // 5. Verifica se 2FA é obrigatório
+        const companyEnforces2FA = user.companyId
+            ? await this.prisma.company
+                .findUnique({ where: { id: user.companyId }, select: { enforce2FAForAll: true } })
+                .then(c => c?.enforce2FAForAll ?? false)
+            : false
+
+        const needs2FA =
+            user.role === UserRole.SUPER_ADMIN ||
+            user.require2FA ||
+            companyEnforces2FA
+
+        if (needs2FA) {
+            await this.twoFactorService.sendTwoFactorCode(user.id, 'LOGIN', ipAddress)
+            await this.loginSecurityService.recordAttempt({
+                email: dto.email,
+                userId: user.id,
+                success: true,
+                ipAddress: ipAddress ?? '',
+                userAgent,
+            })
+            this.logger.log(`Login 2FA iniciado: ${user.email} | IP: ${ipAddress}`)
+            return { requires2FA: true, user: { id: user.id } }
+        }
+
+        // 6. Gera tokens
         const payload: AuthenticatedUser = {
             sub: user.id,
             email: user.email,
@@ -109,7 +135,7 @@ export class AuthService {
         const { accessToken, refreshToken } = await this.generateTokens(payload)
         await this.saveRefreshToken(user.id, refreshToken, ipAddress, userAgent)
 
-        // 6. Atualiza último login + registra sucesso
+        // 7. Atualiza último login + registra sucesso
         await Promise.all([
             this.prisma.user.update({
                 where: { id: user.id },
@@ -145,9 +171,17 @@ export class AuthService {
             throw new UnauthorizedException('Sessão expirada. Faça login novamente')
         }
 
+        const incomingHash = createHash('sha256').update(rawRefreshToken).digest('hex')
+
         let validTokenRecord: RefreshToken | null = null
         for (const record of storedTokens) {
-            const matches = await bcrypt.compare(rawRefreshToken, record.tokenHash)
+            // Suporte a tokens antigos (bcrypt) e novos (sha256)
+            let matches = false
+            if (record.tokenHash.startsWith('$2b$')) {
+                matches = await bcrypt.compare(rawRefreshToken, record.tokenHash)
+            } else {
+                matches = timingSafeEqual(Buffer.from(incomingHash), Buffer.from(record.tokenHash))
+            }
             if (matches) { validTokenRecord = record; break }
         }
 
@@ -180,6 +214,36 @@ export class AuthService {
         await this.saveRefreshToken(user.id, refreshToken, ipAddress, userAgent)
 
         return { accessToken, refreshToken }
+    }
+
+    // ─────────────────────────────────────────
+    // Finaliza login 2FA — emite tokens após verificação
+    // ─────────────────────────────────────────
+    async completeLogin(userId: string, ipAddress?: string, userAgent?: string) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } })
+        if (!user || user.status !== UserStatus.ACTIVE) {
+            throw new UnauthorizedException('Usuário inativo')
+        }
+
+        const payload: AuthenticatedUser = {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+            companyId: user.companyId,
+            clientId: user.clientId,
+            customRoleId: user.customRoleId ?? null,
+        }
+
+        const { accessToken, refreshToken } = await this.generateTokens(payload)
+        await this.saveRefreshToken(user.id, refreshToken, ipAddress, userAgent)
+
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date(), lastLoginIp: ipAddress },
+        })
+
+        this.logger.log(`Login 2FA completo: ${user.email} | IP: ${ipAddress}`)
+        return { accessToken, refreshToken, user: payload }
     }
 
     // ─────────────────────────────────────────
@@ -260,7 +324,7 @@ export class AuthService {
         ipAddress?: string,
         userAgent?: string,
     ) {
-        const tokenHash = await bcrypt.hash(rawToken, 10)
+        const tokenHash = createHash('sha256').update(rawToken).digest('hex')
         const expiresAt = new Date()
         expiresAt.setDate(expiresAt.getDate() + 7)
 

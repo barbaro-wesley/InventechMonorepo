@@ -24,31 +24,64 @@ export const RateLimit = (options: RateLimitOptions) =>
  */
 export const NoRateLimit = () => SetMetadata(RATE_LIMIT_KEY, { skip: true })
 
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common'
+import {
+    CanActivate,
+    ExecutionContext,
+    HttpException,
+    HttpStatus,
+    Injectable,
+} from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
+
+interface RateLimitEntry {
+    count: number
+    resetAt: number
+}
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
+    // Chave: "<ip>:<rota>" → contagem de requisições
+    private readonly store = new Map<string, RateLimitEntry>()
+
     constructor(private reflector: Reflector) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
-        const skip = this.reflector.getAllAndOverride<{ skip?: boolean }>(
+        const options = this.reflector.getAllAndOverride<RateLimitOptions & { skip?: boolean }>(
             RATE_LIMIT_KEY,
-            [context.getHandler(), context.getClass()]
+            [context.getHandler(), context.getClass()],
         )
 
-        if (skip?.skip) {
+        // Sem decorator ou marcado como skip → libera
+        if (!options || options.skip) return true
+
+        const request = context.switchToHttp().getRequest()
+        const ip = request.ip ?? request.socket?.remoteAddress ?? 'unknown'
+        const route = `${request.method}:${request.route?.path ?? request.path}`
+        const key = `${ip}:${route}`
+        const now = Date.now()
+
+        let entry = this.store.get(key)
+
+        // Janela expirou → reseta
+        if (!entry || now > entry.resetAt) {
+            entry = { count: 1, resetAt: now + options.ttl * 1000 }
+            this.store.set(key, entry)
             return true
         }
 
-        const options = this.reflector.getAllAndOverride<RateLimitOptions>(
-            RATE_LIMIT_KEY,
-            [context.getHandler(), context.getClass()]
-        )
+        entry.count++
 
-        // TODO: Implement actual rate-limiting logic using Redis or Throttler here
-        // e.g., using options.limit and options.ttl
+        if (entry.count > options.limit) {
+            const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
+            const message = (options.message ?? 'Muitas requisições. Aguarde {{ttl}} segundos.')
+                .replace('{{ttl}}', String(retryAfter))
 
-        return true // Default allowing requests until implemented
+            throw new HttpException(
+                { statusCode: 429, message, retryAfter },
+                HttpStatus.TOO_MANY_REQUESTS,
+            )
+        }
+
+        return true
     }
 }

@@ -11,6 +11,7 @@ export interface User {
   companyId?: string | null;
   clientId?: string | null;
   customRoleId?: string | null;
+  require2FA?: boolean;
   company?: {
     id: string;
     name: string;
@@ -41,6 +42,7 @@ export interface UpdateUserDto {
   telegramChatId?: string;
   status?: UserStatus;
   role?: UserRole;
+  require2FA?: boolean;
 }
 
 export interface ListUsersParams {

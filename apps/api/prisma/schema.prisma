@@ -216,6 +216,7 @@ model Company {
   reportPermissions    ReportPermission[]
   resourcePermissions  ResourcePermission[]
   customRoles          CustomRole[]
+  enforce2FAForAll  Boolean     @default(false) @map("enforce_2fa_for_all")
   licenseExpiresAt  DateTime?   // data de vencimento do contrato
   suspendedAt       DateTime?   // quando foi suspenso
   suspendedReason   String?     // motivo do bloqueio
@@ -276,6 +277,7 @@ model User {
   avatarUrl      String?    @map("avatar_url")
   phone          String?
   telegramChatId String?    @map("telegram_chat_id")
+  require2FA     Boolean    @default(false) @map("require_2fa")
   lastLoginAt    DateTime?  @map("last_login_at")
   lastLoginIp    String?    @map("last_login_ip")
   createdAt      DateTime   @default(now()) @map("created_at")

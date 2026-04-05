@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
 import {
   Select,
@@ -59,12 +60,14 @@ function EditUserForm({
   const [phone, setPhone] = useState(user.phone ?? "");
   const [status, setStatus] = useState<UpdateUserDto["status"]>(user.status);
   const [role, setRole] = useState<Role>(user.role as Role);
+  const [require2FA, setRequire2FA] = useState(user.require2FA ?? false);
 
   useEffect(() => {
     setName(user.name);
     setPhone(user.phone ?? "");
     setStatus(user.status);
     setRole(user.role as Role);
+    setRequire2FA(user.require2FA ?? false);
   }, [user]);
 
   return (
@@ -106,9 +109,28 @@ function EditUserForm({
           </SelectContent>
         </Select>
       </div>
-      <SheetFooter className="pt-4">
+      <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Autenticação de dois fatores (2FA)</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {user.role === "SUPER_ADMIN"
+                ? "Obrigatório para Super Admin — não pode ser desativado."
+                : "Exige código por e-mail a cada login deste usuário."}
+            </p>
+          </div>
+          <Switch
+            id="require2FA"
+            checked={user.role === "SUPER_ADMIN" ? true : require2FA}
+            onCheckedChange={setRequire2FA}
+            disabled={user.role === "SUPER_ADMIN"}
+          />
+        </div>
+      </div>
+
+      <SheetFooter className="pt-2">
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button disabled={isPending || !name.trim()} onClick={() => onSave({ name, phone: phone || undefined, status, role })}>
+        <Button disabled={isPending || !name.trim()} onClick={() => onSave({ name, phone: phone || undefined, status, role, require2FA })}>
           {isPending ? "Salvando..." : "Salvar"}
         </Button>
       </SheetFooter>

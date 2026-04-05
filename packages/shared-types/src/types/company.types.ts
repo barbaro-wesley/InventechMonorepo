@@ -21,6 +21,7 @@ export interface Company {
   city?: string | null;
   state?: string | null;
   zipCode?: string | null;
+  enforce2FAForAll?: boolean;
   status: CompanyStatus;
   trialEndsAt?: string | null;
   settings?: Record<string, unknown> | null;
@@ -107,6 +108,7 @@ export interface UpdateCompanyDto {
   reportPrimaryColor?: string;
   reportSecondaryColor?: string;
   reportFooterText?: string;
+  enforce2FAForAll?: boolean;
 }
 
 export interface CompanyLicenseRow {

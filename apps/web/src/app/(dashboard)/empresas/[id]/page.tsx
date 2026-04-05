@@ -60,6 +60,7 @@ import { UserManagementSheets } from "@/components/users/user-management-sheets"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -186,6 +187,8 @@ const editSchema = z.object({
   reportPrimaryColor: z.string().optional(),
   reportSecondaryColor: z.string().optional(),
   reportFooterText: z.string().optional(),
+  // Segurança
+  enforce2FAForAll: z.boolean().optional(),
 });
 
 const suspendSchema = z.object({
@@ -903,6 +906,7 @@ export default function EmpresaDetailPage() {
       reportPrimaryColor: company?.reportPrimaryColor ?? "#1E40AF",
       reportSecondaryColor: company?.reportSecondaryColor ?? "#DBEAFE",
       reportFooterText: company?.reportFooterText ?? "",
+      enforce2FAForAll: company?.enforce2FAForAll ?? false,
     },
   });
 
@@ -1430,6 +1434,24 @@ export default function EmpresaDetailPage() {
                     <Label htmlFor="edit-footerText">Texto do rodapé</Label>
                     <Input id="edit-footerText" placeholder="Ex: Documento confidencial" className="mt-1.5" {...editForm.register("reportFooterText")} />
                   </div>
+                </div>
+              </div>
+
+              {/* Segurança */}
+              <div className="rounded-lg border border-border bg-muted/30 p-4">
+                <p className="text-sm font-semibold mb-3">Segurança</p>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Autenticação de dois fatores (2FA) obrigatória</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Todos os usuários desta empresa deverão confirmar o login com um código enviado por e-mail.
+                    </p>
+                  </div>
+                  <Switch
+                    id="enforce2FAForAll"
+                    checked={editForm.watch("enforce2FAForAll") ?? false}
+                    onCheckedChange={(v) => editForm.setValue("enforce2FAForAll", v)}
+                  />
                 </div>
               </div>
             </form>

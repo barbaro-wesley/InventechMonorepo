@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -35,4 +36,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   customRoleId?: string | null
+
+  @IsOptional()
+  @IsBoolean()
+  require2FA?: boolean
 }

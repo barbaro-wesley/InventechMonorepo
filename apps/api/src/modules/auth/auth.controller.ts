@@ -39,6 +39,9 @@ class VerifyEmailDto {
 
 class TwoFactorVerifyDto {
   @IsString()
+  userId: string
+
+  @IsString()
   code: string
 }
 
@@ -74,9 +77,15 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken, refreshToken, user } = await this.authService.login(
-      dto, req.ip, req.headers['user-agent'],
-    )
+    const result = await this.authService.login(dto, req.ip, req.headers['user-agent'])
+
+    if (result.requires2FA) {
+      return { requires2FA: true, user: result.user }
+    }
+
+    const { accessToken, refreshToken, user } = result as {
+      accessToken: string; refreshToken: string; user: import('../../common/interfaces/authenticated-user.interface').AuthenticatedUser
+    }
 
     res.cookie('access_token', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE })
     res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE })
@@ -167,16 +176,29 @@ async send2FA(
   return { message: 'Código enviado para o seu email' }
 }
 
-// POST /auth/2fa/verify — valida código 2FA
+// POST /auth/2fa/verify — valida código 2FA e emite tokens
 @Public()
 @Post('2fa/verify')
 @HttpCode(HttpStatus.OK)
-@ApiOperation({ summary: 'Verificar código 2FA', description: 'Valida o código 2FA enviado por email' })
+@RateLimit({ limit: 5, ttl: 300, message: 'Muitas tentativas de verificação. Aguarde {{ttl}} segundos.' })
+@ApiOperation({ summary: 'Verificar código 2FA', description: 'Valida o código 2FA enviado por email e emite os tokens de sessão' })
 async verify2FA(
-  @Body() dto: TwoFactorVerifyDto & { userId: string },
+  @Body() dto: TwoFactorVerifyDto,
+  @Req() req: Request,
+  @Res({ passthrough: true }) res: Response,
 ) {
   await this.twoFactorService.verifyCode(dto.userId, dto.code, 'LOGIN')
-  return { verified: true }
+  const { accessToken, refreshToken, user } = await this.authService.completeLogin(
+    dto.userId, req.ip, req.headers['user-agent'],
+  )
+  res.cookie('access_token', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE })
+  res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE })
+  return {
+    user: {
+      id: user.sub, email: user.email,
+      role: user.role, companyId: user.companyId, clientId: user.clientId,
+    },
+  }
 }
 
 // ─────────────────────────────────────────

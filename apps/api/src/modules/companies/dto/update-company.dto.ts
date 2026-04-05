@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsEnum,
@@ -30,4 +31,7 @@ export class UpdateCompanyDto {
   @IsOptional() @IsHexColor() reportPrimaryColor?: string
   @IsOptional() @IsHexColor() reportSecondaryColor?: string
   @IsOptional() @IsString() reportFooterText?: string
+
+  // Segurança
+  @IsOptional() @IsBoolean() enforce2FAForAll?: boolean
 }
