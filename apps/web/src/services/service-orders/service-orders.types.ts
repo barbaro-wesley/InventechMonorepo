@@ -60,6 +60,8 @@ export interface ServiceOrder {
   _count: { comments: number; tasks: number; attachments: number }
 }
 
+import type { Attachment } from '../storage/storage.service'
+
 export interface ServiceOrderComment {
   id: string
   content: string
@@ -67,6 +69,7 @@ export interface ServiceOrderComment {
   createdAt: string
   updatedAt: string
   author: { id: string; name: string; avatarUrl?: string | null }
+  attachments?: Attachment[]
 }
 
 export interface ServiceOrderTask {
@@ -142,6 +145,7 @@ export interface AssignTechnicianDto {
 export interface CreateCommentDto {
   content: string
   isInternal?: boolean
+  files?: File[]
 }
 
 export interface CreateTaskDto {

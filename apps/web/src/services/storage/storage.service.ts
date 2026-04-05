@@ -29,6 +29,11 @@ export const storageService = {
     return data;
   },
 
+  async getUrl(attachmentId: string): Promise<string> {
+    const { data } = await api.get(`/storage/${attachmentId}/url`);
+    return data.url;
+  },
+
   getDownloadUrl(attachmentId: string): string {
     const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
     return `${base}/storage/${attachmentId}/download`;

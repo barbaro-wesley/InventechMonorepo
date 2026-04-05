@@ -152,6 +152,38 @@ export class StorageService implements OnModuleInit {
   }
 
   // ─────────────────────────────────────────
+  // Gera uma URL temporária para acesso direto ao arquivo
+  // ─────────────────────────────────────────
+  async getPresignedUrl(attachmentId: string, companyId: string) {
+    const attachment = await this.prisma.attachment.findFirst({
+      where: { id: attachmentId, companyId },
+      select: {
+        bucket: true,
+        key: true,
+        fileName: true,
+      },
+    })
+
+    if (!attachment) {
+      throw new NotFoundException('Arquivo não encontrado')
+    }
+
+    // Configurando o header response-content-disposition para forçar o nome original do arquivo no download
+    const respHeaders = {
+      'response-content-disposition': `inline; filename="${encodeURIComponent(attachment.fileName)}"`,
+    }
+
+    const url = await this.client.presignedGetObject(
+      attachment.bucket,
+      attachment.key,
+      PRESIGNED_URL_TTL,
+      respHeaders,
+    )
+
+    return { url }
+  }
+
+  // ─────────────────────────────────────────
   // Listar arquivos de uma entidade
   // ─────────────────────────────────────────
   async listByEntity(

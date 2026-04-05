@@ -284,6 +284,15 @@ export class ServiceOrdersService {
                         createdAt: true,
                         updatedAt: true,
                         author: { select: { id: true, name: true, role: true } },
+                        attachments: {
+                            select: {
+                                id: true,
+                                fileName: true,
+                                mimeType: true,
+                                sizeBytes: true,
+                                createdAt: true,
+                            },
+                        },
                     },
                     orderBy: { createdAt: 'asc' },
                 },

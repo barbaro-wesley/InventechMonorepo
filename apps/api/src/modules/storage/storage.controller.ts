@@ -98,6 +98,15 @@ export class StorageController {
     stream.pipe(res)
   }
 
+  @Get(':id/url')
+  @Permission('storage:download')
+  async getUrl(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.storageService.getPresignedUrl(id, currentUser.companyId!)
+  }
+
   @Get('entity/:entity/:entityId')
   @Permission('storage:list')
   listByEntity(

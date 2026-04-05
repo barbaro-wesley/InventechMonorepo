@@ -98,7 +98,29 @@ async function addComment(
   id: string,
   dto: CreateCommentDto,
 ): Promise<ServiceOrderComment> {
-  const { data } = await api.post(`/clients/${clientId}/service-orders/${id}/comments`, dto)
+  // Se não houver arquivos, envia como JSON normal
+  if (!dto.files || dto.files.length === 0) {
+    const { data } = await api.post(`/clients/${clientId}/service-orders/${id}/comments`, {
+      content: dto.content,
+      isInternal: dto.isInternal,
+    })
+    return data
+  }
+
+  // Se houver arquivos, envia como FormData
+  const formData = new FormData()
+  formData.append('content', dto.content)
+  if (dto.isInternal !== undefined) {
+    formData.append('isInternal', String(dto.isInternal))
+  }
+  dto.files.forEach((file) => {
+    formData.append('files', file)
+  })
+
+  const { data } = await api.post(
+    `/clients/${clientId}/service-orders/${id}/comments`,
+    formData,
+  )
   return data
 }
 
