@@ -117,7 +117,7 @@ const CRITICALITY_COLOR: Record<EquipmentCriticality, string> = {
 
 function StatusBadge({ status }: { status: EquipmentStatus }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${STATUS_COLOR[status]}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${STATUS_COLOR[status]}`}>
       {STATUS_LABEL[status]}
     </span>
   );
@@ -125,7 +125,7 @@ function StatusBadge({ status }: { status: EquipmentStatus }) {
 
 function CriticalityBadge({ criticality }: { criticality: EquipmentCriticality }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${CRITICALITY_COLOR[criticality]}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border shadow-sm ${CRITICALITY_COLOR[criticality]}`}>
       {CRITICALITY_LABEL[criticality]}
     </span>
   );
@@ -545,20 +545,28 @@ function MovementRow({ movement }: { movement: Movement }) {
   const isActive = movement.status === "ACTIVE";
   const isLoan = movement.type === "LOAN";
   return (
-    <div className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs ${isActive ? "border-amber-200 bg-amber-50/60" : "border-border bg-muted/20"}`}>
-      <div className="flex-shrink-0 mt-0.5">
-        {isLoan ? <HandCoins className="w-3.5 h-3.5 text-amber-500" /> : <ArrowRightLeft className="w-3.5 h-3.5 text-blue-500" />}
+    <div className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all ${isActive ? "border-amber-200 bg-amber-50/50 shadow-sm" : "border-border bg-card hover:bg-muted/30"}`}>
+      <div className={`flex-shrink-0 p-2 rounded-lg ${isLoan ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"}`}>
+        {isLoan ? <HandCoins className="w-4 h-4" /> : <ArrowRightLeft className="w-4 h-4" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-medium">{isLoan ? "Empréstimo" : "Transferência"}</span>
-          {isActive && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">Em andamento</span>}
-          {movement.status === "RETURNED" && <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">Devolvido</span>}
-          {movement.status === "CANCELLED" && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">Cancelado</span>}
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold text-sm">{isLoan ? "Empréstimo" : "Transferência"}</span>
+          <div className="flex items-center gap-1.5">
+            {isActive && <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider">Ativo</span>}
+            {movement.status === "RETURNED" && <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">Devolvido</span>}
+            {movement.status === "CANCELLED" && <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-wider">Cancelado</span>}
+          </div>
         </div>
-        <p className="text-muted-foreground mt-0.5">{movement.origin.name} → {movement.destination.name}</p>
-        {movement.reason && <p className="text-muted-foreground truncate">{movement.reason}</p>}
-        <p className="text-muted-foreground mt-0.5">{new Date(movement.createdAt).toLocaleDateString("pt-BR")}</p>
+        <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+          <span className="truncate">{movement.origin.name}</span>
+          <ArrowRightLeft className="w-3 h-3 flex-shrink-0 opacity-50" />
+          <span className="truncate">{movement.destination.name}</span>
+        </div>
+        {movement.reason && <p className="text-xs text-slate-500 mt-1.5 line-clamp-1 italic">"{movement.reason}"</p>}
+        <div className="mt-2 text-[10px] text-muted-foreground/70 font-medium">
+          {new Date(movement.createdAt).toLocaleDateString("pt-BR")}
+        </div>
       </div>
     </div>
   );
@@ -691,11 +699,29 @@ function EquipmentCard({
 
 // ─── Detail Sheet ─────────────────────────────────────────────────────────────
 
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function DetailRow({ label, value, mono, fullWidth }: { label: string; value: string; mono?: boolean; fullWidth?: boolean }) {
   return (
-    <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p className={`font-medium ${mono ? "font-mono text-xs" : ""}`} style={{ color: "var(--foreground)" }}>{value}</p>
+    <div className={`space-y-1 ${fullWidth ? "col-span-2" : ""}`}>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">{label}</p>
+      <p className={`text-sm font-medium leading-none ${mono ? "font-mono text-[13px]" : ""}`} style={{ color: "var(--foreground)" }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DetailSection({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+        <div className="p-1.5 rounded-md bg-primary/5 text-primary">
+          <Icon className="w-3.5 h-3.5" />
+        </div>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-1">
+        {children}
+      </div>
     </div>
   );
 }
@@ -880,148 +906,164 @@ function DetailSheet({
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <SheetContent className="overflow-y-auto" style={{ maxWidth: "680px", width: "100%" }}>
-        <SheetHeader>
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
-            >
-              <Wrench className="w-5 h-5 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <SheetTitle className="truncate">{equipment.name}</SheetTitle>
-              <p className="text-xs text-muted-foreground truncate">
-                {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(" › ") || "Sem tipo"}
-              </p>
-            </div>
-            <div className="flex-shrink-0">
-              <StatusBadge status={equipment.status} />
+        <SheetHeader className="pb-4 border-b">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+                style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
+              >
+                <Wrench className="w-6 h-6 text-white" />
+              </div>
+              <div className="min-w-0">
+                <SheetTitle className="text-xl font-bold truncate tracking-tight">{equipment.name}</SheetTitle>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate uppercase font-medium tracking-wide">
+                  {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(" › ") || "Sem categoria"}
+                </p>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <StatusBadge status={equipment.status} />
+                  <CriticalityBadge criticality={equipment.criticality} />
+                </div>
+              </div>
             </div>
           </div>
         </SheetHeader>
 
-        {/* Action bar */}
-        <div className="flex items-center gap-2 mt-4">
-          <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { handleClose(); onEdit(equipment); }}>
-            <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
+        {/* Action bar - More integrated */}
+        <div className="flex flex-wrap items-center gap-2 mt-6 p-1.5 bg-muted/40 rounded-xl border border-border/50">
+          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onEdit(equipment); }}>
+            <Pencil className="w-3.5 h-3.5 mr-1.5 text-blue-500" />Editar
           </Button>
           {equipment.status === "ACTIVE" && (
-            <Button size="sm" variant="outline" className="flex-1 h-8 text-xs" onClick={() => { handleClose(); onMove(equipment); }}>
-              <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5" />Movimentar
+            <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onMove(equipment); }}>
+              <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5 text-amber-500" />Movimentar
             </Button>
           )}
-          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => { handleClose(); onPrint(equipment); }}>
-            <Printer className="w-3.5 h-3.5 mr-1.5" />QR
+          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onPrint(equipment); }}>
+            <Printer className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />QR Code
           </Button>
+          <div className="ml-auto flex items-center gap-2">
+             <span className="text-[10px] text-muted-foreground font-medium uppercase px-2">Ações rápidas</span>
+          </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0 mt-4 border-b border-border overflow-x-auto">
-          {(["info", "movements", "attachments", "history"] as const).map((t) => (
+        {/* Tabs - Modernized and explicit */}
+        <div className="flex border-b border-border bg-white sticky top-0 z-10">
+          {[
+            { id: "info", label: "Informações" },
+            { id: "movements", label: "Movimentações", count: movements.length },
+            { id: "attachments", label: "Anexos", count: attachments.length },
+            { id: "history", label: "Histórico", count: equipment.totalServiceOrders },
+          ].map((t) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-2 text-xs font-medium transition-colors border-b-2 -mb-px whitespace-nowrap ${
-                tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
+              key={t.id}
+              onClick={() => setTab(t.id as any)}
+              className={`flex items-center gap-1.5 px-4 py-3 text-sm border-b-2 transition-all whitespace-nowrap ${tab === t.id
+                  ? "border-primary text-primary font-semibold"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                }`}
             >
-              {t === "info"
-                ? "Informações"
-                : t === "movements"
-                ? `Movimentações${movements.length ? ` (${movements.length})` : ""}`
-                : t === "attachments"
-                ? `Anexos${attachments.length ? ` (${attachments.length})` : ""}`
-                : `Histórico${equipment.totalServiceOrders ? ` (${equipment.totalServiceOrders})` : ""}`}
+              {t.label}
+              {t.count !== undefined && t.count > 0 && (
+                <span className={`text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ${tab === t.id ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                  }`}>
+                  {t.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
         {/* ── Info tab ── */}
         {tab === "info" && (
-          <div className="mt-4 space-y-5 pb-6">
-            <div className="flex items-center gap-2">
-              <CriticalityBadge criticality={equipment.criticality} />
-            </div>
+          <div className="mt-8 space-y-10 pb-8">
+            {/* ── Identificação ── */}
+            <DetailSection title="Identificação" icon={Tag}>
+              {equipment.patrimonyNumber && <DetailRow label="Nº de Patrimônio" value={equipment.patrimonyNumber} mono />}
+              {equipment.serialNumber && <DetailRow label="Nº de Série" value={equipment.serialNumber} mono />}
+              {equipment.brand && <DetailRow label="Marca" value={equipment.brand} />}
+              {equipment.model && <DetailRow label="Modelo" value={equipment.model} />}
+              {equipment.anvisaNumber && <DetailRow label="Nº ANVISA" value={equipment.anvisaNumber} mono />}
+            </DetailSection>
 
-            <fieldset className="space-y-3">
-              <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</legend>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
-                {equipment.patrimonyNumber && <DetailRow label="Patrimônio" value={equipment.patrimonyNumber} mono />}
-                {equipment.serialNumber && <DetailRow label="Nº Série" value={equipment.serialNumber} mono />}
-                {equipment.brand && <DetailRow label="Marca" value={equipment.brand} />}
-                {equipment.model && <DetailRow label="Modelo" value={equipment.model} />}
-                {equipment.anvisaNumber && <DetailRow label="ANVISA" value={equipment.anvisaNumber} mono />}
-              </div>
-            </fieldset>
+            {/* ── Localização ── */}
+            <DetailSection title="Localização" icon={MapPin}>
+              {equipment.costCenter && (
+                <DetailRow
+                  label="Centro de Custo"
+                  fullWidth
+                  value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`}
+                />
+              )}
+              {equipment.currentLocation && (
+                <DetailRow label="Localização Atual" fullWidth value={equipment.currentLocation.name} />
+              )}
+            </DetailSection>
 
-            <fieldset className="space-y-3">
-              <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Localização</legend>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
-                {equipment.costCenter && (
-                  <DetailRow label="Centro de Custo" value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`} />
-                )}
-                {equipment.currentLocation && <DetailRow label="Localização Atual" value={equipment.currentLocation.name} />}
-              </div>
-            </fieldset>
-
+            {/* ── Financeiro ── */}
             {(equipment.purchaseValue != null || equipment.purchaseDate || equipment.warrantyEnd || equipment.depreciationRate != null) && (
-              <fieldset className="space-y-3">
-                <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Financeiro</legend>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
-                  {equipment.purchaseValue != null && (
-                    <DetailRow label="Valor de Compra" value={`R$ ${equipment.purchaseValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
-                  )}
-                  {equipment.currentValue != null && (
-                    <DetailRow label="Valor Atual" value={`R$ ${equipment.currentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
-                  )}
-                  {equipment.purchaseDate && (
-                    <DetailRow label="Data de Compra" value={new Date(equipment.purchaseDate).toLocaleDateString("pt-BR")} />
-                  )}
-                  {equipment.warrantyEnd && (
-                    <DetailRow label="Fim Garantia" value={new Date(equipment.warrantyEnd).toLocaleDateString("pt-BR")} />
-                  )}
-                  {equipment.depreciationRate != null && (
-                    <DetailRow label="Depreciação" value={`${equipment.depreciationRate}% /ano`} />
-                  )}
-                  {equipment.invoiceNumber && <DetailRow label="Nota Fiscal" value={equipment.invoiceNumber} mono />}
-                </div>
+              <DetailSection title="Financeiro" icon={DollarSign}>
                 {equipment.purchaseValue != null && (
-                  <Button
-                    size="sm" variant="outline" className="h-7 text-xs"
-                    disabled={recalcDepreciation.isPending}
-                    onClick={() => recalcDepreciation.mutate(equipment.id)}
-                  >
-                    <BarChart2 className="w-3.5 h-3.5 mr-1.5" />
-                    {recalcDepreciation.isPending ? "Recalculando..." : "Recalcular depreciação"}
-                  </Button>
+                  <DetailRow label="Valor de Compra" value={`R$ ${equipment.purchaseValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
                 )}
-              </fieldset>
+                {equipment.currentValue != null && (
+                  <DetailRow label="Valor Atual" value={`R$ ${equipment.currentValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                )}
+                {equipment.purchaseDate && (
+                  <DetailRow label="Data de Compra" value={new Date(equipment.purchaseDate).toLocaleDateString("pt-BR")} />
+                )}
+                {equipment.warrantyEnd && (
+                  <DetailRow label="Fim da Garantia" value={new Date(equipment.warrantyEnd).toLocaleDateString("pt-BR")} />
+                )}
+                {equipment.depreciationRate != null && (
+                  <DetailRow label="Taxa de Depreciação" value={`${equipment.depreciationRate}% /ano`} />
+                )}
+                {equipment.invoiceNumber && <DetailRow label="Nota Fiscal" value={equipment.invoiceNumber} mono />}
+
+                {equipment.purchaseValue != null && (
+                  <div className="col-span-2 pt-2">
+                    <Button
+                      size="sm" variant="outline" className="h-8 text-xs font-semibold px-4"
+                      disabled={recalcDepreciation.isPending}
+                      onClick={() => recalcDepreciation.mutate(equipment.id)}
+                    >
+                      <BarChart2 className="w-3.5 h-3.5 mr-2 text-primary" />
+                      {recalcDepreciation.isPending ? "Recalculando..." : "Recalcular depreciação"}
+                    </Button>
+                  </div>
+                )}
+              </DetailSection>
             )}
 
+            {/* ── Técnico ── */}
             {(equipment.btus || equipment.voltage || equipment.ipAddress || equipment.operatingSystem || equipment.power) && (
-              <fieldset className="space-y-3">
-                <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Técnico</legend>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
-                  {equipment.btus && <DetailRow label="BTUs" value={equipment.btus.toLocaleString("pt-BR")} />}
-                  {equipment.voltage && <DetailRow label="Tensão" value={equipment.voltage} />}
-                  {equipment.power && <DetailRow label="Potência" value={equipment.power} />}
-                  {equipment.ipAddress && <DetailRow label="Endereço IP" value={equipment.ipAddress} mono />}
-                  {equipment.operatingSystem && <DetailRow label="Sistema Op." value={equipment.operatingSystem} />}
-                </div>
-              </fieldset>
+              <DetailSection title="Técnico" icon={Monitor}>
+                {equipment.btus && <DetailRow label="BTUs" value={equipment.btus.toLocaleString("pt-BR")} />}
+                {equipment.voltage && <DetailRow label="Tensão" value={equipment.voltage} />}
+                {equipment.power && <DetailRow label="Potência" value={equipment.power} />}
+                {equipment.ipAddress && <DetailRow label="Endereço IP" value={equipment.ipAddress} mono />}
+                {equipment.operatingSystem && <DetailRow label="Sistema Operacional" value={equipment.operatingSystem} />}
+              </DetailSection>
             )}
 
+            {/* ── Observações ── */}
             {equipment.observations && (
-              <fieldset className="space-y-2">
-                <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações</legend>
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">{equipment.observations}</p>
-              </fieldset>
+              <div className="space-y-4 px-1">
+                <div className="flex items-center gap-2 border-b border-border/50 pb-2">
+                  <div className="p-1.5 rounded-md bg-primary/5 text-primary">
+                    <ClipboardList className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações</h3>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed bg-muted/20 p-4 rounded-xl border border-border/50">
+                  {equipment.observations}
+                </p>
+              </div>
             )}
 
-            <div className="space-y-0.5 pt-2 border-t border-border/50">
-              <p className="text-[10px] font-mono text-muted-foreground/60">ID: {equipment.id}</p>
-              <p className="text-[10px] text-muted-foreground/60">
-                Criado em {new Date(equipment.createdAt).toLocaleString("pt-BR")}
+            <div className="pt-8 border-t border-border/40 text-center">
+              <p className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-widest">
+                Registro criado em {new Date(equipment.createdAt).toLocaleDateString("pt-BR")} às {new Date(equipment.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
           </div>
@@ -1235,9 +1277,8 @@ function MovementSheet({
               {(["LOAN", "TRANSFER"] as const).map((t) => (
                 <label
                   key={t}
-                  className={`flex items-center gap-2.5 px-3 py-3 rounded-lg border cursor-pointer transition-colors text-xs ${
-                    watchedType === t ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/30"
-                  }`}
+                  className={`flex items-center gap-2.5 px-3 py-3 rounded-lg border cursor-pointer transition-colors text-xs ${watchedType === t ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/30"
+                    }`}
                 >
                   <input type="radio" {...register("type")} value={t} className="hidden" />
                   {t === "LOAN" ? <HandCoins className="w-4 h-4 flex-shrink-0" /> : <ArrowRightLeft className="w-4 h-4 flex-shrink-0" />}
@@ -1415,8 +1456,8 @@ function QRLabelModal({
                 key={s.id}
                 onClick={() => setSizeId(s.id)}
                 className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${sizeId === s.id
-                    ? "border-primary bg-primary/5 text-primary font-medium"
-                    : "border-border hover:bg-muted/40"
+                  ? "border-primary bg-primary/5 text-primary font-medium"
+                  : "border-border hover:bg-muted/40"
                   }`}
               >
                 {s.label}
@@ -1618,8 +1659,8 @@ export default function EquipamentosPage() {
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
             className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors ${showAdvanced || activeFilterCount > 0
-                ? "border-primary text-primary bg-primary/5"
-                : "border-border text-muted-foreground hover:bg-muted/30"
+              ? "border-primary text-primary bg-primary/5"
+              : "border-border text-muted-foreground hover:bg-muted/30"
               }`}
           >
             <Tag className="w-3.5 h-3.5" />

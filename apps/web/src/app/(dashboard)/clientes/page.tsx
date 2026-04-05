@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
@@ -11,10 +11,11 @@ import {
   Mail,
   FileText,
   Phone,
-  MoreHorizontal,
   Users,
   Upload,
   ImageIcon,
+  ChevronRight,
+  Filter,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,8 +25,6 @@ import { useClients, useCreateClient, useUpdateClient, useUploadClientLogo } fro
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Client } from "@/types/client";
-
-import { ClientUsersDrawer } from "@/components/clients/client-users-drawer";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,12 +39,6 @@ import {
   DrawerBody,
   DrawerFooter,
 } from "@/components/ui/drawer";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -81,7 +74,7 @@ const STATUS_CONFIG = {
   INACTIVE: {
     label: "Inativo",
     badge: "bg-slate-100 text-slate-600 border-slate-200",
-    accent: "bg-slate-400",
+    accent: "bg-slate-300 dark:bg-slate-600",
     dot: "bg-slate-400",
   },
 };
@@ -93,7 +86,7 @@ const STATUS_CONFIG = {
 const createClientSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
   document: z.string().optional(),
-  email: z.email("E-mail inválido").optional().or(z.literal("")),
+  email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   phone: z.string().optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
   address: z.object({
@@ -106,7 +99,7 @@ const createClientSchema = z.object({
   }).optional(),
   admin: z.object({
     name: z.string().min(1, "Nome do administrador obrigatório"),
-    email: z.email("E-mail inválido"),
+    email: z.string().email("E-mail inválido"),
     password: z.string().min(6, "Mínimo 6 caracteres"),
     phone: z.string().optional(),
   }),
@@ -115,7 +108,7 @@ const createClientSchema = z.object({
 const updateClientSchema = z.object({
   name: z.string().min(1, "Nome obrigatório"),
   document: z.string().optional(),
-  email: z.email("E-mail inválido").optional().or(z.literal("")),
+  email: z.string().email("E-mail inválido").optional().or(z.literal("")),
   phone: z.string().optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
@@ -137,83 +130,76 @@ function getInitials(name: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// ClientCard
+// ClientCard — clique no card navega para /clientes/[id]
 // ---------------------------------------------------------------------------
 
 function ClientCard({
   client,
   onEdit,
-  onManageUsers,
 }: {
   client: Client;
-  onEdit: () => void;
-  onManageUsers: () => void;
+  onEdit: (e: React.MouseEvent) => void;
 }) {
+  const router = useRouter();
   const status = STATUS_CONFIG[client.status];
   const avatarBg = getAvatarColor(client.name);
   const initials = getInitials(client.name);
+  const isActive = client.status === "ACTIVE";
 
   return (
-    <div className="group relative flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-slate-300 dark:hover:border-slate-700">
-      {/* Status accent */}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => router.push(`/clientes/${client.id}`)}
+      onKeyDown={(e) => e.key === "Enter" && router.push(`/clientes/${client.id}`)}
+      className="group relative flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-1 hover:border-slate-300 dark:hover:border-slate-600 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+    >
+      {/* Status accent top bar */}
       <div className={cn("h-1 w-full flex-shrink-0", status.accent)} />
 
-      <div className="p-5 flex-1 flex flex-col">
-        {/* Top row */}
-        <div className="flex items-start justify-between mb-4">
+      <div className="p-5 flex-1 flex flex-col gap-4">
+
+        {/* Avatar + Name + Edit button */}
+        <div className="flex items-start gap-3">
           <div
             className={cn(
-              "w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0 select-none",
+              "w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0 select-none shadow-sm",
               avatarBg
             )}
           >
             {initials}
           </div>
 
-          <div onClick={(e) => e.stopPropagation()}>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="w-8 h-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onEdit}>
-                  Editar
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onManageUsers}>
-                  Gerenciar usuários
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href={`/clientes/${client.id}`}>Ver detalhes</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm leading-snug line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+              {client.name}
+            </h3>
+            {client.document && (
+              <p className="text-xs text-slate-400 mt-0.5 font-mono">{client.document}</p>
+            )}
           </div>
+
+          {/* Editar — parar propagação para não navegar */}
+          <button
+            onClick={onEdit}
+            className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
+          >
+            Editar
+          </button>
         </div>
 
-        {/* Name */}
-        <div className="mb-3">
-          <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-sm leading-snug line-clamp-2">
-            {client.name}
-          </h3>
-          {client.document && (
-            <p className="text-xs text-slate-400 mt-0.5">{client.document}</p>
-          )}
+        {/* Status badge */}
+        <div className="flex items-center justify-between">
+          <Badge variant="outline" className={cn("text-xs w-fit", status.badge)}>
+            <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0", status.dot)} />
+            {status.label}
+          </Badge>
+
+          <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-500 group-hover:translate-x-0.5 transition-all duration-150" />
         </div>
 
-        {/* Status */}
-        <Badge variant="outline" className={cn("text-xs w-fit", status.badge)}>
-          <span className={cn("w-1.5 h-1.5 rounded-full mr-1.5 flex-shrink-0", status.dot)} />
-          {status.label}
-        </Badge>
-
-        {/* Contact */}
-        <div className="mt-4 space-y-1.5 flex-1">
+        {/* Contato */}
+        <div className="space-y-1.5">
           {client.email && (
             <div className="flex items-center gap-2 text-xs text-slate-500 min-w-0">
               <Mail className="w-3 h-3 flex-shrink-0 text-slate-400" />
@@ -235,21 +221,21 @@ function ClientCard({
       </div>
 
       {/* Stats footer */}
-      <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3 flex-shrink-0">
+      <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-4 flex-shrink-0">
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
           <ClipboardList className="w-3.5 h-3.5 text-slate-400" />
-          <span className="font-medium text-slate-700 dark:text-slate-300">
+          <span className="font-semibold text-slate-700 dark:text-slate-300">
             {client._count?.serviceOrders ?? 0}
           </span>
-          <span className="text-slate-400 hidden sm:inline">ordens</span>
+          <span className="text-slate-400">ordens</span>
         </div>
         <div className="w-px h-3 bg-slate-200 dark:bg-slate-700" />
         <div className="flex items-center gap-1.5 text-xs text-slate-500">
           <Users className="w-3.5 h-3.5 text-slate-400" />
-          <span className="font-medium text-slate-700 dark:text-slate-300">
+          <span className="font-semibold text-slate-700 dark:text-slate-300">
             {client._count?.users ?? 0}
           </span>
-          <span className="text-slate-400 hidden sm:inline">usuários</span>
+          <span className="text-slate-400">usuários</span>
         </div>
       </div>
     </div>
@@ -265,23 +251,81 @@ function SkeletonCard() {
     <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
       <div className="h-1 w-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
       <div className="p-5 space-y-4">
-        <div className="flex items-start justify-between">
-          <div className="w-11 h-11 rounded-xl bg-slate-200 dark:bg-slate-700 animate-pulse" />
-          <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 animate-pulse" />
-        </div>
-        <div className="space-y-2">
-          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-3/4" />
-          <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded animate-pulse w-1/2" />
+        <div className="flex items-start gap-3">
+          <div className="w-12 h-12 rounded-xl bg-slate-200 dark:bg-slate-700 animate-pulse flex-shrink-0" />
+          <div className="flex-1 space-y-2 pt-1">
+            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-3/4" />
+            <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded animate-pulse w-1/2" />
+          </div>
         </div>
         <div className="h-5 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse w-16" />
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2">
           <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded animate-pulse w-full" />
           <div className="h-3 bg-slate-100 dark:bg-slate-800 rounded animate-pulse w-2/3" />
         </div>
       </div>
       <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800">
-        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-full" />
+        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded animate-pulse w-1/2" />
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Stats Bar
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// StatsBar — compacto e elegante
+// ---------------------------------------------------------------------------
+
+function StatsBar({ clients }: { clients: Client[] }) {
+  const active = clients.filter((c) => c.status === "ACTIVE").length;
+  const inactive = clients.length - active;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {[
+        {
+          label: "Total",
+          value: clients.length,
+          icon: Building2,
+          color: "text-slate-700 dark:text-slate-200",
+          bg: "bg-slate-100 dark:bg-slate-800",
+        },
+        {
+          label: "Ativos",
+          value: active,
+          icon: null,
+          dot: "bg-emerald-500",
+          color: "text-emerald-700 dark:text-emerald-400",
+          bg: "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40",
+        },
+        {
+          label: "Inativos",
+          value: inactive,
+          icon: null,
+          dot: "bg-slate-400",
+          color: "text-slate-500 dark:text-slate-400",
+          bg: "bg-slate-100 dark:bg-slate-800",
+        },
+      ].map((stat) => (
+        <div
+          key={stat.label}
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium",
+            stat.bg
+          )}
+        >
+          {"dot" in stat && stat.dot && (
+            <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", stat.dot)} />
+          )}
+          <span className={cn("tabular-nums font-semibold", stat.color)}>
+            {stat.value}
+          </span>
+          <span className="text-slate-400 dark:text-slate-500">{stat.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -293,11 +337,11 @@ function SkeletonCard() {
 export default function ClientesPage() {
   const permissions = usePermissions();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [editClient, setEditClient] = useState<Client | null>(null);
   const [clientLogoPreview, setClientLogoPreview] = useState<string | null>(null);
-  const [manageUsersClient, setManageUsersClient] = useState<Client | null>(null);
 
   const { data, isLoading } = useClients({
     page,
@@ -335,7 +379,8 @@ export default function ClientesPage() {
     });
   }
 
-  function handleEdit(client: Client) {
+  function handleEdit(client: Client, e: React.MouseEvent) {
+    e.stopPropagation(); // impede navegação pelo card
     setEditClient(client);
     setClientLogoPreview(client.logoUrl ?? null);
     updateForm.reset({
@@ -375,44 +420,78 @@ export default function ClientesPage() {
 
   const total = data?.pagination?.total ?? 0;
   const totalPages = data?.pagination?.totalPages ?? 0;
-  const clients = data?.data ?? [];
-  const hasFilters = !!search;
+
+  // Filtro de status local (os dados já vêm paginados, filtrar sobre o que tem)
+  const allClients = data?.data ?? [];
+  const clients =
+    statusFilter === "ALL"
+      ? allClients
+      : allClients.filter((c) => c.status === statusFilter);
+
+  const hasFilters = !!search || statusFilter !== "ALL";
 
   return (
     <div className="space-y-6">
 
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/25">
+            <Building2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-              Prestadores
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100 leading-tight">
+              Prestadores de Serviço
             </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {!isLoading && total > 0
-                ? `${total} cliente${total !== 1 ? "s" : ""} cadastrado${total !== 1 ? "s" : ""}`
-                : isLoading
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              {isLoading
                 ? "Carregando..."
-                : "Nenhum cliente cadastrado"}
+                : total > 0
+                  ? `${total} prestador${total !== 1 ? "es" : ""} cadastrado${total !== 1 ? "s" : ""}`
+                  : "Nenhum prestador cadastrado"}
             </p>
           </div>
         </div>
 
-        <Button onClick={() => setCreateOpen(true)} className="flex-shrink-0">
+        <Button
+          onClick={() => setCreateOpen(true)}
+          className="flex-shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shadow-emerald-500/20 transition-all duration-150"
+        >
           <Plus className="w-4 h-4 mr-2" />
-          Novo prestador
+          Novo Prestador
         </Button>
       </div>
 
-      {/* ── Search ── */}
-      <div className="relative w-full sm:w-72">
+      {/* ── Stats + Filtros (mesma linha quando há dados) ── */}
+      {!isLoading && allClients.length > 0 ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <StatsBar clients={allClients} />
+
+          <div className="flex gap-1.5 flex-shrink-0">
+            {(["ALL", "ACTIVE", "INACTIVE"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 border",
+                  statusFilter === s
+                    ? "bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-transparent shadow-sm"
+                    : "bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-700 hover:border-slate-300 hover:text-slate-700 dark:hover:text-slate-300"
+                )}
+              >
+                {s === "ALL" ? "Todos" : s === "ACTIVE" ? "Ativos" : "Inativos"}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Busca ── */}
+      <div className="relative w-full sm:max-w-xs">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         <Input
-          placeholder="Buscar prestador..."
-          className="pl-9"
+          placeholder="Buscar por nome, CNPJ..."
+          className="pl-9 bg-white dark:bg-slate-900"
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -429,22 +508,26 @@ export default function ClientesPage() {
           ))}
         </div>
       ) : clients.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-            <Building2 className="w-8 h-8 text-slate-400" />
+            <Building2 className="w-8 h-8 text-slate-300 dark:text-slate-600" />
           </div>
-          <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">
-            {hasFilters ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado"}
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+            {hasFilters ? "Nenhum prestador encontrado" : "Nenhum prestador cadastrado"}
           </h3>
           <p className="text-sm text-slate-400 max-w-xs">
             {hasFilters
-              ? "Tente ajustar a busca."
-              : "Comece cadastrando o primeiro cliente."}
+              ? "Tente ajustar os filtros ou a busca."
+              : "Cadastre o primeiro prestador para começar."}
           </p>
           {!hasFilters && (
-            <Button size="sm" className="mt-5" onClick={() => setCreateOpen(true)}>
+            <Button
+              size="sm"
+              className="mt-5 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => setCreateOpen(true)}
+            >
               <Plus className="w-4 h-4 mr-2" />
-              Novo prestador
+              Novo Prestador
             </Button>
           )}
         </div>
@@ -454,17 +537,21 @@ export default function ClientesPage() {
             <ClientCard
               key={client.id}
               client={client}
-              onEdit={() => handleEdit(client)}
-              onManageUsers={() => setManageUsersClient(client)}
+              onEdit={(e) => handleEdit(client, e)}
             />
           ))}
         </div>
       )}
 
-      {/* ── Pagination ── */}
+      {/* ── Paginação ── */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-slate-500 pt-2">
-          <span>Página {page} de {totalPages}</span>
+        <div className="flex items-center justify-between text-sm text-slate-500 pt-3 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-xs">
+            Página{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{page}</span>
+            {" "}de{" "}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">{totalPages}</span>
+          </span>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -485,7 +572,6 @@ export default function ClientesPage() {
           </div>
         </div>
       )}
-
       {/* ── Drawer — Criar cliente ── */}
       <Drawer
         open={createOpen}
@@ -496,9 +582,9 @@ export default function ClientesPage() {
       >
         <DrawerContent>
           <DrawerHeader>
-            <DrawerTitle>Novo prestador</DrawerTitle>
+            <DrawerTitle>Novo cliente</DrawerTitle>
             <DrawerDescription>
-              Preencha os dados abaixo para cadastrar um novo prestador.
+              Preencha os dados abaixo para cadastrar um novo cliente.
             </DrawerDescription>
           </DrawerHeader>
 
@@ -516,7 +602,7 @@ export default function ClientesPage() {
                   <Label htmlFor="name">Nome *</Label>
                   <Input
                     id="name"
-                    placeholder="Nome do prestador"
+                    placeholder="Nome do cliente"
                     className="mt-1.5"
                     {...createForm.register("name")}
                   />
@@ -551,7 +637,7 @@ export default function ClientesPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="contato@prestador.com"
+                    placeholder="contato@cliente.com"
                     className="mt-1.5"
                     {...createForm.register("email")}
                   />
@@ -581,7 +667,7 @@ export default function ClientesPage() {
                     <Label htmlFor="number">Número</Label>
                     <Input
                       id="number"
-                      placeholder="6690"
+                      placeholder="1000"
                       className="mt-1.5"
                       {...createForm.register("address.number")}
                     />
@@ -628,28 +714,26 @@ export default function ClientesPage() {
                     Criado junto ao cliente. Poderá gerenciar usuários dentro da sua empresa.
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
-                    <Label htmlFor="admin-name">Nome *</Label>
-                    <Input
-                      id="admin-name"
-                      placeholder="Nome completo"
-                      className="mt-1.5"
-                      {...createForm.register("admin.name")}
-                    />
-                    {createForm.formState.errors.admin?.name && (
-                      <p className="mt-1 text-xs text-red-500">
-                        {createForm.formState.errors.admin.name.message}
-                      </p>
-                    )}
-                  </div>
+                <div>
+                  <Label htmlFor="admin-name">Nome *</Label>
+                  <Input
+                    id="admin-name"
+                    placeholder="Nome completo"
+                    className="mt-1.5"
+                    {...createForm.register("admin.name")}
+                  />
+                  {createForm.formState.errors.admin?.name && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {createForm.formState.errors.admin.name.message}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="admin-email">E-mail *</Label>
                   <Input
                     id="admin-email"
                     type="email"
-                    placeholder="admin@prestador.com"
+                    placeholder="admin@cliente.com"
                     className="mt-1.5"
                     {...createForm.register("admin.email")}
                   />
@@ -725,9 +809,7 @@ export default function ClientesPage() {
         <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>Editar cliente</DrawerTitle>
-            <DrawerDescription>
-              {editClient?.name}
-            </DrawerDescription>
+            <DrawerDescription>{editClient?.name}</DrawerDescription>
           </DrawerHeader>
 
           <DrawerBody>
@@ -777,77 +859,63 @@ export default function ClientesPage() {
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-                <Label htmlFor="edit-name">Nome *</Label>
-                <Input
-                  id="edit-name"
-                  className="mt-1.5"
-                  {...updateForm.register("name")}
-                />
-                {updateForm.formState.errors.name && (
-                  <p className="mt-1 text-xs text-red-500">
-                    {updateForm.formState.errors.name.message}
-                  </p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-4">
                 <div>
-                  <Label htmlFor="edit-document">CNPJ</Label>
-                  <Input
-                    id="edit-document"
-                    className="mt-1.5"
-                    {...updateForm.register("document")}
-                  />
+                  <Label htmlFor="edit-name">Nome *</Label>
+                  <Input id="edit-name" className="mt-1.5" {...updateForm.register("name")} />
+                  {updateForm.formState.errors.name && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {updateForm.formState.errors.name.message}
+                    </p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="edit-document">CNPJ</Label>
+                    <Input id="edit-document" className="mt-1.5" {...updateForm.register("document")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-phone">Telefone</Label>
+                    <Input id="edit-phone" className="mt-1.5" {...updateForm.register("phone")} />
+                  </div>
                 </div>
                 <div>
-                  <Label htmlFor="edit-phone">Telefone</Label>
+                  <Label htmlFor="edit-email">E-mail</Label>
                   <Input
-                    id="edit-phone"
+                    id="edit-email"
+                    type="email"
                     className="mt-1.5"
-                    {...updateForm.register("phone")}
+                    {...updateForm.register("email")}
                   />
+                  {updateForm.formState.errors.email && (
+                    <p className="mt-1 text-xs text-red-500">
+                      {updateForm.formState.errors.email.message}
+                    </p>
+                  )}
                 </div>
-              </div>
-              <div>
-                <Label htmlFor="edit-email">E-mail</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  className="mt-1.5"
-                  {...updateForm.register("email")}
-                />
-                {updateForm.formState.errors.email && (
-                  <p className="mt-1 text-xs text-red-500">
-                    {updateForm.formState.errors.email.message}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="edit-status">Status</Label>
-                <Select
-                  defaultValue={editClient?.status}
-                  onValueChange={(value) =>
-                    updateForm.setValue("status", value as "ACTIVE" | "INACTIVE")
-                  }
-                >
-                  <SelectTrigger className="mt-1.5">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ACTIVE">Ativo</SelectItem>
-                    <SelectItem value="INACTIVE">Inativo</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div>
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select
+                    defaultValue={editClient?.status}
+                    onValueChange={(value) =>
+                      updateForm.setValue("status", value as "ACTIVE" | "INACTIVE")
+                    }
+                  >
+                    <SelectTrigger className="mt-1.5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">Ativo</SelectItem>
+                      <SelectItem value="INACTIVE">Inativo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </form>
           </DrawerBody>
 
           <DrawerFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setEditClient(null)}
-            >
+            <Button type="button" variant="outline" onClick={() => setEditClient(null)}>
               Cancelar
             </Button>
             <Button
@@ -863,12 +931,6 @@ export default function ClientesPage() {
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
-
-      <ClientUsersDrawer
-        client={manageUsersClient}
-        open={!!manageUsersClient}
-        onOpenChange={(open) => !open && setManageUsersClient(null)}
-      />
     </div>
   );
 }
