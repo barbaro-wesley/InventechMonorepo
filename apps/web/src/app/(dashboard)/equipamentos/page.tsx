@@ -1603,6 +1603,7 @@ export default function EquipamentosPage() {
   const [costCenterFilter, setCostCenterFilter] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [qrTarget, setQrTarget] = useState<Equipment | null>(null);
+  const [page, setPage] = useState(1);
 
   const { data: allTypes = [] } = useEquipmentTypes();
   const { data: allCostCenters = [] } = useCostCenters({ limit: 100 });
@@ -1634,14 +1635,20 @@ export default function EquipamentosPage() {
     typeId: typeFilter || undefined,
     locationId: locationFilter || undefined,
     costCenterId: costCenterFilter || undefined,
+    page,
     limit: 50,
   });
 
   const equipments = listData?.data ?? [];
   const total = listData?.total ?? 0;
+  const totalPages = Math.ceil(total / 50);
 
   const activeFilterCount = [statusFilter, criticalityFilter, typeFilter, locationFilter, costCenterFilter, ipFilter, patrimonyFilter]
     .filter(Boolean).length;
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, ipFilter, patrimonyFilter, statusFilter, criticalityFilter, typeFilter, locationFilter, costCenterFilter]);
 
   function clearAll() {
     setSearch("");
@@ -1829,9 +1836,55 @@ export default function EquipamentosPage() {
               />
             ))}
           </div>
-          <p className="text-xs text-muted-foreground pt-1">
-            {equipments.length} de {total} equipamento(s)
-          </p>
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs text-muted-foreground">
+              {((page - 1) * 50) + 1}–{Math.min(page * 50, total)} de {total} equipamento(s)
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="h-8 px-3 text-xs"
+                >
+                  Anterior
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                  .reduce<(number | "ellipsis")[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push("ellipsis");
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((p, i) =>
+                    p === "ellipsis" ? (
+                      <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={p === page ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPage(p as number)}
+                        className="h-8 w-8 p-0 text-xs"
+                      >
+                        {p}
+                      </Button>
+                    )
+                  )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="h-8 px-3 text-xs"
+                >
+                  Próxima
+                </Button>
+              </div>
+            )}
+          </div>
         </>
       )}
 

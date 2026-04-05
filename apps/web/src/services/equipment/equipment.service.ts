@@ -138,6 +138,14 @@ export interface EquipmentListResponse {
 export const equipmentService = {
   async list(params?: ListEquipmentParams): Promise<EquipmentListResponse> {
     const { data } = await api.get(`/equipment`, { params });
+    if (data?.pagination) {
+      return {
+        data: data.data ?? [],
+        total: data.pagination.total,
+        page: data.pagination.page,
+        limit: data.pagination.limit,
+      };
+    }
     if (data?.data) return data;
     return { data: Array.isArray(data) ? data : [], total: 0, page: 1, limit: 20 };
   },
