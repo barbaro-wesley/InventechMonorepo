@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, LayoutGrid, List } from 'lucide-react'
+import { Search, LayoutGrid, List, User, Archive } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -22,6 +22,10 @@ interface CommandBarProps {
   onStatusChange: (s: ServiceOrderStatus | '') => void
   priority: ServiceOrderPriority | ''
   onPriorityChange: (p: ServiceOrderPriority | '') => void
+  myOrders: boolean
+  onMyOrdersChange: (v: boolean) => void
+  showClosed: boolean
+  onShowClosedChange: (v: boolean) => void
 }
 
 export function CommandBar({
@@ -33,6 +37,10 @@ export function CommandBar({
   onStatusChange,
   priority,
   onPriorityChange,
+  myOrders,
+  onMyOrdersChange,
+  showClosed,
+  onShowClosedChange,
 }: CommandBarProps) {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-[#e0e5eb]">
@@ -83,6 +91,32 @@ export function CommandBar({
           <SelectItem value="LOW">⚪ Baixa</SelectItem>
         </SelectContent>
       </Select>
+
+      {/* Toggle Minhas OS */}
+      <button
+        onClick={() => onMyOrdersChange(!myOrders)}
+        className={`flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-colors border ${
+          myOrders
+            ? 'bg-[#0a3776] text-white border-[#0a3776]'
+            : 'bg-[#f3f4f7] text-[#6c7c93] border-transparent hover:text-[#1d2530]'
+        }`}
+      >
+        <User className="h-3.5 w-3.5" />
+        Minhas OS
+      </button>
+
+      {/* Toggle Encerradas */}
+      <button
+        onClick={() => onShowClosedChange(!showClosed)}
+        className={`flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-colors border ${
+          showClosed
+            ? 'bg-emerald-600 text-white border-emerald-600'
+            : 'bg-[#f3f4f7] text-[#6c7c93] border-transparent hover:text-[#1d2530]'
+        }`}
+      >
+        <Archive className="h-3.5 w-3.5" />
+        Encerradas
+      </button>
 
       <div className="flex-1" />
 

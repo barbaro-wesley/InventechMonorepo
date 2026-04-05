@@ -18,6 +18,8 @@ export default function OperacionalPage() {
   const [status, setStatus] = useState<ServiceOrderStatus | ''>('')
   const [priority, setPriority] = useState<ServiceOrderPriority | ''>('')
   const [view, setView] = useState<ViewMode>('board')
+  const [myOrders, setMyOrders] = useState(false)
+  const [showClosed, setShowClosed] = useState(false)
 
   // Drawer de detalhes
   const [selectedOs, setSelectedOs] = useState<{ id: string; clientId: string } | null>(null)
@@ -35,6 +37,10 @@ export default function OperacionalPage() {
     return allOrders.filter((os) => {
       if (status && os.status !== status) return false
       if (priority && os.priority !== priority) return false
+      if (myOrders && user) {
+        const isMine = os.technicians.some((t) => t.technician.id === user.id)
+        if (!isMine) return false
+      }
       if (search) {
         const q = search.toLowerCase()
         return (
@@ -46,7 +52,7 @@ export default function OperacionalPage() {
       }
       return true
     })
-  }, [allOrders, status, priority, search])
+  }, [allOrders, status, priority, search, myOrders, user])
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -63,6 +69,10 @@ export default function OperacionalPage() {
         onStatusChange={setStatus}
         priority={priority}
         onPriorityChange={setPriority}
+        myOrders={myOrders}
+        onMyOrdersChange={setMyOrders}
+        showClosed={showClosed}
+        onShowClosedChange={setShowClosed}
       />
 
       {/* Conteúdo principal */}
@@ -71,6 +81,7 @@ export default function OperacionalPage() {
       ) : view === 'board' ? (
         <OsBoard
           orders={filteredOrders}
+          showClosed={showClosed}
           onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.clientId })}
         />
       ) : (

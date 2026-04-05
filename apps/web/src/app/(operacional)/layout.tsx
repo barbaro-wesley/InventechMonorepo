@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Bell, LogOut, Settings } from 'lucide-react'
+import { useRouter, usePathname } from 'next/navigation'
+import { ArrowLeft, Bell, LogOut, Settings, LayoutGrid, Wrench } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -47,6 +47,10 @@ export default function OperacionalLayout({
   const user = useCurrentUser()
   const { logout } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+
+  const isTechnician = user?.role === 'TECHNICIAN'
+  const canSeeOperacional = user?.role !== 'TECHNICIAN'
 
   return (
     <div className="flex h-screen flex-col bg-[#f3f4f7] overflow-hidden">
@@ -65,15 +69,43 @@ export default function OperacionalLayout({
 
         <div className="w-px h-5 bg-[#e0e5eb]" />
 
-        {/* Logo + Título */}
-        <Link href="/operacional" className="flex items-center gap-2">
-          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#0a3776] to-[#1162d4] flex items-center justify-center">
-            <span className="text-white text-xs font-bold">OS</span>
-          </div>
-          <span className="font-semibold text-[#1d2530] text-sm hidden sm:block">
-            Painel Operacional
-          </span>
-        </Link>
+        {/* Logo */}
+        <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#0a3776] to-[#1162d4] flex items-center justify-center shrink-0">
+          <span className="text-white text-xs font-bold">OS</span>
+        </div>
+
+        {/* Tabs de navegação */}
+        <nav className="flex items-center gap-0.5">
+          {/* Painel Técnico — sempre visível */}
+          <Link
+            href="/tecnico"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              pathname === '/tecnico'
+                ? 'bg-[#f3f4f7] text-[#0a3776]'
+                : 'text-[#6c7c93] hover:text-[#1d2530] hover:bg-[#f3f4f7]'
+            }`}
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">
+              {isTechnician ? 'Minhas OS' : 'Painel Técnico'}
+            </span>
+          </Link>
+
+          {/* Painel Operacional — apenas para não-técnicos */}
+          {canSeeOperacional && (
+            <Link
+              href="/operacional"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                pathname === '/operacional'
+                  ? 'bg-[#f3f4f7] text-[#0a3776]'
+                  : 'text-[#6c7c93] hover:text-[#1d2530] hover:bg-[#f3f4f7]'
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Operacional</span>
+            </Link>
+          )}
+        </nav>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Notificações */}
