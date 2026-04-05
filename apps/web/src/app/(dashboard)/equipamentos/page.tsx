@@ -158,6 +158,16 @@ const equipmentSchema = z.object({
 });
 type EquipmentForm = z.infer<typeof equipmentSchema>;
 
+const formatToBRL = (val: string | number) => {
+  const cleanValue = val.toString().replace(/\D/g, "");
+  if (!cleanValue) return "";
+  const cents = parseInt(cleanValue, 10);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(cents / 100);
+};
+
 // ─── Equipment Sheet ──────────────────────────────────────────────────────────
 
 function EquipmentSheet({
@@ -195,7 +205,7 @@ function EquipmentSheet({
       subtypeId: editTarget.subtype?.id ?? "",
       locationId: editTarget.location?.id ?? "",
       costCenterId: editTarget.costCenter?.id ?? "",
-      purchaseValue: editTarget.purchaseValue != null ? String(editTarget.purchaseValue) : "",
+      purchaseValue: editTarget.purchaseValue != null ? formatToBRL(editTarget.purchaseValue) : "",
       purchaseDate: editTarget.purchaseDate ? editTarget.purchaseDate.substring(0, 10) : "",
       warrantyEnd: editTarget.warrantyEnd ? editTarget.warrantyEnd.substring(0, 10) : "",
       depreciationRate: editTarget.depreciationRate != null ? String(editTarget.depreciationRate) : "",
@@ -213,6 +223,9 @@ function EquipmentSheet({
       criticality: "MEDIUM", observations: "",
     },
   });
+
+  const watchedVoltage = watch("voltage");
+  const voltageOption = ["110V", "220V", "Bivolt", ""].includes(watchedVoltage || "") ? (watchedVoltage || "") : "Outra";
 
   const watchedTypeId = watch("typeId");
   const watchedCostCenterId = watch("costCenterId");
@@ -253,7 +266,7 @@ function EquipmentSheet({
       subtypeId: data.subtypeId || undefined,
       locationId: data.locationId || undefined,
       costCenterId: data.costCenterId || undefined,
-      purchaseValue: data.purchaseValue || undefined,
+      purchaseValue: data.purchaseValue ? (parseInt(data.purchaseValue.replace(/\D/g, ""), 10) / 100).toString() : undefined,
       purchaseDate: data.purchaseDate || undefined,
       warrantyEnd: data.warrantyEnd || undefined,
       depreciationRate: data.depreciationRate || undefined,
@@ -423,8 +436,16 @@ function EquipmentSheet({
             <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Aquisição</legend>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="eq-pval">Valor de compra (R$)</Label>
-                <Input id="eq-pval" placeholder="45000.00" {...register("purchaseValue")} />
+                <Label htmlFor="eq-pval">Valor de compra</Label>
+                <Input
+                  id="eq-pval"
+                  placeholder="R$ 0,00"
+                  {...register("purchaseValue")}
+                  onChange={(e) => {
+                    const formatted = formatToBRL(e.target.value);
+                    setValue("purchaseValue", formatted);
+                  }}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="eq-pdate">Data de compra</Label>
@@ -453,7 +474,38 @@ function EquipmentSheet({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="eq-volt">Tensão</Label>
-                <Input id="eq-volt" placeholder="220V" {...register("voltage")} />
+                <div className="space-y-2">
+                  <select
+                    id="eq-volt-select"
+                    value={voltageOption}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "Outra") {
+                        setValue("voltage", " "); // Space acting as a trigger for "Other" mode while being truthy
+                      } else {
+                        setValue("voltage", val);
+                      }
+                    }}
+                    className="w-full text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  >
+                    <option value="">— Selecione —</option>
+                    <option value="110V">110V</option>
+                    <option value="220V">220V</option>
+                    <option value="Bivolt">Bivolt</option>
+                    <option value="Outra">Outra (Digitar manual)</option>
+                  </select>
+
+                  {voltageOption === "Outra" && (
+                    <Input
+                      id="eq-volt-custom"
+                      placeholder="Ex: 380V ou Trifásico"
+                      autoFocus
+                      {...register("voltage")}
+                      value={watchedVoltage === " " ? "" : watchedVoltage}
+                      onChange={(e) => setValue("voltage", e.target.value)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
