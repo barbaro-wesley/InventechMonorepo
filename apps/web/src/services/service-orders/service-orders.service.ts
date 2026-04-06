@@ -53,61 +53,68 @@ async function getById(
   return data
 }
 
+async function getByIdCompany(id: string): Promise<ServiceOrderDetail> {
+  const { data } = await api.get(`/service-orders/${id}`)
+  return data
+}
+
 async function create(dto: CreateServiceOrderDto): Promise<ServiceOrder> {
   const { clientId, ...body } = dto
   const { data } = await api.post(`/clients/${clientId}/service-orders`, body)
   return data
 }
 
+function osBase(clientId: string | null, id: string) {
+  return clientId
+    ? `/clients/${clientId}/service-orders/${id}`
+    : `/service-orders/${id}`
+}
+
 async function updateStatus(
-  clientId: string,
+  clientId: string | null,
   id: string,
   dto: UpdateServiceOrderStatusDto,
 ): Promise<ServiceOrder> {
-  const { data } = await api.patch(`/clients/${clientId}/service-orders/${id}/status`, dto)
+  const { data } = await api.patch(`${osBase(clientId, id)}/status`, dto)
   return data
 }
 
-async function assume(clientId: string, id: string): Promise<ServiceOrder> {
-  const { data } = await api.post(`/clients/${clientId}/service-orders/${id}/assume`)
+async function assume(clientId: string | null, id: string): Promise<ServiceOrder> {
+  const { data } = await api.post(`${osBase(clientId, id)}/assume`)
   return data
 }
 
 async function addTechnician(
-  clientId: string,
+  clientId: string | null,
   id: string,
   dto: AssignTechnicianDto,
 ) {
-  const { data } = await api.post(`/clients/${clientId}/service-orders/${id}/technicians`, dto)
+  const { data } = await api.post(`${osBase(clientId, id)}/technicians`, dto)
   return data
 }
 
 async function removeTechnician(
-  clientId: string,
+  clientId: string | null,
   id: string,
   technicianId: string,
 ) {
-  const { data } = await api.delete(
-    `/clients/${clientId}/service-orders/${id}/technicians/${technicianId}`,
-  )
+  const { data } = await api.delete(`${osBase(clientId, id)}/technicians/${technicianId}`)
   return data
 }
 
 async function addComment(
-  clientId: string,
+  clientId: string | null,
   id: string,
   dto: CreateCommentDto,
 ): Promise<ServiceOrderComment> {
-  // Se não houver arquivos, envia como JSON normal
   if (!dto.files || dto.files.length === 0) {
-    const { data } = await api.post(`/clients/${clientId}/service-orders/${id}/comments`, {
+    const { data } = await api.post(`${osBase(clientId, id)}/comments`, {
       content: dto.content,
       isInternal: dto.isInternal,
     })
     return data
   }
 
-  // Se houver arquivos, envia como FormData
   const formData = new FormData()
   formData.append('content', dto.content)
   if (dto.isInternal !== undefined) {
@@ -117,15 +124,12 @@ async function addComment(
     formData.append('files', file)
   })
 
-  const { data } = await api.post(
-    `/clients/${clientId}/service-orders/${id}/comments`,
-    formData,
-  )
+  const { data } = await api.post(`${osBase(clientId, id)}/comments`, formData)
   return data
 }
 
 async function deleteComment(
-  clientId: string,
+  clientId: string | null,
   osId: string,
   commentId: string,
 ) {
@@ -136,43 +140,38 @@ async function deleteComment(
 }
 
 async function getTasks(
-  clientId: string,
+  clientId: string | null,
   id: string,
 ): Promise<ServiceOrderTask[]> {
-  const { data } = await api.get(`/clients/${clientId}/service-orders/${id}/tasks`)
+  const { data } = await api.get(`${osBase(clientId, id)}/tasks`)
   return data
 }
 
 async function createTask(
-  clientId: string,
+  clientId: string | null,
   id: string,
   dto: CreateTaskDto,
 ): Promise<ServiceOrderTask> {
-  const { data } = await api.post(`/clients/${clientId}/service-orders/${id}/tasks`, dto)
+  const { data } = await api.post(`${osBase(clientId, id)}/tasks`, dto)
   return data
 }
 
 async function updateTask(
-  clientId: string,
+  clientId: string | null,
   osId: string,
   taskId: string,
   dto: UpdateTaskDto,
 ): Promise<ServiceOrderTask> {
-  const { data } = await api.patch(
-    `/clients/${clientId}/service-orders/${osId}/tasks/${taskId}`,
-    dto,
-  )
+  const { data } = await api.patch(`${osBase(clientId, osId)}/tasks/${taskId}`, dto)
   return data
 }
 
 async function deleteTask(
-  clientId: string,
+  clientId: string | null,
   osId: string,
   taskId: string,
 ) {
-  const { data } = await api.delete(
-    `/clients/${clientId}/service-orders/${osId}/tasks/${taskId}`,
-  )
+  const { data } = await api.delete(`${osBase(clientId, osId)}/tasks/${taskId}`)
   return data
 }
 
@@ -180,6 +179,7 @@ export const serviceOrdersService = {
   listCompany,
   listByClient,
   getById,
+  getByIdCompany,
   create,
   updateStatus,
   assume,

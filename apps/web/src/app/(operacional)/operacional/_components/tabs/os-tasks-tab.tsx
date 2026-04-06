@@ -8,7 +8,7 @@ import type { ServiceOrderTask, TaskStatus } from '@/services/service-orders/ser
 import { useCreateTask, useUpdateTask, useDeleteTask } from '@/hooks/service-orders/use-service-orders'
 
 interface OsTasksTabProps {
-  clientId: string
+  clientId: string | null
   osId: string
   tasks: ServiceOrderTask[]
 }
@@ -31,7 +31,7 @@ function TaskRow({
   osId,
 }: {
   task: ServiceOrderTask
-  clientId: string
+  clientId: string | null
   osId: string
 }) {
   const updateTask = useUpdateTask(clientId, osId)

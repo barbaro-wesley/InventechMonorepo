@@ -12,9 +12,14 @@ import { CreateTaskDto, UpdateTaskDto, ReorderTasksDto } from './dto/task.dto'
 export class TasksService {
     constructor(private prisma: PrismaService) { }
 
-    async findAll(serviceOrderId: string, clientId: string, companyId: string) {
+    async findAll(serviceOrderId: string, clientId: string | null, companyId: string) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id: serviceOrderId, clientId, companyId, deletedAt: null },
+            where: {
+                id: serviceOrderId,
+                companyId,
+                deletedAt: null,
+                ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
+            },
             select: { id: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
@@ -39,11 +44,16 @@ export class TasksService {
     async create(
         serviceOrderId: string,
         dto: CreateTaskDto,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id: serviceOrderId, clientId, companyId, deletedAt: null },
+            where: {
+                id: serviceOrderId,
+                companyId,
+                deletedAt: null,
+                ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
+            },
             select: { id: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
@@ -129,11 +139,16 @@ export class TasksService {
     async reorder(
         serviceOrderId: string,
         dto: ReorderTasksDto,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id: serviceOrderId, clientId, companyId, deletedAt: null },
+            where: {
+                id: serviceOrderId,
+                companyId,
+                deletedAt: null,
+                ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
+            },
             select: { id: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')

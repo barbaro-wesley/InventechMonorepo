@@ -39,18 +39,21 @@ export function useServiceOrders(params?: ListServiceOrdersParams) {
 // ─────────────────────────────────────────
 // Detalhes de uma OS (com tarefas, comentários, histórico)
 // ─────────────────────────────────────────
-export function useServiceOrder(clientId: string, id: string) {
+export function useServiceOrder(clientId: string | null, id: string) {
   return useQuery({
-    queryKey: serviceOrderKeys.detail(clientId, id),
-    queryFn: () => serviceOrdersService.getById(clientId, id),
-    enabled: Boolean(clientId && id),
+    queryKey: serviceOrderKeys.detail(clientId ?? '', id),
+    queryFn: () =>
+      clientId
+        ? serviceOrdersService.getById(clientId, id)
+        : serviceOrdersService.getByIdCompany(id),
+    enabled: Boolean(id),
   })
 }
 
 // ─────────────────────────────────────────
 // Tarefas de uma OS
 // ─────────────────────────────────────────
-export function useServiceOrderTasks(clientId: string, id: string) {
+export function useServiceOrderTasks(clientId: string | null, id: string) {
   return useQuery({
     queryKey: serviceOrderKeys.tasks(clientId, id),
     queryFn: () => serviceOrdersService.getTasks(clientId, id),
@@ -76,7 +79,7 @@ export function useCreateServiceOrder() {
 // ─────────────────────────────────────────
 // Atualizar status
 // ─────────────────────────────────────────
-export function useUpdateServiceOrderStatus(clientId: string, id: string) {
+export function useUpdateServiceOrderStatus(clientId: string | null, id: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (dto: UpdateServiceOrderStatusDto) =>
@@ -93,7 +96,7 @@ export function useUpdateServiceOrderStatus(clientId: string, id: string) {
 // ─────────────────────────────────────────
 // Assumir OS do painel
 // ─────────────────────────────────────────
-export function useAssumeServiceOrder(clientId: string, id: string) {
+export function useAssumeServiceOrder(clientId: string | null, id: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => serviceOrdersService.assume(clientId, id),
@@ -109,7 +112,7 @@ export function useAssumeServiceOrder(clientId: string, id: string) {
 // ─────────────────────────────────────────
 // Adicionar técnico
 // ─────────────────────────────────────────
-export function useAddTechnician(clientId: string, id: string) {
+export function useAddTechnician(clientId: string | null, id: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (dto: AssignTechnicianDto) =>
@@ -125,7 +128,7 @@ export function useAddTechnician(clientId: string, id: string) {
 // ─────────────────────────────────────────
 // Remover técnico
 // ─────────────────────────────────────────
-export function useRemoveTechnician(clientId: string, id: string) {
+export function useRemoveTechnician(clientId: string | null, id: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (technicianId: string) =>
@@ -141,7 +144,7 @@ export function useRemoveTechnician(clientId: string, id: string) {
 // ─────────────────────────────────────────
 // Adicionar comentário
 // ─────────────────────────────────────────
-export function useAddComment(clientId: string, id: string) {
+export function useAddComment(clientId: string | null, id: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (dto: CreateCommentDto) =>
@@ -156,7 +159,7 @@ export function useAddComment(clientId: string, id: string) {
 // ─────────────────────────────────────────
 // Criar tarefa
 // ─────────────────────────────────────────
-export function useCreateTask(clientId: string, id: string) {
+export function useCreateTask(clientId: string | null, id: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (dto: CreateTaskDto) =>
@@ -172,7 +175,7 @@ export function useCreateTask(clientId: string, id: string) {
 // ─────────────────────────────────────────
 // Atualizar tarefa
 // ─────────────────────────────────────────
-export function useUpdateTask(clientId: string, osId: string) {
+export function useUpdateTask(clientId: string | null, osId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ taskId, dto }: { taskId: string; dto: UpdateTaskDto }) =>
@@ -188,7 +191,7 @@ export function useUpdateTask(clientId: string, osId: string) {
 // ─────────────────────────────────────────
 // Deletar tarefa
 // ─────────────────────────────────────────
-export function useDeleteTask(clientId: string, osId: string) {
+export function useDeleteTask(clientId: string | null, osId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (taskId: string) =>

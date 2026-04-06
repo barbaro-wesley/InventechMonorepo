@@ -80,9 +80,9 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const [reason, setReason] = useState('')
 
   const user = useCurrentUser()
-  const { data: os, isLoading } = useServiceOrder(clientId ?? '', osId ?? '')
-  const updateStatus = useUpdateServiceOrderStatus(clientId ?? '', osId ?? '')
-  const assume = useAssumeServiceOrder(clientId ?? '', osId ?? '')
+  const { data: os, isLoading } = useServiceOrder(clientId, osId ?? '')
+  const updateStatus = useUpdateServiceOrderStatus(clientId, osId ?? '')
+  const assume = useAssumeServiceOrder(clientId, osId ?? '')
 
   if (!open || !osId) return null
 
@@ -166,7 +166,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                       {os.title}
                     </h2>
                     <p className="text-xs text-[#6c7c93] mt-1">
-                      {os.client.name} · {os.equipment.name}
+                      {os.client?.name ?? 'Interno'} · {os.equipment.name}
                     </p>
                   </div>
                   <Button
@@ -266,21 +266,21 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                 {activeTab === 'details' && (
                   <OsDetailTab
                     os={os}
-                    clientId={clientId ?? ''}
+                    clientId={clientId}
                     osId={osId}
                     canManage={MANAGER_ROLES.includes(user?.role ?? '')}
                   />
                 )}
                 {activeTab === 'tasks' && (
                   <OsTasksTab
-                    clientId={clientId ?? ''}
+                    clientId={clientId}
                     osId={osId}
                     tasks={os.tasks ?? []}
                   />
                 )}
                 {activeTab === 'comments' && (
                   <OsCommentsTab
-                    clientId={clientId ?? ''}
+                    clientId={clientId}
                     osId={osId}
                     comments={os.comments ?? []}
                   />

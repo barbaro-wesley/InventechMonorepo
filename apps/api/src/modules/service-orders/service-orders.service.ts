@@ -267,12 +267,17 @@ export class ServiceOrdersService {
 
     async findOne(
         id: string,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: {
+                id,
+                companyId,
+                deletedAt: null,
+                ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
+            },
             select: {
                 ...OS_SELECT,
                 comments: {
@@ -505,12 +510,17 @@ export class ServiceOrdersService {
     // ─────────────────────────────────────────
     async assumeServiceOrder(
         id: string,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: {
+                id,
+                companyId,
+                deletedAt: null,
+                OR: [{ clientId }, { clientId: null }],
+            },
             select: {
                 id: true, number: true, status: true,
                 isAvailable: true, groupId: true,
@@ -608,7 +618,7 @@ export class ServiceOrdersService {
     async addTechnician(
         id: string,
         dto: AssignTechnicianDto,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
     ) {
         const os = await this.findExisting(id, clientId, companyId)
@@ -679,7 +689,7 @@ export class ServiceOrdersService {
     async removeTechnician(
         id: string,
         technicianId: string,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
     ) {
         await this.findExisting(id, clientId, companyId)
@@ -705,7 +715,7 @@ export class ServiceOrdersService {
     async update(
         id: string,
         dto: UpdateServiceOrderDto,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
@@ -755,7 +765,7 @@ export class ServiceOrdersService {
     async updateStatus(
         id: string,
         dto: UpdateServiceOrderStatusDto,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
@@ -918,9 +928,14 @@ export class ServiceOrdersService {
         return updated
     }
 
-    private async findExisting(id: string, clientId: string, companyId: string) {
+    private async findExisting(id: string, clientId: string | null, companyId: string) {
         const os = await this.prisma.serviceOrder.findFirst({
-            where: { id, clientId, companyId, deletedAt: null },
+            where: {
+                id,
+                companyId,
+                deletedAt: null,
+                ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
+            },
             select: { id: true, number: true, status: true, equipmentId: true, maintenanceType: true },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')

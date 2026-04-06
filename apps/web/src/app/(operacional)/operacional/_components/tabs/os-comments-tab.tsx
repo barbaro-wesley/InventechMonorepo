@@ -13,7 +13,7 @@ import { timeAgo } from '../os-utils'
 import Image from 'next/image'
 
 interface OsCommentsTabProps {
-  clientId: string
+  clientId: string | null
   osId: string
   comments: ServiceOrderComment[]
 }

@@ -17,7 +17,7 @@ import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo, forma
 
 interface OsDetailTabProps {
   os: ServiceOrderDetail
-  clientId: string
+  clientId: string | null
   osId: string
   canManage: boolean
 }
@@ -61,8 +61,8 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
   const addTechnician = useAddTechnician(clientId, osId)
   const removeTechnician = useRemoveTechnician(clientId, osId)
 
-  // Busca técnicos do mesmo prestador da OS
-  const { data: techData } = useUsers({ role: 'TECHNICIAN', clientId: os.client.id, limit: 100 })
+  // Busca técnicos: do prestador (se OS externa) ou da empresa (se OS interna)
+  const { data: techData } = useUsers({ role: 'TECHNICIAN', clientId: os.client?.id, limit: 100 })
   const linkedIds = new Set(os.technicians.map((t) => t.technician.id))
   const availableTechs = (techData?.data ?? []).filter((u) => !linkedIds.has(u.id))
 
@@ -108,7 +108,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
           </InfoRow>
 
           <InfoRow icon={Building2} label="Prestador">
-            <span>{os.client.name}</span>
+            <span>{os.client?.name ?? 'Interno'}</span>
           </InfoRow>
 
           <InfoRow icon={Wrench} label="Equipamento">
