@@ -59,15 +59,17 @@ export function OsList({ orders, onRowClick }: OsListProps) {
                       <p className="font-medium text-[#1d2530] line-clamp-1 group-hover:text-[#0a3776] text-sm">
                         {os.title}
                       </p>
-                      <div className="flex items-center gap-1 mt-0.5 text-[#6c7c93]">
-                        <Wrench className="h-3 w-3" />
-                        <span className="text-xs truncate max-w-[200px]">{os.equipment.name}</span>
-                      </div>
+                      {os.equipment && (
+                        <div className="flex items-center gap-1 mt-0.5 text-[#6c7c93]">
+                          <Wrench className="h-3 w-3" />
+                          <span className="text-xs truncate max-w-[200px]">{os.equipment.name}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell">
-                  <span className="text-xs text-[#6c7c93]">{os.client.name}</span>
+                  <span className="text-xs text-[#6c7c93]">{os.client?.name}</span>
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   <span className="text-xs text-[#6c7c93]">
@@ -90,7 +92,7 @@ export function OsList({ orders, onRowClick }: OsListProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
-                  {lead ? (
+                  {lead?.technician ? (
                     <span className="text-xs text-[#6c7c93]">{lead.technician.name}</span>
                   ) : (
                     <span className="text-xs text-orange-500">Sem técnico</span>

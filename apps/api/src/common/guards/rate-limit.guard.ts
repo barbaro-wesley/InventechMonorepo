@@ -29,21 +29,22 @@ import {
     ExecutionContext,
     HttpException,
     HttpStatus,
+    Inject,
     Injectable,
+    Logger,
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
-
-interface RateLimitEntry {
-    count: number
-    resetAt: number
-}
+import type Redis from 'ioredis'
+import { REDIS_CLIENT } from '../providers/redis.provider'
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
-    // Chave: "<ip>:<rota>" → contagem de requisições
-    private readonly store = new Map<string, RateLimitEntry>()
+    private readonly logger = new Logger(RateLimitGuard.name)
 
-    constructor(private reflector: Reflector) {}
+    constructor(
+        private reflector: Reflector,
+        @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    ) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         const options = this.reflector.getAllAndOverride<RateLimitOptions & { skip?: boolean }>(
@@ -57,29 +58,33 @@ export class RateLimitGuard implements CanActivate {
         const request = context.switchToHttp().getRequest()
         const ip = request.ip ?? request.socket?.remoteAddress ?? 'unknown'
         const route = `${request.method}:${request.route?.path ?? request.path}`
-        const key = `${ip}:${route}`
-        const now = Date.now()
+        const key = `rl:${ip}:${route}`
 
-        let entry = this.store.get(key)
+        try {
+            const pipeline = this.redis.pipeline()
+            pipeline.incr(key)
+            pipeline.ttl(key)
+            const [[, count], [, ttlRemaining]] = await pipeline.exec() as [[null, number], [null, number]]
 
-        // Janela expirou → reseta
-        if (!entry || now > entry.resetAt) {
-            entry = { count: 1, resetAt: now + options.ttl * 1000 }
-            this.store.set(key, entry)
-            return true
-        }
+            // Primeira requisição nessa janela — define TTL
+            if (ttlRemaining === -1) {
+                await this.redis.expire(key, options.ttl)
+            }
 
-        entry.count++
+            if (count > options.limit) {
+                const retryAfter = ttlRemaining > 0 ? ttlRemaining : options.ttl
+                const message = (options.message ?? 'Muitas requisições. Aguarde {{ttl}} segundos.')
+                    .replace('{{ttl}}', String(retryAfter))
 
-        if (entry.count > options.limit) {
-            const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
-            const message = (options.message ?? 'Muitas requisições. Aguarde {{ttl}} segundos.')
-                .replace('{{ttl}}', String(retryAfter))
-
-            throw new HttpException(
-                { statusCode: 429, message, retryAfter },
-                HttpStatus.TOO_MANY_REQUESTS,
-            )
+                throw new HttpException(
+                    { statusCode: 429, message, retryAfter },
+                    HttpStatus.TOO_MANY_REQUESTS,
+                )
+            }
+        } catch (err) {
+            if (err instanceof HttpException) throw err
+            // Se Redis estiver indisponível, libera a requisição e loga o erro
+            this.logger.error('Rate limit Redis indisponível, liberando requisição', err)
         }
 
         return true

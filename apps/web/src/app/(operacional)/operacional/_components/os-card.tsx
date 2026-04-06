@@ -9,7 +9,8 @@ interface OsCardProps {
   onClick: () => void
 }
 
-function TechAvatar({ name }: { name: string }) {
+function TechAvatar({ name }: { name: string | null | undefined }) {
+  if (!name) return null
   const colors = [
     'bg-blue-500', 'bg-emerald-500', 'bg-violet-500',
     'bg-amber-500', 'bg-rose-500', 'bg-cyan-500',
@@ -70,14 +71,18 @@ export function OsCard({ os, onClick }: OsCardProps) {
 
         {/* Cliente + equipamento */}
         <div className="space-y-1">
-          <div className="flex items-center gap-1 text-[#6c7c93]">
-            <User className="h-3 w-3 shrink-0" />
-            <span className="text-[11px] truncate">{os.client.name}</span>
-          </div>
-          <div className="flex items-center gap-1 text-[#6c7c93]">
-            <Wrench className="h-3 w-3 shrink-0" />
-            <span className="text-[11px] truncate">{os.equipment.name}</span>
-          </div>
+          {os.client && (
+            <div className="flex items-center gap-1 text-[#6c7c93]">
+              <User className="h-3 w-3 shrink-0" />
+              <span className="text-[11px] truncate">{os.client.name}</span>
+            </div>
+          )}
+          {os.equipment && (
+            <div className="flex items-center gap-1 text-[#6c7c93]">
+              <Wrench className="h-3 w-3 shrink-0" />
+              <span className="text-[11px] truncate">{os.equipment.name}</span>
+            </div>
+          )}
         </div>
 
         {/* Grupo */}
@@ -95,11 +100,11 @@ export function OsCard({ os, onClick }: OsCardProps) {
         <div className="flex items-center justify-between pt-0.5 border-t border-[#f0f0f0]">
           {/* Técnico lead */}
           <div className="flex items-center gap-1">
-            {lead ? (
+            {lead?.technician ? (
               <>
                 <TechAvatar name={lead.technician.name} />
                 <span className="text-[11px] text-[#6c7c93] truncate max-w-[80px]">
-                  {lead.technician.name.split(' ')[0]}
+                  {lead.technician.name?.split(' ')[0]}
                 </span>
               </>
             ) : (

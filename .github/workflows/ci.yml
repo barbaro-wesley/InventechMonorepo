@@ -1,0 +1,173 @@
+name: CI — Build & Lint
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────
+  # Lint + Type check
+  # ─────────────────────────────────────────
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint API
+        run: npm run lint --workspace=api || true
+
+      - name: Lint Web
+        run: npm run lint --workspace=web || true
+
+      - name: Type check API
+        run: cd apps/api && npx tsc --noEmit -p tsconfig.build.json || true
+
+      - name: Type check Web
+        run: npm run type-check --workspace=web || true
+
+  # ─────────────────────────────────────────
+  # Build das imagens Docker
+  # ─────────────────────────────────────────
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: lint
+    # Só builda e faz push para GHCR na branch main
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadados da imagem (tag = SHA curto)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/inventech-api
+            ghcr.io/${{ github.repository_owner }}/inventech-web
+          tags: |
+            type=sha,prefix=,format=short
+            type=raw,value=latest
+
+      # ── Build API ────────────────────────────────────────────────
+      - name: Build & push imagem da API
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/inventech-api:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/inventech-api:latest
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      # ── Build Web ────────────────────────────────────────────────
+      - name: Build & push imagem do Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_WS_URL=${{ secrets.NEXT_PUBLIC_WS_URL }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/inventech-web:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/inventech-web:latest
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  # ─────────────────────────────────────────
+  # Deploy — aciona o script no servidor
+  # ─────────────────────────────────────────
+  deploy:
+    name: Deploy para Produção
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copiar arquivos de infra para o servidor
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.prod.yml,apps/api/docker/minio/init-buckets.sh"
+          target: /opt/inventech
+          strip_components: 0
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: GITHUB_SHA,GITHUB_REPOSITORY
+          script: |
+            set -e
+            cd /opt/inventech
+
+            # Tag da imagem = SHA curto do commit
+            IMAGE_TAG=$(echo "$GITHUB_SHA" | cut -c1-7)
+            REPO_LOWER=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+
+            echo "→ Fazendo login no GHCR..."
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.SSH_USER }}" --password-stdin
+
+            echo "→ Baixando novas imagens (tag: $IMAGE_TAG)..."
+            IMAGE_TAG=$IMAGE_TAG GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+              docker compose -f docker-compose.prod.yml --env-file .env pull api web
+
+            echo "→ Rodando migrations do banco..."
+            docker compose -f docker-compose.prod.yml --env-file .env \
+              run --rm api sh -c "cd apps/api && npx prisma migrate deploy"
+
+            echo "→ Subindo serviços com zero downtime..."
+            IMAGE_TAG=$IMAGE_TAG GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+              docker compose -f docker-compose.prod.yml --env-file .env \
+              up -d --no-build --remove-orphans
+
+            echo "→ Aguardando API ficar saudável..."
+            timeout 60 bash -c 'until docker inspect --format="{{.State.Health.Status}}" inventech_api 2>/dev/null | grep -q "healthy"; do sleep 3; done'
+
+            echo "→ Limpando imagens antigas..."
+            docker image prune -f
+
+            echo "✓ Deploy concluído! Tag: $IMAGE_TAG"

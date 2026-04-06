@@ -18,6 +18,11 @@ api.interceptors.request.use((config) => {
     return config;
 });
 
+// Mutex to prevent multiple simultaneous refresh calls (token rotation race condition).
+// If several requests fail with 401 at the same time, only the first actually calls
+// /auth/refresh — the rest wait for that same promise to resolve/reject.
+let refreshPromise: Promise<void> | null = null;
+
 api.interceptors.response.use(
     (response: AxiosResponse) => {
         if (response.data && "data" in response.data) {
@@ -38,7 +43,16 @@ api.interceptors.response.use(
         if (error.response?.status === 401 && !originalRequest._retry && !isRefreshRequest) {
             originalRequest._retry = true;
             try {
-                await api.post("/auth/refresh");
+                // Share a single refresh call across all concurrent 401s
+                if (!refreshPromise) {
+                    refreshPromise = api.post("/auth/refresh").then(() => {
+                        refreshPromise = null;
+                    }).catch((err) => {
+                        refreshPromise = null;
+                        throw err;
+                    });
+                }
+                await refreshPromise;
                 return api(originalRequest);
             } catch {
                 if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {

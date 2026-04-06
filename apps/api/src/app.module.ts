@@ -9,6 +9,7 @@ import {
   minioConfig, mailConfig, telegramConfig,
 } from './config'
 
+import { RedisModule } from './common/providers/redis.module'
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { UsersModule } from './modules/users/users.module'
@@ -54,6 +55,8 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
       inject: [ConfigService],
     }),
 
+    // RedisModule é @Global() — cliente Redis disponível em todos os módulos
+    RedisModule,
     // PrismaModule é @Global() — disponível em todos os módulos
     PrismaModule,
     AuthModule,

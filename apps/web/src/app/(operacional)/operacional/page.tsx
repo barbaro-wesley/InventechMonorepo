@@ -45,8 +45,8 @@ export default function OperacionalPage() {
         const q = search.toLowerCase()
         return (
           os.title.toLowerCase().includes(q) ||
-          os.client.name.toLowerCase().includes(q) ||
-          os.equipment.name.toLowerCase().includes(q) ||
+          (os.client?.name ?? '').toLowerCase().includes(q) ||
+          (os.equipment?.name ?? '').toLowerCase().includes(q) ||
           String(os.number).includes(q)
         )
       }
@@ -82,13 +82,13 @@ export default function OperacionalPage() {
         <OsBoard
           orders={filteredOrders}
           showClosed={showClosed}
-          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.clientId })}
+          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId })}
         />
       ) : (
         <div className="flex-1 overflow-hidden bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] shadow-sm">
           <OsList
             orders={filteredOrders}
-            onRowClick={(os) => setSelectedOs({ id: os.id, clientId: os.clientId })}
+            onRowClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId })}
           />
         </div>
       )}

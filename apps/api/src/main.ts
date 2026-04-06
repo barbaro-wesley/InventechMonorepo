@@ -7,19 +7,71 @@ import helmet from 'helmet'
 import { AppModule } from './app.module'
 import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 
+// ── Variáveis obrigatórias em qualquer ambiente ─────────────────────────────
+const REQUIRED_ENV_VARS = [
+  'DATABASE_URL',
+  'JWT_ACCESS_SECRET',
+  'JWT_REFRESH_SECRET',
+  'REDIS_HOST',
+  'REDIS_PASSWORD',
+  'MINIO_ENDPOINT',
+  'MINIO_ROOT_USER',
+  'MINIO_ROOT_PASSWORD',
+]
+
+// Variáveis obrigatórias somente em produção
+const REQUIRED_PROD_ENV_VARS = [
+  'ALLOWED_ORIGINS',
+  'MAIL_HOST',
+  'MAIL_USER',
+  'MAIL_PASSWORD',
+]
+
+function validateEnv(logger: Logger): void {
+  const missing = REQUIRED_ENV_VARS.filter((key) => !process.env[key])
+
+  if (process.env.NODE_ENV === 'production') {
+    missing.push(...REQUIRED_PROD_ENV_VARS.filter((key) => !process.env[key]))
+  }
+
+  if (missing.length > 0) {
+    logger.error(`Variáveis de ambiente obrigatórias ausentes: ${missing.join(', ')}`)
+    logger.error('Consulte .env.example para a lista completa de variáveis necessárias.')
+    process.exit(1)
+  }
+
+  // Bloqueia secrets placeholder em produção
+  if (process.env.NODE_ENV === 'production') {
+    const placeholders = ['troque_por', 'sua_senha', 'seu_token', 'seu_email']
+    for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'MINIO_ROOT_PASSWORD', 'REDIS_PASSWORD']) {
+      const value = process.env[key] ?? ''
+      if (placeholders.some((p) => value.includes(p))) {
+        logger.error(`Variável ${key} contém um valor placeholder. Defina um segredo real antes de ir para produção.`)
+        process.exit(1)
+      }
+    }
+  }
+}
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap')
 
+  // ── Validação de ambiente antes de qualquer coisa ───────────────
+  validateEnv(logger)
+
+  const isProd = process.env.NODE_ENV === 'production'
+
   const app = await NestFactory.create(AppModule, {
-    logger: process.env.NODE_ENV === 'production'
+    logger: isProd
       ? ['error', 'warn', 'log']
       : ['error', 'warn', 'log', 'debug', 'verbose'],
   })
 
   // ── Helmet ─────────────────────────────────────────────────────
   app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' },
-    contentSecurityPolicy: false, // Desabilitado para o Swagger UI funcionar
+    crossOriginResourcePolicy: { policy: isProd ? 'same-origin' : 'cross-origin' },
+    // CSP habilitado em produção; desabilitado em dev para o Swagger funcionar
+    contentSecurityPolicy: isProd ? undefined : false,
   }))
 
   // ── Cookie parser ───────────────────────────────────────────────
@@ -34,7 +86,11 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true)
+      // Em produção, requisições sem header Origin (ex: curl direto) são bloqueadas
+      if (!origin) {
+        if (isProd) return callback(new Error('Requisições sem header Origin não são permitidas em produção'))
+        return callback(null, true)
+      }
       if (allowedOrigins.includes(origin)) return callback(null, true)
       callback(new Error(`CORS bloqueado para origin: ${origin}`))
     },
@@ -63,8 +119,8 @@ async function bootstrap() {
     new ClassSerializerInterceptor(app.get(Reflector)),
   )
 
-  // ── Swagger / OpenAPI ───────────────────────────────────────────
-  if (process.env.NODE_ENV !== 'production') {
+  // ── Swagger / OpenAPI (apenas em desenvolvimento) ───────────────
+  if (!isProd) {
     const config = new DocumentBuilder()
       .setTitle('Sistema de Gestão de Manutenção')
       .setDescription(
@@ -116,12 +172,12 @@ async function bootstrap() {
       customSiteTitle: 'API Manutenção — Docs',
       customfavIcon: '',
       swaggerOptions: {
-        persistAuthorization: true,     // Mantém o token ao recarregar
-        displayRequestDuration: true,   // Mostra tempo de resposta
-        filter: true,                   // Filtro de busca nas rotas
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        filter: true,
         syntaxHighlight: { theme: 'monokai' },
-        tryItOutEnabled: true,          // Habilita "Try it out" por padrão
-        docExpansion: 'none',           // Começa com tudo fechado
+        tryItOutEnabled: true,
+        docExpansion: 'none',
         tagsSorter: 'alpha',
       },
     })
@@ -129,8 +185,20 @@ async function bootstrap() {
     logger.log(`📚 Swagger:     http://localhost:${process.env.APP_PORT ?? 3000}/api/docs`)
   }
 
-  // ── Shutdown hooks ──────────────────────────────────────────────
+  // ── Shutdown hooks + handler SIGTERM ────────────────────────────
   app.enableShutdownHooks()
+
+  process.on('SIGTERM', async () => {
+    logger.log('SIGTERM recebido — encerrando servidor graciosamente...')
+    await app.close()
+    process.exit(0)
+  })
+
+  process.on('SIGINT', async () => {
+    logger.log('SIGINT recebido — encerrando servidor graciosamente...')
+    await app.close()
+    process.exit(0)
+  })
 
   const port = parseInt(process.env.APP_PORT ?? '3000', 10)
   await app.listen(port, '0.0.0.0')

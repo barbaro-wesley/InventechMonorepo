@@ -63,6 +63,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Habilita output standalone para deploy em containers Docker
+  // Gera um servidor Node.js mínimo em .next/standalone
+  output: "standalone",
+
   async headers() {
     return [
       {
