@@ -163,8 +163,8 @@ export default function PrevenTivasPage() {
   const toggle = useToggleSchedule();
 
   const schedules: MaintenanceSchedule[] = data?.data ?? [];
-  const total = data?.total ?? 0;
-  const totalPages = Math.ceil(total / LIMIT);
+  const total = data?.pagination?.total ?? data?.total ?? 0;
+  const totalPages = data?.pagination?.totalPages ?? Math.ceil(total / LIMIT);
 
   // Client-side status filter for overdue/due_soon (since backend doesn't have that concept)
   const filtered =

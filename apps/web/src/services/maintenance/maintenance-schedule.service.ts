@@ -58,10 +58,20 @@ export interface ListSchedulesParams {
 }
 
 export interface PaginatedSchedulesResponse {
+  success?: boolean
+  statusCode?: number
   data: MaintenanceSchedule[]
-  total: number
-  page: number
-  limit: number
+  total?: number
+  page?: number
+  limit?: number
+  pagination?: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+    hasNextPage: boolean
+    hasPrevPage: boolean
+  }
 }
 
 // Company-wide listing (COMPANY_ADMIN/MANAGER see all clients, CLIENT_ADMIN scoped automatically)

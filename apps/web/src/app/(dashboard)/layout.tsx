@@ -90,7 +90,7 @@ const navSections: NavSection[] = [
                 permission: "equipment:list",
             },
             {
-                label: "Preventivas (PMOC)",
+                label: "Preventivas ",
                 href: "/preventivas",
                 icon: CalendarClock,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"],
