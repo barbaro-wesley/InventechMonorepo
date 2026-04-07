@@ -519,11 +519,11 @@ export class ReportsService {
       where: {
         companyId,
         deletedAt: null,
-        ...(filters.status && { status: filters.status as any }),
-        ...(filters.criticality && { criticality: filters.criticality as any }),
-        ...(filters.typeId && { typeId: filters.typeId }),
-        ...(filters.locationId && { locationId: filters.locationId }),
-        ...(filters.costCenterId && { costCenterId: filters.costCenterId }),
+        ...(filters.status && { status: { in: filters.status.split(',') } as any }),
+        ...(filters.criticality && { criticality: { in: filters.criticality.split(',') } as any }),
+        ...(filters.typeId && { typeId: { in: filters.typeId.split(',') } }),
+        ...(filters.locationId && { locationId: { in: filters.locationId.split(',') } }),
+        ...(filters.costCenterId && { costCenterId: { in: filters.costCenterId.split(',') } }),
       },
       select: {
         patrimonyNumber: true,

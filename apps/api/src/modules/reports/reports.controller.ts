@@ -32,9 +32,9 @@ class OsFiltersDto {
 class EquipmentFiltersDto {
   @IsOptional() @IsString() status?: string
   @IsOptional() @IsString() criticality?: string
-  @IsOptional() @IsUUID() typeId?: string
-  @IsOptional() @IsUUID() locationId?: string
-  @IsOptional() @IsUUID() costCenterId?: string
+  @IsOptional() @IsString() typeId?: string
+  @IsOptional() @IsString() locationId?: string
+  @IsOptional() @IsString() costCenterId?: string
   /** 'status' | 'criticality' | 'type' | 'location' | 'costCenter' */
   @IsOptional() @IsString() groupBy?: string
   /** Comma-separated column keys, e.g. 'patrimony,name,brand,status' */

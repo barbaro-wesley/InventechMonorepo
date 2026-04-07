@@ -19,6 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -163,6 +169,55 @@ function ChipToggle({
   );
 }
 
+// ─── Multi Select ─────────────────────────────────────────────────────────────
+
+function MultiSelect({
+  options,
+  selectedValues,
+  onChange,
+  placeholder,
+}: {
+  options: { label: string; value: string }[];
+  selectedValues: string[];
+  onChange: (vals: string[]) => void;
+  placeholder: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between font-normal h-9 px-3 py-2 text-sm bg-transparent border-input hover:bg-accent hover:text-accent-foreground"
+        >
+          <span className="truncate">
+            {selectedValues.length === 0
+              ? placeholder
+              : `${selectedValues.length} selecionado(s)`}
+          </span>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+        {options.map((opt) => (
+          <DropdownMenuCheckboxItem
+            key={opt.value}
+            checked={selectedValues.includes(opt.value)}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                onChange([...selectedValues, opt.value]);
+              } else {
+                onChange(selectedValues.filter((v) => v !== opt.value));
+              }
+            }}
+          >
+            {opt.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
 function Section({
@@ -193,15 +248,15 @@ function Section({
 // ─── Equipment Report Tab ─────────────────────────────────────────────────────
 
 function EquipmentReport() {
-  const { data: types = [] } = useEquipmentTypes({ limit: 200 } as any);
-  const { data: locations = [] } = useLocations({ limit: 200, isActive: true } as any);
-  const { data: costCenters = [] } = useCostCenters({ limit: 200, isActive: true } as any);
+  const { data: types = [] } = useEquipmentTypes({ limit: 100 } as any);
+  const { data: locations = [] } = useLocations({ limit: 100, isActive: true } as any);
+  const { data: costCenters = [] } = useCostCenters({ limit: 100, isActive: true } as any);
 
   const [statuses, setStatuses] = useState<EquipmentStatus[]>([]);
   const [criticalities, setCriticalities] = useState<EquipmentCriticality[]>([]);
-  const [typeId, setTypeId] = useState("__all__");
-  const [locationId, setLocationId] = useState("__all__");
-  const [costCenterId, setCostCenterId] = useState("__all__");
+  const [typeIds, setTypeIds] = useState<string[]>([]);
+  const [locationIds, setLocationIds] = useState<string[]>([]);
+  const [costCenterIds, setCostCenterIds] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState("none");
 
   const [selectedColumns, setSelectedColumns] = useState<string[]>(
@@ -230,11 +285,11 @@ function EquipmentReport() {
   };
 
   const params: Record<string, string | string[] | undefined> = {
-    ...(statuses.length === 1 && { status: statuses[0] }),
-    ...(criticalities.length === 1 && { criticality: criticalities[0] }),
-    ...(typeId !== "__all__" && { typeId }),
-    ...(locationId !== "__all__" && { locationId }),
-    ...(costCenterId !== "__all__" && { costCenterId }),
+    ...(statuses.length > 0 && { status: statuses.join(",") }),
+    ...(criticalities.length > 0 && { criticality: criticalities.join(",") }),
+    ...(typeIds.length > 0 && { typeId: typeIds.join(",") }),
+    ...(locationIds.length > 0 && { locationId: locationIds.join(",") }),
+    ...(costCenterIds.length > 0 && { costCenterId: costCenterIds.join(",") }),
     ...(groupBy !== "none" && { groupBy }),
     columns: selectedColumns.join(","),
   };
@@ -273,11 +328,6 @@ function EquipmentReport() {
                 />
               ))}
             </div>
-            {statuses.length > 1 && (
-              <p className="mt-1 text-xs text-amber-600">
-                Filtro de status suporta apenas um valor por vez — usando o primeiro selecionado.
-              </p>
-            )}
           </div>
 
           {/* Criticidade */}
@@ -294,61 +344,36 @@ function EquipmentReport() {
                 />
               ))}
             </div>
-            {criticalities.length > 1 && (
-              <p className="mt-1 text-xs text-amber-600">
-                Filtro de criticidade suporta apenas um valor por vez — usando o primeiro selecionado.
-              </p>
-            )}
           </div>
 
           {/* Tipo / Local / CC */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Tipo de equipamento</Label>
-              <Select value={typeId} onValueChange={setTypeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os tipos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos os tipos</SelectItem>
-                  {(types as any[]).map((t: any) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <MultiSelect
+              label="Tipo de equipamento"
+              placeholder="Todos os tipos"
+              options={(types as any[]).map((t: any) => ({ label: t.name, value: t.id }))}
+              selectedValues={typeIds}
+              onChange={setTypeIds}
+            />
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Local</Label>
-              <Select value={locationId} onValueChange={setLocationId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os locais" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos os locais</SelectItem>
-                  {(locations as any[]).map((l: any) => (
-                    <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <MultiSelect
+              label="Local"
+              placeholder="Todos os locais"
+              options={(locations as any[]).map((l: any) => ({ label: l.name, value: l.id }))}
+              selectedValues={locationIds}
+              onChange={setLocationIds}
+            />
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Centro de custo</Label>
-              <Select value={costCenterId} onValueChange={setCostCenterId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos</SelectItem>
-                  {(costCenters as any[]).map((cc: any) => (
-                    <SelectItem key={cc.id} value={cc.id}>
-                      {cc.code ? `${cc.code} — ` : ""}{cc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <MultiSelect
+              label="Centro de custo"
+              placeholder="Todos"
+              options={(costCenters as any[]).map((cc: any) => ({
+                label: cc.code ? `${cc.code} — ${cc.name}` : cc.name,
+                value: cc.id,
+              }))}
+              selectedValues={costCenterIds}
+              onChange={setCostCenterIds}
+            />
           </div>
         </div>
       </Section>
