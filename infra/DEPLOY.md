@@ -41,17 +41,17 @@ Rode cada comando abaixo e **anote o resultado** — você vai precisar deles:
 
 ```bash
 # JWT — dois valores diferentes
-openssl rand -hex 32   # → JWT_ACCESS_SECRET
-openssl rand -hex 32   # → JWT_REFRESH_SECRET
+openssl rand -hex 32   # fdeaf7ab5a1145fac7b27923afb8661889388a4847f071a25a188888e3608ee4  # → JWT_ACCESS_SECRET
+openssl rand -hex 32   # e15d0c6a749a9b13ec7cf6a7033dd70e5e2e562496396974476cf781c46dd804  # → JWT_REFRESH_SECRET
 
 # Banco de dados
-openssl rand -base64 32  # → POSTGRES_PASSWORD
+openssl rand -base64 32 # 53ae52766de7157cead7f6e82131d88d7d8d9eb02156f8c3cbd05bf6378c4b4d  # → POSTGRES_PASSWORD
 
 # Redis
-openssl rand -base64 32  # → REDIS_PASSWORD
+openssl rand -base64 32  # 028771e44e59760214bc094f27930cdfc4fbf302293e1a534c6b9c3c012fe552  # → REDIS_PASSWORD
 
 # MinIO
-openssl rand -base64 32  # → MINIO_ROOT_PASSWORD
+openssl rand -base64 32  # 1ca8870a0d93685d46b26fd07212cae42bc082386bea037e5af144c4832a92ad # → MINIO_ROOT_PASSWORD
 ```
 
 > Guarde esses valores em um gerenciador de senhas (Bitwarden, KeePass, etc.).  
