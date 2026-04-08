@@ -50,8 +50,6 @@ RUN npm ci --workspace=apps/api --include-workspace-root --omit=dev
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist 2>/dev/null || true
-
 # Cria usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nestjs && \
