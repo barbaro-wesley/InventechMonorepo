@@ -18,9 +18,9 @@ RUN npm ci --workspace=apps/api --include-workspace-root
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
 
-# Gera o cliente Prisma
-RUN npm run -w api build -- --project apps/api/tsconfig.build.json || \
-    cd apps/api && npx prisma generate && npm run build
+# Gera o cliente Prisma e compila TypeScript
+RUN cd apps/api && npx prisma generate
+RUN npm run -w api build
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: Production — apenas artefatos necessários para rodar
