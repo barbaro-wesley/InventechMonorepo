@@ -28,6 +28,9 @@ COPY packages/ ./packages/
 COPY apps/web/ ./apps/web/
 COPY package.json ./
 
+# Builda shared-types antes do Next.js (dist é excluído pelo .dockerignore)
+RUN cd packages/shared-types && npx tsc -p tsconfig.build.json
+
 ENV NODE_ENV=production
 # NEXT_PUBLIC_API_URL deve ser passado como build arg para embutir no bundle
 ARG NEXT_PUBLIC_API_URL

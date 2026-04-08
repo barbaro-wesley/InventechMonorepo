@@ -18,6 +18,9 @@ RUN npm ci --workspace=apps/api --include-workspace-root
 COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
 
+# Builda shared-types antes da API (dist é excluído pelo .dockerignore)
+RUN cd packages/shared-types && npx tsc -p tsconfig.build.json
+
 # Gera o cliente Prisma e compila TypeScript
 RUN cd apps/api && npx prisma generate
 RUN npm run -w api build
