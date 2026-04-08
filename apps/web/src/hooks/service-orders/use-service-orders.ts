@@ -18,10 +18,10 @@ export const serviceOrderKeys = {
   all: ['service-orders'] as const,
   company: (params?: ListServiceOrdersParams) =>
     ['service-orders', 'company', params] as const,
-  detail: (clientId: string, id: string) =>
-    ['service-orders', 'detail', clientId, id] as const,
-  tasks: (clientId: string, id: string) =>
-    ['service-orders', 'tasks', clientId, id] as const,
+  detail: (clientId: string | null, id: string) =>
+    ['service-orders', 'detail', clientId ?? '', id] as const,
+  tasks: (clientId: string | null, id: string) =>
+    ['service-orders', 'tasks', clientId ?? '', id] as const,
 }
 
 // ─────────────────────────────────────────

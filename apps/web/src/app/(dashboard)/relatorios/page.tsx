@@ -176,45 +176,50 @@ function MultiSelect({
   selectedValues,
   onChange,
   placeholder,
+  label,
 }: {
   options: { label: string; value: string }[];
   selectedValues: string[];
   onChange: (vals: string[]) => void;
   placeholder: string;
+  label?: string;
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          className="w-full justify-between font-normal h-9 px-3 py-2 text-sm bg-transparent border-input hover:bg-accent hover:text-accent-foreground"
-        >
-          <span className="truncate">
-            {selectedValues.length === 0
-              ? placeholder
-              : `${selectedValues.length} selecionado(s)`}
-          </span>
-          <ChevronDown className="h-4 w-4 opacity-50" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
-        {options.map((opt) => (
-          <DropdownMenuCheckboxItem
-            key={opt.value}
-            checked={selectedValues.includes(opt.value)}
-            onCheckedChange={(checked) => {
-              if (checked) {
-                onChange([...selectedValues, opt.value]);
-              } else {
-                onChange(selectedValues.filter((v) => v !== opt.value));
-              }
-            }}
+    <div className="space-y-1">
+      {label && <Label className="text-xs text-muted-foreground">{label}</Label>}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full justify-between font-normal h-9 px-3 py-2 text-sm bg-transparent border-input hover:bg-accent hover:text-accent-foreground"
           >
-            {opt.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <span className="truncate">
+              {selectedValues.length === 0
+                ? placeholder
+                : `${selectedValues.length} selecionado(s)`}
+            </span>
+            <ChevronDown className="h-4 w-4 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] max-h-60 overflow-y-auto">
+          {options.map((opt) => (
+            <DropdownMenuCheckboxItem
+              key={opt.value}
+              checked={selectedValues.includes(opt.value)}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  onChange([...selectedValues, opt.value]);
+                } else {
+                  onChange(selectedValues.filter((v) => v !== opt.value));
+                }
+              }}
+            >
+              {opt.label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 

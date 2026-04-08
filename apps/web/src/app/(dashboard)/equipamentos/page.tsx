@@ -1427,6 +1427,7 @@ function QRLabelModal({
       : `/equipamentos?detail=${equipment.id}`;
 
   function handlePrint() {
+    if (!equipment) return;
     const printWin = window.open("", "_blank", "width=800,height=600");
     if (!printWin) return;
 
