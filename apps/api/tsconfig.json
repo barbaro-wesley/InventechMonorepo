@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "target": "ES2022",
     "lib": ["ES2022"],
     "declaration": true,
@@ -10,6 +10,7 @@
     "experimentalDecorators": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": false,
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
