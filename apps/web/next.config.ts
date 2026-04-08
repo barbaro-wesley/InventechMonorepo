@@ -67,6 +67,11 @@ const nextConfig: NextConfig = {
   // Gera um servidor Node.js mínimo em .next/standalone
   output: "standalone",
 
+  // Define a raiz do monorepo para o Turbopack resolver pacotes corretamente
+  turbopack: {
+    root: "../../",
+  },
+
   async headers() {
     return [
       {
