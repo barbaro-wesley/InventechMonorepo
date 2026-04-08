@@ -4,7 +4,8 @@
       "Bash(ls -la \"c:/Users/Wesley Barbaro/Documents/inventech-monorepo/apps/web/src/app/\\(dashboard\\)\")",
       "Bash(find \"c:/Users/Wesley Barbaro/Documents/inventech-monorepo/apps/web/src/app/\\(dashboard\\)\" -name \"page.tsx\")",
       "Bash(npm install:*)",
-      "Bash(node -e \"const t = require\\(''next-themes''\\); console.log\\(Object.keys\\(t\\)\\)\")"
+      "Bash(node -e \"const t = require\\(''next-themes''\\); console.log\\(Object.keys\\(t\\)\\)\")",
+      "Bash(node -e \"const ts = require\\('./node_modules/typescript'\\); console.log\\(ts.version\\)\")"
     ]
   }
 }
