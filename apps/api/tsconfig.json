@@ -7,6 +7,9 @@
       "@/*": ["src/*"]
     },
     "incremental": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true
   }
 }
