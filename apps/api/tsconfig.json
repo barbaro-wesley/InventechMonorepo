@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node16",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "target": "ES2022",
     "lib": ["ES2022"],
     "declaration": true,
@@ -10,18 +10,16 @@
     "experimentalDecorators": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "allowImportingTsExtensions": false,
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
       "@/*": ["src/*"]
     },
-    "incremental": true,
-    "isolatedModules": false,
+    "skipLibCheck": true,
     "strict": false,
     "strictNullChecks": true,
     "noImplicitAny": false,
-    "skipLibCheck": true
+    "isolatedModules": false
   }
 }
