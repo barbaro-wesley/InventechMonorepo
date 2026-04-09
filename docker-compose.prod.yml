@@ -19,6 +19,8 @@ services:
       POSTGRES_HOST: postgres
       REDIS_HOST: redis
       MINIO_ENDPOINT: minio
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,6 +53,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
+    ports:
+      - "127.0.0.1:3001:3001"
     depends_on:
       api:
         condition: service_healthy
