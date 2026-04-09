@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function AuthResetPasswordRedirect() {
+function AuthResetPasswordRedirectInner() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const token = searchParams.get("token");
@@ -14,4 +14,12 @@ export default function AuthResetPasswordRedirect() {
     }, [token, router]);
 
     return null;
+}
+
+export default function AuthResetPasswordRedirect() {
+    return (
+        <Suspense>
+            <AuthResetPasswordRedirectInner />
+        </Suspense>
+    );
 }
