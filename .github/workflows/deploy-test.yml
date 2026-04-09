@@ -101,7 +101,7 @@ jobs:
   # ─────────────────────────────────────────
   deploy:
     name: Deploy VM de Teste
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build
     environment: develop
 
