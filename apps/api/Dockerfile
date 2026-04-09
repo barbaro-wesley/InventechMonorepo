@@ -46,9 +46,10 @@ COPY apps/api/package.json ./apps/api/
 # Instala apenas dependências de produção
 RUN npm ci --workspace=apps/api --include-workspace-root --omit=dev
 
-# Copia o build compilado e o schema Prisma
+# Copia o build compilado, schema Prisma e config do Prisma v7
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/dist/prisma.config.js ./apps/api/prisma.config.js
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 # Cria usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs && \
