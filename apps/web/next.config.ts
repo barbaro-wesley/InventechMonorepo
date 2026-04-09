@@ -21,8 +21,8 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   },
-  // Força HTTPS por 1 ano (ativo apenas em produção)
-  ...(process.env.NODE_ENV === "production"
+  // Força HTTPS por 1 ano (apenas quando HTTPS está configurado)
+  ...(process.env.NEXT_PUBLIC_HTTPS === "true"
     ? [
         {
           key: "Strict-Transport-Security",
@@ -56,8 +56,8 @@ const securityHeaders = [
       "object-src 'none'",
       // Formulários só submetem para o próprio domínio
       "form-action 'self'",
-      // Upgrade requisições HTTP para HTTPS em produção
-      ...(process.env.NODE_ENV === "production" ? ["upgrade-insecure-requests"] : []),
+      // Upgrade requisições HTTP para HTTPS (apenas quando HTTPS está configurado)
+      ...(process.env.NEXT_PUBLIC_HTTPS === "true" ? ["upgrade-insecure-requests"] : []),
     ].join("; "),
   },
 ];
