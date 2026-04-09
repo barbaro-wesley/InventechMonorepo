@@ -51,6 +51,7 @@ jobs:
     name: Build Docker Images (staging)
     runs-on: ubuntu-latest
     needs: lint
+    environment: develop
 
     permissions:
       contents: read
