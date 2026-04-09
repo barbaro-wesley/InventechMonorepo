@@ -65,4 +65,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 
 # dumb-init garante que SIGTERM chegue corretamente ao processo Node
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "apps/api/dist/main"]
+CMD ["node", "apps/api/dist/src/main"]
