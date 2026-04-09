@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common'
 import { UserRole, UserStatus } from '@prisma/client'
@@ -352,6 +353,90 @@ export class ClientsService {
       seen.add(u.id)
       return true
     })
+  }
+
+  // ─────────────────────────────────────────
+  // Usuários da plataforma vinculados ao cliente
+  // ─────────────────────────────────────────
+
+  // Roles que pertencem à empresa (não são nativos de um client)
+  private readonly PLATFORM_ROLES: UserRole[] = [
+    UserRole.SUPER_ADMIN,
+    UserRole.COMPANY_ADMIN,
+    UserRole.COMPANY_MANAGER,
+    UserRole.TECHNICIAN,
+    UserRole.MEMBER,
+  ]
+
+  async listAvailablePlatformUsers(clientId: string, currentUser: AuthenticatedUser) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    // Usuários da empresa sem vínculo com nenhum client, com papéis de plataforma
+    return this.prisma.user.findMany({
+      where: {
+        companyId,
+        clientId: null,
+        deletedAt: null,
+        role: { in: this.PLATFORM_ROLES },
+      },
+      select: { id: true, name: true, email: true, role: true, avatarUrl: true },
+      orderBy: { name: 'asc' },
+    })
+  }
+
+  async linkPlatformUser(clientId: string, userId: string, currentUser: AuthenticatedUser) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, companyId, deletedAt: null },
+      select: { id: true, clientId: true, role: true },
+    })
+    if (!user) throw new NotFoundException('Usuário não encontrado')
+    if (!this.PLATFORM_ROLES.includes(user.role)) {
+      throw new BadRequestException('Apenas usuários da plataforma podem ser vinculados a um cliente')
+    }
+    if (user.clientId) {
+      throw new ConflictException('Usuário já está vinculado a um cliente')
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { clientId },
+    })
+
+    return { message: 'Usuário vinculado ao cliente com sucesso' }
+  }
+
+  async unlinkPlatformUser(clientId: string, userId: string, currentUser: AuthenticatedUser) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, companyId, clientId, deletedAt: null },
+      select: { id: true, role: true },
+    })
+    if (!user) throw new NotFoundException('Usuário não encontrado neste cliente')
+    if (!this.PLATFORM_ROLES.includes(user.role)) {
+      throw new BadRequestException('Este usuário é nativo do cliente e não pode ser apenas desvinculado')
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { clientId: null },
+    })
+
+    return { message: 'Usuário desvinculado do cliente com sucesso' }
   }
 
   // ─────────────────────────────────────────

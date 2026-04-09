@@ -50,7 +50,7 @@ import {
   useDeleteClient,
 } from "@/hooks/clients/use-clients";
 import { usePermissions } from "@/hooks/auth/use-permissions";
-import { ROLE_LABELS } from "@/types/auth";
+import { ROLE_LABELS, displayRole } from "@/types/auth";
 import type { User } from "@/types/user";
 import type { Client } from "@/types/client";
 import { cn } from "@/lib/utils";
@@ -451,7 +451,7 @@ function UsersTab({ companyId }: { companyId: string }) {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-xs whitespace-nowrap">
-                        {ROLE_LABELS[user.role]}
+                        {displayRole(user)}
                       </Badge>
                     </TableCell>
                     <TableCell>

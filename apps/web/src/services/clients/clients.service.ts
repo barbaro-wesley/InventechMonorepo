@@ -61,7 +61,28 @@ export const clientsService = {
   async removeMaintenanceGroup(clientId: string, groupId: string): Promise<void> {
     await api.delete(`/clients/${clientId}/maintenance-groups/${groupId}`);
   },
+
+  async listAvailablePlatformUsers(clientId: string): Promise<PlatformUser[]> {
+    const { data } = await api.get(`/clients/${clientId}/platform-users/available`);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  },
+
+  async linkPlatformUser(clientId: string, userId: string): Promise<void> {
+    await api.post(`/clients/${clientId}/platform-users/${userId}`);
+  },
+
+  async unlinkPlatformUser(clientId: string, userId: string): Promise<void> {
+    await api.delete(`/clients/${clientId}/platform-users/${userId}`);
+  },
 };
+
+export interface PlatformUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatarUrl: string | null;
+}
 
 export interface ClientMaintenanceGroupAssignment {
   id: string;

@@ -8,6 +8,7 @@ import type {
   UpdateClientDto,
   ListClientsParams,
 } from "@inventech/shared-types";
+import type { PlatformUser } from "@/services/clients/clients.service";
 
 export const clientKeys = {
   all: ["clients"] as const,
@@ -119,6 +120,46 @@ export function useRemoveMaintenanceGroup(clientId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: clientGroupKeys.list(clientId) });
       toast.success("Grupo removido do cliente!");
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+}
+
+// ── Usuários da plataforma ────────────────────────────────────────────────────
+
+export const platformUserKeys = {
+  available: (clientId: string) => ["clients", clientId, "platform-users", "available"] as const,
+};
+
+export function useAvailablePlatformUsers(clientId: string) {
+  return useQuery<PlatformUser[]>({
+    queryKey: platformUserKeys.available(clientId),
+    queryFn: () => clientsService.listAvailablePlatformUsers(clientId),
+    enabled: !!clientId,
+  });
+}
+
+export function useLinkPlatformUser(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => clientsService.linkPlatformUser(clientId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: platformUserKeys.available(clientId) });
+      toast.success("Usuário vinculado ao cliente!");
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+}
+
+export function useUnlinkPlatformUser(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => clientsService.unlinkPlatformUser(clientId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: platformUserKeys.available(clientId) });
+      toast.success("Usuário desvinculado do cliente!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });

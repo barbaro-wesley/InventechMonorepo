@@ -10,7 +10,7 @@ import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/hooks/u
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { useCustomRoles, useAssignCustomRole } from "@/hooks/permissions/use-permissions";
 import { useCurrentUser } from "@/store/auth.store";
-import { ROLE_LABELS } from "@/types/auth";
+import { ROLE_LABELS, displayRole } from "@/types/auth";
 import type { User, UpdateUserDto } from "@/types/user";
 import type { Role } from "@/types/auth";
 import { cn } from "@/lib/utils";
@@ -258,11 +258,11 @@ export default function UsuariosPage() {
                                         <TableCell>
                                             <div className="flex flex-col gap-0.5">
                                                 <span className="text-sm text-slate-600 dark:text-slate-400">
-                                                    {ROLE_LABELS[user.role]}
+                                                    {displayRole(user)}
                                                 </span>
-                                                {user.customRoleId && (
-                                                    <span className="text-xs text-primary font-medium">
-                                                        {customRoles.find((r) => r.id === user.customRoleId)?.name ?? "Papel personalizado"}
+                                                {user.customRole && (
+                                                    <span className="text-xs text-slate-400">
+                                                        Sistema: {ROLE_LABELS[user.role]}
                                                     </span>
                                                 )}
                                             </div>

@@ -75,7 +75,19 @@ async function updateStatus(
   id: string,
   dto: UpdateServiceOrderStatusDto,
 ): Promise<ServiceOrder> {
-  const { data } = await api.patch(`${osBase(clientId, id)}/status`, dto)
+  if (!dto.files || dto.files.length === 0) {
+    const { files: _files, ...body } = dto
+    const { data } = await api.patch(`${osBase(clientId, id)}/status`, body)
+    return data
+  }
+
+  const formData = new FormData()
+  formData.append('status', dto.status)
+  if (dto.resolution) formData.append('resolution', dto.resolution)
+  if (dto.reason) formData.append('reason', dto.reason)
+  dto.files.forEach((file) => formData.append('files', file))
+
+  const { data } = await api.patch(`${osBase(clientId, id)}/status`, formData)
   return data
 }
 

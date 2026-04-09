@@ -325,6 +325,17 @@ export class ServiceOrdersService {
                     },
                     orderBy: { createdAt: 'asc' },
                 },
+                attachments: {
+                    where: { entity: 'SERVICE_ORDER' },
+                    select: {
+                        id: true,
+                        fileName: true,
+                        mimeType: true,
+                        sizeBytes: true,
+                        createdAt: true,
+                    },
+                    orderBy: { createdAt: 'asc' },
+                },
             },
         })
 
@@ -533,18 +544,23 @@ export class ServiceOrdersService {
             throw new ConflictException('Esta OS não está disponível para ser assumida')
         }
 
-        if (os.groupId) {
+        // Admins/gestores têm acesso amplo — não precisam de vínculo com o grupo
+        const hasGlobalAccess = (
+            [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER] as UserRole[]
+        ).includes(currentUser.role)
+
+        if (os.groupId && !hasGlobalAccess) {
             let authorized = false
 
             if (currentUser.clientId) {
-                // Técnico vinculado a um prestador: verifica se o prestador atende esse grupo
+                // Usuário vinculado a um prestador: verifica se o prestador atende esse grupo
                 const clientGroup = await this.prisma.clientMaintenanceGroup.findFirst({
                     where: { clientId: currentUser.clientId, groupId: os.groupId, isActive: true },
                     select: { id: true },
                 })
                 authorized = !!clientGroup
             } else {
-                // Técnico interno: verifica vínculo direto com o grupo
+                // Usuário interno: verifica vínculo direto com o grupo
                 const techGroup = await this.prisma.technicianGroup.findFirst({
                     where: { userId: currentUser.sub, groupId: os.groupId, isActive: true },
                     select: { id: true },

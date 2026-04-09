@@ -11,6 +11,7 @@ export interface User {
   companyId?: string | null;
   clientId?: string | null;
   customRoleId?: string | null;
+  customRole?: { id: string; name: string } | null;
   require2FA?: boolean;
   company?: {
     id: string;

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { X, ExternalLink, Loader2, ChevronDown } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -78,6 +78,8 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const [statusAction, setStatusAction] = useState<ServiceOrderStatus | null>(null)
   const [resolution, setResolution] = useState('')
   const [reason, setReason] = useState('')
+  const [completionFiles, setCompletionFiles] = useState<File[]>([])
+  const completionFileInputRef = useRef<HTMLInputElement>(null)
 
   const user = useCurrentUser()
   const { data: os, isLoading } = useServiceOrder(clientId, osId ?? '')
@@ -101,15 +103,27 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
         status: statusAction,
         resolution: statusAction === 'COMPLETED' ? resolution : undefined,
         reason: statusAction === 'COMPLETED_REJECTED' ? reason : undefined,
+        files: statusAction === 'COMPLETED' && completionFiles.length > 0 ? completionFiles : undefined,
       },
       {
         onSuccess: () => {
           setStatusAction(null)
           setResolution('')
           setReason('')
+          setCompletionFiles([])
         },
       },
     )
+  }
+
+  const handleCompletionFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setCompletionFiles((prev) => [...prev, ...Array.from(e.target.files!)])
+    }
+  }
+
+  const removeCompletionFile = (index: number) => {
+    setCompletionFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
@@ -125,7 +139,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const canAssume =
     os?.status === 'AWAITING_PICKUP' &&
     os?.isAvailable &&
-    user?.role === 'TECHNICIAN'
+    (user?.permissions?.includes('service-order:assume') ?? false)
 
   return (
     <>
@@ -310,8 +324,48 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
             rows={4}
             className="mt-2"
           />
+
+          {/* Anexos de conclusão */}
+          <div className="mt-3">
+            <input
+              type="file"
+              multiple
+              ref={completionFileInputRef}
+              onChange={handleCompletionFileChange}
+              className="hidden"
+            />
+            {completionFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {completionFiles.map((file, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-1.5 bg-[#f3f4f7] border border-[#e0e5eb] rounded-lg px-2 py-1 text-[10px] text-[#1d2530]"
+                  >
+                    <FileIcon className="h-3 w-3 text-[#6c7c93]" />
+                    <span className="truncate max-w-[120px]">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeCompletionFile(i)}
+                      className="hover:text-red-500 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => completionFileInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-[#6c7c93] hover:bg-[#f3f4f7] border border-dashed border-[#e0e5eb] transition-colors w-full justify-center"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              Anexar arquivos (opcional)
+            </button>
+          </div>
+
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setStatusAction(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setStatusAction(null); setCompletionFiles([]) }}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmStatus}
               disabled={!resolution.trim() || updateStatus.isPending}

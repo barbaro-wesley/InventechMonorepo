@@ -97,6 +97,7 @@ export interface ServiceOrderDetail extends ServiceOrder {
   comments: ServiceOrderComment[]
   tasks: ServiceOrderTask[]
   statusHistory: ServiceOrderStatusHistory[]
+  attachments: Attachment[]
 }
 
 export interface PaginatedResponse<T> {
@@ -135,6 +136,7 @@ export interface UpdateServiceOrderStatusDto {
   status: ServiceOrderStatus
   resolution?: string
   reason?: string
+  files?: File[]
 }
 
 export interface AssignTechnicianDto {

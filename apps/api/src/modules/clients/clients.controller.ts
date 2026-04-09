@@ -130,4 +130,38 @@ export class ClientsController {
   ) {
     return this.clientsService.removeMaintenanceGroup(id, groupId, cu)
   }
+
+  // ─────────────────────────────────────────
+  // Usuários da plataforma vinculados ao cliente
+  // ─────────────────────────────────────────
+
+  @Get(':id/platform-users/available')
+  @Permission('client:read')
+  listAvailablePlatformUsers(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.listAvailablePlatformUsers(id, cu)
+  }
+
+  @Post(':id/platform-users/:userId')
+  @Permission('client:update')
+  linkPlatformUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.linkPlatformUser(id, userId, cu)
+  }
+
+  @Delete(':id/platform-users/:userId')
+  @HttpCode(HttpStatus.OK)
+  @Permission('client:update')
+  unlinkPlatformUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.unlinkPlatformUser(id, userId, cu)
+  }
 }

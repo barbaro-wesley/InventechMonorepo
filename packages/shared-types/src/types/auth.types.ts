@@ -14,6 +14,8 @@ export interface AuthUser {
   companyId?: string | null;
   clientId?: string | null;
   customRoleId?: string | null;
+  /** Permissões efetivas no formato "resource:action" — sempre populado pelo /auth/me */
+  permissions: string[];
   company?: {
     id: string;
     name: string;

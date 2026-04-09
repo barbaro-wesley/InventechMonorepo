@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { LoginSecurityService } from './security/login-security.service'
 import { TwoFactorService } from './security/two-factor.service'
+import { DEFAULT_PERMISSIONS } from '../permissions/permissions.defaults'
 
 @Injectable()
 export class AuthService {
@@ -278,7 +279,15 @@ export class AuthService {
         })
 
         if (!user) throw new UnauthorizedException('Usuário não encontrado')
-        return user
+
+        // Permissões efetivas: custom role usa whitelist explícita, system role usa defaults
+        const permissions: string[] = user.customRoleId
+            ? (user.customRole?.permissions ?? []).map((p) => `${p.resource}:${p.action}`)
+            : Object.entries(DEFAULT_PERMISSIONS)
+                .filter(([, roles]) => roles.includes(user.role))
+                .map(([key]) => key)
+
+        return { ...user, permissions }
     }
 
     // ─────────────────────────────────────────
