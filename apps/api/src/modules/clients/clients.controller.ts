@@ -92,6 +92,15 @@ export class ClientsController {
   // Grupos de manutenção do cliente
   // ─────────────────────────────────────────
 
+  @Get(':id/technicians')
+  @Permission('client:read')
+  listTechnicians(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.listTechnicians(id, cu)
+  }
+
   @Get(':id/maintenance-groups')
   @Permission('client:update')
   listMaintenanceGroups(

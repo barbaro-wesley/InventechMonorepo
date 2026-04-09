@@ -37,6 +37,7 @@ const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
 
 type FormData = {
   clientId: string
+  technicianId?: string
   title: string
   description: string
   maintenanceType: string
@@ -58,6 +59,8 @@ interface EquipmentOsCreateSheetProps {
 export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOsCreateSheetProps) {
   const currentUser = useCurrentUser()
   const [clients, setClients] = useState<SimpleOption[]>([])
+  const [technicians, setTechnicians] = useState<SimpleOption[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
 
   const createOs = useCreateServiceOrder()
 
@@ -76,19 +79,30 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
   useEffect(() => {
     if (!open) return
+    const initialClientId = fixedClientId ?? ''
+    setSelectedClientId(initialClientId)
     form.reset({
       priority: 'MEDIUM',
       alertAfterHours: 2,
-      clientId: fixedClientId ?? '',
+      clientId: initialClientId,
     })
-
-    // Only fetch clients if user doesn't have a fixed clientId
     if (!fixedClientId) {
       api.get('/clients', { params: { limit: 100 } }).then(({ data }) => {
         setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name })))
       })
     }
-  }, [open])
+  }, [open, fixedClientId])
+
+  // Carrega técnicos vinculados ao cliente (por clientId direto ou por grupos)
+  useEffect(() => {
+    if (!selectedClientId) {
+      setTechnicians([])
+      return
+    }
+    api.get(`/clients/${selectedClientId}/technicians`).then(({ data }) => {
+      setTechnicians((Array.isArray(data) ? data : []).map((u: any) => ({ id: u.id, name: u.name })))
+    })
+  }, [selectedClientId])
 
   const onSubmit = (values: FormData) => {
     if (!equipment) return
@@ -100,8 +114,8 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
         description: values.description,
         maintenanceType: values.maintenanceType as any,
         priority: values.priority,
-        // Auto-inject the equipment's type group — prevents the backend validation error
         groupId: equipmentGroup?.id ?? undefined,
+        technicianId: values.technicianId || undefined,
         alertAfterHours: values.alertAfterHours,
       },
       {
@@ -115,8 +129,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
-        <SheetHeader className="mb-6">
+<SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto">        <SheetHeader className="mb-6">
           <SheetTitle>Nova Ordem de Serviço</SheetTitle>
         </SheetHeader>
 
@@ -164,7 +177,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
             <div className="space-y-1.5">
               <Label>Prestador <span className="text-red-500">*</span></Label>
               <Select
-                onValueChange={(v) => form.setValue('clientId', v)}
+                onValueChange={(v) => { setSelectedClientId(v); form.setValue('clientId', v) }}
                 defaultValue={form.getValues('clientId') || undefined}
               >
                 <SelectTrigger className={form.formState.errors.clientId ? 'border-red-500' : ''}>
@@ -179,6 +192,27 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
               {form.formState.errors.clientId && (
                 <p className="text-xs text-red-500">{form.formState.errors.clientId.message}</p>
               )}
+            </div>
+          )}
+
+          {/* Técnico */}
+          {selectedClientId && (
+            <div className="space-y-1.5">
+              <Label>Técnico Responsável</Label>
+              <Select onValueChange={(v) => form.setValue('technicianId', v === 'none' ? undefined : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem técnico definido" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem técnico definido</SelectItem>
+                  {technicians.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Opcional — se não definido, a OS ficará aguardando assumção no painel
+              </p>
             </div>
           )}
 
@@ -201,7 +235,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
             <Textarea
               {...form.register('description', { required: 'Descrição obrigatória' })}
               placeholder="Descreva o problema ou serviço a ser realizado..."
-              rows={3}
+              rows={5}
               className={form.formState.errors.description ? 'border-red-500' : ''}
             />
             {form.formState.errors.description && (
