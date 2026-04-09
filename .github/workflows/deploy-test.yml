@@ -108,61 +108,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copiar arquivos de infra para a VM de teste
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST_TEST }}
-          username: ${{ secrets.SSH_USER_TEST }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_TEST }}
-          source: "docker-compose.prod.yml,apps/api/docker/minio/init-buckets.sh,infra/nginx/inventech-test.conf"
-          target: /opt/inventech
-          strip_components: 0
+      - name: Copiar arquivos de infra
+        run: |
+          sudo mkdir -p /opt/inventech/apps/api/docker/minio /opt/inventech/infra/nginx
+          sudo cp docker-compose.prod.yml /opt/inventech/
+          sudo cp apps/api/docker/minio/init-buckets.sh /opt/inventech/apps/api/docker/minio/
+          sudo cp infra/nginx/inventech-test.conf /opt/inventech/infra/nginx/
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST_TEST }}
-          username: ${{ secrets.SSH_USER_TEST }}
-          key: ${{ secrets.SSH_PRIVATE_KEY_TEST }}
-          envs: GITHUB_SHA,GITHUB_REPOSITORY,GITHUB_ACTOR
-          script: |
-            set -e
-            cd /opt/inventech
+      - name: Deploy
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          set -e
+          cd /opt/inventech
 
-            REPO_LOWER=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWER=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
 
-            echo "→ Fazendo login no GHCR..."
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          echo "→ Fazendo login no GHCR..."
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-            echo "→ Baixando imagens staging..."
-            IMAGE_TAG=staging GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
-              docker compose -f docker-compose.prod.yml --env-file .env pull api web
+          echo "→ Baixando imagens staging..."
+          IMAGE_TAG=staging GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+            docker compose -f docker-compose.prod.yml --env-file .env pull api web
 
-            echo "→ Rodando migrations do banco..."
-            IMAGE_TAG=staging GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
-              docker compose -f docker-compose.prod.yml --env-file .env \
-              run --rm api sh -c "cd apps/api && npx prisma migrate deploy"
+          echo "→ Rodando migrations do banco..."
+          IMAGE_TAG=staging GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+            docker compose -f docker-compose.prod.yml --env-file .env \
+            run --rm api sh -c "cd apps/api && npx prisma migrate deploy"
 
-            echo "→ Subindo todos os serviços..."
-            IMAGE_TAG=staging GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
-              docker compose -f docker-compose.prod.yml --env-file .env \
-              up -d --no-build --remove-orphans
+          echo "→ Subindo todos os serviços..."
+          IMAGE_TAG=staging GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+            docker compose -f docker-compose.prod.yml --env-file .env \
+            up -d --no-build --remove-orphans
 
-            echo "→ Aguardando API ficar saudável..."
-            timeout 90 bash -c 'until docker inspect --format="{{.State.Health.Status}}" inventech_api 2>/dev/null | grep -q "healthy"; do sleep 3; done'
+          echo "→ Aguardando API ficar saudável..."
+          timeout 90 bash -c 'until docker inspect --format="{{.State.Health.Status}}" inventech_api 2>/dev/null | grep -q "healthy"; do sleep 3; done'
 
-            echo "→ Configurando Nginx (HTTP)..."
-            NGINX_CONF="/etc/nginx/sites-available/inventech-test.conf"
-            sudo cp /opt/inventech/infra/nginx/inventech-test.conf "$NGINX_CONF"
-            sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/inventech-test.conf
-            sudo rm -f /etc/nginx/sites-enabled/default
-            sudo nginx -t && sudo systemctl reload nginx
+          echo "→ Configurando Nginx (HTTP)..."
+          NGINX_CONF="/etc/nginx/sites-available/inventech-test.conf"
+          sudo cp /opt/inventech/infra/nginx/inventech-test.conf "$NGINX_CONF"
+          sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/inventech-test.conf
+          sudo rm -f /etc/nginx/sites-enabled/default
+          sudo nginx -t && sudo systemctl reload nginx
 
-            echo "→ Limpando imagens antigas..."
-            docker image prune -f
+          echo "→ Limpando imagens antigas..."
+          docker image prune -f
 
-            VM_IP=$(hostname -I | awk '{print $1}')
-            echo ""
-            echo "✓ Deploy de teste concluído!"
-            echo "  Acesse: http://$VM_IP"
-            echo "  Health: http://$VM_IP/api/v1/health/ping"
+          VM_IP=$(hostname -I | awk '{print $1}')
+          echo ""
+          echo "✓ Deploy de teste concluído!"
+          echo "  Acesse: http://$VM_IP"
+          echo "  Health: http://$VM_IP/api/v1/health/ping"
