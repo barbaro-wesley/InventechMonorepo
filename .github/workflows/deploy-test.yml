@@ -103,7 +103,7 @@ jobs:
     name: Deploy VM de Teste
     runs-on: ubuntu-latest
     needs: build
-    environment: staging
+    environment: develop
 
     steps:
       - uses: actions/checkout@v4
