@@ -316,6 +316,44 @@ export class ClientsService {
     return { message: 'Grupo removido do cliente com sucesso' }
   }
 
+  async listTechnicians(clientId: string, currentUser: AuthenticatedUser) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    const select = { id: true, name: true, email: true, avatarUrl: true }
+
+    // 1. Técnicos com clientId direto no User
+    const byClientId = await this.prisma.user.findMany({
+      where: { companyId, clientId, role: UserRole.TECHNICIAN, deletedAt: null },
+      select,
+    })
+
+    // 2. Técnicos nos grupos de manutenção vinculados ao cliente
+    const byGroup = await this.prisma.technicianGroup.findMany({
+      where: {
+        isActive: true,
+        user: { companyId, deletedAt: null, role: UserRole.TECHNICIAN },
+        group: { clientGroups: { some: { clientId } } },
+      },
+      select: { user: { select } },
+    })
+
+    // Dedup por ID
+    const seen = new Set<string>()
+    const all = [
+      ...byClientId,
+      ...byGroup.map((tg) => tg.user),
+    ]
+    return all.filter((u) => {
+      if (seen.has(u.id)) return false
+      seen.add(u.id)
+      return true
+    })
+  }
+
   // ─────────────────────────────────────────
   // Helpers privados
   // ─────────────────────────────────────────
