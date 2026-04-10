@@ -5,6 +5,7 @@ import type {
   ServiceOrderTask,
   ServiceOrderComment,
   ListServiceOrdersParams,
+  MyOsStats,
   CreateServiceOrderDto,
   UpdateServiceOrderStatusDto,
   AssignTechnicianDto,
@@ -55,6 +56,26 @@ async function getById(
 
 async function getByIdCompany(id: string): Promise<ServiceOrderDetail> {
   const { data } = await api.get(`/service-orders/${id}`)
+  return data
+}
+
+async function listMine(
+  params?: ListServiceOrdersParams,
+): Promise<PaginatedOsResponse> {
+  const { data } = await api.get('/service-orders/mine', { params })
+  return data
+}
+
+async function getMyStats(): Promise<MyOsStats> {
+  const { data } = await api.get('/service-orders/my-stats')
+  return data
+}
+
+async function update(
+  id: string,
+  dto: { title?: string; description?: string; priority?: string },
+): Promise<ServiceOrder> {
+  const { data } = await api.patch(`/service-orders/${id}`, dto)
   return data
 }
 
@@ -190,9 +211,12 @@ async function deleteTask(
 export const serviceOrdersService = {
   listCompany,
   listByClient,
+  listMine,
+  getMyStats,
   getById,
   getByIdCompany,
   create,
+  update,
   updateStatus,
   assume,
   addTechnician,

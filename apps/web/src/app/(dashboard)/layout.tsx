@@ -23,6 +23,7 @@ import {
     Layers,
     Landmark,
     ShieldCheck,
+    ClipboardCheck,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -81,6 +82,13 @@ const navSections: NavSection[] = [
                 icon: ClipboardList,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
                 permission: "service-order:list",
+            },
+            {
+                label: "Minhas OS",
+                href: "/minhas-os",
+                icon: ClipboardCheck,
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
+                permission: "service-order:view-own",
             },
             {
                 label: "Equipamentos",
@@ -210,10 +218,18 @@ export default function DashboardLayout({
             (item) => pathname === item.href || pathname.startsWith(item.href + "/")
         );
         if (!matched) return; // /perfil e páginas não listadas são sempre acessíveis
+        // Papel personalizado: verifica permissão específica do item
+        if (user.customRoleId && matched.permission) {
+            const [resource, action] = matched.permission.split(":");
+            if (!permissions.canAccess(resource, action)) {
+                router.replace("/dashboard");
+            }
+            return;
+        }
         if (!matched.roles.includes(user.role as Role)) {
             router.replace("/dashboard");
         }
-    }, [pathname, user, router]);
+    }, [pathname, user, router, permissions]);
     const [collapsed, setCollapsed] = useState(false);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         operacoes: true,

@@ -161,6 +161,73 @@ export class ServiceOrdersService {
         return { data, total, page, limit }
     }
 
+    // ─────────────────────────────────────────
+    // Painel pessoal — apenas OS do solicitante
+    // ─────────────────────────────────────────
+    async findMine(
+        companyId: string,
+        filters: ListServiceOrdersDto,
+        currentUser: AuthenticatedUser,
+    ) {
+        const {
+            search, status, priority, equipmentId,
+            groupId, dateFrom, dateTo, page = 1, limit = 20,
+        } = filters
+
+        const where: Prisma.ServiceOrderWhereInput = {
+            companyId,
+            requesterId: currentUser.sub,
+            deletedAt: null,
+            ...(status && { status }),
+            ...(priority && { priority }),
+            ...(equipmentId && { equipmentId }),
+            ...(groupId && { groupId }),
+            ...((dateFrom || dateTo) && {
+                createdAt: {
+                    ...(dateFrom && { gte: new Date(dateFrom) }),
+                    ...(dateTo && { lte: new Date(dateTo) }),
+                },
+            }),
+            ...(search && {
+                OR: [
+                    { title: { contains: search, mode: 'insensitive' } },
+                    { description: { contains: search, mode: 'insensitive' } },
+                ],
+            }),
+        }
+
+        const [data, total] = await this.prisma.$transaction([
+            this.prisma.serviceOrder.findMany({
+                where,
+                select: OS_SELECT,
+                orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+                skip: (page - 1) * limit,
+                take: limit,
+            }),
+            this.prisma.serviceOrder.count({ where }),
+        ])
+
+        return { data, total, page, limit }
+    }
+
+    async findMyStats(companyId: string, requesterId: string) {
+        const groups = await this.prisma.serviceOrder.groupBy({
+            by: ['status'],
+            where: { companyId, requesterId, deletedAt: null },
+            _count: { _all: true },
+        })
+
+        const result = Object.fromEntries(
+            Object.values(ServiceOrderStatus).map((s) => [s, 0]),
+        ) as Record<ServiceOrderStatus, number>
+
+        for (const g of groups) {
+            result[g.status] = g._count._all
+        }
+
+        return result
+    }
+
     // Visão company-wide — painel operacional (sem clientId)
     async findAllForCompany(
         companyId: string,

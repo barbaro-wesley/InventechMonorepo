@@ -91,6 +91,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'service-order:comment':       [SA, CA, CM, TEC, CLA, CLU],
   'service-order:task':          [SA, CA, CM, TEC],
   'service-order:delete':        [SA, CA, CM],
+  // Acesso ao painel pessoal — lista/stats apenas das OS abertas pelo próprio usuário
+  'service-order:view-own':      [SA, CA, CM, TEC, CLA, CLU],
 
   // ── MAINTENANCE ────────────────────────────────────────────────────────────
   'maintenance:list':            [SA, CA, CM, TEC, CLA, CLV],
@@ -149,7 +151,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'storage':              ['upload', 'download', 'list', 'delete'],
   'user':                 ['list', 'read', 'create', 'update', 'delete'],
   'client':               ['list', 'read', 'create', 'update', 'delete', 'upload-logo'],
-  'service-order':        ['list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete'],
+  'service-order':        ['list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own'],
   'maintenance':          ['list', 'read', 'create', 'update', 'delete'],
   'maintenance-schedule': ['list', 'read', 'create', 'update', 'delete', 'trigger'],
   'maintenance-group':    ['list', 'read', 'create', 'update', 'delete'],

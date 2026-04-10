@@ -119,6 +119,8 @@ export interface ListServiceOrdersParams {
   limit?: number
 }
 
+export type MyOsStats = Record<ServiceOrderStatus, number>
+
 export interface CreateServiceOrderDto {
   clientId: string
   equipmentId: string
