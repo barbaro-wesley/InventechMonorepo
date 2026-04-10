@@ -80,7 +80,12 @@ const OS_SELECT = {
     alertSentAt: true,
     createdAt: true,
     updatedAt: true,
-    equipment: { select: { id: true, name: true, brand: true, model: true } },
+    equipmentId: true,
+    costCenterId: true,
+    locationId: true,
+    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true } },
+    costCenter: { select: { id: true, name: true, code: true } },
+    location: { select: { id: true, name: true } },
     client: { select: { id: true, name: true, logoUrl: true } },
     requester: { select: { id: true, name: true, email: true } },
     group: { select: { id: true, name: true, color: true } },
@@ -432,15 +437,20 @@ export class ServiceOrdersService {
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
-        const equipment = await this.prisma.equipment.findFirst({
-            where: { id: dto.equipmentId, companyId, deletedAt: null },
-            select: {
-                id: true,
-                name: true,
-                type: { select: { id: true, name: true, groupId: true } },
-            },
-        })
-        if (!equipment) throw new NotFoundException('Equipamento não encontrado neste cliente')
+        // ── Validar equipamento (opcional) ────────────────────────
+        let equipment: { id: string; name: string; type: { id: string; name: string; groupId: string | null } | null } | null = null
+
+        if (dto.equipmentId) {
+            equipment = await this.prisma.equipment.findFirst({
+                where: { id: dto.equipmentId, companyId, deletedAt: null },
+                select: {
+                    id: true,
+                    name: true,
+                    type: { select: { id: true, name: true, groupId: true } },
+                },
+            })
+            if (!equipment) throw new NotFoundException('Equipamento não encontrado')
+        }
 
         let groupName: string | undefined
         if (dto.groupId) {
@@ -451,21 +461,21 @@ export class ServiceOrdersService {
             if (!group) throw new BadRequestException('Grupo de manutenção não encontrado')
             groupName = group.name
 
-            // Valida que o tipo do equipamento tem um grupo configurado
-            const equipmentGroupId = equipment.type?.groupId
-            if (!equipmentGroupId) {
-                throw new BadRequestException(
-                    `O tipo "${equipment.type?.name}" do equipamento não possui grupo vinculado. ` +
-                    'Configure o grupo no cadastro do tipo antes de abrir uma OS.',
-                )
-            }
-
-            // Valida que o grupo informado é o grupo do tipo do equipamento
-            if (equipmentGroupId !== dto.groupId) {
-                throw new BadRequestException(
-                    `Este equipamento pertence ao grupo "${equipment.type?.name}". ` +
-                    'Informe o grupo correto ou altere o tipo do equipamento.',
-                )
+            // Valida grupo vs. tipo do equipamento (somente quando há equipamento)
+            if (equipment) {
+                const equipmentGroupId = equipment.type?.groupId
+                if (!equipmentGroupId) {
+                    throw new BadRequestException(
+                        `O tipo "${equipment.type?.name}" do equipamento não possui grupo vinculado. ` +
+                        'Configure o grupo no cadastro do tipo antes de abrir uma OS.',
+                    )
+                }
+                if (equipmentGroupId !== dto.groupId) {
+                    throw new BadRequestException(
+                        `Este equipamento pertence ao grupo "${equipment.type?.name}". ` +
+                        'Informe o grupo correto ou altere o tipo do equipamento.',
+                    )
+                }
             }
         }
 
@@ -520,7 +530,9 @@ export class ServiceOrdersService {
                     isAvailable,
                     alertAfterHours: dto.alertAfterHours ?? 2,
                     scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : null,
-                    equipmentId: dto.equipmentId,
+                    ...(dto.equipmentId && { equipmentId: dto.equipmentId }),
+                    ...(dto.costCenterId && { costCenterId: dto.costCenterId }),
+                    ...(dto.locationId && { locationId: dto.locationId }),
                     requesterId: currentUser.sub,
                     ...(dto.groupId && { groupId: dto.groupId }),
                 },
@@ -545,15 +557,17 @@ export class ServiceOrdersService {
                 },
             })
 
-            // Incrementa contador de OS e marca equipamento como em manutenção
-            await tx.equipment.update({
-                where: { id: dto.equipmentId },
-                data: { totalServiceOrders: { increment: 1 } },
-            })
-            await tx.equipment.updateMany({
-                where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
-                data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-            })
+            // Incrementa contador de OS e marca equipamento como em manutenção (se vinculado)
+            if (dto.equipmentId) {
+                await tx.equipment.update({
+                    where: { id: dto.equipmentId },
+                    data: { totalServiceOrders: { increment: 1 } },
+                })
+                await tx.equipment.updateMany({
+                    where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
+                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                })
+            }
 
             return created
         })
@@ -570,7 +584,7 @@ export class ServiceOrdersService {
                     osNumber: os.number,
                     osTitle: os.title,
                     clientName: client?.name ?? '',
-                    equipmentName: equipment.name,
+                    equipmentName: equipment?.name ?? '',
                     priority: os.priority,
                 },
             })
@@ -585,7 +599,7 @@ export class ServiceOrdersService {
                     osTitle: os.title,
                     groupId: dto.groupId ?? null,
                     clientName: client?.name ?? '',
-                    equipmentName: equipment.name,
+                    equipmentName: equipment?.name ?? '',
                     priority: os.priority,
                 },
             })

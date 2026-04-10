@@ -5,13 +5,13 @@ import {
   ClipboardList, CheckCircle2, Clock, AlertTriangle,
   XCircle, Loader2, Search, Plus, ChevronRight,
 } from 'lucide-react'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useMyServiceOrders, useMyOsStats } from '@/hooks/service-orders/use-service-orders'
+import { usePermissions } from '@/hooks/auth/use-permissions'
 import { MyOsDetailSheet } from '@/components/service-orders/my-os-detail-sheet'
+import { OsCreateSheet } from '@/components/service-orders/os-create-sheet'
 import type { ServiceOrderStatus, ServiceOrder } from '@/services/service-orders/service-orders.types'
 
 // ─── Labels e estilos ───────────────────────────────────────────────────────
@@ -99,10 +99,13 @@ function StatCard({ label, count, icon: Icon, color, onClick, active }: StatCard
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function MinhasOsPage() {
+  const { canAccess } = usePermissions()
+  const canCreate = canAccess('service-order', 'create')
   const [activeStatus, setActiveStatus] = useState<ServiceOrderStatus | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const { data: stats } = useMyOsStats()
 
@@ -137,12 +140,12 @@ export default function MinhasOsPage() {
             Acompanhe as OS que você solicitou
           </p>
         </div>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/equipamentos">
+        {canCreate && (
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="w-4 h-4 mr-1.5" />
             Nova OS
-          </Link>
-        </Button>
+          </Button>
+        )}
       </div>
 
       {/* Cards de stats */}
@@ -329,6 +332,12 @@ export default function MinhasOsPage() {
         osId={selectedOsId}
         open={!!selectedOsId}
         onClose={() => setSelectedOsId(null)}
+      />
+
+      {/* Create Sheet */}
+      <OsCreateSheet
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
       />
     </div>
   )

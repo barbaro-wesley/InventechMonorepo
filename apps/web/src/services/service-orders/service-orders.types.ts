@@ -32,7 +32,10 @@ export interface ServiceOrderTechnician {
 export interface ServiceOrder {
   id: string
   companyId: string
-  clientId: string
+  clientId: string | null
+  equipmentId: string | null
+  costCenterId: string | null
+  locationId: string | null
   number: number
   title: string
   description: string
@@ -52,8 +55,10 @@ export interface ServiceOrder {
   alertSentAt: string | null
   createdAt: string
   updatedAt: string
-  client: { id: string; name: string; logoUrl: string | null }
-  equipment: { id: string; name: string; brand: string | null; model: string | null }
+  client: { id: string; name: string; logoUrl: string | null } | null
+  equipment: { id: string; name: string; brand: string | null; model: string | null; patrimonyNumber: string | null } | null
+  costCenter: { id: string; name: string; code: string | null } | null
+  location: { id: string; name: string } | null
   requester: { id: string; name: string; email: string } | null
   group: { id: string; name: string; color: string | null } | null
   technicians: ServiceOrderTechnician[]
@@ -123,7 +128,9 @@ export type MyOsStats = Record<ServiceOrderStatus, number>
 
 export interface CreateServiceOrderDto {
   clientId: string
-  equipmentId: string
+  equipmentId?: string
+  costCenterId?: string
+  locationId?: string
   title: string
   description: string
   maintenanceType: MaintenanceType
