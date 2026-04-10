@@ -403,8 +403,20 @@ export class ServiceOrdersService {
         }
 
         if (dto.technicianId) {
+            const assumeRoles = [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER, UserRole.TECHNICIAN]
             const technician = await this.prisma.user.findFirst({
-                where: { id: dto.technicianId, companyId, role: UserRole.TECHNICIAN },
+                where: {
+                    id: dto.technicianId,
+                    companyId,
+                    deletedAt: null,
+                    OR: [
+                        { customRoleId: null, role: { in: assumeRoles } },
+                        {
+                            customRoleId: { not: null },
+                            customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } },
+                        },
+                    ],
+                },
                 select: { id: true },
             })
             if (!technician) throw new BadRequestException('Técnico não encontrado nesta empresa')
@@ -643,8 +655,20 @@ export class ServiceOrdersService {
             throw new ConflictException('Não é possível adicionar técnico neste status')
         }
 
+        const assumeRoles = [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER, UserRole.TECHNICIAN]
         const technician = await this.prisma.user.findFirst({
-            where: { id: dto.technicianId, companyId, role: UserRole.TECHNICIAN },
+            where: {
+                id: dto.technicianId,
+                companyId,
+                deletedAt: null,
+                OR: [
+                    { customRoleId: null, role: { in: assumeRoles } },
+                    {
+                        customRoleId: { not: null },
+                        customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } },
+                    },
+                ],
+            },
             select: { id: true, name: true },
         })
         if (!technician) throw new NotFoundException('Técnico não encontrado')

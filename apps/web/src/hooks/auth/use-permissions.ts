@@ -23,10 +23,8 @@ export function usePermissions() {
     function canAccess(resource: string, action: string): boolean {
         if (!user) return false;
         if (user.role === "SUPER_ADMIN") return true;
-        if (user.customRoleId && user.customRole?.permissions) {
-            return user.customRole.permissions.some(
-                (p) => p.resource === resource && p.action === action
-            );
+        if (user.customRoleId) {
+            return user.permissions?.includes(`${resource}:${action}`) ?? false;
         }
         // Fallback para papéis de sistema — sem papel personalizado, confia no roles[]
         return false;

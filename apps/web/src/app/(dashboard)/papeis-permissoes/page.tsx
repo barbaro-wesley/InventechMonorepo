@@ -618,6 +618,7 @@ export default function PapeisPermissoesPage() {
 
       {/* Sheet: criar/editar papel */}
       <CustomRoleSheet
+        key={roleSheet.target?.id ?? "new"}
         open={roleSheet.open}
         editTarget={roleSheet.target}
         matrixResources={matrix?.resources ?? {}}

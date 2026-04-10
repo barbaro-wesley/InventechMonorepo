@@ -30,8 +30,6 @@ export interface AuthUser {
   customRole?: {
     id: string;
     name: string;
-    description?: string | null;
-    permissions: { resource: string; action: string }[];
   } | null;
 }
 

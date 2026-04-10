@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { useCreateServiceOrder } from '@/hooks/service-orders/use-service-orders'
 import { useCurrentUser } from '@/store/auth.store'
+import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
 import type { Equipment } from '@/services/equipment/equipment.service'
 
@@ -58,6 +59,7 @@ interface EquipmentOsCreateSheetProps {
 
 export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOsCreateSheetProps) {
   const currentUser = useCurrentUser()
+  const { canAccess } = usePermissions()
   const [clients, setClients] = useState<SimpleOption[]>([])
   const [technicians, setTechnicians] = useState<SimpleOption[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
@@ -66,32 +68,34 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
   // The group comes directly from the equipment's type — no user selection needed
   const equipmentGroup = equipment?.type?.group ?? null
-  // If the logged-in user is client-scoped, clientId is already known
-  const fixedClientId = currentUser?.clientId ?? null
+  // Usuários com permissão de listar prestadores podem escolher — os demais ficam fixos no seu clientId
+  const canChooseClient = canAccess('client', 'list')
+  const fixedClientId = canChooseClient ? null : (currentUser?.clientId ?? null)
+  // Quando pode escolher mas já tem um cliente próprio, pré-seleciona o dele
+  const defaultClientId = fixedClientId ?? currentUser?.clientId ?? ''
 
   const form = useForm<FormData>({
     defaultValues: {
       priority: 'MEDIUM',
       alertAfterHours: 2,
-      clientId: fixedClientId ?? '',
+      clientId: defaultClientId,
     },
   })
 
   useEffect(() => {
     if (!open) return
-    const initialClientId = fixedClientId ?? ''
-    setSelectedClientId(initialClientId)
+    setSelectedClientId(defaultClientId)
     form.reset({
       priority: 'MEDIUM',
       alertAfterHours: 2,
-      clientId: initialClientId,
+      clientId: defaultClientId,
     })
-    if (!fixedClientId) {
+    if (canChooseClient) {
       api.get('/clients', { params: { limit: 100 } }).then(({ data }) => {
         setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name })))
       })
     }
-  }, [open, fixedClientId])
+  }, [open])
 
   // Carrega técnicos vinculados ao cliente (por clientId direto ou por grupos)
   useEffect(() => {
@@ -170,15 +174,16 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
         )}
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* Cliente — oculto se o usuário já tem clientId fixo */}
-          {fixedClientId ? (
-            <input type="hidden" {...form.register('clientId')} value={fixedClientId} />
-          ) : (
+          {/* clientId sempre registrado — garante que vai no payload */}
+          <input type="hidden" {...form.register('clientId')} />
+
+          {/* Cliente — oculto se o usuário NÃO pode escolher */}
+          {!fixedClientId && (
             <div className="space-y-1.5">
               <Label>Prestador <span className="text-red-500">*</span></Label>
               <Select
                 onValueChange={(v) => { setSelectedClientId(v); form.setValue('clientId', v) }}
-                defaultValue={form.getValues('clientId') || undefined}
+                value={selectedClientId || undefined}
               >
                 <SelectTrigger className={form.formState.errors.clientId ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Selecione o prestador" />

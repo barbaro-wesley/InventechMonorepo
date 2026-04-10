@@ -31,7 +31,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/auth";
-import { ROLE_LABELS } from "@/types/auth";
+import { ROLE_LABELS, displayRole } from "@/types/auth";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -460,7 +460,7 @@ export default function DashboardLayout({
                                             {user?.name ?? "Usuário"}
                                         </span>
                                         <span className="text-xs mt-1.5 leading-none" style={{ color: "var(--muted-foreground)" }}>
-                                            {user?.role ? ROLE_LABELS[user.role] : ""}
+                                            {user ? displayRole(user) : ""}
                                         </span>
                                     </div>
                                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-border bg-muted">

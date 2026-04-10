@@ -326,17 +326,36 @@ export class ClientsService {
 
     const select = { id: true, name: true, email: true, avatarUrl: true }
 
-    // 1. Técnicos com clientId direto no User
+    // Papéis de sistema que têm service-order:assume por padrão
+    const assumeRoles = [
+      UserRole.SUPER_ADMIN,
+      UserRole.COMPANY_ADMIN,
+      UserRole.COMPANY_MANAGER,
+      UserRole.TECHNICIAN,
+    ]
+
+    // Filtro por permissão: papel de sistema com assume, ou papel personalizado com a permissão explícita
+    const canAssumeFilter = {
+      OR: [
+        { customRoleId: null, role: { in: assumeRoles } },
+        {
+          customRoleId: { not: null },
+          customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } },
+        },
+      ],
+    }
+
+    // 1. Usuários com clientId direto
     const byClientId = await this.prisma.user.findMany({
-      where: { companyId, clientId, role: UserRole.TECHNICIAN, deletedAt: null },
+      where: { companyId, clientId, deletedAt: null, ...canAssumeFilter },
       select,
     })
 
-    // 2. Técnicos nos grupos de manutenção vinculados ao cliente
+    // 2. Usuários nos grupos de manutenção vinculados ao cliente
     const byGroup = await this.prisma.technicianGroup.findMany({
       where: {
         isActive: true,
-        user: { companyId, deletedAt: null, role: UserRole.TECHNICIAN },
+        user: { companyId, deletedAt: null, ...canAssumeFilter },
         group: { clientGroups: { some: { clientId } } },
       },
       select: { user: { select } },

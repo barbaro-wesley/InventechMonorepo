@@ -271,7 +271,6 @@ export class AuthService {
                     select: {
                         id: true,
                         name: true,
-                        description: true,
                         permissions: { select: { resource: true, action: true } },
                     },
                 },
@@ -280,14 +279,19 @@ export class AuthService {
 
         if (!user) throw new UnauthorizedException('Usuário não encontrado')
 
-        // Permissões efetivas: custom role usa whitelist explícita, system role usa defaults
-        const permissions: string[] = user.customRoleId
-            ? (user.customRole?.permissions ?? []).map((p) => `${p.resource}:${p.action}`)
-            : Object.entries(DEFAULT_PERMISSIONS)
-                .filter(([, roles]) => roles.includes(user.role))
-                .map(([key]) => key)
+        const { customRole, ...baseUser } = user
 
-        return { ...user, permissions }
+        if (customRole) {
+            const { permissions: rawPerms, ...customRoleData } = customRole
+            const permissions = rawPerms.map((p) => `${p.resource}:${p.action}`)
+            return { ...baseUser, customRole: customRoleData, permissions }
+        }
+
+        const permissions = Object.entries(DEFAULT_PERMISSIONS)
+            .filter(([, roles]) => roles.includes(baseUser.role))
+            .map(([key]) => key)
+
+        return { ...baseUser, permissions }
     }
 
     // ─────────────────────────────────────────
