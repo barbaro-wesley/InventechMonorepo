@@ -82,13 +82,13 @@ export default function OperacionalPage() {
         <OsBoard
           orders={filteredOrders}
           showClosed={showClosed}
-          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId })}
+          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })}
         />
       ) : (
         <div className="flex-1 overflow-hidden bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] shadow-sm">
           <OsList
             orders={filteredOrders}
-            onRowClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId })}
+            onRowClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })}
           />
         </div>
       )}
