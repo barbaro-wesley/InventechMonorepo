@@ -23,6 +23,7 @@ import {
     Layers,
     Landmark,
     ShieldCheck,
+    ClipboardCheck,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -31,7 +32,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/auth";
-import { ROLE_LABELS } from "@/types/auth";
+import { ROLE_LABELS, displayRole } from "@/types/auth";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -81,6 +82,13 @@ const navSections: NavSection[] = [
                 icon: ClipboardList,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
                 permission: "service-order:list",
+            },
+            {
+                label: "Minhas OS",
+                href: "/minhas-os",
+                icon: ClipboardCheck,
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"],
+                permission: "service-order:view-own",
             },
             {
                 label: "Equipamentos",
@@ -210,10 +218,18 @@ export default function DashboardLayout({
             (item) => pathname === item.href || pathname.startsWith(item.href + "/")
         );
         if (!matched) return; // /perfil e páginas não listadas são sempre acessíveis
+        // Papel personalizado: verifica permissão específica do item
+        if (user.customRoleId && matched.permission) {
+            const [resource, action] = matched.permission.split(":");
+            if (!permissions.canAccess(resource, action)) {
+                router.replace("/dashboard");
+            }
+            return;
+        }
         if (!matched.roles.includes(user.role as Role)) {
             router.replace("/dashboard");
         }
-    }, [pathname, user, router]);
+    }, [pathname, user, router, permissions]);
     const [collapsed, setCollapsed] = useState(false);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         operacoes: true,
@@ -460,7 +476,7 @@ export default function DashboardLayout({
                                             {user?.name ?? "Usuário"}
                                         </span>
                                         <span className="text-xs mt-1.5 leading-none" style={{ color: "var(--muted-foreground)" }}>
-                                            {user?.role ? ROLE_LABELS[user.role] : ""}
+                                            {user ? displayRole(user) : ""}
                                         </span>
                                     </div>
                                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-border bg-muted">

@@ -18,7 +18,7 @@ import {
 
 import { useCurrentUser } from "@/store/auth.store";
 import { useUpdateProfile, useUploadAvatar, useChangePassword } from "@/hooks/users/use-users";
-import { ROLE_LABELS } from "@/types/auth";
+import { displayRole } from "@/types/auth";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -212,7 +212,7 @@ export default function PerfilPage() {
                         <p className="text-sm text-slate-500 truncate">{user.email}</p>
                         <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <Badge variant="outline" className="text-xs">
-                                {ROLE_LABELS[user.role]}
+                                {displayRole(user)}
                             </Badge>
                             <Badge variant="outline" className={cn("text-xs", statusConfig.className)}>
                                 {statusConfig.label}

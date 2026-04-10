@@ -51,6 +51,8 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
   const [clients, setClients] = useState<SimpleOption[]>([])
   const [equipment, setEquipment] = useState<SimpleOption[]>([])
   const [groups, setGroups] = useState<SimpleOption[]>([])
+  const [technicians, setTechnicians] = useState<SimpleOption[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
 
   const createOs = useCreateServiceOrder()
 
@@ -61,9 +63,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
     },
   })
 
-  const selectedClientId = form.watch('clientId')
-
-  // Carrega clientes
+  // Carrega clientes, grupos e técnicos
   useEffect(() => {
     if (!open) return
     api.get('/clients', { params: { limit: 100 } }).then(({ data }) => {
@@ -71,6 +71,9 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
     })
     api.get('/maintenance-groups', { params: { limit: 100 } }).then(({ data }) => {
       setGroups((data?.data ?? []).map((g: any) => ({ id: g.id, name: g.name })))
+    })
+    api.get('/users', { params: { role: 'TECHNICIAN', limit: 100 } }).then(({ data }) => {
+      setTechnicians((data?.data ?? []).map((u: any) => ({ id: u.id, name: u.name })))
     })
   }, [open])
 
@@ -103,6 +106,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
       {
         onSuccess: () => {
           form.reset()
+          setSelectedClientId('')
           onClose()
         },
       },
@@ -122,8 +126,10 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
             <Label>Prestador <span className="text-red-500">*</span></Label>
             <Select
               onValueChange={(v) => {
+                setSelectedClientId(v)
                 form.setValue('clientId', v)
                 form.setValue('equipmentId', '')
+                form.setValue('technicianId', undefined)
               }}
             >
               <SelectTrigger className={form.formState.errors.clientId ? 'border-red-500' : ''}>
@@ -160,6 +166,29 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
               <p className="text-xs text-red-500">{form.formState.errors.equipmentId.message}</p>
             )}
           </div>
+
+          {/* Técnico */}
+          {selectedClientId && (
+            <div className="space-y-1.5">
+              <Label>Técnico Responsável</Label>
+              <Select
+                onValueChange={(v) => form.setValue('technicianId', v === 'none' ? undefined : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem técnico definido" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem técnico definido</SelectItem>
+                  {technicians.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-[#6c7c93]">
+                Opcional — se não definido, a OS ficará aguardando assumção no painel
+              </p>
+            </div>
+          )}
 
           {/* Título */}
           <div className="space-y-1.5">

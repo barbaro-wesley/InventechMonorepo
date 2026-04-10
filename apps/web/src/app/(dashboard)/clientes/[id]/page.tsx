@@ -25,6 +25,9 @@ import {
   XCircle,
   Wrench,
   X,
+  Link as LinkIcon,
+  Unlink,
+  Search,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,6 +40,9 @@ import {
   useClientMaintenanceGroups,
   useAssignMaintenanceGroup,
   useRemoveMaintenanceGroup,
+  useAvailablePlatformUsers,
+  useLinkPlatformUser,
+  useUnlinkPlatformUser,
 } from "@/hooks/clients/use-clients";
 import { useMaintenanceGroups } from "@/hooks/maintenance-groups/use-maintenance-groups";
 import {
@@ -46,7 +52,7 @@ import {
 } from "@/hooks/users/use-users";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { UserManagementSheets, STATUS_CONFIG } from "@/components/users/user-management-sheets";
-import { ROLE_LABELS } from "@/types/auth";
+import { ROLE_LABELS, displayRole } from "@/types/auth";
 import type { User } from "@/types/user";
 import type { Client } from "@/types/client";
 import { cn } from "@/lib/utils";
@@ -180,16 +186,30 @@ function InfoField({
 // UsersTab
 // ---------------------------------------------------------------------------
 
+const PLATFORM_ROLES = ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "MEMBER"];
+
 function UsersTab({ client }: { client: Client }) {
   const permissions = usePermissions();
   const [createOpen, setCreateOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkSearch, setLinkSearch] = useState("");
   const [editUser, setEditUser] = useState<User | null>(null);
   const [assignRoleUser, setAssignRoleUser] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [unlinkTarget, setUnlinkTarget] = useState<User | null>(null);
 
   const { data, isLoading } = useUsers({ clientId: client.id, limit: 100 });
   const createUser = useCreateUser();
   const deleteUser = useDeleteUser();
+  const { data: availableUsers = [] } = useAvailablePlatformUsers(client.id);
+  const linkUser = useLinkPlatformUser(client.id);
+  const unlinkUser = useUnlinkPlatformUser(client.id);
+
+  const filteredAvailable = availableUsers.filter(
+    (u) =>
+      u.name.toLowerCase().includes(linkSearch.toLowerCase()) ||
+      u.email.toLowerCase().includes(linkSearch.toLowerCase()),
+  );
 
   const createForm = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
@@ -221,6 +241,11 @@ function UsersTab({ client }: { client: Client }) {
     deleteUser.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
   }
 
+  function handleUnlink() {
+    if (!unlinkTarget) return;
+    unlinkUser.mutate(unlinkTarget.id, { onSuccess: () => setUnlinkTarget(null) });
+  }
+
   const users = data?.data ?? [];
 
   return (
@@ -229,13 +254,72 @@ function UsersTab({ client }: { client: Client }) {
         <p className="text-sm text-slate-500">
           {users.length} usuário{users.length !== 1 ? "s" : ""} vinculado{users.length !== 1 ? "s" : ""}
         </p>
-        {permissions.canManageUsers && !createOpen && (
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo usuário
-          </Button>
+        {permissions.canManageUsers && !createOpen && !linkOpen && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setLinkOpen(true)}>
+              <LinkIcon className="w-4 h-4 mr-2" />
+              Vincular existente
+            </Button>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo usuário
+            </Button>
+          </div>
         )}
       </div>
+
+      {/* Painel de vincular usuário da plataforma */}
+      {linkOpen && (
+        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold">Vincular usuário da plataforma</h4>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setLinkOpen(false); setLinkSearch(""); }}>
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nome ou e-mail..."
+              value={linkSearch}
+              onChange={(e) => setLinkSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {filteredAvailable.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-4">
+              {availableUsers.length === 0 ? "Nenhum usuário disponível para vincular" : "Nenhum resultado para a busca"}
+            </p>
+          ) : (
+            <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950">
+              {filteredAvailable.map((u) => (
+                <div key={u.id} className="flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-900">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0", getAvatarColor(u.name))}>
+                      {getInitials(u.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{u.name}</p>
+                      <p className="text-xs text-slate-500 truncate">{u.email} · {displayRole(u)}</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs shrink-0 ml-2"
+                    disabled={linkUser.isPending}
+                    onClick={() => linkUser.mutate(u.id, { onSuccess: () => { setLinkOpen(false); setLinkSearch(""); } })}
+                  >
+                    <LinkIcon className="w-3 h-3 mr-1" />
+                    Vincular
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Create form */}
       {createOpen && (
@@ -330,7 +414,7 @@ function UsersTab({ client }: { client: Client }) {
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                         <span className="truncate">{user.email}</span>
                         <span className="w-1 h-1 rounded-full bg-slate-300" />
-                        <span>{ROLE_LABELS[user.role as keyof typeof ROLE_LABELS]}</span>
+                        <span>{displayRole(user)}</span>
                       </div>
                     </div>
                   </div>
@@ -348,10 +432,17 @@ function UsersTab({ client }: { client: Client }) {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setEditUser(user)}>Editar</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setAssignRoleUser(user)}>Atribuir papel</DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeleteTarget(user)}>
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Remover
-                          </DropdownMenuItem>
+                          {PLATFORM_ROLES.includes(user.role) ? (
+                            <DropdownMenuItem className="text-amber-600 focus:text-amber-600" onClick={() => setUnlinkTarget(user)}>
+                              <Unlink className="w-4 h-4 mr-2" />
+                              Desvincular
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => setDeleteTarget(user)}>
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Remover
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
@@ -382,6 +473,23 @@ function UsersTab({ client }: { client: Client }) {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={handleDelete}>
               {deleteUser.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Remover"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!unlinkTarget} onOpenChange={(open) => !open && setUnlinkTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desvincular usuário</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja desvincular <strong>{unlinkTarget?.name}</strong> deste cliente? O usuário continuará existindo na plataforma, mas perderá acesso a este cliente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-amber-600 hover:bg-amber-700" onClick={handleUnlink}>
+              {unlinkUser.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Desvincular"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -26,6 +26,7 @@ const DEFAULT_PERMISSIONS: Record<ReportType, UserRole[]> = {
         UserRole.SUPER_ADMIN,
         UserRole.COMPANY_ADMIN,
         UserRole.COMPANY_MANAGER,
+        UserRole.CLIENT_ADMIN,
     ],
     TECHNICIANS: [
         UserRole.SUPER_ADMIN,

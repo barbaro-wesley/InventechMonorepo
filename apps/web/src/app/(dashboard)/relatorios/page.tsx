@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileSpreadsheet,
   FileText,
@@ -29,9 +29,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
-import { useLocations } from "@/hooks/equipment/use-locations";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { api, getErrorMessage } from "@/lib/api";
+import { useCurrentUser } from "@/store/auth.store";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -254,15 +254,14 @@ function Section({
 
 function EquipmentReport() {
   const { data: types = [] } = useEquipmentTypes({ limit: 100 } as any);
-  const { data: locations = [] } = useLocations({ limit: 100, isActive: true } as any);
   const { data: costCenters = [] } = useCostCenters({ limit: 100, isActive: true } as any);
 
   const [statuses, setStatuses] = useState<EquipmentStatus[]>([]);
   const [criticalities, setCriticalities] = useState<EquipmentCriticality[]>([]);
   const [typeIds, setTypeIds] = useState<string[]>([]);
-  const [locationIds, setLocationIds] = useState<string[]>([]);
   const [costCenterIds, setCostCenterIds] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState("none");
+  const [orderBy, setOrderBy] = useState("name");
 
   const [selectedColumns, setSelectedColumns] = useState<string[]>(
     EQUIPMENT_COLUMNS.filter((c) => c.defaultSelected).map((c) => c.key)
@@ -293,9 +292,9 @@ function EquipmentReport() {
     ...(statuses.length > 0 && { status: statuses.join(",") }),
     ...(criticalities.length > 0 && { criticality: criticalities.join(",") }),
     ...(typeIds.length > 0 && { typeId: typeIds.join(",") }),
-    ...(locationIds.length > 0 && { locationId: locationIds.join(",") }),
     ...(costCenterIds.length > 0 && { costCenterId: costCenterIds.join(",") }),
     ...(groupBy !== "none" && { groupBy }),
+    ...(orderBy !== "name" && { orderBy }),
     columns: selectedColumns.join(","),
   };
 
@@ -351,22 +350,14 @@ function EquipmentReport() {
             </div>
           </div>
 
-          {/* Tipo / Local / CC */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* Tipo / CC */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <MultiSelect
               label="Tipo de equipamento"
               placeholder="Todos os tipos"
               options={(types as any[]).map((t: any) => ({ label: t.name, value: t.id }))}
               selectedValues={typeIds}
               onChange={setTypeIds}
-            />
-
-            <MultiSelect
-              label="Local"
-              placeholder="Todos os locais"
-              options={(locations as any[]).map((l: any) => ({ label: l.name, value: l.id }))}
-              selectedValues={locationIds}
-              onChange={setLocationIds}
             />
 
             <MultiSelect
@@ -383,26 +374,47 @@ function EquipmentReport() {
         </div>
       </Section>
 
-      {/* Agrupamento */}
+      {/* Agrupamento e ordenação */}
       <Section title="Agrupamento e ordenação" collapsible>
-        <div className="max-w-xs space-y-1">
-          <Label className="text-xs text-muted-foreground">Agrupar por</Label>
-          <Select value={groupBy} onValueChange={setGroupBy}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Sem agrupamento (ordenar por nome)</SelectItem>
-              <SelectItem value="status">Status</SelectItem>
-              <SelectItem value="criticality">Criticidade</SelectItem>
-              <SelectItem value="type">Tipo</SelectItem>
-              <SelectItem value="location">Local</SelectItem>
-              <SelectItem value="costCenter">Centro de custo</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Os equipamentos serão ordenados pelo campo escolhido e separados em grupos no relatório.
-          </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Agrupar por</Label>
+            <Select value={groupBy} onValueChange={setGroupBy}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem agrupamento</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="criticality">Criticidade</SelectItem>
+                <SelectItem value="type">Tipo</SelectItem>
+                <SelectItem value="location">Local</SelectItem>
+                <SelectItem value="costCenter">Centro de custo</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Separa os equipamentos em seções no relatório.
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Ordenar por</Label>
+            <Select value={orderBy} onValueChange={setOrderBy}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Nome (A-Z)</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="criticality">Criticidade</SelectItem>
+                <SelectItem value="type">Tipo</SelectItem>
+                <SelectItem value="costCenter">Centro de custo</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Ordenação dentro de cada grupo (ou geral, sem agrupamento).
+            </p>
+          </div>
         </div>
       </Section>
 
@@ -623,11 +635,49 @@ function ServiceOrdersReport() {
 
 // ─── Preventive Report Tab ────────────────────────────────────────────────────
 
+type RecurrenceType = "DAILY" | "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL" | "CUSTOM";
+
+const RECURRENCE_LABEL: Record<RecurrenceType, string> = {
+  DAILY: "Diária",
+  WEEKLY: "Semanal",
+  BIWEEKLY: "Quinzenal",
+  MONTHLY: "Mensal",
+  QUARTERLY: "Trimestral",
+  SEMIANNUAL: "Semestral",
+  ANNUAL: "Anual",
+  CUSTOM: "Personalizada",
+};
+
+interface ClientOption { id: string; name: string }
+
 function PreventiveReport() {
+  const currentUser = useCurrentUser();
+  const isClientAdmin = currentUser?.role === "CLIENT_ADMIN";
+
+  const { data: types = [] } = useEquipmentTypes({ limit: 100 } as any);
+
+  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [clientId, setClientId] = useState("");
+  const [typeIds, setTypeIds] = useState<string[]>([]);
+  const [recurrenceTypes, setRecurrenceTypes] = useState<RecurrenceType[]>([]);
   const [isActive, setIsActive] = useState("__all__");
   const [loading, setLoading] = useState<"excel" | "pdf" | null>(null);
 
-  const params: Record<string, string | undefined> = {
+  // Load clients list for company admins
+  useEffect(() => {
+    if (isClientAdmin) return;
+    api.get("/clients", { params: { limit: 100 } }).then(({ data }) => {
+      setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name })));
+    });
+  }, [isClientAdmin]);
+
+  const toggleRecurrence = (r: RecurrenceType) =>
+    setRecurrenceTypes((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
+
+  const params: Record<string, string | string[] | undefined> = {
+    ...(clientId && !isClientAdmin && { clientId }),
+    ...(typeIds.length > 0 && { typeId: typeIds.join(",") }),
+    ...(recurrenceTypes.length > 0 && { recurrenceType: recurrenceTypes.join(",") }),
     ...(isActive !== "__all__" && { isActive }),
   };
 
@@ -645,18 +695,68 @@ function PreventiveReport() {
   return (
     <div className="space-y-4">
       <Section title="Filtros" collapsible>
-        <div className="max-w-xs space-y-1">
-          <Label className="text-xs text-muted-foreground">Status das preventivas</Label>
-          <Select value={isActive} onValueChange={setIsActive}>
-            <SelectTrigger>
-              <SelectValue placeholder="Todas" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all__">Todas</SelectItem>
-              <SelectItem value="true">Apenas ativas</SelectItem>
-              <SelectItem value="false">Apenas inativas</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="space-y-4">
+          {/* Recorrência — chips */}
+          <div>
+            <Label className="text-xs text-muted-foreground mb-2 block">Recorrência</Label>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(RECURRENCE_LABEL) as RecurrenceType[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  data-selected={recurrenceTypes.includes(r)}
+                  onClick={() => toggleRecurrence(r)}
+                  className="px-3 py-1 rounded-full border text-xs font-medium transition-colors
+                    border-border text-muted-foreground bg-background
+                    data-[selected=true]:border-primary data-[selected=true]:text-primary data-[selected=true]:bg-primary/10"
+                >
+                  {RECURRENCE_LABEL[r]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Cliente (company admin only) + Tipo + Status */}
+          <div className={`grid grid-cols-1 gap-3 ${isClientAdmin ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+            {!isClientAdmin && (
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Prestador</Label>
+                <Select value={clientId || "__all__"} onValueChange={(v) => setClientId(v === "__all__" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os prestadores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todos os prestadores</SelectItem>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <MultiSelect
+              label="Tipo de equipamento"
+              placeholder="Todos os tipos"
+              options={(types as any[]).map((t: any) => ({ label: t.name, value: t.id }))}
+              selectedValues={typeIds}
+              onChange={setTypeIds}
+            />
+
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Status</Label>
+              <Select value={isActive} onValueChange={setIsActive}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos</SelectItem>
+                  <SelectItem value="true">Apenas ativos</SelectItem>
+                  <SelectItem value="false">Apenas inativos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </Section>
 

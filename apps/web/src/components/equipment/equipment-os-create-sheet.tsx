@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { useCreateServiceOrder } from '@/hooks/service-orders/use-service-orders'
 import { useCurrentUser } from '@/store/auth.store'
+import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
 import type { Equipment } from '@/services/equipment/equipment.service'
 
@@ -37,6 +38,7 @@ const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
 
 type FormData = {
   clientId: string
+  technicianId?: string
   title: string
   description: string
   maintenanceType: string
@@ -57,38 +59,54 @@ interface EquipmentOsCreateSheetProps {
 
 export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOsCreateSheetProps) {
   const currentUser = useCurrentUser()
+  const { canAccess } = usePermissions()
   const [clients, setClients] = useState<SimpleOption[]>([])
+  const [technicians, setTechnicians] = useState<SimpleOption[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
 
   const createOs = useCreateServiceOrder()
 
   // The group comes directly from the equipment's type — no user selection needed
   const equipmentGroup = equipment?.type?.group ?? null
-  // If the logged-in user is client-scoped, clientId is already known
-  const fixedClientId = currentUser?.clientId ?? null
+  // Usuários com permissão de listar prestadores podem escolher — os demais ficam fixos no seu clientId
+  const canChooseClient = canAccess('client', 'list')
+  const fixedClientId = canChooseClient ? null : (currentUser?.clientId ?? null)
+  // Quando pode escolher mas já tem um cliente próprio, pré-seleciona o dele
+  const defaultClientId = fixedClientId ?? currentUser?.clientId ?? ''
 
   const form = useForm<FormData>({
     defaultValues: {
       priority: 'MEDIUM',
       alertAfterHours: 2,
-      clientId: fixedClientId ?? '',
+      clientId: defaultClientId,
     },
   })
 
   useEffect(() => {
     if (!open) return
+    setSelectedClientId(defaultClientId)
     form.reset({
       priority: 'MEDIUM',
       alertAfterHours: 2,
-      clientId: fixedClientId ?? '',
+      clientId: defaultClientId,
     })
-
-    // Only fetch clients if user doesn't have a fixed clientId
-    if (!fixedClientId) {
+    if (canChooseClient) {
       api.get('/clients', { params: { limit: 100 } }).then(({ data }) => {
         setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name })))
       })
     }
   }, [open])
+
+  // Carrega técnicos vinculados ao cliente (por clientId direto ou por grupos)
+  useEffect(() => {
+    if (!selectedClientId) {
+      setTechnicians([])
+      return
+    }
+    api.get(`/clients/${selectedClientId}/technicians`).then(({ data }) => {
+      setTechnicians((Array.isArray(data) ? data : []).map((u: any) => ({ id: u.id, name: u.name })))
+    })
+  }, [selectedClientId])
 
   const onSubmit = (values: FormData) => {
     if (!equipment) return
@@ -100,8 +118,8 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
         description: values.description,
         maintenanceType: values.maintenanceType as any,
         priority: values.priority,
-        // Auto-inject the equipment's type group — prevents the backend validation error
         groupId: equipmentGroup?.id ?? undefined,
+        technicianId: values.technicianId || undefined,
         alertAfterHours: values.alertAfterHours,
       },
       {
@@ -115,8 +133,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
-        <SheetHeader className="mb-6">
+<SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto">        <SheetHeader className="mb-6">
           <SheetTitle>Nova Ordem de Serviço</SheetTitle>
         </SheetHeader>
 
@@ -157,15 +174,16 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
         )}
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* Cliente — oculto se o usuário já tem clientId fixo */}
-          {fixedClientId ? (
-            <input type="hidden" {...form.register('clientId')} value={fixedClientId} />
-          ) : (
+          {/* clientId sempre registrado — garante que vai no payload */}
+          <input type="hidden" {...form.register('clientId')} />
+
+          {/* Cliente — oculto se o usuário NÃO pode escolher */}
+          {!fixedClientId && (
             <div className="space-y-1.5">
               <Label>Prestador <span className="text-red-500">*</span></Label>
               <Select
-                onValueChange={(v) => form.setValue('clientId', v)}
-                defaultValue={form.getValues('clientId') || undefined}
+                onValueChange={(v) => { setSelectedClientId(v); form.setValue('clientId', v) }}
+                value={selectedClientId || undefined}
               >
                 <SelectTrigger className={form.formState.errors.clientId ? 'border-red-500' : ''}>
                   <SelectValue placeholder="Selecione o prestador" />
@@ -179,6 +197,27 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
               {form.formState.errors.clientId && (
                 <p className="text-xs text-red-500">{form.formState.errors.clientId.message}</p>
               )}
+            </div>
+          )}
+
+          {/* Técnico */}
+          {selectedClientId && (
+            <div className="space-y-1.5">
+              <Label>Técnico Responsável</Label>
+              <Select onValueChange={(v) => form.setValue('technicianId', v === 'none' ? undefined : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem técnico definido" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem técnico definido</SelectItem>
+                  {technicians.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Opcional — se não definido, a OS ficará aguardando assumção no painel
+              </p>
             </div>
           )}
 
@@ -201,7 +240,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
             <Textarea
               {...form.register('description', { required: 'Descrição obrigatória' })}
               placeholder="Descreva o problema ou serviço a ser realizado..."
-              rows={3}
+              rows={5}
               className={form.formState.errors.description ? 'border-red-500' : ''}
             />
             {form.formState.errors.description && (

@@ -13,6 +13,7 @@ import { TasksService } from './tasks/tasks.service'
 import { StorageService } from '../storage/storage.service'
 import {
     ListServiceOrdersDto,
+    UpdateServiceOrderDto,
     UpdateServiceOrderStatusDto,
     AssignTechnicianDto,
 } from './dto/service-order.dto'
@@ -42,6 +43,21 @@ export class CompanyServiceOrdersController {
         return this.serviceOrdersService.findAllForCompany(cu.companyId!, filters, cu)
     }
 
+    @Get('mine')
+    @Permission('service-order:view-own')
+    findMine(
+        @Query() filters: ListServiceOrdersDto,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.serviceOrdersService.findMine(cu.companyId!, filters, cu)
+    }
+
+    @Get('my-stats')
+    @Permission('service-order:view-own')
+    getMyStats(@CurrentUser() cu: AuthenticatedUser) {
+        return this.serviceOrdersService.findMyStats(cu.companyId!, cu.sub)
+    }
+
     @Get(':id')
     @Permission('service-order:read')
     findOne(
@@ -49,6 +65,16 @@ export class CompanyServiceOrdersController {
         @CurrentUser() cu: AuthenticatedUser,
     ) {
         return this.serviceOrdersService.findOne(id, null, cu.companyId!, cu)
+    }
+
+    @Patch(':id')
+    @Permission('service-order:update')
+    update(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: UpdateServiceOrderDto,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.serviceOrdersService.update(id, dto, null, cu.companyId!, cu)
     }
 
     @Patch(':id/status')

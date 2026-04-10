@@ -5,6 +5,7 @@ import type {
   ServiceOrderTask,
   ServiceOrderComment,
   ListServiceOrdersParams,
+  MyOsStats,
   CreateServiceOrderDto,
   UpdateServiceOrderStatusDto,
   AssignTechnicianDto,
@@ -58,6 +59,26 @@ async function getByIdCompany(id: string): Promise<ServiceOrderDetail> {
   return data
 }
 
+async function listMine(
+  params?: ListServiceOrdersParams,
+): Promise<PaginatedOsResponse> {
+  const { data } = await api.get('/service-orders/mine', { params })
+  return data
+}
+
+async function getMyStats(): Promise<MyOsStats> {
+  const { data } = await api.get('/service-orders/my-stats')
+  return data
+}
+
+async function update(
+  id: string,
+  dto: { title?: string; description?: string; priority?: string },
+): Promise<ServiceOrder> {
+  const { data } = await api.patch(`/service-orders/${id}`, dto)
+  return data
+}
+
 async function create(dto: CreateServiceOrderDto): Promise<ServiceOrder> {
   const { clientId, ...body } = dto
   const { data } = await api.post(`/clients/${clientId}/service-orders`, body)
@@ -75,7 +96,19 @@ async function updateStatus(
   id: string,
   dto: UpdateServiceOrderStatusDto,
 ): Promise<ServiceOrder> {
-  const { data } = await api.patch(`${osBase(clientId, id)}/status`, dto)
+  if (!dto.files || dto.files.length === 0) {
+    const { files: _files, ...body } = dto
+    const { data } = await api.patch(`${osBase(clientId, id)}/status`, body)
+    return data
+  }
+
+  const formData = new FormData()
+  formData.append('status', dto.status)
+  if (dto.resolution) formData.append('resolution', dto.resolution)
+  if (dto.reason) formData.append('reason', dto.reason)
+  dto.files.forEach((file) => formData.append('files', file))
+
+  const { data } = await api.patch(`${osBase(clientId, id)}/status`, formData)
   return data
 }
 
@@ -178,9 +211,12 @@ async function deleteTask(
 export const serviceOrdersService = {
   listCompany,
   listByClient,
+  listMine,
+  getMyStats,
   getById,
   getByIdCompany,
   create,
+  update,
   updateStatus,
   assume,
   addTechnician,

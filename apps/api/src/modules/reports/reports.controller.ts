@@ -37,12 +37,16 @@ class EquipmentFiltersDto {
   @IsOptional() @IsString() costCenterId?: string
   /** 'status' | 'criticality' | 'type' | 'location' | 'costCenter' */
   @IsOptional() @IsString() groupBy?: string
+  /** 'name' | 'status' | 'criticality' | 'type' | 'costCenter' */
+  @IsOptional() @IsString() orderBy?: string
   /** Comma-separated column keys, e.g. 'patrimony,name,brand,status' */
   @IsOptional() @IsString() columns?: string
 }
 
 class PreventiveFiltersDto {
   @IsOptional() @IsUUID() clientId?: string
+  @IsOptional() @IsString() typeId?: string
+  @IsOptional() @IsString() recurrenceType?: string
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
@@ -147,7 +151,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'PREVENTIVE')
-    const buffer = await this.reportsService.exportPreventiveExcel(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportPreventiveExcel(cu.companyId!, filters, cu)
     this.sendFile(res, buffer, 'xlsx', `Preventivas_${today()}`)
   }
 
@@ -160,7 +164,7 @@ export class ReportsController {
     @Res() res: Response,
   ) {
     await this.permissionsService.checkAccess(cu, 'PREVENTIVE')
-    const buffer = await this.reportsService.exportPreventivePdf(cu.companyId!, filters)
+    const buffer = await this.reportsService.exportPreventivePdf(cu.companyId!, filters, cu)
     this.sendFile(res, buffer, 'pdf', `Preventivas_${today()}`)
   }
 

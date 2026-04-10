@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common'
-import { ServiceOrderStatus } from '@prisma/client'
+import { ServiceOrderStatus, UserRole } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CompaniesService } from '../companies/companies.service'
+import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 // Tipos de filtro para os relatórios
 
@@ -35,6 +36,8 @@ export interface EquipmentReportFilters {
   costCenterId?: string
   /** 'status' | 'criticality' | 'type' | 'location' | 'costCenter' */
   groupBy?: string
+  /** 'name' | 'status' | 'criticality' | 'type' | 'costCenter' — secondary sort within groups (or primary when no grouping) */
+  orderBy?: string
   columns?: string[]
 }
 
@@ -491,15 +494,27 @@ export class ReportsService {
   // RELATÓRIO DE EQUIPAMENTOS
   // ─────────────────────────────────────────
 
-  private equipmentOrderBy(groupBy?: string): any {
+  private getEquipmentSortField(orderBy?: string): any {
+    switch (orderBy) {
+      case 'status': return { status: 'asc' as const }
+      case 'criticality': return { criticality: 'asc' as const }
+      case 'type': return { type: { name: 'asc' as const } }
+      case 'costCenter': return { costCenter: { name: 'asc' as const } }
+      default: return { name: 'asc' as const }
+    }
+  }
+
+  private equipmentOrderBy(groupBy?: string, orderBy?: string): any {
+    const secondarySort = this.getEquipmentSortField(orderBy)
     const byName = { name: 'asc' as const }
+
     switch (groupBy) {
-      case 'status': return [{ status: 'asc' }, byName]
-      case 'criticality': return [{ criticality: 'asc' }, byName]
-      case 'type': return [{ type: { name: 'asc' } }, byName]
-      case 'location': return [{ location: { name: 'asc' } }, byName]
-      case 'costCenter': return [{ costCenter: { name: 'asc' } }, byName]
-      default: return [byName]
+      case 'status': return [{ status: 'asc' }, secondarySort]
+      case 'criticality': return [{ criticality: 'asc' }, secondarySort]
+      case 'type': return [{ type: { name: 'asc' } }, secondarySort]
+      case 'location': return [{ location: { name: 'asc' } }, secondarySort]
+      case 'costCenter': return [{ costCenter: { name: 'asc' } }, secondarySort]
+      default: return [secondarySort, byName]
     }
   }
 
@@ -551,7 +566,7 @@ export class ReportsService {
         subtype: { select: { name: true } },
         costCenter: { select: { name: true, code: true } },
       },
-      orderBy: this.equipmentOrderBy(filters.groupBy),
+      orderBy: this.equipmentOrderBy(filters.groupBy, filters.orderBy),
     })
   }
 
@@ -850,141 +865,175 @@ export class ReportsService {
   // ─────────────────────────────────────────
   // RELATÓRIO DE PREVENTIVAS
   // ─────────────────────────────────────────
-  async getPreventiveData(companyId: string, filters: { isActive?: boolean }) {
-  return this.prisma.maintenanceSchedule.findMany({
-    where: {
-      companyId,
-      ...(filters.isActive !== undefined && { isActive: filters.isActive }),
-    },
-    select: {
-      title: true,
-      maintenanceType: true,
-      recurrenceType: true,
-      customIntervalDays: true,
-      estimatedDurationMin: true,
-      startDate: true,
-      endDate: true,
-      nextRunAt: true,
-      lastRunAt: true,
-      isActive: true,
-      equipment: { select: { name: true, brand: true, serialNumber: true, patrimonyNumber: true } },
-      group: { select: { name: true } },
-      _count: { select: { maintenances: true } },
-    },
-    orderBy: { nextRunAt: 'asc' },
-  })
-}
+  async getPreventiveData(
+    companyId: string,
+    filters: { isActive?: boolean; typeId?: string; recurrenceType?: string },
+    effectiveClientId?: string | null,
+  ) {
+    return this.prisma.maintenanceSchedule.findMany({
+      where: {
+        companyId,
+        ...(effectiveClientId ? { clientId: effectiveClientId } : {}),
+        ...(filters.isActive !== undefined && { isActive: filters.isActive }),
+        ...(filters.typeId && { equipment: { typeId: { in: filters.typeId.split(',') } } }),
+        ...(filters.recurrenceType && { recurrenceType: { in: filters.recurrenceType.split(',') as any } }),
+      },
+      select: {
+        title: true,
+        maintenanceType: true,
+        recurrenceType: true,
+        customIntervalDays: true,
+        nextRunAt: true,
+        lastRunAt: true,
+        isActive: true,
+        equipment: {
+          select: {
+            name: true,
+            serialNumber: true,
+            type: { select: { name: true } },
+            costCenter: { select: { name: true } },
+          },
+        },
+        group: { select: { name: true } },
+        client: { select: { name: true } },
+        _count: { select: { maintenances: true } },
+      },
+      orderBy: { nextRunAt: 'asc' },
+    })
+  }
 
-  async exportPreventiveExcel(companyId: string, filters: { clientId?: string; isActive?: boolean }): Promise < Buffer > {
-  const ExcelJS = await import('exceljs')
+  async exportPreventiveExcel(
+    companyId: string,
+    filters: { clientId?: string; isActive?: boolean; typeId?: string; recurrenceType?: string },
+    currentUser: AuthenticatedUser,
+  ): Promise<Buffer> {
+    const ExcelJS = await import('exceljs')
+
+    const effectiveClientId = currentUser.role === UserRole.CLIENT_ADMIN
+      ? (currentUser.clientId ?? null)
+      : (filters.clientId ?? null)
+
     const [items, template] = await Promise.all([
-    this.getPreventiveData(companyId, filters),
-    this.companiesService.getReportTemplate(companyId),
-  ])
+      this.getPreventiveData(companyId, filters, effectiveClientId),
+      this.companiesService.getReportTemplate(companyId),
+    ])
 
     const workbook = new ExcelJS.default.Workbook()
     workbook.creator = template.companyName
 
     const sheet = workbook.addWorksheet('Manutenções Preventivas', {
-    pageSetup: { paperSize: 9, orientation: 'landscape' },
-  })
+      pageSetup: { paperSize: 9, orientation: 'landscape' },
+    })
 
     const headerStyle: Partial<import('exceljs').Style> = {
-  font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
-  fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.primaryColor.replace('#', '') } },
-  alignment: { horizontal: 'center', vertical: 'middle' },
-}
+      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.primaryColor.replace('#', '') } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    }
 
-sheet.columns = [
-  { header: 'Título', key: 'title', width: 35 },
-  { header: 'Cliente', key: 'client', width: 22 },
-  { header: 'Equipamento', key: 'equipment', width: 28 },
-  { header: 'Grupo', key: 'group', width: 16 },
-  { header: 'Tipo', key: 'type', width: 14 },
-  { header: 'Recorrência', key: 'recurrence', width: 14 },
-  { header: 'Próxima execução', key: 'nextRun', width: 18 },
-  { header: 'Última execução', key: 'lastRun', width: 18 },
-  { header: 'Duração (min)', key: 'duration', width: 14 },
-  { header: 'Execuções', key: 'count', width: 11 },
-  { header: 'Status', key: 'status', width: 10 },
-  { header: 'Início', key: 'start', width: 12 },
-  { header: 'Fim', key: 'end', width: 12 },
-]
+    sheet.columns = [
+      { header: 'Agendamento', key: 'title', width: 30 },
+      { header: 'Cliente', key: 'client', width: 22 },
+      { header: 'Equipamento', key: 'equipment', width: 25 },
+      { header: 'Nº Série', key: 'serial', width: 16 },
+      { header: 'Setor', key: 'sector', width: 18 },
+      { header: 'Tipo de Equip.', key: 'equipType', width: 16 },
+      { header: 'Grupo', key: 'group', width: 16 },
+      { header: 'Tipo Manut.', key: 'maintType', width: 14 },
+      { header: 'Recorrência', key: 'recurrence', width: 14 },
+      { header: 'Próxima OS', key: 'nextRun', width: 16 },
+      { header: 'Última OS', key: 'lastRun', width: 16 },
+      { header: 'Ocorrências', key: 'count', width: 12 },
+      { header: 'Situação', key: 'situation', width: 12 },
+    ]
 
-sheet.getRow(1).height = 28
-sheet.getRow(1).eachCell((cell) => Object.assign(cell, headerStyle))
+    sheet.getRow(1).height = 28
+    sheet.getRow(1).eachCell((cell) => Object.assign(cell, headerStyle))
 
-const recurrenceLabels: Record<string, string> = {
-  DAILY: 'Diária', WEEKLY: 'Semanal', BIWEEKLY: 'Quinzenal', MONTHLY: 'Mensal',
-  QUARTERLY: 'Trimestral', SEMIANNUAL: 'Semestral', ANNUAL: 'Anual', CUSTOM: 'Personalizada',
-}
-const typeLabels: Record<string, string> = {
-  PREVENTIVE: 'Preventiva', CORRECTIVE: 'Corretiva', INITIAL_ACCEPTANCE: 'Aceitação',
-  EXTERNAL_SERVICE: 'Ext.', TECHNOVIGILANCE: 'Tecnovig.', TRAINING: 'Treinamento',
-}
-const fmt = (d: Date | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
+    const recurrenceLabels: Record<string, string> = {
+      DAILY: 'Diária', WEEKLY: 'Semanal', BIWEEKLY: 'Quinzenal', MONTHLY: 'Mensal',
+      QUARTERLY: 'Trimestral', SEMIANNUAL: 'Semestral', ANNUAL: 'Anual', CUSTOM: 'Personalizada',
+    }
+    const maintTypeLabels: Record<string, string> = {
+      PREVENTIVE: 'Preventiva', CORRECTIVE: 'Corretiva', INITIAL_ACCEPTANCE: 'Aceitação',
+      EXTERNAL_SERVICE: 'Serviço Ext.', TECHNOVIGILANCE: 'Tecnovig.', TRAINING: 'Treinamento',
+      IMPROPER_USE: 'Uso Indevido', DEACTIVATION: 'Desativação',
+    }
+    const fmt = (d: Date | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
+    const now = new Date()
 
-const now = new Date()
+    const situacao = (s: { isActive: boolean; nextRunAt: Date | null }) => {
+      if (!s.isActive) return 'Inativo'
+      if (s.nextRunAt && s.nextRunAt < now) return 'Atrasada'
+      return 'Em dia'
+    }
 
-items.forEach((s, idx) => {
-  const isOverdue = s.isActive && s.nextRunAt < now
-  const row = sheet.addRow({
-    title: s.title,
-    client: s.group?.name ?? '-',
-    equipment: [s.equipment?.name, s.equipment?.brand].filter(Boolean).join(' — '),
-    group: s.group?.name ?? '-',
-    type: typeLabels[s.maintenanceType] ?? s.maintenanceType,
-    recurrence: s.recurrenceType === 'CUSTOM'
-      ? `A cada ${s.customIntervalDays} dia(s)`
-      : recurrenceLabels[s.recurrenceType] ?? s.recurrenceType,
-    nextRun: fmt(s.nextRunAt),
-    lastRun: fmt(s.lastRunAt),
-    duration: s.estimatedDurationMin ?? '-',
-    count: s._count.maintenances,
-    status: s.isActive ? 'Ativo' : 'Inativo',
-    start: fmt(s.startDate),
-    end: fmt(s.endDate),
-  })
+    items.forEach((s, idx) => {
+      const sit = situacao(s)
+      const row = sheet.addRow({
+        title: s.title,
+        client: s.client?.name ?? '-',
+        equipment: s.equipment?.name ?? '-',
+        serial: s.equipment?.serialNumber ?? '-',
+        sector: s.equipment?.costCenter?.name ?? '-',
+        equipType: s.equipment?.type?.name ?? '-',
+        group: s.group?.name ?? '-',
+        maintType: maintTypeLabels[s.maintenanceType] ?? s.maintenanceType,
+        recurrence: s.recurrenceType === 'CUSTOM'
+          ? `A cada ${s.customIntervalDays} dia(s)`
+          : (recurrenceLabels[s.recurrenceType] ?? s.recurrenceType),
+        nextRun: fmt(s.nextRunAt),
+        lastRun: fmt(s.lastRunAt),
+        count: s._count.maintenances,
+        situation: sit,
+      })
 
-  if (idx % 2 === 0) {
-    row.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
+      if (idx % 2 === 0) {
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
+        })
+      }
+      row.height = 18
+
+      // Próxima OS em vermelho se atrasada
+      if (sit === 'Atrasada') {
+        row.getCell(10).font = { bold: true, color: { argb: 'FFDC2626' } }
+      }
+      // Situação colorida
+      const sitArgb = sit === 'Em dia' ? 'FF16A34A' : sit === 'Atrasada' ? 'FFDC2626' : 'FF6B7280'
+      row.getCell(13).font = { bold: true, color: { argb: sitArgb } }
     })
-  }
-  row.height = 18
 
-  // Próxima execução em vermelho se atrasada
-  if (isOverdue) {
-    row.getCell(7).font = { bold: true, color: { argb: 'FFDC2626' } }
-  }
-  // Status colorido
-  row.getCell(11).font = {
-    bold: true,
-    color: { argb: s.isActive ? 'FF16A34A' : 'FF6B7280' },
-  }
-})
+    const overdueCount = items.filter((s) => s.isActive && s.nextRunAt && s.nextRunAt < now).length
 
-const overdueCount = items.filter((s) => s.isActive && s.nextRunAt < now).length
+    const totalRow = sheet.addRow([
+      `${template.companyName} — Total: ${items.length} | Atrasadas: ${overdueCount}`,
+      ...Array(12).fill(''),
+    ])
+    totalRow.font = { bold: true, italic: true }
+    totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
+    if (overdueCount > 0) totalRow.getCell(1).font = { bold: true, color: { argb: 'FFDC2626' } }
 
-const totalRow = sheet.addRow([
-  `${template.companyName} — Total: ${items.length} | Atrasadas: ${overdueCount}`,
-  ...Array(12).fill(''),
-])
-totalRow.font = { bold: true, italic: true }
-totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
-if (overdueCount > 0) totalRow.getCell(1).font = { bold: true, color: { argb: 'FFDC2626' } }
+    sheet.autoFilter = { from: 'A1', to: 'M1' }
+    sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
 
-sheet.autoFilter = { from: 'A1', to: 'M1' }
-sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
-
-const buffer = await workbook.xlsx.writeBuffer()
-return Buffer.from(buffer)
+    const buffer = await workbook.xlsx.writeBuffer()
+    return Buffer.from(buffer)
   }
 
-  async exportPreventivePdf(companyId: string, filters: { clientId?: string; isActive?: boolean }): Promise<Buffer> {
+  async exportPreventivePdf(
+    companyId: string,
+    filters: { clientId?: string; isActive?: boolean; typeId?: string; recurrenceType?: string },
+    currentUser: AuthenticatedUser,
+  ): Promise<Buffer> {
     const PDFDocument = (await import('pdfkit')).default
+
+    const effectiveClientId = currentUser.role === UserRole.CLIENT_ADMIN
+      ? (currentUser.clientId ?? null)
+      : (filters.clientId ?? null)
+
     const [items, template] = await Promise.all([
-      this.getPreventiveData(companyId, filters),
+      this.getPreventiveData(companyId, filters, effectiveClientId),
       this.companiesService.getReportTemplate(companyId),
     ])
     const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
@@ -995,25 +1044,36 @@ return Buffer.from(buffer)
 
     const W = doc.page.width - 80
     const blue = template.primaryColor
-    const gray = '#6B7280'
     const dateStr = new Date().toLocaleDateString('pt-BR')
     const now = new Date()
-    const overdueCount = items.filter((s) => s.isActive && s.nextRunAt < now).length
+    const overdueCount = items.filter((s) => s.isActive && s.nextRunAt && s.nextRunAt < now).length
 
     const recurrenceLabels: Record<string, string> = {
       DAILY: 'Diária', WEEKLY: 'Semanal', BIWEEKLY: 'Quinzenal', MONTHLY: 'Mensal',
       QUARTERLY: 'Trimestral', SEMIANNUAL: 'Semestral', ANNUAL: 'Anual', CUSTOM: 'Custom',
     }
     const fmt = (d: Date | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
+    const situacao = (s: { isActive: boolean; nextRunAt: Date | null }) => {
+      if (!s.isActive) return 'Inativo'
+      if (s.nextRunAt && s.nextRunAt < now) return 'Atrasada'
+      return 'Em dia'
+    }
 
     const subtitle = `${dateStr}  ·  Total: ${items.length}  ·  Atrasadas: ${overdueCount}`
-    let y = this.drawPdfHeader(doc, template, template.headerTitle || 'Manutenções Preventivas', subtitle, logoBuffer)
+    let y = this.drawPdfHeader(doc, template, 'Manutenções Preventivas', subtitle, logoBuffer)
 
+    // Cols total ≈ 760 (landscape A4 - 80 margins)
     const cols = [
-      { label: 'Título', w: 180 }, { label: 'Cliente', w: 100 },
-      { label: 'Equipamento', w: 130 }, { label: 'Recorrência', w: 80 },
-      { label: 'Próxima exec.', w: 80 }, { label: 'Última exec.', w: 80 },
-      { label: 'Status', w: 80 },
+      { label: 'Agendamento', w: 148 },
+      { label: 'Equip.', w: 90 },
+      { label: 'Nº Série', w: 60 },
+      { label: 'Setor', w: 70 },
+      { label: 'Tipo Equip.', w: 70 },
+      { label: 'Recorrência', w: 65 },
+      { label: 'Próxima OS', w: 65 },
+      { label: 'Última OS', w: 65 },
+      { label: 'Ocorr.', w: 47 },
+      { label: 'Situação', w: 60 },
     ]
 
     let x = 40
@@ -1030,20 +1090,37 @@ return Buffer.from(buffer)
       if (y > doc.page.height - 80) { doc.addPage(); y = 40; rowIdx = 0 }
 
       const rowH = 18
-      const isOverdue = s.isActive && s.nextRunAt < now
-      doc.rect(40, y, W, rowH).fill(rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC').stroke('#E2E8F0')
-      doc.fillColor(isOverdue ? '#DC2626' : '#1F2937').fontSize(7.5).font(isOverdue ? 'Helvetica-Bold' : 'Helvetica')
-      x = 40
+      const sit = situacao(s)
+      const isOverdue = sit === 'Atrasada'
+      const sitColor = sit === 'Em dia' ? '#16A34A' : sit === 'Atrasada' ? '#DC2626' : '#6B7280'
 
+      doc.rect(40, y, W, rowH).fill(rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC').stroke('#E2E8F0')
+
+      x = 40
       const cells = [
-        s.title, s.group?.name ?? '-', s.equipment?.name ?? '-',
-        recurrenceLabels[s.recurrenceType] ?? s.recurrenceType,
-        fmt(s.nextRunAt), fmt(s.lastRunAt), s.isActive ? 'Ativo' : 'Inativo',
+        { text: s.title, color: '#1F2937' },
+        { text: s.equipment?.name ?? '-', color: '#1F2937' },
+        { text: s.equipment?.serialNumber ?? '-', color: '#1F2937' },
+        { text: s.equipment?.costCenter?.name ?? '-', color: '#1F2937' },
+        { text: s.equipment?.type?.name ?? '-', color: '#1F2937' },
+        {
+          text: s.recurrenceType === 'CUSTOM'
+            ? `${s.customIntervalDays}d`
+            : (recurrenceLabels[s.recurrenceType] ?? s.recurrenceType),
+          color: '#1F2937',
+        },
+        { text: fmt(s.nextRunAt), color: isOverdue ? '#DC2626' : '#1F2937' },
+        { text: fmt(s.lastRunAt), color: '#1F2937' },
+        { text: String(s._count.maintenances), color: '#1F2937' },
+        { text: sit, color: sitColor },
       ]
-      cells.forEach((text, i) => {
-        doc.text(String(text), x + 3, y + 5, { width: cols[i].w - 6, ellipsis: true, lineBreak: false })
+
+      cells.forEach((cell, i) => {
+        doc.fillColor(cell.color).fontSize(7.5).font(isOverdue && i === 6 ? 'Helvetica-Bold' : 'Helvetica')
+        doc.text(cell.text, x + 3, y + 5, { width: cols[i].w - 6, ellipsis: true, lineBreak: false })
         x += cols[i].w
       })
+
       y += rowH
       rowIdx++
     })

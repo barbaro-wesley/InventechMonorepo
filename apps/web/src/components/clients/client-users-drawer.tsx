@@ -9,7 +9,7 @@ import { z } from "zod";
 import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/users/use-users";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { UserManagementSheets, STATUS_CONFIG } from "@/components/users/user-management-sheets";
-import { ROLE_LABELS } from "@/types/auth";
+import { ROLE_LABELS, displayRole } from "@/types/auth";
 import type { User } from "@/types/user";
 import type { Client } from "@/types/client";
 import { cn } from "@/lib/utils";
@@ -244,7 +244,7 @@ export function ClientUsersDrawer({
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                             <span className="truncate">{user.email}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-300" />
-                            <span className="truncate">{ROLE_LABELS[user.role as keyof typeof ROLE_LABELS]}</span>
+                            <span className="truncate">{displayRole(user)}</span>
                           </div>
                         </div>
                       </div>

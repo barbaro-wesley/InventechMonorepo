@@ -210,8 +210,9 @@ model CostCenter {
   isActive    Boolean     @default(true) @map("is_active")
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
-  equipments  Equipment[]
-  locations   Location[]
+  equipments     Equipment[]
+  locations      Location[]
+  serviceOrders  ServiceOrder[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -232,6 +233,7 @@ model Location {
   movementsFrom     EquipmentMovement[] @relation("MovementOrigin")
   currentEquipments Equipment[]         @relation("CurrentLocation")
   equipments        Equipment[]
+  serviceOrders     ServiceOrder[]
   costCenter        CostCenter?         @relation(fields: [costCenterId], references: [id])
   parent            Location?           @relation("LocationHierarchy", fields: [parentId], references: [id])
   children          Location[]          @relation("LocationHierarchy")
@@ -396,7 +398,9 @@ model ServiceOrder {
   id              String                      @id @default(uuid())
   companyId       String                      @map("company_id")
   clientId        String?                     @map("client_id")
-  equipmentId     String                      @map("equipment_id")
+  equipmentId     String?                     @map("equipment_id")
+  costCenterId    String?                     @map("cost_center_id")
+  locationId      String?                     @map("location_id")
   maintenanceId   String?                     @map("maintenance_id")
   requesterId     String                      @map("requester_id")
   number          Int
@@ -429,8 +433,10 @@ model ServiceOrder {
   technicians     ServiceOrderTechnician[]
   approvedBy      User?                       @relation("ServiceOrderApprover", fields: [approvedById], references: [id])
   client          Client?                     @relation(fields: [clientId], references: [id])
-  equipment       Equipment                   @relation(fields: [equipmentId], references: [id])
+  costCenter      CostCenter?                 @relation(fields: [costCenterId], references: [id])
+  equipment       Equipment?                  @relation(fields: [equipmentId], references: [id])
   group           MaintenanceGroup?           @relation(fields: [groupId], references: [id])
+  location        Location?                   @relation(fields: [locationId], references: [id])
   maintenance     Maintenance?                @relation(fields: [maintenanceId], references: [id])
   requester       User                        @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
 
@@ -442,6 +448,8 @@ model ServiceOrder {
   @@index([groupId, isAvailable])
   @@index([isAvailable, createdAt])
   @@index([equipmentId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([costCenterId])
+  @@index([locationId])
   @@index([createdAt])
   @@map("service_orders")
 }

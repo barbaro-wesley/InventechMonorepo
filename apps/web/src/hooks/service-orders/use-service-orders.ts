@@ -18,6 +18,9 @@ export const serviceOrderKeys = {
   all: ['service-orders'] as const,
   company: (params?: ListServiceOrdersParams) =>
     ['service-orders', 'company', params] as const,
+  mine: (params?: ListServiceOrdersParams) =>
+    ['service-orders', 'mine', params] as const,
+  myStats: () => ['service-orders', 'my-stats'] as const,
   detail: (clientId: string | null, id: string) =>
     ['service-orders', 'detail', clientId ?? '', id] as const,
   tasks: (clientId: string | null, id: string) =>
@@ -33,6 +36,42 @@ export function useServiceOrders(params?: ListServiceOrdersParams) {
     queryFn: () => serviceOrdersService.listCompany(params),
     staleTime: 30_000,
     refetchInterval: 60_000, // atualiza a cada 1 min
+  })
+}
+
+// ─────────────────────────────────────────
+// Minhas OS (solicitante)
+// ─────────────────────────────────────────
+export function useMyServiceOrders(params?: ListServiceOrdersParams) {
+  return useQuery({
+    queryKey: serviceOrderKeys.mine(params),
+    queryFn: () => serviceOrdersService.listMine(params),
+    staleTime: 30_000,
+  })
+}
+
+export function useMyOsStats() {
+  return useQuery({
+    queryKey: serviceOrderKeys.myStats(),
+    queryFn: () => serviceOrdersService.getMyStats(),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  })
+}
+
+// ─────────────────────────────────────────
+// Atualizar OS (título, descrição, prioridade)
+// ─────────────────────────────────────────
+export function useUpdateServiceOrder(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dto: { title?: string; description?: string; priority?: string }) =>
+      serviceOrdersService.update(id, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      toast.success('OS atualizada')
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
   })
 }
 

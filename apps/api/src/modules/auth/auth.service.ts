@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { LoginSecurityService } from './security/login-security.service'
 import { TwoFactorService } from './security/two-factor.service'
+import { DEFAULT_PERMISSIONS } from '../permissions/permissions.defaults'
 
 @Injectable()
 export class AuthService {
@@ -270,7 +271,6 @@ export class AuthService {
                     select: {
                         id: true,
                         name: true,
-                        description: true,
                         permissions: { select: { resource: true, action: true } },
                     },
                 },
@@ -278,7 +278,20 @@ export class AuthService {
         })
 
         if (!user) throw new UnauthorizedException('Usuário não encontrado')
-        return user
+
+        const { customRole, ...baseUser } = user
+
+        if (customRole) {
+            const { permissions: rawPerms, ...customRoleData } = customRole
+            const permissions = rawPerms.map((p) => `${p.resource}:${p.action}`)
+            return { ...baseUser, customRole: customRoleData, permissions }
+        }
+
+        const permissions = Object.entries(DEFAULT_PERMISSIONS)
+            .filter(([, roles]) => roles.includes(baseUser.role))
+            .map(([key]) => key)
+
+        return { ...baseUser, permissions }
     }
 
     // ─────────────────────────────────────────

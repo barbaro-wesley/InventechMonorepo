@@ -11,8 +11,19 @@ import {
 } from '@prisma/client'
 
 export class CreateServiceOrderDto {
+    // Equipamento é opcional — pode criar OS sem vínculo
+    @IsOptional()
     @IsUUID()
-    equipmentId: string
+    equipmentId?: string
+
+    // Centro de custo e localização (obrigatórios quando não há equipamento)
+    @IsOptional()
+    @IsUUID()
+    costCenterId?: string
+
+    @IsOptional()
+    @IsUUID()
+    locationId?: string
 
     @IsString()
     title: string
@@ -21,17 +32,17 @@ export class CreateServiceOrderDto {
     description: string
 
     @IsEnum(MaintenanceType)
-    maintenanceType: MaintenanceType  // Preventiva, Corretiva etc.
+    maintenanceType: MaintenanceType
 
     @IsOptional()
     @IsEnum(ServiceOrderPriority)
     priority?: ServiceOrderPriority = ServiceOrderPriority.MEDIUM
 
-    // Grupo responsável — obrigatório para garantir roteamento correto da OS
+    // Grupo responsável — roteamento da OS
+    @IsOptional()
     @IsUUID()
-    groupId: string
+    groupId?: string
 
-    // Técnico é opcional — se não informar, vai para o painel
     @IsOptional()
     @IsUUID()
     technicianId?: string
@@ -40,7 +51,6 @@ export class CreateServiceOrderDto {
     @IsString()
     scheduledFor?: string
 
-    // Horas sem assumir antes de disparar alerta (padrão: 2h)
     @IsOptional()
     @IsInt()
     @Min(1)

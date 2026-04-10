@@ -44,8 +44,8 @@ export default function TecnicoPage() {
         const q = search.toLowerCase()
         return (
           os.title.toLowerCase().includes(q) ||
-          os.client.name.toLowerCase().includes(q) ||
-          os.equipment.name.toLowerCase().includes(q) ||
+          (os.client?.name ?? '').toLowerCase().includes(q) ||
+          (os.equipment?.name ?? '').toLowerCase().includes(q) ||
           String(os.number).includes(q)
         )
       }
@@ -76,7 +76,7 @@ export default function TecnicoPage() {
       ) : (
         <OsBoard
           orders={filteredOrders}
-          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.clientId })}
+          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.clientId ?? '' })}
           showClosed={false}
           columns={TECNICO_COLUMNS}
         />

@@ -30,8 +30,8 @@ export const storageService = {
   },
 
   async getUrl(attachmentId: string): Promise<string> {
-    const { data } = await api.get(`/storage/${attachmentId}/url`);
-    return data.url;
+    const response = await api.get(`/storage/${attachmentId}/download`, { responseType: 'blob' })
+    return URL.createObjectURL(response.data)
   },
 
   getDownloadUrl(attachmentId: string): string {

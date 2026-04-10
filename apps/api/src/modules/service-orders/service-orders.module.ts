@@ -6,6 +6,7 @@ import { CommentsService } from './comments/comments.service'
 import { TasksService } from './tasks/tasks.service'
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
+import { AutoApproveJob } from './jobs/auto-approve.job'
 
 @Module({
     imports: [
@@ -17,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module'
         ServiceOrdersService,
         CommentsService,
         TasksService,
+        AutoApproveJob,
     ],
     exports: [ServiceOrdersService],
 })
