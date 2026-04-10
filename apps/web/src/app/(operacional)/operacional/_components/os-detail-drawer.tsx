@@ -180,7 +180,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                       {os.title}
                     </h2>
                     <p className="text-xs text-[#6c7c93] mt-1">
-                      {os.client?.name ?? 'Interno'} · {os.equipment.name}
+                      {os.client?.name ?? 'Interno'}{os.equipment ? ` · ${os.equipment.name}` : ''}
                     </p>
                   </div>
                   <Button
