@@ -298,10 +298,10 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
 
           <InfoRow icon={Wrench} label="Equipamento">
             <div>
-              <p>{os.equipment.name}</p>
-              {(os.equipment.brand || os.equipment.model) && (
+              <p>{os.equipment?.name ?? '—'}</p>
+              {(os.equipment?.brand || os.equipment?.model) && (
                 <p className="text-[11px] text-[#6c7c93]">
-                  {[os.equipment.brand, os.equipment.model].filter(Boolean).join(' · ')}
+                  {[os.equipment?.brand, os.equipment?.model].filter(Boolean).join(' · ')}
                 </p>
               )}
             </div>
