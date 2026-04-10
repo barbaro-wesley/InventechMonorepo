@@ -4,6 +4,12 @@ import type { Queue } from 'bull'
 import { UserRole, NotificationChannel, NotificationStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { EmailChannel } from './channels/email.channel'
+import { buildOsCreatedEmail } from './channels/templates/os-created.template'
+import { buildTechnicianAssignedEmail } from './channels/templates/technician-assigned.template'
+import { buildOsCompletedEmail } from './channels/templates/os-completed.template'
+import { buildOsRejectedEmail } from './channels/templates/os-rejected.template'
+import { buildUnassignedAlertEmail } from './channels/templates/unassigned-alert.template'
+import { buildDailySummaryEmail } from './channels/templates/daily-summary.template'
 import { TelegramChannel } from './channels/telegram.channel'
 import { NotificationsGateway } from './notifications.gateway'
 import {
@@ -156,7 +162,7 @@ export class NotificationsService {
             data.groupId,
         )
 
-        const emailTemplate = this.emailChannel.buildOsCreatedEmail(data)
+        const emailTemplate = buildOsCreatedEmail(data)
         const telegramMsg = this.telegramChannel.buildOsCreatedMessage(data)
 
         await this.sendToRecipients(recipients, {
@@ -195,7 +201,7 @@ export class NotificationsService {
         })
         if (!technician) return
 
-        const emailTemplate = this.emailChannel.buildTechnicianAssignedEmail({
+        const emailTemplate = buildTechnicianAssignedEmail({
             technicianName: technician.name,
             ...data,
         })
@@ -288,7 +294,7 @@ export class NotificationsService {
             [...managersAndRequester, ...clientAdmins].map((u) => [u.id, u])
         ).values()]
 
-        const emailTemplate = this.emailChannel.buildOsCompletedEmail(data)
+        const emailTemplate = buildOsCompletedEmail(data)
 
         await this.sendToRecipients(recipients, {
             email: emailTemplate,
@@ -361,7 +367,7 @@ export class NotificationsService {
         const managers = await this.getManagers(companyId)
         const recipients = [...technicians, ...managers]
 
-        const emailTemplate = this.emailChannel.buildOsRejectedEmail(data)
+        const emailTemplate = buildOsRejectedEmail(data)
 
         await this.sendToRecipients(recipients, {
             email: emailTemplate,
@@ -395,7 +401,7 @@ export class NotificationsService {
         serviceOrderId?: string,
     ) {
         const recipients = await this.getGroupTechniciansAndManagers(companyId, data.groupId)
-        const emailTemplate = this.emailChannel.buildUnassignedAlertEmail(data)
+        const emailTemplate = buildUnassignedAlertEmail(data)
 
         await this.sendToRecipients(recipients, {
             email: emailTemplate,
@@ -479,7 +485,7 @@ export class NotificationsService {
         const admins = await this.getManagers(companyId)
         const date = new Date().toLocaleDateString('pt-BR')
 
-        const emailTemplate = this.emailChannel.buildDailySummaryEmail({
+        const emailTemplate = buildDailySummaryEmail({
             companyName: company?.name ?? '',
             date,
             openCount: open,
@@ -509,29 +515,29 @@ export class NotificationsService {
             serviceOrderId?: string
         },
     ) {
-        for (const recipient of recipients) {
+        await Promise.all(recipients.map(async (recipient) => {
             // WebSocket — sempre envia se o usuário estiver conectado
             this.gateway.sendToUser(recipient.id, options.ws)
 
-            // Persiste notificação no banco
-            await this.saveAndSendEmail(
-                recipient.id,
-                options.companyId,
-                options.email,
-                options.serviceOrderId,
-            )
-
-            // Telegram — só envia se tiver chatId configurado
-            if (recipient.telegramChatId) {
-                await this.saveAndSendTelegram(
+            // Email e Telegram em paralelo por destinatário
+            await Promise.all([
+                this.saveAndSendEmail(
                     recipient.id,
                     options.companyId,
-                    recipient.telegramChatId,
-                    options.telegram,
+                    options.email,
                     options.serviceOrderId,
-                )
-            }
-        }
+                ),
+                recipient.telegramChatId
+                    ? this.saveAndSendTelegram(
+                        recipient.id,
+                        options.companyId,
+                        recipient.telegramChatId,
+                        options.telegram,
+                        options.serviceOrderId,
+                    )
+                    : Promise.resolve(),
+            ])
+        }))
     }
 
     private async saveAndSendEmail(

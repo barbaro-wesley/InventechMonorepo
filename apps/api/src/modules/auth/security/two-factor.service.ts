@@ -8,6 +8,9 @@ import * as bcrypt from 'bcrypt'
 import * as crypto from 'crypto'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { NotificationsService } from '../../notifications/notifications.service'
+import { buildTwoFactorCodeEmail } from './templates/two-factor-code.template'
+import { buildEmailVerificationEmail } from './templates/email-verification.template'
+import { buildPasswordResetEmail } from './templates/password-reset.template'
 
 const CODE_EXPIRY_MINUTES = 10        // Código 2FA expira em 10 min
 const TOKEN_EXPIRY_HOURS = 24         // Token de email/reset expira em 24h
@@ -70,28 +73,7 @@ export class TwoFactorService {
 
         await this.notificationsService.queueAuthEmail({
             to: user.email,
-            subject: subjects[type],
-            html: `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-          <div style="background: #6366F1; padding: 20px; border-radius: 8px 8px 0 0;">
-            <h2 style="color: white; margin: 0;">${subjects[type]}</h2>
-          </div>
-          <div style="background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px;">
-            <p>Olá, <strong>${user.name}</strong>!</p>
-            <p>Seu código de verificação é:</p>
-            <div style="text-align: center; margin: 24px 0;">
-              <span style="font-size: 36px; font-weight: bold; letter-spacing: 12px; color: #6366F1;">
-                ${code}
-              </span>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-              Este código expira em <strong>${CODE_EXPIRY_MINUTES} minutos</strong>.
-              Não compartilhe com ninguém.
-            </p>
-            ${ipAddress ? `<p style="color: #999; font-size: 12px;">Solicitado do IP: ${ipAddress}</p>` : ''}
-          </div>
-        </div>
-      `,
+            ...buildTwoFactorCodeEmail({ userName: user.name, subject: subjects[type], code, ipAddress }),
         })
 
         this.logger.log(`Código 2FA enviado: userId=${userId} | tipo=${type}`)
@@ -162,31 +144,7 @@ export class TwoFactorService {
 
         await this.notificationsService.queueAuthEmail({
             to: user.email,
-            subject: '✅ Confirme seu email — Sistema de Manutenção',
-            html: `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-          <div style="background: #10B981; padding: 20px; border-radius: 8px 8px 0 0;">
-            <h2 style="color: white; margin: 0;">Confirme seu email</h2>
-          </div>
-          <div style="background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px;">
-            <p>Olá, <strong>${user.name}</strong>!</p>
-            <p>Clique no botão abaixo para confirmar seu email e ativar sua conta.</p>
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${verificationUrl}"
-                style="background: #10B981; color: white; padding: 14px 32px;
-                       text-decoration: none; border-radius: 8px; font-weight: bold;">
-                Confirmar email
-              </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-              O link expira em <strong>${TOKEN_EXPIRY_HOURS} horas</strong>.
-            </p>
-            <p style="color: #999; font-size: 12px;">
-              Se você não criou uma conta, ignore este email.
-            </p>
-          </div>
-        </div>
-      `,
+            ...buildEmailVerificationEmail({ userName: user.name, verificationUrl }),
         })
     }
 
@@ -252,32 +210,7 @@ export class TwoFactorService {
 
         await this.notificationsService.queueAuthEmail({
             to: email,
-            subject: '🔑 Redefinição de senha — Sistema de Manutenção',
-            html: `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-          <div style="background: #F59E0B; padding: 20px; border-radius: 8px 8px 0 0;">
-            <h2 style="color: white; margin: 0;">Redefinir senha</h2>
-          </div>
-          <div style="background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px;">
-            <p>Olá, <strong>${user.name}</strong>!</p>
-            <p>Recebemos uma solicitação para redefinir a senha da sua conta.</p>
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${resetUrl}"
-                style="background: #F59E0B; color: white; padding: 14px 32px;
-                       text-decoration: none; border-radius: 8px; font-weight: bold;">
-                Redefinir senha
-              </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-              O link expira em <strong>${RESET_TOKEN_EXPIRY_HOURS} hora(s)</strong>.
-            </p>
-            ${ipAddress ? `<p style="color: #999; font-size: 12px;">Solicitado do IP: ${ipAddress}</p>` : ''}
-            <p style="color: #999; font-size: 12px;">
-              Se você não solicitou a redefinição, ignore este email. Sua senha permanece a mesma.
-            </p>
-          </div>
-        </div>
-      `,
+            ...buildPasswordResetEmail({ userName: user.name, resetUrl, ipAddress }),
         })
 
         this.logger.log(`Reset de senha enviado: userId=${user.id}`)
