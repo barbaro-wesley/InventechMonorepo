@@ -44,8 +44,8 @@ export default function TecnicoPage() {
         const q = search.toLowerCase()
         return (
           os.title.toLowerCase().includes(q) ||
-          os.client.name.toLowerCase().includes(q) ||
-          os.equipment.name.toLowerCase().includes(q) ||
+          (os.client?.name ?? '').toLowerCase().includes(q) ||
+          (os.equipment?.name ?? '').toLowerCase().includes(q) ||
           String(os.number).includes(q)
         )
       }
