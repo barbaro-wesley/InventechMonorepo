@@ -5,13 +5,13 @@ import {
   ClipboardList, CheckCircle2, Clock, AlertTriangle,
   XCircle, Loader2, Search, Plus, ChevronRight,
 } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { useMyServiceOrders, useMyOsStats } from '@/hooks/service-orders/use-service-orders'
 import { usePermissions } from '@/hooks/auth/use-permissions'
 import { MyOsDetailSheet } from '@/components/service-orders/my-os-detail-sheet'
-import { OsCreateSheet } from '@/components/service-orders/os-create-sheet'
 import type { ServiceOrderStatus, ServiceOrder } from '@/services/service-orders/service-orders.types'
 
 // ─── Labels e estilos ───────────────────────────────────────────────────────
@@ -105,7 +105,6 @@ export default function MinhasOsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [selectedOsId, setSelectedOsId] = useState<string | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
 
   const { data: stats } = useMyOsStats()
 
@@ -141,9 +140,11 @@ export default function MinhasOsPage() {
           </p>
         </div>
         {canCreate && (
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-1.5" />
-            Nova OS
+          <Button size="sm" asChild>
+            <Link href="/minhas-os/nova">
+              <Plus className="w-4 h-4 mr-1.5" />
+              Nova OS
+            </Link>
           </Button>
         )}
       </div>
@@ -334,11 +335,6 @@ export default function MinhasOsPage() {
         onClose={() => setSelectedOsId(null)}
       />
 
-      {/* Create Sheet */}
-      <OsCreateSheet
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-      />
     </div>
   )
 }

@@ -19,8 +19,6 @@ import { useCreateServiceOrder } from '@/hooks/service-orders/use-service-orders
 import { useCurrentUser } from '@/store/auth.store'
 import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
-import { serviceOrdersService } from '@/services/service-orders/service-orders.service'
-import { AttachmentEntity } from '@/services/storage/storage.service'
 import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -55,12 +53,11 @@ const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
 
 type FormData = {
   clientId: string
-  technicianId?: string
+  groupId?: string
   title: string
   description: string
   maintenanceType: string
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-  alertAfterHours: number
   costCenterId?: string
   locationId?: string
 }
@@ -79,7 +76,7 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
 
   // Listas
   const [clients, setClients] = useState<SimpleOption[]>([])
-  const [technicians, setTechnicians] = useState<SimpleOption[]>([])
+  const [groups, setGroups] = useState<SimpleOption[]>([])
   const [costCenters, setCostCenters] = useState<SimpleOption[]>([])
   const [locations, setLocations] = useState<SimpleOption[]>([])
   const [selectedClientId, setSelectedClientId] = useState(defaultClientId)
@@ -102,7 +99,7 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
   const form = useForm<FormData>({
     defaultValues: {
       priority: 'MEDIUM',
-      alertAfterHours: 2,
+      maintenanceType: 'CORRECTIVE',
       clientId: defaultClientId,
     },
   })
@@ -120,7 +117,7 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
 
     form.reset({
       priority: 'MEDIUM',
-      alertAfterHours: 2,
+      maintenanceType: 'CORRECTIVE',
       clientId: defaultClientId,
     })
 
@@ -130,6 +127,10 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
       })
     }
 
+    api.get('/maintenance-groups', { params: { limit: 100 } }).then(({ data }) => {
+      setGroups((data?.data ?? []).map((g: any) => ({ id: g.id, name: g.name })))
+    }).catch(() => {})
+
     api.get('/cost-centers', { params: { limit: 100 } }).then(({ data }) => {
       setCostCenters((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name })))
     }).catch(() => {})
@@ -138,15 +139,6 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
       setLocations((data?.data ?? []).map((l: any) => ({ id: l.id, name: l.name })))
     }).catch(() => {})
   }, [open])
-
-  // ── Técnicos ao mudar cliente ─────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!selectedClientId) { setTechnicians([]); return }
-    api.get(`/clients/${selectedClientId}/technicians`).then(({ data }) => {
-      setTechnicians((Array.isArray(data) ? data : []).map((u: any) => ({ id: u.id, name: u.name })))
-    })
-  }, [selectedClientId])
 
   // ── Busca de equipamento com debounce ────────────────────────────────────
 
@@ -229,12 +221,11 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
         equipmentId: selectedEquipment?.id || undefined,
         costCenterId: values.costCenterId || undefined,
         locationId: values.locationId || undefined,
+        groupId: values.groupId || undefined,
         title: values.title,
         description: values.description,
         maintenanceType: values.maintenanceType as any,
         priority: values.priority,
-        technicianId: values.technicianId || undefined,
-        alertAfterHours: values.alertAfterHours,
       },
       {
         onSuccess: async (os) => {
@@ -398,18 +389,18 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
             </div>
           )}
 
-          {/* ── Técnico ────────────────────────────────────────────────── */}
-          {selectedClientId && (
+          {/* ── Grupo de Manutenção ───────────────────────────────────── */}
+          {groups.length > 0 && (
             <div className="space-y-1.5">
-              <Label>Técnico Responsável</Label>
-              <Select onValueChange={(v) => form.setValue('technicianId', v === 'none' ? undefined : v)}>
+              <Label>Grupo de Manutenção</Label>
+              <Select onValueChange={(v) => form.setValue('groupId', v === 'none' ? undefined : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sem técnico definido" />
+                  <SelectValue placeholder="Sem grupo definido" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Sem técnico definido</SelectItem>
-                  {technicians.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  <SelectItem value="none">Sem grupo definido</SelectItem>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -446,10 +437,10 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
           {/* ── Tipo + Prioridade ──────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Tipo <span className="text-red-500">*</span></Label>
-              <Select onValueChange={(v) => form.setValue('maintenanceType', v)}>
-                <SelectTrigger className={form.formState.errors.maintenanceType ? 'border-red-500' : ''}>
-                  <SelectValue placeholder="Selecione" />
+              <Label>Tipo</Label>
+              <Select defaultValue="CORRECTIVE" onValueChange={(v) => form.setValue('maintenanceType', v)}>
+                <SelectTrigger>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(MAINTENANCE_TYPE_LABELS).map(([k, v]) => (
@@ -472,16 +463,6 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          {/* ── Alerta ─────────────────────────────────────────────────── */}
-          <div className="space-y-1.5">
-            <Label>Alertar após (horas sem técnico)</Label>
-            <Input
-              type="number" min={1} max={72}
-              {...form.register('alertAfterHours', { valueAsNumber: true })}
-              className="w-24"
-            />
           </div>
 
           {/* ── Anexos ─────────────────────────────────────────────────── */}
