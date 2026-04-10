@@ -76,7 +76,7 @@ export default function TecnicoPage() {
       ) : (
         <OsBoard
           orders={filteredOrders}
-          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.clientId })}
+          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.clientId ?? '' })}
           showClosed={false}
           columns={TECNICO_COLUMNS}
         />
