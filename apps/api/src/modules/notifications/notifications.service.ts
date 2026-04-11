@@ -4,6 +4,7 @@ import type { Queue } from 'bull'
 import { UserRole, NotificationChannel, NotificationStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { EmailChannel } from './channels/email.channel'
+import { AlertRuleDispatcher } from './alert-rule.dispatcher'
 import { buildOsCreatedEmail } from './channels/templates/os-created.template'
 import { buildTechnicianAssignedEmail } from './channels/templates/technician-assigned.template'
 import { buildOsCompletedEmail } from './channels/templates/os-completed.template'
@@ -14,7 +15,7 @@ import { TelegramChannel } from './channels/telegram.channel'
 import { NotificationsGateway } from './notifications.gateway'
 import {
     NOTIFICATION_QUEUE,
-    NOTIFICATION_EVENTS,
+    EventType,
     NotificationEvent,
 } from './notifications.constants'
 
@@ -35,6 +36,7 @@ export class NotificationsService {
         private emailChannel: EmailChannel,
         private telegramChannel: TelegramChannel,
         private gateway: NotificationsGateway,
+        private alertRuleDispatcher: AlertRuleDispatcher,
         @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
     ) { }
 
@@ -107,45 +109,53 @@ export class NotificationsService {
         this.logger.log(`Disparando notificação: ${event} | Empresa: ${companyId}`)
 
         switch (event) {
-            case NOTIFICATION_EVENTS.OS_CREATED_NO_TECHNICIAN:
+            case EventType.OS_CREATED_NO_TECHNICIAN:
                 await this.notifyOsCreatedNoTechnician(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED:
+            case EventType.OS_TECHNICIAN_ASSIGNED:
                 await this.notifyTechnicianAssigned(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSUMED:
+            case EventType.OS_TECHNICIAN_ASSUMED:
                 await this.notifyTechnicianAssumed(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.OS_COMPLETED:
+            case EventType.OS_COMPLETED:
                 await this.notifyOsCompleted(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.OS_APPROVED:
+            case EventType.OS_APPROVED:
                 await this.notifyOsApproved(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.OS_REJECTED:
+            case EventType.OS_REJECTED:
                 await this.notifyOsRejected(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.OS_UNASSIGNED_ALERT:
+            case EventType.OS_UNASSIGNED_ALERT:
                 await this.notifyUnassignedAlert(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.PREVENTIVE_GENERATED:
+            case EventType.PREVENTIVE_GENERATED:
                 await this.notifyPreventiveGenerated(data, companyId, serviceOrderId)
                 break
 
-            case NOTIFICATION_EVENTS.DAILY_SUMMARY:
+            case EventType.DAILY_SUMMARY:
                 await this.sendDailySummary(data, companyId)
                 break
 
             default:
                 this.logger.warn(`Evento desconhecido: ${event}`)
         }
+
+        // Avalia regras de alerta dinâmicas configuradas pela empresa
+        // Roda em paralelo após os handlers fixos — falha isolada, não afeta o restante
+        await this.alertRuleDispatcher
+            .fireRules(event, data, companyId, serviceOrderId)
+            .catch((err) =>
+                this.logger.error(`Erro ao disparar regras de alerta para evento ${event}: ${err.message}`),
+            )
     }
 
     // ─────────────────────────────────────────
@@ -169,7 +179,7 @@ export class NotificationsService {
             email: emailTemplate,
             telegram: telegramMsg,
             ws: {
-                event: NOTIFICATION_EVENTS.OS_CREATED_NO_TECHNICIAN,
+                event: EventType.OS_CREATED_NO_TECHNICIAN,
                 title: `Nova OS no painel`,
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
@@ -214,7 +224,7 @@ export class NotificationsService {
             email: emailTemplate,
             telegram: telegramMsg,
             ws: {
-                event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED,
+                event: EventType.OS_TECHNICIAN_ASSIGNED,
                 title: 'OS atribuída a você',
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
@@ -251,7 +261,7 @@ export class NotificationsService {
             },
             telegram: `🔧 <b>OS assumida</b>\n\nOS <b>#${data.osNumber}</b> foi assumida por <b>${data.technicianName}</b> e está em andamento.`,
             ws: {
-                event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSUMED,
+                event: EventType.OS_TECHNICIAN_ASSUMED,
                 title: 'OS em andamento',
                 body: `${data.technicianName} assumiu a OS #${data.osNumber}`,
                 data,
@@ -300,7 +310,7 @@ export class NotificationsService {
             email: emailTemplate,
             telegram: this.telegramChannel.buildOsCompletedMessage(data),
             ws: {
-                event: NOTIFICATION_EVENTS.OS_COMPLETED,
+                event: EventType.OS_COMPLETED,
                 title: 'OS concluída — aguardando aprovação',
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
@@ -336,7 +346,7 @@ export class NotificationsService {
             },
             telegram: `✅ <b>OS aprovada</b>\n\nOS <b>#${data.osNumber} — ${data.osTitle}</b> foi aprovada.`,
             ws: {
-                event: NOTIFICATION_EVENTS.OS_APPROVED,
+                event: EventType.OS_APPROVED,
                 title: 'OS aprovada',
                 body: `OS #${data.osNumber} foi aprovada`,
                 data,
@@ -373,7 +383,7 @@ export class NotificationsService {
             email: emailTemplate,
             telegram: this.telegramChannel.buildOsRejectedMessage(data),
             ws: {
-                event: NOTIFICATION_EVENTS.OS_REJECTED,
+                event: EventType.OS_REJECTED,
                 title: 'OS reprovada',
                 body: `OS #${data.osNumber} — ${data.reason}`,
                 data,
@@ -407,7 +417,7 @@ export class NotificationsService {
             email: emailTemplate,
             telegram: this.telegramChannel.buildUnassignedAlertMessage(data),
             ws: {
-                event: NOTIFICATION_EVENTS.OS_UNASSIGNED_ALERT,
+                event: EventType.OS_UNASSIGNED_ALERT,
                 title: `⚠️ OS sem técnico há ${data.hoursWaiting}h`,
                 body: `OS #${data.osNumber} — ${data.osTitle}`,
                 data,
@@ -434,7 +444,7 @@ export class NotificationsService {
             },
             telegram: this.telegramChannel.buildPreventiveGeneratedMessage(data),
             ws: {
-                event: NOTIFICATION_EVENTS.PREVENTIVE_GENERATED,
+                event: EventType.PREVENTIVE_GENERATED,
                 title: 'Preventiva gerada',
                 body: `OS #${data.osNumber} — ${data.equipmentName}`,
                 data,

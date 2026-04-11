@@ -67,6 +67,26 @@ export class MaintenanceCronJobs {
     }
 
     // ─────────────────────────────────────────
+    // Roda todo dia às 08:00 — verifica garantias
+    // de equipamentos que vencem nos próximos 30 dias
+    // ─────────────────────────────────────────
+    @Cron('0 8 * * *', { name: 'check-warranty-expiring' })
+    async checkWarrantyExpiring() {
+        this.logger.log('Cron: verificando garantias de equipamentos...')
+
+        await this.maintenanceQueue.add(
+            MAINTENANCE_JOBS.CHECK_WARRANTY_EXPIRING,
+            { daysAhead: 30 },
+            {
+                attempts: 2,
+                backoff: { type: 'fixed', delay: 10000 },
+                removeOnComplete: 30,
+                removeOnFail: 10,
+            },
+        )
+    }
+
+    // ─────────────────────────────────────────
     // Roda todo dia às 00:05 — limpa jobs antigos
     // e garante que schedules do dia foram disparados
     // ─────────────────────────────────────────

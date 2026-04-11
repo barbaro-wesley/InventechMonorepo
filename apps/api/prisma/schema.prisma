@@ -54,6 +54,7 @@ model Company {
   reportPermissions    ReportPermission[]
   resourcePermissions  ResourcePermission[]
   users                User[]
+  alertRules           AlertRule[]
 
   @@index([platformId])
   @@index([slug])
@@ -124,6 +125,7 @@ model User {
   serviceOrdersOwned      ServiceOrder[]              @relation("ServiceOrderRequester")
   technicianGroups        TechnicianGroup[]
   twoFactorCodes          TwoFactorCode[]
+  alertRulesCreated       AlertRule[]
   client                  Client?                     @relation(fields: [clientId], references: [id])
   company                 Company?                    @relation(fields: [companyId], references: [id])
   customRole              CustomRole?                 @relation(fields: [customRoleId], references: [id])
@@ -603,6 +605,39 @@ model Notification {
   @@map("notifications")
 }
 
+model AlertRule {
+  id                String              @id @default(uuid())
+  companyId         String              @map("company_id")
+  createdById       String              @map("created_by_id")
+  name              String
+  description       String?
+  isActive          Boolean             @default(true) @map("is_active")
+  triggerEvent      EventType           @map("trigger_event")
+  conditions        Json                @default("[]")
+  headerColor       String              @default("#6366F1") @map("header_color")
+  headerTitle       String              @map("header_title")
+  bodyTemplate      String              @map("body_template")
+  tableFields       Json                @default("[]") @map("table_fields")
+  buttonLabel       String?             @map("button_label")
+  buttonUrlTemplate String?             @map("button_url_template")
+  footerNote        String?             @map("footer_note")
+  recipientRoles    UserRole[]          @map("recipient_roles")
+  recipientGroupIds String[]            @map("recipient_group_ids")
+  recipientUserIds  String[]            @map("recipient_user_ids")
+  channels          NotificationChannel[]
+  fireCount         Int                 @default(0) @map("fire_count")
+  lastFiredAt       DateTime?           @map("last_fired_at")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  company           Company             @relation(fields: [companyId], references: [id])
+  createdBy         User                @relation(fields: [createdById], references: [id])
+
+  @@index([companyId, isActive])
+  @@index([companyId, triggerEvent])
+  @@map("alert_rules")
+}
+
 model ReportPermission {
   id           String     @id @default(uuid())
   companyId    String     @map("company_id")
@@ -886,4 +921,27 @@ enum TwoFactorType {
   EMAIL_CHANGE
   PASSWORD_RESET
   SENSITIVE_ACTION
+}
+
+enum EventType {
+  // Ordens de Serviço
+  OS_CREATED_NO_TECHNICIAN
+  OS_TECHNICIAN_ASSIGNED
+  OS_TECHNICIAN_ASSUMED
+  OS_COMPLETED
+  OS_APPROVED
+  OS_REJECTED
+  OS_UNASSIGNED_ALERT
+  // Equipamentos
+  EQUIPMENT_CREATED
+  EQUIPMENT_MOVED
+  EQUIPMENT_WARRANTY_EXPIRING
+  // Manutenção
+  PREVENTIVE_GENERATED
+  MAINTENANCE_OVERDUE
+  // Usuários
+  USER_CREATED
+  USER_DEACTIVATED
+  // Sistema / Relatórios
+  DAILY_SUMMARY
 }

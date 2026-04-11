@@ -12,7 +12,7 @@ import {
     MAINTENANCE_JOBS,
 } from '../maintenance.service'
 import { NotificationsService } from '../../notifications/notifications.service'
-import { NOTIFICATION_EVENTS } from '../../notifications/notifications.constants'
+import { EventType } from '../../notifications/notifications.constants'
 
 @Processor(MAINTENANCE_QUEUE)
 export class MaintenanceProcessor {
@@ -58,7 +58,7 @@ export class MaintenanceProcessor {
         )
 
         await this.notificationsService.notify({
-            event: NOTIFICATION_EVENTS.OS_UNASSIGNED_ALERT,
+            event: EventType.OS_UNASSIGNED_ALERT,
             companyId,
             serviceOrderId,
             data: {
@@ -93,7 +93,7 @@ export class MaintenanceProcessor {
         )
 
         await this.notificationsService.notify({
-            event: NOTIFICATION_EVENTS.PREVENTIVE_GENERATED,
+            event: EventType.PREVENTIVE_GENERATED,
             companyId,
             serviceOrderId: osId,
             data: {
@@ -104,6 +104,50 @@ export class MaintenanceProcessor {
         })
 
         return { notified: true }
+    }
+
+    // ─────────────────────────────────────────
+    // Job: verifica equipamentos com garantia vencendo
+    // ─────────────────────────────────────────
+    @Process(MAINTENANCE_JOBS.CHECK_WARRANTY_EXPIRING)
+    async handleCheckWarrantyExpiring(job: Job<{ daysAhead?: number }>) {
+        const daysAhead = job.data.daysAhead ?? 30
+        this.logger.log(`Verificando garantias que vencem nos próximos ${daysAhead} dias`)
+
+        const equipment = await this.maintenanceService.getEquipmentWithExpiringWarranty(daysAhead)
+
+        if (equipment.length === 0) {
+            this.logger.log('Nenhuma garantia vencendo no período')
+            return { fired: 0 }
+        }
+
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        await Promise.all(
+            equipment.map(async (eq) => {
+                const warrantyEnd = eq.warrantyEnd!
+                const daysRemaining = Math.ceil(
+                    (warrantyEnd.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+                )
+
+                await this.notificationsService.notify({
+                    event: EventType.EQUIPMENT_WARRANTY_EXPIRING,
+                    companyId: eq.companyId,
+                    data: {
+                        equipmentName: eq.name,
+                        brand:         eq.brand ?? '',
+                        model:         eq.model ?? '',
+                        warrantyEnd:   warrantyEnd.toLocaleDateString('pt-BR'),
+                        daysRemaining,
+                        clientName:    '',
+                    },
+                })
+            }),
+        )
+
+        this.logger.log(`Disparado alerta de garantia para ${equipment.length} equipamento(s)`)
+        return { fired: equipment.length }
     }
 
     // ─────────────────────────────────────────

@@ -25,7 +25,7 @@ import {
     ListAvailableServiceOrdersDto,
 } from './dto/service-order.dto'
 import { NotificationsService } from '../notifications/notifications.service'
-import { NOTIFICATION_EVENTS } from '../notifications/notifications.constants'
+import { EventType } from '../notifications/notifications.constants'
 
 const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
     [ServiceOrderStatus.OPEN]: [
@@ -576,7 +576,7 @@ export class ServiceOrdersService {
         if (dto.technicianId) {
             // Técnico designado na criação
             await this.notificationsService.notify({
-                event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED,
+                event: EventType.OS_TECHNICIAN_ASSIGNED,
                 companyId,
                 serviceOrderId: os.id,
                 data: {
@@ -591,7 +591,7 @@ export class ServiceOrdersService {
         } else {
             // OS sem técnico → vai para o painel
             await this.notificationsService.notify({
-                event: NOTIFICATION_EVENTS.OS_CREATED_NO_TECHNICIAN,
+                event: EventType.OS_CREATED_NO_TECHNICIAN,
                 companyId,
                 serviceOrderId: os.id,
                 data: {
@@ -709,7 +709,7 @@ export class ServiceOrdersService {
 
         // ── Notificação ───────────────────────────────────────────
         await this.notificationsService.notify({
-            event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSUMED,
+            event: EventType.OS_TECHNICIAN_ASSUMED,
             companyId,
             serviceOrderId: id,
             data: {
@@ -790,7 +790,7 @@ export class ServiceOrdersService {
 
         if (osData) {
             await this.notificationsService.notify({
-                event: NOTIFICATION_EVENTS.OS_TECHNICIAN_ASSIGNED,
+                event: EventType.OS_TECHNICIAN_ASSIGNED,
                 companyId,
                 serviceOrderId: id,
                 data: {
@@ -1024,21 +1024,21 @@ export class ServiceOrdersService {
 
         if (finalStatus === ServiceOrderStatus.COMPLETED) {
             await this.notificationsService.notify({
-                event: NOTIFICATION_EVENTS.OS_COMPLETED,
+                event: EventType.OS_COMPLETED,
                 companyId,
                 serviceOrderId: id,
                 data: notifyData,
             })
         } else if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED) {
             await this.notificationsService.notify({
-                event: NOTIFICATION_EVENTS.OS_APPROVED,
+                event: EventType.OS_APPROVED,
                 companyId,
                 serviceOrderId: id,
                 data: notifyData,
             })
         } else if (finalStatus === ServiceOrderStatus.COMPLETED_REJECTED) {
             await this.notificationsService.notify({
-                event: NOTIFICATION_EVENTS.OS_REJECTED,
+                event: EventType.OS_REJECTED,
                 companyId,
                 serviceOrderId: id,
                 data: notifyData,
