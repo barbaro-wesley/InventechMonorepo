@@ -9,6 +9,8 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto, ListEquipmentServiceOrdersDto } from './dto/equipment.dto'
 import { StorageService } from '../storage/storage.service'
+import { NotificationsService } from '../notifications/notifications.service'
+import { EventType } from '../notifications/notifications.constants'
 
 const EQUIPMENT_SELECT = {
     id: true,
@@ -66,6 +68,7 @@ export class EquipmentService {
     constructor(
         private prisma: PrismaService,
         private storageService: StorageService,
+        private notificationsService: NotificationsService,
     ) { }
 
     /**
@@ -263,6 +266,19 @@ export class EquipmentService {
                 ),
             )
         }
+
+        // Dispara evento para regras de alerta dinâmicas (fire-and-forget)
+        this.notificationsService.notify({
+            event: EventType.EQUIPMENT_CREATED,
+            companyId,
+            data: {
+                equipmentName: equipment.name,
+                brand:         equipment.brand ?? '',
+                model:         equipment.model ?? '',
+                locationName:  (equipment.location as any)?.name ?? '',
+                clientName:    '',
+            },
+        }).catch(() => { /* ignora falha — não bloqueia o cadastro */ })
 
         return normalizeEquipment(equipment)
     }

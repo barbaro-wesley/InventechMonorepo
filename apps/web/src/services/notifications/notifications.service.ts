@@ -13,9 +13,12 @@ export interface AppNotification {
 
 export const notificationsService = {
   async list(page = 1, limit = 20): Promise<AppNotification[]> {
-    // The api interceptor unwraps response.data.data → array
     const res = await api.get('/notifications', { params: { page, limit } })
-    return Array.isArray(res.data) ? res.data : []
+    // Resposta paginada: interceptor preserva o envelope { data: [...], pagination: {...} }
+    if (res.data && Array.isArray(res.data.data)) return res.data.data
+    // Resposta simples: interceptor já desembrulhou para o array
+    if (Array.isArray(res.data)) return res.data
+    return []
   },
 
   async markAsRead(id: string) {

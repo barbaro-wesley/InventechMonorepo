@@ -20,8 +20,10 @@ import { EquipmentTypesController } from './equipment-types/equipment-types.cont
 import { MovementsService } from './movement/movements.service'
 import { MovementsController } from './movement/movements.controller'
 import { StorageModule } from '../storage/storage.module'
+import { NotificationsModule } from '../notifications/notifications.module'
+
 @Module({
-    imports: [StorageModule],
+    imports: [StorageModule, NotificationsModule],
     controllers: [
         EquipmentController,
         LocationsController,

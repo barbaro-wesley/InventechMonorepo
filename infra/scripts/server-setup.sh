@@ -139,6 +139,12 @@ ufw default allow outgoing
 ufw allow 22/tcp    comment 'SSH'
 ufw allow 80/tcp    comment 'HTTP'
 ufw allow 443/tcp   comment 'HTTPS'
+
+# Acesso da rede interna ao banco e MinIO
+ufw allow from 192.168.0.0/24 to any port 5432 comment 'PostgreSQL - rede interna'
+ufw allow from 192.168.0.0/24 to any port 9000 comment 'MinIO API - rede interna'
+ufw allow from 192.168.0.0/24 to any port 9001 comment 'MinIO Console - rede interna'
+
 ufw --force enable
 
 info "Regras do firewall:"
