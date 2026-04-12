@@ -67,6 +67,9 @@ async function bootstrap() {
       : ['error', 'warn', 'log', 'debug', 'verbose'],
   })
 
+  // ── Trust proxy — lê IP real do header X-Forwarded-For (Nginx) ─
+  app.getHttpAdapter().getInstance().set('trust proxy', 1)
+
   // ── Helmet ─────────────────────────────────────────────────────
   app.use(helmet({
     crossOriginResourcePolicy: { policy: isProd ? 'same-origin' : 'cross-origin' },
