@@ -126,7 +126,7 @@ ClientAliveInterval 300
 ClientAliveCountMax 2
 EOF
 
-systemctl reload sshd
+systemctl reload ssh 2>/dev/null || systemctl reload sshd 2>/dev/null || true
 warning "Login root via SSH desabilitado. Use o usuário 'deploy' daqui em diante."
 
 # ─────────────────────────────────────────────────────────────────────────────
