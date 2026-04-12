@@ -137,6 +137,33 @@ ssh -i ~/.ssh/inventech_deploy deploy@intranet.hcrmarau.com.br
 
 Se conseguir entrar, pode fechar a sessão root com segurança.
 
+### 3.4 Baixar os arquivos de infra para o servidor
+
+Acesse como usuário `deploy` e baixe os arquivos necessários para o primeiro deploy:
+
+```bash
+ssh -i ~/.ssh/inventech_deploy deploy@intranet.hcrmarau.com.br
+```
+
+```bash
+GITHUB_USER="barbaro-wesley"
+BASE="https://raw.githubusercontent.com/${GITHUB_USER}/InventechMonorepo/main"
+
+mkdir -p /opt/inventech/infra/scripts \
+         /opt/inventech/infra/nginx \
+         /opt/inventech/apps/api/docker/minio
+
+curl -fsSL "${BASE}/docker-compose.prod.yml"                         -o /opt/inventech/docker-compose.prod.yml
+curl -fsSL "${BASE}/infra/scripts/first-deploy.sh"                   -o /opt/inventech/infra/scripts/first-deploy.sh
+curl -fsSL "${BASE}/infra/nginx/inventech.conf"                      -o /opt/inventech/infra/nginx/inventech.conf
+curl -fsSL "${BASE}/apps/api/docker/minio/init-buckets.sh"           -o /opt/inventech/apps/api/docker/minio/init-buckets.sh
+
+chmod +x /opt/inventech/infra/scripts/first-deploy.sh
+chmod +x /opt/inventech/apps/api/docker/minio/init-buckets.sh
+```
+
+> **Nota:** Se o repositório for privado, adicione `-H "Authorization: token SEU_GHCR_TOKEN"` nos comandos `curl`, ou gere um token clássico com permissão `repo` em GitHub → Settings → Developer settings → Personal access tokens.
+
 ---
 
 ## ETAPA 4 — Preencher as credenciais de produção no servidor
@@ -306,6 +333,7 @@ certbot renew --dry-run
 - [ ] **Etapa 2.3** — Ambiente `production` criado no GitHub
 - [ ] **Etapa 3** — Script de setup rodado no servidor
 - [ ] **Etapa 3.3** — Acesso SSH com usuário `deploy` testado
+- [ ] **Etapa 3.4** — Arquivos de infra baixados para `/opt/inventech`
 - [ ] **Etapa 4** — `/opt/inventech/.env` preenchido sem placeholders
 - [ ] **Etapa 5** — Primeiro deploy executado
 - [ ] **Etapa 5.1** — Todos os containers `healthy`

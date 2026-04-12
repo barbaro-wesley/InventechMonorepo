@@ -16,6 +16,8 @@ import { ListUsersDto } from './dto/list-users.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { TwoFactorService } from '../auth/security/two-factor.service'
 import { PrismaService } from '../../prisma/prisma.service'
+import { NotificationsService } from '../notifications/notifications.service'
+import { EventType } from '../notifications/notifications.constants'
 
 const COMPANY_ROLES = [
   UserRole.COMPANY_ADMIN,
@@ -36,6 +38,7 @@ export class UsersService {
     private usersRepository: UsersRepository,
     private twoFactorService: TwoFactorService,
     private prisma: PrismaService,
+    private notificationsService: NotificationsService,
   ) { }
 
   async findAll(currentUser: AuthenticatedUser, filters: ListUsersDto) {
@@ -104,6 +107,19 @@ export class UsersService {
       // Não falha o cadastro se o email não chegar — o usuário pode solicitar reenvio
     }
 
+    // Dispara evento para regras de alerta dinâmicas
+    if (companyId) {
+      this.notificationsService.notify({
+        event: EventType.USER_CREATED,
+        companyId,
+        data: {
+          userName:  user.name,
+          userEmail: user.email,
+          userRole:  user.role,
+        },
+      }).catch(() => { /* ignora falha — não bloqueia o cadastro */ })
+    }
+
     return user
   }
 
@@ -133,7 +149,22 @@ export class UsersService {
       data.passwordHash = await bcrypt.hash(dto.password, 10)
     }
 
-    return this.usersRepository.update(id, data)
+    const updated = await this.usersRepository.update(id, data)
+
+    // Dispara evento quando usuário é desativado
+    if (dto.status === UserStatus.INACTIVE && existing.companyId) {
+      this.notificationsService.notify({
+        event: EventType.USER_DEACTIVATED,
+        companyId: existing.companyId,
+        data: {
+          userName:  existing.name,
+          userEmail: existing.email,
+          userRole:  existing.role,
+        },
+      }).catch(() => { /* ignora falha */ })
+    }
+
+    return updated
   }
 
   async remove(id: string, currentUser: AuthenticatedUser) {

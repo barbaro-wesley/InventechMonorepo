@@ -25,10 +25,12 @@ export function NotificationBell() {
   const queryClient = useQueryClient()
   const socketRef = useRef<Socket | null>(null)
 
-  const { data: notifications = [] } = useNotifications()
+  const { data: allNotifications = [] } = useNotifications()
   const markAsRead = useMarkNotificationAsRead()
   const markAllAsRead = useMarkAllNotificationsAsRead()
 
+  // O sino exibe apenas notificações in-app (WEBSOCKET) — e-mails ficam só como histórico
+  const notifications = allNotifications.filter((n) => n.channel === 'WEBSOCKET')
   const unreadCount = notifications.filter((n) => !n.readAt).length
 
   // WebSocket — conecta quando autenticado

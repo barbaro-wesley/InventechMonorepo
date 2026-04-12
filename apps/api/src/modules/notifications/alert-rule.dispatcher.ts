@@ -204,13 +204,7 @@ export class AlertRuleDispatcher {
             recipients.map(async (recipient) => {
                 await Promise.all([
                     rule.channels.includes(NotificationChannel.WEBSOCKET)
-                        ? Promise.resolve(
-                            this.gateway.sendToUser(recipient.id, {
-                                event: 'alert-rule',
-                                title: template.subject,
-                                body: '',
-                            }),
-                        )
+                        ? this.saveAndSendWebSocket(recipient, template, companyId, serviceOrderId)
                         : Promise.resolve(),
 
                     rule.channels.includes(NotificationChannel.EMAIL) && recipient.email
@@ -219,6 +213,32 @@ export class AlertRuleDispatcher {
                 ])
             }),
         )
+    }
+
+    // Persiste no banco E envia pelo socket — assim o sino exibe a notificação
+    private async saveAndSendWebSocket(
+        recipient: Recipient,
+        template: { subject: string; html: string },
+        companyId: string,
+        serviceOrderId?: string,
+    ): Promise<void> {
+        await this.prisma.notification.create({
+            data: {
+                companyId,
+                userId: recipient.id,
+                serviceOrderId,
+                channel: NotificationChannel.WEBSOCKET,
+                status: NotificationStatus.SENT,
+                title: template.subject,
+                body: '',
+            },
+        })
+
+        this.gateway.sendToUser(recipient.id, {
+            event: 'alert-rule',
+            title: template.subject,
+            body: '',
+        })
     }
 
     private async saveAndSendEmail(

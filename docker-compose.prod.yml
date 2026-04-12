@@ -86,7 +86,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "192.168.0.185:5432:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -145,8 +145,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
-      - "9000:9000"  # TEMPORÁRIO — remover após uso
-      - "9001:9001"  # TEMPORÁRIO — console web, remover após uso
+      - "9000:9000"  # API MinIO — acessível na rede interna (192.168.0.x)
+      - "9001:9001"  # Console MinIO — acessível na rede interna (192.168.0.x)
     volumes:
       - minio_data:/data
     networks:
