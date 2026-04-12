@@ -51,6 +51,8 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copia o dist do shared-types (compilado no builder, necessário em runtime)
+COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
 # Cria usuário não-root para segurança
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nestjs && \
