@@ -22,8 +22,9 @@ import { calculateNextRunAt } from './schedule/recurrence.util'
 export const MAINTENANCE_QUEUE = 'maintenance'
 
 export const MAINTENANCE_JOBS = {
-    GENERATE_PREVENTIVE: 'generate-preventive-os',
-    SEND_UNASSIGNED_ALERT: 'send-unassigned-alert',
+    GENERATE_PREVENTIVE:      'generate-preventive-os',
+    SEND_UNASSIGNED_ALERT:    'send-unassigned-alert',
+    CHECK_WARRANTY_EXPIRING:  'check-warranty-expiring',
 } as const
 
 const MAINTENANCE_SELECT = {
@@ -632,6 +633,31 @@ export class MaintenanceService {
                 )
             }
         }
+    }
+
+    // ─────────────────────────────────────────
+    // Retorna equipamentos com garantia vencendo
+    // nos próximos `daysAhead` dias (padrão: 30)
+    // ─────────────────────────────────────────
+    async getEquipmentWithExpiringWarranty(daysAhead = 30) {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const limit = new Date(today)
+        limit.setDate(limit.getDate() + daysAhead)
+
+        const rows = await this.prisma.equipment.findMany({
+            where: { warrantyEnd: { gte: today, lte: limit } },
+        })
+
+        return rows.map((eq) => ({
+            id:         eq.id,
+            companyId:  eq.companyId,
+            name:       eq.name,
+            brand:      eq.brand,
+            model:      eq.model,
+            warrantyEnd: eq.warrantyEnd,
+        }))
     }
 
     // ─────────────────────────────────────────

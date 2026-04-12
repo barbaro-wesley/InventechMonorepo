@@ -7,6 +7,7 @@ import { NotificationsGateway } from './notifications.gateway'
 import { NotificationsProcessor } from './processors/Notifications.processor'
 import { EmailChannel } from './channels/email.channel'
 import { TelegramChannel } from './channels/telegram.channel'
+import { AlertRuleDispatcher } from './alert-rule.dispatcher'
 import { NOTIFICATION_QUEUE } from './notifications.constants'
 
 @Module({
@@ -30,6 +31,7 @@ import { NOTIFICATION_QUEUE } from './notifications.constants'
         NotificationsProcessor,
         EmailChannel,
         TelegramChannel,
+        AlertRuleDispatcher,
     ],
     exports: [NotificationsService, NotificationsGateway],
 })

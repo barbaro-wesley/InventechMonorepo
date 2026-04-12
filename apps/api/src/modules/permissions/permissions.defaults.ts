@@ -143,6 +143,13 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'custom-role:update':          [SA, CA],
   'custom-role:delete':          [SA, CA],
   'custom-role:assign':          [SA, CA, CM],
+
+  // ── ALERT RULE ─────────────────────────────────────────────────────────────
+  'alert-rule:list':             [SA, CA, CM],
+  'alert-rule:read':             [SA, CA, CM],
+  'alert-rule:create':           [SA, CA, CM],
+  'alert-rule:update':           [SA, CA, CM],
+  'alert-rule:delete':           [SA, CA],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -163,6 +170,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'report':               ['service-orders', 'equipment', 'preventive', 'technicians', 'financial'],
   'permission':           ['read', 'manage'],
   'custom-role':          ['list', 'read', 'create', 'update', 'delete', 'assign'],
+  'alert-rule':           ['list', 'read', 'create', 'update', 'delete'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)

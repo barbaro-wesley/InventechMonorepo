@@ -6,3 +6,4 @@ export * from './maintenance.enum';
 export * from './service-order.enum';
 export * from './notification.enum';
 export * from './report.enum';
+export * from './alert-rule.enum';

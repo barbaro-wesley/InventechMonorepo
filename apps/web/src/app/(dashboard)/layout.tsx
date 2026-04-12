@@ -24,6 +24,7 @@ import {
     Landmark,
     ShieldCheck,
     ClipboardCheck,
+    BellRing,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -170,6 +171,13 @@ const navSections: NavSection[] = [
                 icon: ShieldCheck,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN"],
                 permission: "permission:manage",
+            },
+            {
+                label: "Regras de Alerta",
+                href: "/alertas",
+                icon: BellRing,
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"],
+                permission: "alert-rule:list",
             },
         ],
     },

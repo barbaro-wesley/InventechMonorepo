@@ -1,0 +1,24 @@
+export const EventType = {
+  // Ordens de Serviço
+  OS_CREATED_NO_TECHNICIAN:    'OS_CREATED_NO_TECHNICIAN',
+  OS_TECHNICIAN_ASSIGNED:      'OS_TECHNICIAN_ASSIGNED',
+  OS_TECHNICIAN_ASSUMED:       'OS_TECHNICIAN_ASSUMED',
+  OS_COMPLETED:                'OS_COMPLETED',
+  OS_APPROVED:                 'OS_APPROVED',
+  OS_REJECTED:                 'OS_REJECTED',
+  OS_UNASSIGNED_ALERT:         'OS_UNASSIGNED_ALERT',
+  // Equipamentos
+  EQUIPMENT_CREATED:           'EQUIPMENT_CREATED',
+  EQUIPMENT_MOVED:             'EQUIPMENT_MOVED',
+  EQUIPMENT_WARRANTY_EXPIRING: 'EQUIPMENT_WARRANTY_EXPIRING',
+  // Manutenção
+  PREVENTIVE_GENERATED:        'PREVENTIVE_GENERATED',
+  MAINTENANCE_OVERDUE:         'MAINTENANCE_OVERDUE',
+  // Usuários
+  USER_CREATED:                'USER_CREATED',
+  USER_DEACTIVATED:            'USER_DEACTIVATED',
+  // Sistema / Relatórios
+  DAILY_SUMMARY:               'DAILY_SUMMARY',
+} as const
+
+export type EventType = (typeof EventType)[keyof typeof EventType]

@@ -208,4 +208,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get resourcePermission() { return this._db.resourcePermission }
   get customRole() { return this._db.customRole }
   get customRolePermission() { return this._db.customRolePermission }
+
+  // ─── Regras de Alerta ─────────────────────────────────────────────────────
+
+  get alertRule() { return this._db.alertRule }
 }
