@@ -83,7 +83,7 @@ const OS_SELECT = {
     equipmentId: true,
     costCenterId: true,
     locationId: true,
-    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true } },
+    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true, currentValue: true, purchaseValue: true } },
     costCenter: { select: { id: true, name: true, code: true } },
     location: { select: { id: true, name: true } },
     client: { select: { id: true, name: true, logoUrl: true } },

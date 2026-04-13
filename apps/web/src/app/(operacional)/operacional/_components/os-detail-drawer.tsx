@@ -33,10 +33,11 @@ import { OsDetailTab } from './tabs/os-detail-tab'
 import { OsTasksTab } from './tabs/os-tasks-tab'
 import { OsCommentsTab } from './tabs/os-comments-tab'
 import { OsHistoryTab } from './tabs/os-history-tab'
+import { OsCostsTab } from './tabs/os-costs-tab'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from './os-utils'
 import type { ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
 
-type Tab = 'details' | 'tasks' | 'comments' | 'history'
+type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs'
 
 interface OsDetailDrawerProps {
   osId: string | null
@@ -130,6 +131,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     { id: 'details', label: 'Detalhes' },
     { id: 'tasks', label: 'Tarefas', count: os?.tasks?.length },
     { id: 'comments', label: 'Comentários', count: os?.comments?.length },
+    { id: 'costs', label: 'Custos' },
     { id: 'history', label: 'Histórico', count: os?.statusHistory?.length },
   ]
 
@@ -297,6 +299,20 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                     clientId={clientId}
                     osId={osId}
                     comments={os.comments ?? []}
+                  />
+                )}
+                {activeTab === 'costs' && (
+                  <OsCostsTab
+                    clientId={clientId}
+                    osId={osId}
+                    equipment={os.equipment
+                      ? {
+                          name: os.equipment.name,
+                          currentValue: os.equipment.currentValue,
+                          purchaseValue: os.equipment.purchaseValue,
+                        }
+                      : null
+                    }
                   />
                 )}
                 {activeTab === 'history' && (

@@ -20,6 +20,39 @@ export type MaintenanceType =
 
 export type TechnicianRole = 'LEAD' | 'ASSISTANT'
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
+export type CostItemType = 'LABOR' | 'MATERIAL' | 'EXTERNAL' | 'TRAVEL' | 'OTHER'
+
+export interface ServiceOrderCostItem {
+  id: string
+  description: string
+  type: CostItemType
+  quantity: string
+  unitPrice: string
+  totalPrice: string
+  notes: string | null
+  createdAt: string
+}
+
+export interface CostItemsResponse {
+  items: ServiceOrderCostItem[]
+  total: string
+}
+
+export interface CreateCostItemDto {
+  description: string
+  type: CostItemType
+  quantity: number
+  unitPrice: number
+  notes?: string
+}
+
+export interface UpdateCostItemDto {
+  description?: string
+  type?: CostItemType
+  quantity?: number
+  unitPrice?: number
+  notes?: string
+}
 
 export interface ServiceOrderTechnician {
   id: string
@@ -56,7 +89,7 @@ export interface ServiceOrder {
   createdAt: string
   updatedAt: string
   client: { id: string; name: string; logoUrl: string | null } | null
-  equipment: { id: string; name: string; brand: string | null; model: string | null; patrimonyNumber: string | null } | null
+  equipment: { id: string; name: string; brand: string | null; model: string | null; patrimonyNumber: string | null; currentValue: string | null; purchaseValue: string | null } | null
   costCenter: { id: string; name: string; code: string | null } | null
   location: { id: string; name: string } | null
   requester: { id: string; name: string; email: string } | null

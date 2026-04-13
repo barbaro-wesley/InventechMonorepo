@@ -12,6 +12,8 @@ import type {
   CreateTaskDto,
   UpdateTaskDto,
   CreateServiceOrderDto,
+  CreateCostItemDto,
+  UpdateCostItemDto,
 } from '@/services/service-orders/service-orders.types'
 
 export const serviceOrderKeys = {
@@ -25,6 +27,8 @@ export const serviceOrderKeys = {
     ['service-orders', 'detail', clientId ?? '', id] as const,
   tasks: (clientId: string | null, id: string) =>
     ['service-orders', 'tasks', clientId ?? '', id] as const,
+  costs: (clientId: string | null, id: string) =>
+    ['service-orders', 'costs', clientId ?? '', id] as const,
 }
 
 // ─────────────────────────────────────────
@@ -238,6 +242,59 @@ export function useDeleteTask(clientId: string | null, osId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: serviceOrderKeys.detail(clientId, osId) })
       qc.invalidateQueries({ queryKey: serviceOrderKeys.tasks(clientId, osId) })
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+// ─────────────────────────────────────────
+// Itens de custo de uma OS
+// ─────────────────────────────────────────
+export function useCostItems(clientId: string | null, osId: string) {
+  return useQuery({
+    queryKey: serviceOrderKeys.costs(clientId, osId),
+    queryFn: () => serviceOrdersService.getCostItems(clientId, osId),
+    enabled: Boolean(osId),
+  })
+}
+
+export function useCreateCostItem(clientId: string | null, osId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dto: CreateCostItemDto) =>
+      serviceOrdersService.createCostItem(clientId, osId, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.costs(clientId, osId) })
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.detail(clientId, osId) })
+      toast.success('Item de custo adicionado')
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+export function useUpdateCostItem(clientId: string | null, osId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ costId, dto }: { costId: string; dto: UpdateCostItemDto }) =>
+      serviceOrdersService.updateCostItem(clientId, osId, costId, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.costs(clientId, osId) })
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.detail(clientId, osId) })
+      toast.success('Item atualizado')
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+export function useDeleteCostItem(clientId: string | null, osId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (costId: string) =>
+      serviceOrdersService.deleteCostItem(clientId, osId, costId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.costs(clientId, osId) })
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.detail(clientId, osId) })
+      toast.success('Item removido')
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   })

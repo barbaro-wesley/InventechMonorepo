@@ -12,6 +12,10 @@ import type {
   CreateCommentDto,
   CreateTaskDto,
   UpdateTaskDto,
+  CostItemsResponse,
+  ServiceOrderCostItem,
+  CreateCostItemDto,
+  UpdateCostItemDto,
 } from './service-orders.types'
 
 // Resposta paginada como retornada pelo backend (via ResponseInterceptor)
@@ -208,6 +212,44 @@ async function deleteTask(
   return data
 }
 
+// ── Custos ──────────────────────────────────────────────────────────────────
+
+async function getCostItems(
+  clientId: string | null,
+  osId: string,
+): Promise<CostItemsResponse> {
+  const { data } = await api.get(`${osBase(clientId, osId)}/costs`)
+  return data
+}
+
+async function createCostItem(
+  clientId: string | null,
+  osId: string,
+  dto: CreateCostItemDto,
+): Promise<ServiceOrderCostItem> {
+  const { data } = await api.post(`${osBase(clientId, osId)}/costs`, dto)
+  return data
+}
+
+async function updateCostItem(
+  clientId: string | null,
+  osId: string,
+  costId: string,
+  dto: UpdateCostItemDto,
+): Promise<ServiceOrderCostItem> {
+  const { data } = await api.patch(`${osBase(clientId, osId)}/costs/${costId}`, dto)
+  return data
+}
+
+async function deleteCostItem(
+  clientId: string | null,
+  osId: string,
+  costId: string,
+) {
+  const { data } = await api.delete(`${osBase(clientId, osId)}/costs/${costId}`)
+  return data
+}
+
 export const serviceOrdersService = {
   listCompany,
   listByClient,
@@ -227,4 +269,8 @@ export const serviceOrdersService = {
   createTask,
   updateTask,
   deleteTask,
+  getCostItems,
+  createCostItem,
+  updateCostItem,
+  deleteCostItem,
 }
