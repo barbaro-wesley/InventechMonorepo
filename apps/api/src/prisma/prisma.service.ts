@@ -196,6 +196,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get serviceOrderStatusHistory() { return this._db.serviceOrderStatusHistory }
   get serviceOrderComment() { return this._db.serviceOrderComment }
   get serviceOrderTask() { return this._db.serviceOrderTask }
+  get serviceOrderCostItem() { return this._db.serviceOrderCostItem }
 
   // ─── Anexos & Notificações ─────────────────────────────────────────────────
 

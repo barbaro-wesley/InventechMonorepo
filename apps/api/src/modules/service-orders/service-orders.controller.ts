@@ -10,6 +10,7 @@ import { AttachmentEntity } from '@prisma/client'
 import { ServiceOrdersService } from './service-orders.service'
 import { CommentsService } from './comments/comments.service'
 import { TasksService } from './tasks/tasks.service'
+import { CostsService } from './costs/costs.service'
 import { StorageService } from '../storage/storage.service'
 import {
   CreateServiceOrderDto, UpdateServiceOrderDto,
@@ -18,6 +19,7 @@ import {
 } from './dto/service-order.dto'
 import { CreateCommentDto, UpdateCommentDto } from './comments/dto/comment.dto'
 import { CreateTaskDto, UpdateTaskDto, ReorderTasksDto } from './tasks/dto/task.dto'
+import { CreateCostItemDto, UpdateCostItemDto } from './costs/dto/cost.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -29,6 +31,7 @@ export class ServiceOrdersController {
     private readonly serviceOrdersService: ServiceOrdersService,
     private readonly commentsService: CommentsService,
     private readonly tasksService: TasksService,
+    private readonly costsService: CostsService,
     private readonly storageService: StorageService,
   ) { }
 
@@ -283,5 +286,48 @@ export class ServiceOrdersController {
   @Permission('service-order:delete')
   removeTask(@Param('taskId', ParseUUIDPipe) taskId: string) {
     return this.tasksService.remove(taskId)
+  }
+
+  // ── Custos ──────────────────────────────────────────────────────────────
+
+  @Get(':id/costs')
+  @Permission('service-order:read')
+  findCosts(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('id', ParseUUIDPipe) serviceOrderId: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.costsService.findAll(serviceOrderId, clientId, cu.companyId!)
+  }
+
+  @Post(':id/costs')
+  @Permission('service-order:update')
+  createCost(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('id', ParseUUIDPipe) serviceOrderId: string,
+    @Body() dto: CreateCostItemDto,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.costsService.create(serviceOrderId, dto, clientId, cu.companyId!)
+  }
+
+  @Patch(':osId/costs/:costId')
+  @Permission('service-order:update')
+  updateCost(
+    @Param('costId', ParseUUIDPipe) costId: string,
+    @Body() dto: UpdateCostItemDto,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.costsService.update(costId, dto, cu.companyId!)
+  }
+
+  @Delete(':osId/costs/:costId')
+  @HttpCode(HttpStatus.OK)
+  @Permission('service-order:update')
+  removeCost(
+    @Param('costId', ParseUUIDPipe) costId: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.costsService.remove(costId, cu.companyId!)
   }
 }

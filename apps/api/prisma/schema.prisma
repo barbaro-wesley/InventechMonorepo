@@ -427,6 +427,8 @@ model ServiceOrder {
   groupId         String?                     @map("group_id")
   isAvailable     Boolean                     @default(false) @map("is_available")
   maintenanceType MaintenanceType             @map("maintenance_type")
+  totalCost       Decimal?                    @map("total_cost") @db.Decimal(12, 2)
+  costItems       ServiceOrderCostItem[]
   attachments     Attachment[]                @relation("ServiceOrderAttachments")
   notifications   Notification[]
   comments        ServiceOrderComment[]
@@ -486,6 +488,23 @@ model ServiceOrderStatusHistory {
 
   @@index([serviceOrderId])
   @@map("service_order_status_history")
+}
+
+model ServiceOrderCostItem {
+  id             String        @id @default(uuid())
+  serviceOrderId String        @map("service_order_id")
+  description    String
+  type           CostItemType
+  quantity       Decimal       @db.Decimal(10, 3)
+  unitPrice      Decimal       @map("unit_price") @db.Decimal(12, 2)
+  totalPrice     Decimal       @map("total_price") @db.Decimal(12, 2)
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  serviceOrder   ServiceOrder  @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@index([serviceOrderId])
+  @@map("service_order_cost_items")
 }
 
 model ServiceOrderComment {
@@ -874,6 +893,14 @@ enum TaskStatus {
   TODO
   IN_PROGRESS
   DONE
+}
+
+enum CostItemType {
+  LABOR          // Mão de obra
+  MATERIAL       // Peças / materiais
+  EXTERNAL       // Serviço externo / terceirizado
+  TRAVEL         // Deslocamento
+  OTHER          // Outros
 }
 
 enum MovementType {
