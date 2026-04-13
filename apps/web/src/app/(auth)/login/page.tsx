@@ -321,7 +321,7 @@ export default function LoginPage() {
       {/* Footer */}
       <div className="mt-8 text-center">
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          © 2025 InvenTech. Todos os direitos reservados.
+          © 2026 InvenTech. Todos os direitos reservados.
         </p>
         <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
           <Link href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">

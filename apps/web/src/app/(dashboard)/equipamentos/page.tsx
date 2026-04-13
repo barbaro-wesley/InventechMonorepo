@@ -995,7 +995,7 @@ function DetailSheet({
             <Printer className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />QR Code
           </Button>
           <div className="ml-auto flex items-center gap-2">
-             <span className="text-[10px] text-muted-foreground font-medium uppercase px-2">Ações rápidas</span>
+            <span className="text-[10px] text-muted-foreground font-medium uppercase px-2">Ações rápidas</span>
           </div>
         </div>
 
@@ -1011,8 +1011,8 @@ function DetailSheet({
               key={t.id}
               onClick={() => setTab(t.id as any)}
               className={`flex items-center gap-1.5 px-4 py-3 text-sm border-b-2 transition-all whitespace-nowrap ${tab === t.id
-                  ? "border-primary text-primary font-semibold"
-                  : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                ? "border-primary text-primary font-semibold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
                 }`}
             >
               {t.label}
@@ -1401,10 +1401,7 @@ function MovementSheet({
 // ─── QR Label Print ──────────────────────────────────────────────────────────
 
 const LABEL_SIZES = [
-  { id: "62x29", label: "62 × 29 mm (Brother DK-11209)", w: 234, h: 110 },
-  { id: "62x38", label: "62 × 38 mm (Brother DK-11208)", w: 234, h: 144 },
-  { id: "57x32", label: "57 × 32 mm (Brother DK-11221)", w: 216, h: 121 },
-  { id: "100x62", label: "100 × 62 mm (Zebra / Genérica)", w: 378, h: 234 },
+  { id: "60x40", label: "50 × 30 mm (Zebra / Genérica)", w: 189, h: 113 },
 ];
 
 function QRLabelModal({
@@ -1416,8 +1413,8 @@ function QRLabelModal({
   equipment: Equipment | null;
   onClose: () => void;
 }) {
-  const [sizeId, setSizeId] = React.useState("62x38");
-  const labelSize = LABEL_SIZES.find((s) => s.id === sizeId) ?? LABEL_SIZES[1];
+  const [sizeId, setSizeId] = React.useState("50x30");
+  const labelSize = LABEL_SIZES.find((s) => s.id === sizeId) ?? LABEL_SIZES[0];
 
   if (!equipment) return null;
 
@@ -1432,54 +1429,72 @@ function QRLabelModal({
     if (!printWin) return;
 
     const svgEl = document.getElementById("qr-label-svg");
-    const svgHtml = svgEl ? svgEl.outerHTML : "";
+    const svgHtml = svgEl ? svgEl.outerHTML.replace(/width="[^"]*"/, 'width="100%"').replace(/height="[^"]*"/, 'height="100%"') : "";
 
     const labelHtml = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <title></title>
   <meta charset="UTF-8"/>
-  <title>Etiqueta — ${equipment.name}</title>
   <style>
     @page {
-      size: ${labelSize.id === "100x62" ? "100mm 62mm" : labelSize.id === "62x38" ? "62mm 38mm" : labelSize.id === "57x32" ? "57mm 32mm" : "62mm 29mm"};
-      margin: 1mm;
+      size: 50mm 30mm;
+      margin: 0;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, "Helvetica Neue", sans-serif; background: #fff; }
-    .label {
-      display: flex;
-      align-items: center;
-      gap: 3mm;
-      width: 100%;
-      height: 100%;
-      padding: 1.5mm;
-      border: 0.3mm solid #ddd;
-      border-radius: 1mm;
+    html {
+      width: 50mm;
+      height: 30mm;
       overflow: hidden;
     }
-    .qr-wrap { flex-shrink: 0; }
-    .qr-wrap svg { display: block; }
-    .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1mm; justify-content: center; }
-    .name { font-size: ${labelSize.id === "62x29" ? "6pt" : "7pt"}; font-weight: 700; line-height: 1.15; word-break: break-word; }
-    .row { font-size: ${labelSize.id === "62x29" ? "4.5pt" : "5.5pt"}; color: #333; line-height: 1.2; }
-    .row span { font-weight: 600; color: #000; }
-    .id-row { font-size: 3.5pt; color: #777; margin-top: 0.5mm; font-family: monospace; word-break: break-all; }
+    body {
+      width: 50mm;
+      height: 30mm;
+      overflow: hidden;
+      background: #fff;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      page-break-after: avoid;
+      page-break-inside: avoid;
+    }
+    .qr-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 18mm;
+      height: 18mm;
+      flex-shrink: 0;
+    }
+    .qr-wrap svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .pat {
+      font-size: 8pt;
+      font-weight: bold;
+      color: #000;
+      margin-bottom: 0.3mm;
+      text-align: center;
+      line-height: 1;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
-<div class="label">
+  ${equipment.patrimonyNumber ? `<div class="pat">PAT: ${equipment.patrimonyNumber}</div>` : ""}
   <div class="qr-wrap">${svgHtml}</div>
-  <div class="info">
-    <p class="name">${equipment.name}</p>
-    ${equipment.patrimonyNumber ? `<p class="row">Pat: <span>${equipment.patrimonyNumber}</span></p>` : ""}
-    ${equipment.serialNumber ? `<p class="row">S/N: <span>${equipment.serialNumber}</span></p>` : ""}
-    ${equipment.type ? `<p class="row">Tipo: <span>${equipment.type.name}</span></p>` : ""}
-    ${equipment.costCenter ? `<p class="row">CC: <span>${equipment.costCenter.name}</span></p>` : ""}
-    ${equipment.currentLocation ? `<p class="row">Local: <span>${equipment.currentLocation.name}</span></p>` : ""}
-    <p class="id-row">ID: ${equipment.id}</p>
-  </div>
-</div>
-<script>window.onload = () => { window.print(); window.onafterprint = () => window.close(); }<\/script>
+<script>
+  window.onload = () => {
+    setTimeout(() => {
+      window.print();
+      window.onafterprint = () => window.close();
+    }, 300);
+  }
+<\/script>
 </body></html>`;
 
     printWin.document.open();
@@ -1500,77 +1515,27 @@ function QRLabelModal({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        {/* Size selector */}
-        <div className="space-y-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tamanho da etiqueta</p>
-          <div className="grid grid-cols-2 gap-2">
-            {LABEL_SIZES.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSizeId(s.id)}
-                className={`text-left px-3 py-2 rounded-lg border text-xs transition-colors ${sizeId === s.id
-                  ? "border-primary bg-primary/5 text-primary font-medium"
-                  : "border-border hover:bg-muted/40"
-                  }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Label preview */}
         <div className="mt-2">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Prévia</p>
           <div className="bg-gray-50 rounded-xl border border-border p-4 flex items-center justify-center">
             <div
-              className="bg-white border border-gray-300 rounded flex items-center gap-3 shadow-sm overflow-hidden"
-              style={{ width: labelSize.w, height: labelSize.h, padding: "6px 8px" }}
+              className="bg-white border border-gray-300 rounded flex flex-col items-center justify-center shadow-sm overflow-hidden"
+              style={{ width: labelSize.w, height: labelSize.h, padding: "4px" }}
             >
-              {/* QR code — sized to fit ~60% of label height */}
-              <div style={{ flexShrink: 0, width: labelSize.h - 16, height: labelSize.h - 16 }}>
+              {equipment.patrimonyNumber && (
+                <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#000" }}>
+                  PAT: {equipment.patrimonyNumber}
+                </p>
+              )}
+              <div style={{ flexShrink: 0 }}>
                 <QRCode
                   id="qr-label-svg"
                   value={qrUrl}
-                  size={labelSize.h - 16}
+                  size={labelSize.h - 32}
                   level="M"
                   style={{ display: "block" }}
                 />
-              </div>
-              {/* Info */}
-              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-                <p style={{ fontSize: 9, fontWeight: 700, lineHeight: 1.2, wordBreak: "break-word" as const }}>
-                  {equipment.name}
-                </p>
-                {equipment.patrimonyNumber && (
-                  <p style={{ fontSize: 7.5, color: "#444", lineHeight: 1.2 }}>
-                    Pat: <strong>{equipment.patrimonyNumber}</strong>
-                  </p>
-                )}
-                {equipment.serialNumber && (
-                  <p style={{ fontSize: 7.5, color: "#444", lineHeight: 1.2 }}>
-                    S/N: <strong>{equipment.serialNumber}</strong>
-                  </p>
-                )}
-                {equipment.type && (
-                  <p style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>
-                    {equipment.type.name}
-                    {equipment.subtype ? ` › ${equipment.subtype.name}` : ""}
-                  </p>
-                )}
-                {equipment.costCenter && (
-                  <p style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>
-                    {equipment.costCenter.name}
-                  </p>
-                )}
-                {equipment.currentLocation && (
-                  <p style={{ fontSize: 7, color: "#555", lineHeight: 1.2 }}>
-                    📍 {equipment.currentLocation.name}
-                  </p>
-                )}
-                <p style={{ fontSize: 5.5, color: "#aaa", marginTop: 2, fontFamily: "monospace", wordBreak: "break-all" as const }}>
-                  {equipment.id}
-                </p>
               </div>
             </div>
           </div>
