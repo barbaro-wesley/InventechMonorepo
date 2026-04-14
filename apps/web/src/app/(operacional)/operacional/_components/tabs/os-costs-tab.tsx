@@ -68,8 +68,8 @@ const COST_TYPE_CONFIG: Record<
 
 // ── Utilitários ─────────────────────────────────────────────────────────────
 
-function formatBRL(value: string | number) {
-  return Number(value).toLocaleString('pt-BR', {
+function formatBRL(value: number) {
+  return value.toLocaleString('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   })
@@ -102,8 +102,8 @@ function CostItemRow({
   const [form, setForm] = useState({
     description: item.description,
     type: item.type,
-    quantity: item.quantity,
-    unitPrice: item.unitPrice,
+    quantity: String(item.quantity),
+    unitPrice: String(item.unitPrice),
     notes: item.notes ?? '',
   })
 
@@ -130,8 +130,8 @@ function CostItemRow({
     setForm({
       description: item.description,
       type: item.type,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
+      quantity: String(item.quantity),
+      unitPrice: String(item.unitPrice),
       notes: item.notes ?? '',
     })
     setEditing(false)
@@ -473,11 +473,15 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
   const { data, isLoading } = useCostItems(clientId, osId)
 
   const items = data?.items ?? []
-  const total = Number(data?.total ?? 0)
+  const total = Number(String(data?.total ?? 0))
   const groups = groupByType(items)
 
-  const currentValue = equipment?.currentValue ? Number(equipment.currentValue) : null
-  const purchaseValue = equipment?.purchaseValue ? Number(equipment.purchaseValue) : null
+  const currentValue = equipment?.currentValue != null && equipment.currentValue !== ''
+    ? Number(String(equipment.currentValue))
+    : null
+  const purchaseValue = equipment?.purchaseValue != null && equipment.purchaseValue !== ''
+    ? Number(String(equipment.purchaseValue))
+    : null
   const costRatio = currentValue && currentValue > 0 ? (total / currentValue) * 100 : null
   const overThreshold = costRatio !== null && costRatio >= 80
 

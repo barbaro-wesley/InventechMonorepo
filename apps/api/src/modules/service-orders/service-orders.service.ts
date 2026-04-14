@@ -425,7 +425,20 @@ export class ServiceOrdersService {
             }
         }
 
-        return os
+        return {
+            ...os,
+            equipment: os.equipment
+                ? {
+                    ...os.equipment,
+                    currentValue: os.equipment.currentValue !== null
+                        ? parseFloat(os.equipment.currentValue.toString())
+                        : null,
+                    purchaseValue: os.equipment.purchaseValue !== null
+                        ? parseFloat(os.equipment.purchaseValue.toString())
+                        : null,
+                }
+                : null,
+        }
     }
 
     // ─────────────────────────────────────────

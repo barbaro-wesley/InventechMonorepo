@@ -19,6 +19,25 @@ const COST_ITEM_SELECT = {
     createdAt: true,
 } as const
 
+/** Converte campos Decimal do Prisma para number puro antes de retornar ao cliente */
+function normalizeItem(item: {
+    id: string
+    description: string
+    type: string
+    quantity: unknown
+    unitPrice: unknown
+    totalPrice: unknown
+    notes: string | null
+    createdAt: Date
+}) {
+    return {
+        ...item,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        totalPrice: Number(item.totalPrice),
+    }
+}
+
 @Injectable()
 export class CostsService {
     constructor(private prisma: PrismaService) { }
@@ -40,17 +59,14 @@ export class CostsService {
     async findAll(serviceOrderId: string, clientId: string | null, companyId: string) {
         await this.validateServiceOrder(serviceOrderId, clientId, companyId)
 
-        const items = await this.prisma.serviceOrderCostItem.findMany({
+        const raw = await this.prisma.serviceOrderCostItem.findMany({
             where: { serviceOrderId },
             select: COST_ITEM_SELECT,
             orderBy: { createdAt: 'asc' },
         })
 
-        const total = items.reduce(
-            (sum: typeof Decimal, item: { totalPrice: typeof Decimal }) =>
-                new Decimal(sum).add(new Decimal(item.totalPrice.toString())),
-            new Decimal(0),
-        )
+        const items = raw.map(normalizeItem)
+        const total = items.reduce((sum, item) => sum + item.totalPrice, 0)
 
         return { items, total }
     }
@@ -84,7 +100,7 @@ export class CostsService {
             return created
         })
 
-        return item
+        return normalizeItem(item)
     }
 
     async update(
@@ -109,8 +125,8 @@ export class CostsService {
             : new Decimal(item.unitPrice.toString())
         const totalPrice = newQuantity.mul(newUnitPrice)
 
-        return this.prisma.$transaction(async (tx) => {
-            const updated = await tx.serviceOrderCostItem.update({
+        const updated = await this.prisma.$transaction(async (tx) => {
+            const result = await tx.serviceOrderCostItem.update({
                 where: { id: costItemId },
                 data: {
                     ...(dto.description !== undefined && { description: dto.description }),
@@ -125,8 +141,10 @@ export class CostsService {
 
             await this.recalculateTotalCost(tx, item.serviceOrderId)
 
-            return updated
+            return result
         })
+
+        return normalizeItem(updated)
     }
 
     async remove(costItemId: string, companyId: string) {

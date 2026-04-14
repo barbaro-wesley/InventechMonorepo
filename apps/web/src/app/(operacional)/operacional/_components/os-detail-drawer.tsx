@@ -148,7 +148,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
       <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
         <SheetContent
           side="right"
-          className="w-full sm:w-[680px] sm:max-w-[680px] p-0 flex flex-col gap-0"
+          className="w-full sm:!w-[820px] sm:!max-w-[820px] lg:!w-[1000px] lg:!max-w-[1000px] p-0 flex flex-col gap-0"
         >
           <SheetTitle className="sr-only">
             {os ? `OS #${os.number} — ${os.title}` : 'Detalhes da OS'}

@@ -19,7 +19,6 @@ import { useCreateServiceOrder } from '@/hooks/service-orders/use-service-orders
 import { useCurrentUser } from '@/store/auth.store'
 import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
-import { cn } from '@/lib/utils'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -66,10 +65,13 @@ type FormData = {
 
 export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateSheetProps) {
   const currentUser = useCurrentUser()
-  const { canAccess } = usePermissions()
+  const { isCompanyLevel, canAccess } = usePermissions()
 
-  const canChooseClient = canAccess('client', 'list')
-  const canCreateWithoutEquipment = canAccess('service-order', 'create-without-equipment')
+  // isCompanyLevel usa isRole() que funciona corretamente para roles de sistema
+  // (SUPER_ADMIN, COMPANY_ADMIN, COMPANY_MANAGER, TECHNICIAN).
+  // canAccess() sozinho retorna false para roles de sistema sem customRoleId.
+  const canChooseClient = isCompanyLevel || canAccess('client', 'list')
+  const canCreateWithoutEquipment = isCompanyLevel || canAccess('service-order', 'create-without-equipment')
 
   const fixedClientId = canChooseClient ? null : (currentUser?.clientId ?? null)
   const defaultClientId = fixedClientId ?? currentUser?.clientId ?? ''
@@ -254,12 +256,15 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto"
+      >
         <SheetHeader className="mb-5">
           <SheetTitle>Nova Ordem de Serviço</SheetTitle>
         </SheetHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4 pb-6">
 
           {/* ── Equipamento (opcional) ─────────────────────────────── */}
           <div className="space-y-1.5">
@@ -369,8 +374,9 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
           )}
 
           {/* ── Prestador ─────────────────────────────────────────────── */}
-          <input type="hidden" {...form.register('clientId')} />
-          {!fixedClientId && (
+          {fixedClientId ? (
+            <input type="hidden" {...form.register('clientId')} value={fixedClientId} />
+          ) : (
             <div className="space-y-1.5">
               <Label>Prestador <span className="text-red-500">*</span></Label>
               <Select

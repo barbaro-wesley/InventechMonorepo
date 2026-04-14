@@ -26,16 +26,16 @@ export interface ServiceOrderCostItem {
   id: string
   description: string
   type: CostItemType
-  quantity: string
-  unitPrice: string
-  totalPrice: string
+  quantity: number
+  unitPrice: number
+  totalPrice: number
   notes: string | null
   createdAt: string
 }
 
 export interface CostItemsResponse {
   items: ServiceOrderCostItem[]
-  total: string
+  total: number
 }
 
 export interface CreateCostItemDto {
