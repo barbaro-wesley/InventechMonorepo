@@ -39,6 +39,7 @@ export interface CreateUserDto {
 
 export interface UpdateUserDto {
   name?: string;
+  email?: string;
   phone?: string;
   telegramChatId?: string;
   status?: UserStatus;

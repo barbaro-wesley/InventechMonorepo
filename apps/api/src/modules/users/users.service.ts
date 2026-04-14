@@ -136,8 +136,14 @@ export class UsersService {
       this.validateRolePermission(dto.role, currentUser)
     }
 
+    if (dto.email && dto.email !== existing.email) {
+      const emailTaken = await this.usersRepository.emailExists(dto.email)
+      if (emailTaken) throw new ConflictException('Este email já está em uso')
+    }
+
     const data: Record<string, any> = {
       ...(dto.name && { name: dto.name }),
+      ...(dto.email && { email: dto.email }),
       ...(dto.phone !== undefined && { phone: dto.phone }),
       ...(dto.telegramChatId !== undefined && { telegramChatId: dto.telegramChatId }),
       ...(dto.status && { status: dto.status }),

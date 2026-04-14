@@ -46,17 +46,20 @@ export const STATUS_CONFIG = {
 function EditUserForm({
   user,
   roleOptions,
+  canEditEmail,
   isPending,
   onSave,
   onCancel,
 }: {
   user: User;
   roleOptions: { value: Role; label: string }[];
+  canEditEmail: boolean;
   isPending: boolean;
   onSave: (dto: UpdateUserDto) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone ?? "");
   const [status, setStatus] = useState<UpdateUserDto["status"]>(user.status);
   const [role, setRole] = useState<Role>(user.role as Role);
@@ -64,6 +67,7 @@ function EditUserForm({
 
   useEffect(() => {
     setName(user.name);
+    setEmail(user.email);
     setPhone(user.phone ?? "");
     setStatus(user.status);
     setRole(user.role as Role);
@@ -75,6 +79,18 @@ function EditUserForm({
       <div>
         <Label htmlFor="edit-name">Nome</Label>
         <Input id="edit-name" className="mt-1.5" value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div>
+        <Label htmlFor="edit-email">Email</Label>
+        <Input
+          id="edit-email"
+          type="email"
+          className="mt-1.5"
+          value={canEditEmail ? email : user.email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={!canEditEmail}
+          title={!canEditEmail ? "Sem permissão para editar email" : undefined}
+        />
       </div>
       <div>
         <Label htmlFor="edit-phone">Telefone</Label>
@@ -130,7 +146,17 @@ function EditUserForm({
 
       <SheetFooter className="pt-2">
         <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-        <Button disabled={isPending || !name.trim()} onClick={() => onSave({ name, phone: phone || undefined, status, role, require2FA })}>
+        <Button
+          disabled={isPending || !name.trim() || (canEditEmail && !email.trim())}
+          onClick={() => onSave({
+            name,
+            ...(canEditEmail && email !== user.email ? { email } : {}),
+            phone: phone || undefined,
+            status,
+            role,
+            require2FA,
+          })}
+        >
           {isPending ? "Salvando..." : "Salvar"}
         </Button>
       </SheetFooter>
@@ -183,6 +209,7 @@ export function UserManagementSheets({
             <EditUserForm
               user={editUser}
               roleOptions={roleOptions}
+              canEditEmail={permissions.isCompanyLevel || permissions.canAccess('user', 'update')}
               isPending={updateUser.isPending}
               onSave={(dto) => updateUser.mutate(dto, { onSuccess: () => onEditUserChange(null) })}
               onCancel={() => onEditUserChange(null)}
