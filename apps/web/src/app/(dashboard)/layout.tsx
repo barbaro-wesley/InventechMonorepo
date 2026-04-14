@@ -191,7 +191,7 @@ const navSections: NavSection[] = [
                 href: "/relatorios",
                 icon: BarChart3,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"],
-                permission: "report:company",
+                permission: "report:service-orders",
             },
             {
                 label: "Configurações",

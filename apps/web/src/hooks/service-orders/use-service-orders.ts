@@ -34,12 +34,13 @@ export const serviceOrderKeys = {
 // ─────────────────────────────────────────
 // Listagem company-wide (painel operacional)
 // ─────────────────────────────────────────
-export function useServiceOrders(params?: ListServiceOrdersParams) {
+export function useServiceOrders(params?: ListServiceOrdersParams | null) {
   return useQuery({
-    queryKey: serviceOrderKeys.company(params),
-    queryFn: () => serviceOrdersService.listCompany(params),
+    queryKey: serviceOrderKeys.company(params ?? undefined),
+    queryFn: () => serviceOrdersService.listCompany(params ?? undefined),
+    enabled: params !== null,
     staleTime: 30_000,
-    refetchInterval: 60_000, // atualiza a cada 1 min
+    refetchInterval: 60_000,
   })
 }
 
