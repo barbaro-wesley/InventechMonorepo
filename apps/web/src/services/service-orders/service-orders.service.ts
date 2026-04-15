@@ -85,7 +85,8 @@ async function update(
 
 async function create(dto: CreateServiceOrderDto): Promise<ServiceOrder> {
   const { clientId, ...body } = dto
-  const { data } = await api.post(`/clients/${clientId}/service-orders`, body)
+  const url = clientId ? `/clients/${clientId}/service-orders` : `/service-orders`
+  const { data } = await api.post(url, body)
   return data
 }
 

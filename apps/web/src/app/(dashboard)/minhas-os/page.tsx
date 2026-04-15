@@ -99,8 +99,8 @@ function StatCard({ label, count, icon: Icon, color, onClick, active }: StatCard
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function MinhasOsPage() {
-  const { canAccess } = usePermissions()
-  const canCreate = canAccess('service-order', 'create')
+  const { canAccess, isClientLevel } = usePermissions()
+  const canCreate = isClientLevel || canAccess('service-order', 'create')
   const [activeStatus, setActiveStatus] = useState<ServiceOrderStatus | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -129,21 +129,25 @@ export default function MinhasOsPage() {
     setPage(1)
   }
 
+  const hasActiveFilter = activeStatus !== null || search !== ''
+
   return (
-    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-5">
+
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold">Minhas Ordens de Serviço</h1>
+          <h1 className="text-xl font-bold tracking-tight">Minhas Ordens de Serviço</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Acompanhe as OS que você solicitou
+            Acompanhe os chamados que você solicitou
           </p>
         </div>
         {canCreate && (
-          <Button size="sm" asChild>
+          <Button size="sm" asChild className="shadow-sm">
             <Link href="/minhas-os/nova">
               <Plus className="w-4 h-4 mr-1.5" />
-              Nova OS
+              <span className="hidden sm:inline">Novo Chamado</span>
+              <span className="sm:hidden">Novo</span>
             </Link>
           </Button>
         )}
@@ -151,7 +155,7 @@ export default function MinhasOsPage() {
 
       {/* Cards de stats */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <StatCard
             label="Abertas"
             count={stats.OPEN}
@@ -203,97 +207,148 @@ export default function MinhasOsPage() {
         </div>
       )}
 
-      {/* Filtros */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Tabs de status */}
-        <div className="flex flex-wrap gap-1.5">
-          {STATUS_TABS.map((tab) => (
-            <button
-              key={tab.value ?? 'all'}
-              type="button"
-              onClick={() => { setActiveStatus(tab.value); setPage(1) }}
-              className={cn(
-                'px-3 py-1 rounded-full text-xs font-medium transition-colors',
-                activeStatus === tab.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {/* Barra de filtros */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        {/* Tabs de status — scroll horizontal no mobile */}
+        <div className="flex-1 overflow-x-auto pb-0.5 -mx-0.5 px-0.5">
+          <div className="flex items-center gap-1 min-w-max">
+            {STATUS_TABS.map((tab) => (
+              <button
+                key={tab.value ?? 'all'}
+                type="button"
+                onClick={() => { setActiveStatus(tab.value); setPage(1) }}
+                className={cn(
+                  'px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap',
+                  activeStatus === tab.value
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={() => { setActiveStatus(null); setSearch(''); setPage(1) }}
+                className="ml-1 px-2 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              >
+                Limpar
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Busca */}
-        <div className="relative flex-1 sm:max-w-xs ml-auto">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+        <div className="relative w-full sm:w-56">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <Input
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Buscar por título..."
-            className="pl-8 h-8 text-sm"
+            placeholder="Buscar chamado..."
+            className="pl-8 h-8 text-sm bg-background"
           />
         </div>
       </div>
 
       {/* Lista */}
-      <div className="rounded-xl border border-border overflow-hidden bg-card">
+      <div className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
         {isLoading ? (
           <div className="flex items-center justify-center h-40">
             <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
         ) : orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-center px-4">
-            <ClipboardList className="w-8 h-8 text-muted-foreground/40 mb-2" />
-            <p className="text-sm text-muted-foreground">Nenhuma OS encontrada</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">
-              As OS que você abrir aparecerão aqui
+          <div className="flex flex-col items-center justify-center h-44 text-center px-4">
+            <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+              <ClipboardList className="w-6 h-6 text-muted-foreground/50" />
+            </div>
+            <p className="text-sm font-medium text-foreground">Nenhum chamado encontrado</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {hasActiveFilter ? 'Tente ajustar os filtros de busca' : 'Os chamados que você abrir aparecerão aqui'}
             </p>
           </div>
         ) : (
           <>
-            {/* Cabeçalho */}
-            <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 px-4 py-2 border-b border-border bg-muted/30">
-              <span className="text-xs text-muted-foreground font-medium">#</span>
-              <span className="text-xs text-muted-foreground font-medium">Título / Equipamento</span>
-              <span className="text-xs text-muted-foreground font-medium">Status</span>
-              <span className="text-xs text-muted-foreground font-medium">Prioridade</span>
-              <span className="text-xs text-muted-foreground font-medium"></span>
+            {/* Cabeçalho da tabela */}
+            <div className="hidden sm:grid sm:grid-cols-[3rem_1fr_8rem_6rem_2rem] gap-x-3 px-4 py-2.5 border-b border-border bg-muted/40">
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">#</span>
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Chamado</span>
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Status</span>
+              <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Prioridade</span>
+              <span />
             </div>
 
-            {/* Linhas */}
-            {orders.map((os: ServiceOrder) => (
-              <button
-                key={os.id}
-                type="button"
-                onClick={() => setSelectedOsId(os.id)}
-                className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 items-center px-4 py-3 border-b border-border last:border-0 w-full text-left hover:bg-muted/30 transition-colors group"
-              >
-                <span className="text-xs font-mono text-muted-foreground w-10">
-                  {os.number}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{os.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {os.equipment?.name}
-                    {os.client?.name && ` · ${os.client.name}`}
-                  </p>
-                </div>
-                <span className={cn(
-                  'text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap',
-                  STATUS_BADGE[os.status],
-                )}>
-                  {STATUS_LABELS[os.status]}
-                </span>
-                <span className={cn(
-                  'text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap',
-                  PRIORITY_BADGE[os.priority],
-                )}>
-                  {PRIORITY_LABELS[os.priority]}
-                </span>
-                <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-              </button>
-            ))}
+            {/* Linhas — desktop */}
+            <div className="divide-y divide-border/60">
+              {orders.map((os: ServiceOrder) => {
+                const subline = [os.equipment?.name, os.client?.name].filter(Boolean).join(' · ')
+                return (
+                  <button
+                    key={os.id}
+                    type="button"
+                    onClick={() => setSelectedOsId(os.id)}
+                    className="w-full text-left hover:bg-muted/30 transition-colors group"
+                  >
+                    {/* Desktop row */}
+                    <div className="hidden sm:grid sm:grid-cols-[3rem_1fr_8rem_6rem_2rem] gap-x-3 items-center px-4 py-3">
+                      <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                        {os.number}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate text-foreground">{os.title}</p>
+                        {subline ? (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{subline}</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground/40 truncate mt-0.5 italic">Sem equipamento</p>
+                        )}
+                      </div>
+                      <span className={cn(
+                        'text-xs px-2 py-1 rounded-md font-medium whitespace-nowrap text-center',
+                        STATUS_BADGE[os.status],
+                      )}>
+                        {STATUS_LABELS[os.status]}
+                      </span>
+                      <span className={cn(
+                        'text-xs px-2 py-1 rounded-md font-medium whitespace-nowrap text-center',
+                        PRIORITY_BADGE[os.priority],
+                      )}>
+                        {PRIORITY_LABELS[os.priority]}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+
+                    {/* Mobile card row */}
+                    <div className="sm:hidden px-4 py-3.5">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <p className="text-sm font-semibold text-foreground leading-snug flex-1 min-w-0 truncate">
+                          {os.title}
+                        </p>
+                        <span className="text-xs font-mono text-muted-foreground shrink-0 mt-0.5">
+                          #{os.number}
+                        </span>
+                      </div>
+                      {subline && (
+                        <p className="text-xs text-muted-foreground mb-2 truncate">{subline}</p>
+                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={cn(
+                          'text-xs px-2 py-0.5 rounded-md font-medium',
+                          STATUS_BADGE[os.status],
+                        )}>
+                          {STATUS_LABELS[os.status]}
+                        </span>
+                        <span className={cn(
+                          'text-xs px-2 py-0.5 rounded-md font-medium',
+                          PRIORITY_BADGE[os.priority],
+                        )}>
+                          {PRIORITY_LABELS[os.priority]}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </>
         )}
       </div>
@@ -301,18 +356,18 @@ export default function MinhasOsPage() {
       {/* Paginação */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>{total} OS no total</span>
+          <span>{total} chamado{total !== 1 ? 's' : ''} no total</span>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
               disabled={page <= 1}
               onClick={() => setPage((p) => p - 1)}
-              className="h-7 px-2 text-xs"
+              className="h-7 px-3 text-xs"
             >
               Anterior
             </Button>
-            <span>
+            <span className="tabular-nums">
               {page} / {totalPages}
             </span>
             <Button
@@ -320,7 +375,7 @@ export default function MinhasOsPage() {
               variant="outline"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => p + 1)}
-              className="h-7 px-2 text-xs"
+              className="h-7 px-3 text-xs"
             >
               Próxima
             </Button>

@@ -160,7 +160,7 @@ export interface ListServiceOrdersParams {
 export type MyOsStats = Record<ServiceOrderStatus, number>
 
 export interface CreateServiceOrderDto {
-  clientId: string
+  clientId?: string | null
   equipmentId?: string
   costCenterId?: string
   locationId?: string

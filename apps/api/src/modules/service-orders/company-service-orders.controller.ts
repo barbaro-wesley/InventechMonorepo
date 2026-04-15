@@ -13,6 +13,7 @@ import { TasksService } from './tasks/tasks.service'
 import { CostsService } from './costs/costs.service'
 import { StorageService } from '../storage/storage.service'
 import {
+    CreateServiceOrderDto,
     ListServiceOrdersDto,
     UpdateServiceOrderDto,
     UpdateServiceOrderStatusDto,
@@ -36,6 +37,42 @@ export class CompanyServiceOrdersController {
         private readonly costsService: CostsService,
         private readonly storageService: StorageService,
     ) { }
+
+    @Post()
+    @Permission('service-order:create')
+    @UseInterceptors(
+        FilesInterceptor('files', 10, {
+            storage: memoryStorage(),
+            limits: { fileSize: 20 * 1024 * 1024 },
+            fileFilter: (_req, file, cb) => {
+                if (ALLOWED_MIME_LIST.includes(file.mimetype)) cb(null, true)
+                else cb(new BadRequestException(`Tipo não permitido: ${file.mimetype}`), false)
+            },
+        }),
+    )
+    async create(
+        @Body() dto: CreateServiceOrderDto,
+        @UploadedFiles() files: Express.Multer.File[],
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        // clientId resolvido pelo grupo de atendimento — OS criada sem cliente fixo
+        const clientId = cu.clientId ?? null
+        const os = await this.serviceOrdersService.create(dto, clientId, cu.companyId!, cu)
+        if (files?.length > 0) {
+            await Promise.all(
+                files.map((file) =>
+                    this.storageService.upload(
+                        file,
+                        { entity: AttachmentEntity.SERVICE_ORDER, entityId: os.id },
+                        cu.companyId!,
+                        clientId,
+                        cu,
+                    ),
+                ),
+            )
+        }
+        return os
+    }
 
     @Get()
     @Permission('service-order:list')

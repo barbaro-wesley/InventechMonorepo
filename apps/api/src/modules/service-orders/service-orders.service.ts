@@ -454,7 +454,7 @@ export class ServiceOrdersService {
     // ─────────────────────────────────────────
     async create(
         dto: CreateServiceOrderDto,
-        clientId: string,
+        clientId: string | null,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
@@ -520,10 +520,9 @@ export class ServiceOrdersService {
             if (!technician) throw new BadRequestException('Técnico não encontrado nesta empresa')
         }
 
-        const client = await this.prisma.client.findUnique({
-            where: { id: clientId },
-            select: { name: true },
-        })
+        const client = clientId
+            ? await this.prisma.client.findUnique({ where: { id: clientId }, select: { name: true } })
+            : null
 
         const isAvailable = !dto.technicianId
         const initialStatus = isAvailable
