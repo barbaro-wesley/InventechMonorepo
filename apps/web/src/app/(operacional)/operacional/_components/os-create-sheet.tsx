@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Paperclip, Upload, X } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { useCreateServiceOrder } from '@/hooks/service-orders/use-service-orders'
 import { api } from '@/lib/api'
+import { storageService } from '@/services/storage/storage.service'
 import { MAINTENANCE_TYPE_LABELS } from './os-utils'
 
 
@@ -53,6 +54,8 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
   const [groups, setGroups] = useState<SimpleOption[]>([])
   const [technicians, setTechnicians] = useState<SimpleOption[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
+  const [files, setFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const createOs = useCreateServiceOrder()
 
@@ -90,6 +93,16 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
       })
   }, [selectedClientId])
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files ?? [])
+    setFiles((prev) => [...prev, ...selected])
+    e.target.value = ''
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const onSubmit = (values: FormData) => {
     createOs.mutate(
       {
@@ -104,9 +117,15 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
         alertAfterHours: values.alertAfterHours,
       },
       {
-        onSuccess: () => {
+        onSuccess: async (os) => {
+          if (files.length > 0) {
+            await Promise.allSettled(
+              files.map((file) => storageService.upload(file, 'SERVICE_ORDER', os.id))
+            )
+          }
           form.reset()
           setSelectedClientId('')
+          setFiles([])
           onClose()
         },
       },
@@ -115,7 +134,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
+      <SheetContent side="right" className="w-full sm:w-[680px] overflow-y-auto">
         <SheetHeader className="mb-6">
           <SheetTitle>Nova Ordem de Serviço</SheetTitle>
         </SheetHeader>
@@ -283,6 +302,53 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
               {...form.register('alertAfterHours', { valueAsNumber: true })}
               className="w-24"
             />
+          </div>
+
+          {/* Anexos */}
+          <div className="space-y-2 pt-1">
+            <Label>
+              Anexos <span className="text-xs font-normal text-[#6c7c93]">(opcional)</span>
+            </Label>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[#e0e5eb] hover:border-[#0d4da5]/50 hover:bg-[#0d4da5]/5 transition-colors text-sm text-[#6c7c93] hover:text-[#0d4da5]"
+            >
+              <Upload className="w-4 h-4" />
+              Clique para selecionar arquivos
+              <span className="text-xs">(PDF, imagens, documentos)</span>
+            </button>
+
+            {files.length > 0 && (
+              <div className="space-y-1.5">
+                {files.map((file, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f3f4f7] border border-[#e0e5eb]">
+                    <Paperclip className="w-3.5 h-3.5 text-[#6c7c93] shrink-0" />
+                    <span className="flex-1 text-xs truncate text-[#1d2530]">{file.name}</span>
+                    <span className="text-xs text-[#6c7c93] shrink-0">
+                      {(file.size / 1024 / 1024).toFixed(1)} MB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="shrink-0 text-[#6c7c93] hover:text-red-500 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Botões */}

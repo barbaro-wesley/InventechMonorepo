@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Loader2, Wrench, AlertTriangle } from 'lucide-react'
+import { Loader2, Wrench, AlertTriangle, Paperclip, Plus, X } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -24,6 +24,7 @@ import { useCreateServiceOrder } from '@/hooks/service-orders/use-service-orders
 import { useCurrentUser } from '@/store/auth.store'
 import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
+import { storageService } from '@/services/storage/storage.service'
 import type { Equipment } from '@/services/equipment/equipment.service'
 
 const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
@@ -63,6 +64,8 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
   const [clients, setClients] = useState<SimpleOption[]>([])
   const [technicians, setTechnicians] = useState<SimpleOption[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
+  const [files, setFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const createOs = useCreateServiceOrder()
 
@@ -85,6 +88,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
   useEffect(() => {
     if (!open) return
     setSelectedClientId(defaultClientId)
+    setFiles([])
     form.reset({
       priority: 'MEDIUM',
       alertAfterHours: 2,
@@ -108,6 +112,16 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
     })
   }, [selectedClientId])
 
+  function handleFileAdd(e: React.ChangeEvent<HTMLInputElement>) {
+    const newFiles = Array.from(e.target.files ?? [])
+    setFiles((prev) => [...prev, ...newFiles].slice(0, 10))
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const onSubmit = (values: FormData) => {
     if (!equipment) return
     createOs.mutate(
@@ -123,8 +137,14 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
         alertAfterHours: values.alertAfterHours,
       },
       {
-        onSuccess: () => {
+        onSuccess: async (os) => {
+          if (files.length > 0) {
+            await Promise.allSettled(
+              files.map((file) => storageService.upload(file, 'SERVICE_ORDER', os.id))
+            )
+          }
           form.reset()
+          setFiles([])
           onClose()
         },
       },
@@ -133,7 +153,8 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-<SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto">        <SheetHeader className="mb-6">
+      <SheetContent side="right" className="overflow-y-auto" style={{ width: '100%', maxWidth: '680px' }}>
+        <SheetHeader className="mb-6">
           <SheetTitle>Nova Ordem de Serviço</SheetTitle>
         </SheetHeader>
 
@@ -293,6 +314,43 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
               {...form.register('alertAfterHours', { valueAsNumber: true })}
               className="w-24"
             />
+          </div>
+
+          {/* Anexos */}
+          <div className="space-y-2">
+            <Label>
+              Anexos <span className="text-xs font-normal text-muted-foreground">(opcional)</span>
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {files.map((f, i) => (
+                <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted/30 text-xs">
+                  <Paperclip className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                  <span className="max-w-[140px] truncate">{f.name}</span>
+                  <button type="button" onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {files.length < 10 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Adicionar arquivo
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+              className="hidden"
+              onChange={handleFileAdd}
+            />
+            <p className="text-xs text-muted-foreground">Imagens, PDF, Word, Excel — máx. 10 arquivos</p>
           </div>
 
           {/* Botões */}

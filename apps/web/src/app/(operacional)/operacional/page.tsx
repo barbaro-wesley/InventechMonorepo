@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useCurrentUser } from '@/store/auth.store'
 import { useServiceOrders } from '@/hooks/service-orders/use-service-orders'
 import { QuickStatsBar } from './_components/quick-stats-bar'
@@ -10,7 +10,6 @@ import { OsList } from './_components/os-list'
 import { OsDetailDrawer } from './_components/os-detail-drawer'
 import type { ServiceOrder, ServiceOrderStatus, ServiceOrderPriority } from '@/services/service-orders/service-orders.types'
 
-// ── Debounce hook ────────────────────────────────────────────────────────────
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -19,8 +18,6 @@ function useDebounce<T>(value: T, delay: number): T {
   }, [value, delay])
   return debounced
 }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 const LIST_PAGE_SIZE = 25
 
@@ -35,65 +32,54 @@ export default function OperacionalPage() {
   const [showClosed, setShowClosed] = useState(false)
   const [page, setPage] = useState(1)
 
-  // Reseta página quando filtros mudam
-  const prevFilters = useRef({ search, status, priority })
-  useEffect(() => {
-    const p = prevFilters.current
-    if (p.search !== search || p.status !== status || p.priority !== priority) {
-      setPage(1)
-      prevFilters.current = { search, status, priority }
-    }
-  }, [search, status, priority])
+  // Debounce apenas para a lista (server-side search)
+  const debouncedSearch = useDebounce(search, 350)
+  const isTyping = view === 'list' && search !== debouncedSearch
 
-  // Debounce da busca (300ms) — evita request a cada tecla
-  const debouncedSearch = useDebounce(search, 300)
-  const isSearching = search !== debouncedSearch
+  // Reseta página quando filtros da lista mudam
+  useEffect(() => { setPage(1) }, [debouncedSearch, status, priority])
 
-  // Drawer de detalhes
   const [selectedOs, setSelectedOs] = useState<{ id: string; clientId: string } | null>(null)
 
-  // ── Fetch ────────────────────────────────────────────────────────────────
-
-  // Board: server-side search + filtros, limit máximo permitido pela API
-  const boardParams = {
-    search: debouncedSearch || undefined,
-    status: status || undefined,
-    priority: priority || undefined,
-    limit: 100,
-    page: 1,
-  }
-
-  // Lista: paginação real com 25 por página
-  const listParams = {
-    search: debouncedSearch || undefined,
-    status: status || undefined,
-    priority: priority || undefined,
-    limit: LIST_PAGE_SIZE,
-    page,
-  }
-
+  // ── Board: filtros server-side (status + prioridade), busca client-side ─────
+  // Não inclui `search` — evita re-fetch + skeleton ao digitar
   const { data: boardResponse, isLoading: boardLoading } = useServiceOrders(
-    view === 'board' ? boardParams : null
+    view === 'board'
+      ? { status: status || undefined, priority: priority || undefined, limit: 100 }
+      : null
   )
-  const { data: listResponse, isLoading: listLoading } = useServiceOrders(
-    view === 'list' ? listParams : null
+
+  // ── Lista: tudo server-side com paginação ────────────────────────────────────
+  const { data: listResponse, isLoading: listFirstLoad, isFetching: listFetching } = useServiceOrders(
+    view === 'list'
+      ? { search: debouncedSearch || undefined, status: status || undefined, priority: priority || undefined, limit: LIST_PAGE_SIZE, page }
+      : null
   )
 
   const boardOrders: ServiceOrder[] = boardResponse?.data ?? []
   const listOrders: ServiceOrder[] = listResponse?.data ?? []
   const listTotal = listResponse?.pagination?.total ?? 0
   const listTotalPages = listResponse?.pagination?.totalPages ?? 1
-  const isLoading = view === 'board' ? boardLoading : listLoading
 
-  // Filtragem client-side só para board (myOrders e showClosed não vão para API)
+  // Busca client-side no board — instantânea, sem re-fetch
   const filteredBoard = useMemo(() => {
     return boardOrders.filter((os) => {
-      if (myOrders && user) {
-        if (!os.technicians.some((t) => t.technician.id === user.id)) return false
-      }
-      return true
+      if (myOrders && user && !os.technicians.some((t) => t.technician.id === user.id)) return false
+      if (!search.trim()) return true
+      const q = search.toLowerCase()
+      return (
+        String(os.number).includes(q) ||
+        os.title.toLowerCase().includes(q) ||
+        (os.client?.name ?? '').toLowerCase().includes(q) ||
+        (os.equipment?.name ?? '').toLowerCase().includes(q) ||
+        (os.equipment?.patrimonyNumber ?? '').toLowerCase().includes(q) ||
+        (os.equipment?.serialNumber ?? '').toLowerCase().includes(q)
+      )
     })
-  }, [boardOrders, myOrders, user])
+  }, [boardOrders, search, myOrders, user])
+
+  const handleCardClick = (os: ServiceOrder) =>
+    setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -104,91 +90,96 @@ export default function OperacionalPage() {
         onViewChange={(v) => { setView(v); setPage(1) }}
         search={search}
         onSearchChange={setSearch}
-        isSearching={isSearching}
+        isTyping={isTyping}
         status={status}
-        onStatusChange={setStatus}
+        onStatusChange={(v) => { setStatus(v); setPage(1) }}
         priority={priority}
-        onPriorityChange={setPriority}
+        onPriorityChange={(v) => { setPriority(v); setPage(1) }}
         myOrders={myOrders}
         onMyOrdersChange={setMyOrders}
         showClosed={showClosed}
         onShowClosedChange={setShowClosed}
       />
 
-      {isLoading ? (
-        <BoardSkeleton view={view} />
-      ) : view === 'board' ? (
-        <OsBoard
-          orders={filteredBoard}
-          showClosed={showClosed}
-          onCardClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })}
-        />
-      ) : (
-        <div className="flex-1 overflow-hidden bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] shadow-sm flex flex-col">
-          <OsList
-            orders={listOrders}
-            onRowClick={(os) => setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })}
-          />
-          {/* Paginação */}
-          {listTotalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-[#e0e5eb] bg-white shrink-0">
-              <span className="text-xs text-[#6c7c93]">
-                {listTotal} OS encontradas · página {page} de {listTotalPages}
-              </span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(1)}
-                  disabled={page === 1}
-                  className="h-7 px-2 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  «
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="h-7 px-2.5 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  ‹ Anterior
-                </button>
+      {/* Board */}
+      {view === 'board' && (
+        boardLoading
+          ? <BoardSkeleton />
+          : <OsBoard orders={filteredBoard} showClosed={showClosed} onCardClick={handleCardClick} />
+      )}
 
-                {/* Páginas numeradas */}
-                {Array.from({ length: Math.min(5, listTotalPages) }, (_, i) => {
-                  const start = Math.max(1, Math.min(page - 2, listTotalPages - 4))
-                  const p = start + i
-                  if (p > listTotalPages) return null
-                  return (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={`h-7 w-7 rounded text-xs font-medium transition-colors ${
-                        p === page
-                          ? 'bg-[#0d4da5] text-white'
-                          : 'text-[#6c7c93] hover:bg-[#f3f4f7]'
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  )
-                })}
-
-                <button
-                  onClick={() => setPage((p) => Math.min(listTotalPages, p + 1))}
-                  disabled={page >= listTotalPages}
-                  className="h-7 px-2.5 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  Próxima ›
-                </button>
-                <button
-                  onClick={() => setPage(listTotalPages)}
-                  disabled={page >= listTotalPages}
-                  className="h-7 px-2 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                >
-                  »
-                </button>
+      {/* Lista */}
+      {view === 'list' && (
+        listFirstLoad
+          ? <ListSkeleton />
+          : (
+            <div className="flex-1 overflow-hidden bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] shadow-sm flex flex-col">
+              {/* Barra de info + loading sutil */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
+                <span className="text-xs text-[#6c7c93]">
+                  {listFetching && !listFirstLoad
+                    ? 'Buscando...'
+                    : `${listTotal} ordem${listTotal !== 1 ? 's' : ''} encontrada${listTotal !== 1 ? 's' : ''}`
+                  }
+                </span>
+                {listFetching && !listFirstLoad && (
+                  <span className="h-1 w-24 rounded-full bg-[#e0e5eb] overflow-hidden">
+                    <span className="block h-full w-1/2 bg-[#0d4da5] rounded-full animate-pulse" />
+                  </span>
+                )}
               </div>
+
+              <OsList
+                orders={listOrders}
+                onRowClick={handleCardClick}
+              />
+
+              {/* Paginação */}
+              {listTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#e0e5eb] bg-white shrink-0">
+                  <span className="text-xs text-[#6c7c93]">
+                    Página {page} de {listTotalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="h-7 px-3 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#e0e5eb]"
+                    >
+                      ‹ Anterior
+                    </button>
+
+                    {Array.from({ length: Math.min(5, listTotalPages) }, (_, i) => {
+                      const start = Math.max(1, Math.min(page - 2, listTotalPages - 4))
+                      const p = start + i
+                      if (p > listTotalPages) return null
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => setPage(p)}
+                          className={`h-7 w-7 rounded text-xs font-medium transition-colors ${
+                            p === page
+                              ? 'bg-[#0d4da5] text-white'
+                              : 'text-[#6c7c93] hover:bg-[#f3f4f7] border border-[#e0e5eb]'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      )
+                    })}
+
+                    <button
+                      onClick={() => setPage((p) => Math.min(listTotalPages, p + 1))}
+                      disabled={page >= listTotalPages}
+                      className="h-7 px-3 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#e0e5eb]"
+                    >
+                      Próxima ›
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          )
       )}
 
       <OsDetailDrawer
@@ -201,17 +192,7 @@ export default function OperacionalPage() {
   )
 }
 
-function BoardSkeleton({ view }: { view: ViewMode }) {
-  if (view === 'list') {
-    return (
-      <div className="flex-1 bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] p-4 space-y-3">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-12 rounded-lg bg-[#f3f4f7] animate-pulse" />
-        ))}
-      </div>
-    )
-  }
-
+function BoardSkeleton() {
   return (
     <div className="flex gap-4 px-4 py-4 h-full overflow-x-auto">
       {Array.from({ length: 5 }).map((_, colIdx) => (
@@ -221,6 +202,16 @@ function BoardSkeleton({ view }: { view: ViewMode }) {
             <div key={i} className="h-32 rounded-xl bg-white border border-[#e0e5eb] animate-pulse" />
           ))}
         </div>
+      ))}
+    </div>
+  )
+}
+
+function ListSkeleton() {
+  return (
+    <div className="flex-1 bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] p-4 space-y-3">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div key={i} className="h-12 rounded-lg bg-[#f3f4f7] animate-pulse" />
       ))}
     </div>
   )

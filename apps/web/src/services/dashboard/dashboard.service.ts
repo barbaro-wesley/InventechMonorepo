@@ -92,6 +92,43 @@ export interface CompanyDashboard {
   generatedAt: string;
 }
 
+export interface ClientDashboard {
+  osMetrics: {
+    total: number;
+    active: number;
+    byStatus: {
+      open: number;
+      awaitingPickup: number;
+      inProgress: number;
+      completed: number;
+      approved: number;
+      rejected: number;
+      cancelled: number;
+    };
+    urgent: number;
+    avgResolutionHours: number | null;
+  };
+  equipmentMetrics: {
+    total: number;
+    byStatus: { active: number; underMaintenance: number; inactive: number; scrapped: number };
+    critical: number;
+    availabilityRate: number;
+  };
+  recentOs: Array<{
+    id: string;
+    number: number;
+    title: string;
+    status: string;
+    priority: string;
+    maintenanceType: string;
+    createdAt: string;
+    equipment: { id: string; name: string } | null;
+    group: { id: string; name: string; color: string | null } | null;
+    technicians: Array<{ technician: { id: string; name: string } }>;
+  }>;
+  generatedAt: string;
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const dashboardService = {
@@ -102,6 +139,11 @@ export const dashboardService = {
 
   async getCompany(): Promise<CompanyDashboard> {
     const { data } = await api.get("/dashboard");
+    return data;
+  },
+
+  async getClient(clientId: string): Promise<ClientDashboard> {
+    const { data } = await api.get(`/dashboard/client/${clientId}`);
     return data;
   },
 };

@@ -83,7 +83,7 @@ const OS_SELECT = {
     equipmentId: true,
     costCenterId: true,
     locationId: true,
-    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true, currentValue: true, purchaseValue: true } },
+    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true, serialNumber: true, currentValue: true, purchaseValue: true } },
     costCenter: { select: { id: true, name: true, code: true } },
     location: { select: { id: true, name: true } },
     client: { select: { id: true, name: true, logoUrl: true } },
@@ -262,6 +262,9 @@ export class ServiceOrdersService {
                     { title: { contains: search, mode: 'insensitive' } },
                     { description: { contains: search, mode: 'insensitive' } },
                     { client: { name: { contains: search, mode: 'insensitive' } } },
+                    { equipment: { name: { contains: search, mode: 'insensitive' } } },
+                    { equipment: { patrimonyNumber: { contains: search, mode: 'insensitive' } } },
+                    { equipment: { serialNumber: { contains: search, mode: 'insensitive' } } },
                 ],
             }),
         }

@@ -299,6 +299,12 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
           <InfoRow icon={Wrench} label="Equipamento">
             <div>
               <p>{os.equipment?.name ?? '—'}</p>
+              {os.equipment?.patrimonyNumber && (
+                <p className="text-[11px] text-[#6c7c93]">Patrimônio: {os.equipment.patrimonyNumber}</p>
+              )}
+              {os.equipment?.serialNumber && (
+                <p className="text-[11px] text-[#6c7c93]">N/S: {os.equipment.serialNumber}</p>
+              )}
               {(os.equipment?.brand || os.equipment?.model) && (
                 <p className="text-[11px] text-[#6c7c93]">
                   {[os.equipment?.brand, os.equipment?.model].filter(Boolean).join(' · ')}

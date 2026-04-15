@@ -39,6 +39,7 @@ export function useServiceOrders(params?: ListServiceOrdersParams | null) {
     queryKey: serviceOrderKeys.company(params ?? undefined),
     queryFn: () => serviceOrdersService.listCompany(params ?? undefined),
     enabled: params !== null,
+    placeholderData: (prev) => prev,   // mantém dados anteriores visíveis ao trocar de página/filtro
     staleTime: 30_000,
     refetchInterval: 60_000,
   })

@@ -89,7 +89,7 @@ export interface ServiceOrder {
   createdAt: string
   updatedAt: string
   client: { id: string; name: string; logoUrl: string | null } | null
-  equipment: { id: string; name: string; brand: string | null; model: string | null; patrimonyNumber: string | null; currentValue: string | null; purchaseValue: string | null } | null
+  equipment: { id: string; name: string; brand: string | null; model: string | null; patrimonyNumber: string | null; serialNumber: string | null; currentValue: string | null; purchaseValue: string | null } | null
   costCenter: { id: string; name: string; code: string | null } | null
   location: { id: string; name: string } | null
   requester: { id: string; name: string; email: string } | null
