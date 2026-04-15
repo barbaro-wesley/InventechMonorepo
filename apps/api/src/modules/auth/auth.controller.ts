@@ -45,6 +45,15 @@ class TwoFactorVerifyDto {
   code: string
 }
 
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for']
+  if (forwarded) {
+    const first = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0]
+    return first.trim()
+  }
+  return req.headers['x-real-ip'] as string || req.ip || ''
+}
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.COOKIE_SECURE === 'true',
@@ -77,7 +86,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(dto, req.ip, req.headers['user-agent'])
+    const result = await this.authService.login(dto, getClientIp(req), req.headers['user-agent'])
 
     if (result.requires2FA) {
       return { requires2FA: true, user: result.user }
@@ -112,7 +121,7 @@ export class AuthController {
   ) {
     const user = req.user as AuthenticatedUser & { refreshToken: string }
     const { accessToken, refreshToken } = await this.authService.refresh(
-      user.sub, user.refreshToken, req.ip, req.headers['user-agent'],
+      user.sub, user.refreshToken, getClientIp(req), req.headers['user-agent'],
     )
 
     res.cookie('access_token', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE })
@@ -172,7 +181,7 @@ async send2FA(
   @CurrentUser() user: AuthenticatedUser,
   @Req() req: Request,
 ) {
-  await this.twoFactorService.sendTwoFactorCode(user.sub, 'LOGIN', req.ip)
+  await this.twoFactorService.sendTwoFactorCode(user.sub, 'LOGIN', getClientIp(req))
   return { message: 'Código enviado para o seu email' }
 }
 
@@ -189,7 +198,7 @@ async verify2FA(
 ) {
   await this.twoFactorService.verifyCode(dto.userId, dto.code, 'LOGIN')
   const { accessToken, refreshToken, user } = await this.authService.completeLogin(
-    dto.userId, req.ip, req.headers['user-agent'],
+    dto.userId, getClientIp(req), req.headers['user-agent'],
   )
   res.cookie('access_token', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE })
   res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE })
@@ -223,7 +232,7 @@ async verifyEmail(@Body() dto: VerifyEmailDto) {
 @ApiOperation({ summary: 'Solicitar reset de senha', description: 'Envia link de redefinição para o email informado (resposta genérica por segurança)' })
 async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
   // Não revela se o email existe ou não (segurança)
-  await this.twoFactorService.sendPasswordReset(dto.email, req.ip)
+  await this.twoFactorService.sendPasswordReset(dto.email, getClientIp(req))
   return {
     message: 'Se o email estiver cadastrado, você receberá as instruções em breve.',
   }
