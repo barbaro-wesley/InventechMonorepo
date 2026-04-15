@@ -20,6 +20,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 const LIST_PAGE_SIZE = 25
+const BOARD_PAGE_SIZE = 100
 
 export default function OperacionalPage() {
   const user = useCurrentUser()
@@ -32,22 +33,45 @@ export default function OperacionalPage() {
   const [showClosed, setShowClosed] = useState(false)
   const [page, setPage] = useState(1)
 
-  // Debounce apenas para a lista (server-side search)
-  const debouncedSearch = useDebounce(search, 350)
-  const isTyping = view === 'list' && search !== debouncedSearch
+  // Board load more
+  const [boardPage, setBoardPage] = useState(1)
+  const [allBoardOrders, setAllBoardOrders] = useState<ServiceOrder[]>([])
 
-  // Reseta página quando filtros da lista mudam
+  // Debounce para busca server-side em ambas as views
+  const debouncedSearch = useDebounce(search, 350)
+  const isTyping = search !== debouncedSearch
+
+  // Reseta paginação da lista quando filtros mudam
   useEffect(() => { setPage(1) }, [debouncedSearch, status, priority])
+
+  // Reseta board quando filtros/busca mudam
+  useEffect(() => { setBoardPage(1) }, [debouncedSearch, status, priority])
 
   const [selectedOs, setSelectedOs] = useState<{ id: string; clientId: string } | null>(null)
 
-  // ── Board: filtros server-side (status + prioridade), busca client-side ─────
-  // Não inclui `search` — evita re-fetch + skeleton ao digitar
-  const { data: boardResponse, isLoading: boardLoading } = useServiceOrders(
+  // ── Board: busca + filtros server-side, com suporte a "carregar mais" ────────
+  const { data: boardResponse, isLoading: boardLoading, isFetching: boardFetching } = useServiceOrders(
     view === 'board'
-      ? { status: status || undefined, priority: priority || undefined, limit: 100 }
+      ? { search: debouncedSearch || undefined, status: status || undefined, priority: priority || undefined, limit: BOARD_PAGE_SIZE, page: boardPage }
       : null
   )
+
+  // Acumula ordens do board ao paginar; reseta quando chega nova página 1
+  useEffect(() => {
+    if (!boardResponse?.data) return
+    const responsePage = boardResponse.pagination?.page ?? 1
+    if (responsePage === 1) {
+      setAllBoardOrders(boardResponse.data)
+    } else {
+      setAllBoardOrders(prev => {
+        const existingIds = new Set(prev.map(o => o.id))
+        return [...prev, ...boardResponse.data.filter(o => !existingIds.has(o.id))]
+      })
+    }
+  }, [boardResponse])
+
+  const boardTotal = boardResponse?.pagination?.total ?? 0
+  const boardHasMore = !isTyping && !boardFetching && allBoardOrders.length < boardTotal
 
   // ── Lista: tudo server-side com paginação ────────────────────────────────────
   const { data: listResponse, isLoading: listFirstLoad, isFetching: listFetching } = useServiceOrders(
@@ -56,34 +80,24 @@ export default function OperacionalPage() {
       : null
   )
 
-  const boardOrders: ServiceOrder[] = boardResponse?.data ?? []
   const listOrders: ServiceOrder[] = listResponse?.data ?? []
   const listTotal = listResponse?.pagination?.total ?? 0
   const listTotalPages = listResponse?.pagination?.totalPages ?? 1
 
-  // Busca client-side no board — instantânea, sem re-fetch
+  // Filtro client-side no board — apenas "Minhas OS" (busca é server-side)
   const filteredBoard = useMemo(() => {
-    return boardOrders.filter((os) => {
-      if (myOrders && user && !os.technicians.some((t) => t.technician.id === user.id)) return false
-      if (!search.trim()) return true
-      const q = search.toLowerCase()
-      return (
-        String(os.number).includes(q) ||
-        os.title.toLowerCase().includes(q) ||
-        (os.client?.name ?? '').toLowerCase().includes(q) ||
-        (os.equipment?.name ?? '').toLowerCase().includes(q) ||
-        (os.equipment?.patrimonyNumber ?? '').toLowerCase().includes(q) ||
-        (os.equipment?.serialNumber ?? '').toLowerCase().includes(q)
-      )
-    })
-  }, [boardOrders, search, myOrders, user])
+    if (!myOrders || !user) return allBoardOrders
+    return allBoardOrders.filter((os) =>
+      os.technicians.some((t) => t.technician.id === user.id)
+    )
+  }, [allBoardOrders, myOrders, user])
 
   const handleCardClick = (os: ServiceOrder) =>
     setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <QuickStatsBar orders={boardOrders} isLoading={boardLoading} />
+      <QuickStatsBar orders={allBoardOrders} isLoading={boardLoading} />
 
       <CommandBar
         view={view}
@@ -105,7 +119,37 @@ export default function OperacionalPage() {
       {view === 'board' && (
         boardLoading
           ? <BoardSkeleton />
-          : <OsBoard orders={filteredBoard} showClosed={showClosed} onCardClick={handleCardClick} />
+          : (
+            <div className="flex flex-col flex-1 overflow-hidden">
+              {/* Barra de loading sutil ao refetching */}
+              {boardFetching && !boardLoading && (
+                <div className="shrink-0 h-0.5 w-full bg-[#e0e5eb] overflow-hidden">
+                  <div className="h-full w-1/2 bg-[#0d4da5] rounded-full animate-pulse" />
+                </div>
+              )}
+              <OsBoard orders={filteredBoard} showClosed={showClosed} onCardClick={handleCardClick} />
+
+              {/* Footer do board: total + carregar mais */}
+              {(boardHasMore || boardFetching) ? (
+                <div className="shrink-0 flex items-center justify-center gap-3 py-2 border-t border-[#e0e5eb] bg-white">
+                  <span className="text-xs text-[#6c7c93]">
+                    Exibindo {allBoardOrders.length} de {boardTotal} OS
+                  </span>
+                  <button
+                    onClick={() => setBoardPage(p => p + 1)}
+                    disabled={boardFetching}
+                    className="h-7 px-4 rounded text-xs font-medium text-[#0d4da5] border border-[#0d4da5] hover:bg-[#f0f4ff] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {boardFetching ? 'Carregando...' : 'Carregar mais'}
+                  </button>
+                </div>
+              ) : boardTotal > 0 && (
+                <div className="shrink-0 flex items-center justify-center py-1.5 border-t border-[#e0e5eb] bg-[#fafafa]">
+                  <span className="text-xs text-[#6c7c93]">{boardTotal} OS no total</span>
+                </div>
+              )}
+            </div>
+          )
       )}
 
       {/* Lista */}

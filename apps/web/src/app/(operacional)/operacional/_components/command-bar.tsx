@@ -50,7 +50,7 @@ export function CommandBar({
       <div className="relative flex-1 max-w-sm">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6c7c93]" />
         <Input
-          placeholder="Buscar por nº, título, equipamento, patrimônio, prestador..."
+          placeholder="Buscar por nº da OS, patrimônio ou descrição..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           className="pl-8 pr-8 h-8 text-sm bg-[#f3f4f7] border-transparent focus:border-[#0d4da5] focus:bg-white"

@@ -259,12 +259,17 @@ export class ServiceOrdersService {
             }),
             ...(search && {
                 OR: [
+                    // Busca por número da OS (campo Int — só aplica se o termo for numérico)
+                    ...(!isNaN(Number(search)) && search.trim() !== ''
+                        ? [{ number: { equals: Number(search) } }]
+                        : []
+                    ),
                     { title: { contains: search, mode: 'insensitive' } },
                     { description: { contains: search, mode: 'insensitive' } },
-                    { client: { name: { contains: search, mode: 'insensitive' } } },
-                    { equipment: { name: { contains: search, mode: 'insensitive' } } },
                     { equipment: { patrimonyNumber: { contains: search, mode: 'insensitive' } } },
                     { equipment: { serialNumber: { contains: search, mode: 'insensitive' } } },
+                    { equipment: { name: { contains: search, mode: 'insensitive' } } },
+                    { client: { name: { contains: search, mode: 'insensitive' } } },
                 ],
             }),
         }
