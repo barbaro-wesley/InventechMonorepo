@@ -181,4 +181,9 @@ export const equipmentService = {
     const { data } = await api.get(`/equipment/${id}/service-orders`, { params });
     return data;
   },
+
+  getLifeCyclePdfUrl(id: string): string {
+    const baseUrl = api.defaults.baseURL || "http://localhost:3000/api/v1";
+    return `${baseUrl}/equipment/${id}/lifecycle-pdf`;
+  },
 };

@@ -2,8 +2,10 @@ import {
   Controller, Get, Post, Patch, Delete,
   Body, Param, Query, ParseUUIDPipe,
   HttpCode, HttpStatus, UseInterceptors,
-  UploadedFiles, BadRequestException,
+  UploadedFiles, BadRequestException, Res
 } from '@nestjs/common'
+import type { Response } from 'express'
+import { ApiOperation } from '@nestjs/swagger'
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { EquipmentService } from './equipment.service'
@@ -13,9 +15,14 @@ import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { ALLOWED_MIME_LIST } from '../storage/storage.constants'
 
+import { ReportsService } from '../reports/reports.service'
+
 @Controller('equipment')
 export class EquipmentController {
-  constructor(private readonly equipmentService: EquipmentService) {}
+  constructor(
+    private readonly equipmentService: EquipmentService,
+    private readonly reportsService: ReportsService
+  ) {}
 
   @Get()
   @Permission('equipment:list')
@@ -96,5 +103,22 @@ export class EquipmentController {
     @CurrentUser() cu: AuthenticatedUser,
   ) {
     return this.equipmentService.recalculateDepreciation(id, cu.companyId!)
+  }
+
+  @Get(':id/lifecycle-pdf')
+  @ApiOperation({ summary: 'Exportar Ficha de Vida do equipamento em PDF' })
+  @Permission('equipment:read')
+  async exportLifeCyclePdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() cu: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportsService.exportEquipmentLifeCyclePdf(cu.companyId!, id)
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="Ficha_Vida_Equipamento_${id}.pdf"`,
+      'Content-Length': buffer.length,
+    })
+    res.end(buffer)
   }
 }

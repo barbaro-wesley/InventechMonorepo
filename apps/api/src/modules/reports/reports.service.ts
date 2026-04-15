@@ -1133,4 +1133,279 @@ export class ReportsService {
       doc.on('error', reject)
     })
   }
+
+  // ─────────────────────────────────────────
+  // FICHA DE VIDA DO EQUIPAMENTO
+  // ─────────────────────────────────────────
+  async getEquipmentLifeCycleData(companyId: string, equipmentId: string) {
+    const equipment = await this.prisma.equipment.findFirst({
+      where: { id: equipmentId, companyId, deletedAt: null },
+      include: {
+        costCenter: { select: { name: true, code: true } },
+        location: { select: { name: true } },
+        type: { select: { name: true } },
+        subtype: { select: { name: true } },
+        serviceOrders: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            number: true,
+            maintenanceType: true,
+            status: true,
+            description: true,
+            resolution: true,
+            completedAt: true,
+            createdAt: true,
+          },
+        },
+        movements: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            type: true,
+            status: true,
+            reason: true,
+            createdAt: true,
+            origin: { select: { name: true } },
+            destination: { select: { name: true } },
+          },
+        },
+      },
+    })
+    
+    if (!equipment) {
+      throw new Error('Equipment not found')
+    }
+    
+    return equipment
+  }
+
+  async exportEquipmentLifeCyclePdf(companyId: string, equipmentId: string): Promise<Buffer> {
+    const PDFDocument = (await import('pdfkit')).default
+    const [equipment, template] = await Promise.all([
+      this.getEquipmentLifeCycleData(companyId, equipmentId),
+      this.companiesService.getReportTemplate(companyId),
+    ])
+    const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
+
+    const doc = new PDFDocument({ size: 'A4', layout: 'portrait', margins: { top: 40, bottom: 40, left: 40, right: 40 } })
+    const buffers: Buffer[] = []
+    doc.on('data', (c: Buffer) => buffers.push(c))
+
+    const W = doc.page.width - 80
+    const blue = template.primaryColor
+    const secondaryBlue = template.secondaryColor || '#E0E7FF'
+
+    const fmtDate = (d: Date | null | undefined) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
+    const fmtDateTime = (d: Date | null | undefined) => d ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'
+    const fmtM = (v: any) => v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'
+
+    // ── Cabeçalho Principal ──
+    const subtitle = `Ficha  ·  Gerado em: ${new Date().toLocaleDateString('pt-BR')}`
+    let y = this.drawPdfHeader(doc, template, 'Ficha de Vida do Equipamento', subtitle, logoBuffer)
+
+    // ── 1. Dados Técnicos e Cadastrais ──
+    doc.fillColor(blue).fontSize(12).font('Helvetica-Bold').text('Dados Cadastrais e Técnicos', 40, y + 10)
+    doc.rect(40, y + 25, W, 1).fill(secondaryBlue)
+    y += 35
+    
+    const EQUIPMENT_STATUS_LABEL: Record<string, string> = {
+      ACTIVE: "Ativo",
+      BORROWED: "Emprestado",
+      UNDER_MAINTENANCE: "Em manutenção",
+      INACTIVE: "Inativo",
+      DISPOSED: "Descartado",
+    }
+    
+    const EQUIPMENT_CRITICALITY_LABEL: Record<string, string> = {
+      LOW: "Baixa",
+      MEDIUM: "Média",
+      HIGH: "Alta",
+      CRITICAL: "Crítica",
+    }
+
+    const fields = [
+      { label: 'Equipamento:', value: equipment.name },
+      { label: 'Patrimônio:', value: equipment.patrimonyNumber ?? '-' },
+      { label: 'Nº Série:', value: equipment.serialNumber ?? '-' },
+      { label: 'Marca / Modelo:', value: [equipment.brand, equipment.model].filter(Boolean).join(' / ') || '-' },
+      { label: 'Tipo:', value: equipment.type?.name ?? '-' },
+      { label: 'Localização:', value: equipment.location?.name ?? 'Não definido' },
+      { label: 'Centro de Custo:', value: equipment.costCenter?.name ?? 'Não definido' },
+      { label: 'Status:', value: EQUIPMENT_STATUS_LABEL[equipment.status] || equipment.status },
+      { label: 'Criticidade:', value: EQUIPMENT_CRITICALITY_LABEL[equipment.criticality] || equipment.criticality },
+      { label: 'Aquis. (Data/Vlr):', value: `${fmtDate(equipment.purchaseDate)} / ${fmtM(equipment.purchaseValue)}` },
+      { label: 'Garantia:', value: `Desde ${fmtDate(equipment.warrantyStart)} até ${fmtDate(equipment.warrantyEnd)}` },
+    ]
+
+    let col = 0
+    const colW = W / 2
+    let rowY = y
+    
+    doc.fontSize(8.5)
+    fields.forEach((f, i) => {
+      const cx = 40 + (col * colW)
+      doc.fillColor('#6B7280').font('Helvetica-Bold').text(f.label, cx, rowY, { width: 90 })
+      doc.fillColor('#1F2937').font('Helvetica').text(f.value, cx + 90, rowY, { width: colW - 90, ellipsis: true })
+      
+      col++
+      if (col > 1) {
+        col = 0
+        rowY += 16
+      }
+    })
+    
+    y = rowY + (col === 0 ? 0 : 16) + 10
+
+    if (equipment.observations) {
+      doc.fillColor('#6B7280').font('Helvetica-Bold').text('Observações:', 40, y)
+      doc.fillColor('#1F2937').font('Helvetica').text(equipment.observations, 40, y + 12, { width: W })
+      y += 12 + doc.heightOfString(equipment.observations, { width: W }) + 10
+    }
+
+    // Função auxiliar genérica para cabeçalho de tabela
+    // columns = { w, label }
+    const drawTableHeader = (title: string, tableCols: any, localY: number) => {
+      doc.fillColor(blue).fontSize(12).font('Helvetica-Bold').text(title, 40, localY)
+      let tableY = localY + 20
+      doc.rect(40, tableY, W, 20).fill(secondaryBlue)
+      doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
+      let x = 40
+      tableCols.forEach((c: any) => {
+        doc.text(c.label, x + 3, tableY + 6, { width: c.w - 6, ellipsis: true })
+        x += c.w
+      })
+      return tableY + 20
+    }
+
+    // ── 2. Histórico de Manutenções (OS) ──
+    if (y > doc.page.height - 150) { doc.addPage(); y = 40 }
+    else { y += 20 }
+
+    const osCols = [
+      { label: 'Nº OS', w: 45 },
+      { label: 'Data', w: 60 },
+      { label: 'Tipo', w: 65 },
+      { label: 'Status', w: 70 },
+      { label: 'Descrição / Resolução (Resumo)', w: W - 240 },
+    ]
+
+    y = drawTableHeader(`Histórico de Manutenções (${equipment.serviceOrders.length})`, osCols, y)
+
+    const OS_STATUS_LABEL: Record<string, string> = {
+      OPEN: "Aberta", AWAITING_PICKUP: "Aguardando", IN_PROGRESS: "Em andamento",
+      COMPLETED: "Concluída", COMPLETED_APPROVED: "Aprovada", COMPLETED_REJECTED: "Reprovada", CANCELLED: "Cancelada",
+    }
+    
+    const OS_TYPE_LABEL: Record<string, string> = {
+      PREVENTIVE: "Preventiva", CORRECTIVE: "Corretiva", INITIAL_ACCEPTANCE: "Aceite Inicial",
+      EXTERNAL_SERVICE: "Serviço Externo", TECHNOVIGILANCE: "Tecnovigilância",
+      TRAINING: "Treinamento", IMPROPER_USE: "Uso Indevido", DEACTIVATION: "Desativação",
+    }
+
+    let rowIdx = 0
+    if (equipment.serviceOrders.length === 0) {
+      doc.fillColor('#6B7280').font('Helvetica-Oblique').fontSize(8.5)
+        .text('Nenhuma ordem de serviço registrada.', 45, y + 10)
+      y += 30
+    } else {
+      equipment.serviceOrders.forEach((os) => {
+        doc.fontSize(7.5)
+        const textH = doc.heightOfString(os.description || '-', { width: osCols[4].w - 6 })
+        const rowH = Math.max(18, textH + 8)
+
+        if (y + rowH > doc.page.height - 80) { 
+          doc.addPage(); 
+          y = drawTableHeader(`Histórico de Manutenções (cont.)`, osCols, 40); 
+          rowIdx = 0; 
+        }
+
+        doc.rect(40, y, W, rowH).fill(rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC').stroke('#E2E8F0')
+        
+        let cx = 40
+        const dateStr = fmtDate(os.createdAt)
+        const descText = (os.description || '').replace(/\n/g, ' ')
+        
+        const rowData = [
+          { text: String(os.number), font: 'Helvetica' },
+          { text: dateStr, font: 'Helvetica' },
+          { text: OS_TYPE_LABEL[os.maintenanceType] || os.maintenanceType, font: 'Helvetica' },
+          { text: OS_STATUS_LABEL[os.status] || os.status, font: 'Helvetica' },
+          { text: descText, font: 'Helvetica' },
+        ]
+
+        rowData.forEach((cell, i) => {
+          doc.fillColor('#1F2937').fontSize(7.5).font(cell.font)
+          doc.text(cell.text, cx + 3, y + 4, { width: osCols[i].w - 6, height: rowH - 8, lineBreak: true, ellipsis: true })
+          cx += osCols[i].w
+        })
+
+        y += rowH
+        rowIdx++
+      })
+    }
+
+    // ── 3. Histórico de Transferências ──
+    if (y > doc.page.height - 150) { doc.addPage(); y = 40 }
+    else { y += 20 }
+
+    const movCols = [
+      { label: 'Modificado Em', w: 85 },
+      { label: 'Origem', w: 100 },
+      { label: 'Destino', w: 100 },
+      { label: 'Motivo', w: W - 360 },
+      { label: 'Status', w: 75 },
+    ]
+
+    y = drawTableHeader(`Histórico de Transferências (${equipment.movements.length})`, movCols, y)
+
+    const MOVEMENT_STATUS_LABEL: Record<string, string> = {
+      ACTIVE: 'Ativo', CANCELLED: 'Cancelado', RETURNED: 'Devolvido'
+    }
+
+    rowIdx = 0
+    if (equipment.movements.length === 0) {
+        doc.fillColor('#6B7280').font('Helvetica-Oblique').fontSize(8.5)
+          .text('Nenhuma transferência registrada.', 45, y + 10)
+        y += 30
+    } else {
+      equipment.movements.forEach((mov) => {
+        doc.fontSize(7.5)
+        const textH = doc.heightOfString(mov.reason || '-', { width: movCols[3].w - 6 })
+        const rowH = Math.max(18, textH + 8)
+
+        if (y + rowH > doc.page.height - 80) { 
+          doc.addPage(); 
+          y = drawTableHeader(`Histórico de Transferências (cont.)`, movCols, 40); 
+          rowIdx = 0; 
+        }
+
+        doc.rect(40, y, W, rowH).fill(rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC').stroke('#E2E8F0')
+        
+        let cx = 40
+        const rowData = [
+          { text: fmtDateTime(mov.createdAt), font: 'Helvetica' },
+          { text: mov.origin?.name || '-', font: 'Helvetica' },
+          { text: mov.destination?.name || '-', font: 'Helvetica' },
+          { text: (mov.reason || '').replace(/\n/g, ' '), font: 'Helvetica' },
+          { text: MOVEMENT_STATUS_LABEL[mov.status] || mov.status, font: 'Helvetica' },
+        ]
+
+        rowData.forEach((cell, i) => {
+          doc.fillColor('#1F2937').fontSize(7.5).font(cell.font)
+          doc.text(cell.text, cx + 3, y + 4, { width: movCols[i].w - 6, height: rowH - 8, lineBreak: true, ellipsis: true })
+          cx += movCols[i].w
+        })
+
+        y += rowH
+        rowIdx++
+      })
+    }
+
+    this.drawPdfFooter(doc, template, doc.page.height - 40)
+    doc.end()
+
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(buffers)))
+      doc.on('error', reject)
+    })
+  }
 }

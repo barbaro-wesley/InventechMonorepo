@@ -79,6 +79,7 @@ import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-crea
 import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
 import { OsDetailDrawer } from "@/app/(operacional)/operacional/_components/os-detail-drawer";
 
+import { equipmentService } from "@/services/equipment/equipment.service";
 import type { Equipment, EquipmentStatus, EquipmentCriticality, EquipmentServiceOrdersResponse } from "@/services/equipment/equipment.service";
 import type { InfiniteData } from "@tanstack/react-query";
 import type { Movement } from "@/services/equipment/movements.service";
@@ -993,6 +994,9 @@ function DetailSheet({
           )}
           <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onPrint(equipment); }}>
             <Printer className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />QR Code
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => window.open(equipmentService.getLifeCyclePdfUrl(equipment.id), "_blank")}>
+            <FileText className="w-3.5 h-3.5 mr-1.5 text-violet-500" />Ficha Vida
           </Button>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground font-medium uppercase px-2">Ações rápidas</span>

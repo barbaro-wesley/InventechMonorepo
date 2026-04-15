@@ -21,9 +21,10 @@ import { MovementsService } from './movement/movements.service'
 import { MovementsController } from './movement/movements.controller'
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
+import { ReportsModule } from '../reports/reports.module'
 
 @Module({
-    imports: [StorageModule, NotificationsModule],
+    imports: [StorageModule, NotificationsModule, ReportsModule],
     controllers: [
         EquipmentController,
         LocationsController,

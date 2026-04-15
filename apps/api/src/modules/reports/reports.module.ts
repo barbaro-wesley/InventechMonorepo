@@ -8,6 +8,6 @@ import { CompaniesModule } from '../companies/companies.module'
   imports: [CompaniesModule],
   controllers: [ReportsController],
   providers: [ReportsService, ReportPermissionsService],
-  exports: [ReportPermissionsService],
+  exports: [ReportPermissionsService, ReportsService],
 })
 export class ReportsModule { }
