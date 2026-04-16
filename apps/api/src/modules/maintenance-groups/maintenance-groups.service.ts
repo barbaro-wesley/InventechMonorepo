@@ -21,6 +21,7 @@ const GROUP_SELECT = {
     description: true,
     color: true,
     isActive: true,
+    noRestriction: true,
     createdAt: true,
     updatedAt: true,
     _count: {
@@ -113,6 +114,7 @@ export class MaintenanceGroupsService {
                 name: dto.name,
                 description: dto.description,
                 color: dto.color,
+                noRestriction: dto.noRestriction ?? false,
             },
             select: GROUP_WITH_TECHNICIANS_SELECT,
         })
@@ -144,6 +146,7 @@ export class MaintenanceGroupsService {
                 ...(dto.description !== undefined && { description: dto.description }),
                 ...(dto.color !== undefined && { color: dto.color }),
                 ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+                ...(dto.noRestriction !== undefined && { noRestriction: dto.noRestriction }),
             },
             select: GROUP_WITH_TECHNICIANS_SELECT,
         })

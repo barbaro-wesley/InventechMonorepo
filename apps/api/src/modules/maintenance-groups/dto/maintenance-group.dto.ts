@@ -15,6 +15,10 @@ export class CreateMaintenanceGroupDto {
     @IsOptional()
     @IsHexColor()
     color?: string  // Ex: "#3B82F6"
+
+    @IsOptional()
+    @IsBoolean()
+    noRestriction?: boolean  // Quando true, o grupo tem acesso a todos os tipos de equipamento
 }
 
 export class UpdateMaintenanceGroupDto {
@@ -33,6 +37,10 @@ export class UpdateMaintenanceGroupDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean
+
+    @IsOptional()
+    @IsBoolean()
+    noRestriction?: boolean  // Quando true, o grupo tem acesso a todos os tipos de equipamento
 }
 
 export class ListMaintenanceGroupsDto {

@@ -7,6 +7,7 @@ export interface MaintenanceGroup {
   description: string | null;
   color: string | null;
   isActive: boolean;
+  noRestriction: boolean;
   createdAt: string;
   updatedAt: string;
   _count: { technicians: number; serviceOrders: number };
@@ -16,6 +17,7 @@ export interface CreateMaintenanceGroupDto {
   name: string;
   description?: string;
   color?: string;
+  noRestriction?: boolean;
 }
 
 export interface UpdateMaintenanceGroupDto {
@@ -23,6 +25,7 @@ export interface UpdateMaintenanceGroupDto {
   description?: string;
   color?: string;
   isActive?: boolean;
+  noRestriction?: boolean;
 }
 
 export const maintenanceGroupsService = {

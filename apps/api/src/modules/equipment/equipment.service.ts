@@ -93,6 +93,7 @@ export class EquipmentService {
                     select: {
                         group: {
                             select: {
+                                noRestriction: true,
                                 equipmentTypes: { select: { id: true } },
                             },
                         },
@@ -102,6 +103,12 @@ export class EquipmentService {
         })
 
         if (!client) throw new ForbiddenException('Cliente não encontrado')
+
+        // Se algum grupo vinculado é "sem restrição", o cliente vê todos os tipos
+        const hasUnrestrictedGroup = client.maintenanceGroups.some((cg) => cg.group.noRestriction)
+        if (hasUnrestrictedGroup) {
+            return { companyId: client.companyId, allowedTypeIds: null }
+        }
 
         const allowedTypeIds = client.maintenanceGroups
             .flatMap((cg) => cg.group.equipmentTypes.map((et) => et.id))

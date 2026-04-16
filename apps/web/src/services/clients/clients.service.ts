@@ -94,6 +94,7 @@ export interface ClientMaintenanceGroupAssignment {
     description: string | null;
     color: string | null;
     isActive: boolean;
+    noRestriction: boolean;
     equipmentTypes: { id: string; name: string }[];
   };
 }

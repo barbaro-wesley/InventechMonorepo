@@ -262,6 +262,7 @@ export class ClientsService {
             description: true,
             color: true,
             isActive: true,
+            noRestriction: true,
             equipmentTypes: { select: { id: true, name: true } },
           },
         },

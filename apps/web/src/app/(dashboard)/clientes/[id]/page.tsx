@@ -706,7 +706,13 @@ function GroupsTab({ clientId }: { clientId: string }) {
                   {a.group.description && (
                     <p className="text-xs text-slate-500 truncate">{a.group.description}</p>
                   )}
-                  {a.group.equipmentTypes.length > 0 && (
+                  {a.group.noRestriction ? (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 border border-amber-200 font-medium">
+                        Todos os tipos de equipamento
+                      </span>
+                    </div>
+                  ) : a.group.equipmentTypes.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {a.group.equipmentTypes.map((t) => (
                         <span key={t.id} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">

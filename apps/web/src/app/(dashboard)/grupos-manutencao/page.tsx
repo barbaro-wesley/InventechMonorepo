@@ -14,6 +14,7 @@ import {
   Users,
   ClipboardList,
   MoreHorizontal,
+  Infinity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,7 @@ const groupSchema = z.object({
   name: z.string().min(2, "Mínimo 2 caracteres"),
   description: z.string().optional(),
   color: z.string().optional(),
+  noRestriction: z.boolean().optional(),
 });
 type GroupForm = z.infer<typeof groupSchema>;
 
@@ -84,13 +86,15 @@ function GroupSheet({
 
   const [selectedColor, setSelectedColor] = useState(editTarget?.color ?? PRESET_COLORS[0]);
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<GroupForm>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<GroupForm>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(groupSchema) as any,
     values: editTarget
-      ? { name: editTarget.name, description: editTarget.description ?? "", color: editTarget.color ?? "" }
-      : { name: "", description: "", color: PRESET_COLORS[0] },
+      ? { name: editTarget.name, description: editTarget.description ?? "", color: editTarget.color ?? "", noRestriction: editTarget.noRestriction ?? false }
+      : { name: "", description: "", color: PRESET_COLORS[0], noRestriction: false },
   });
+
+  const noRestriction = watch("noRestriction");
 
   function handleClose() {
     reset();
@@ -103,6 +107,7 @@ function GroupSheet({
       name: data.name,
       description: data.description || undefined,
       color: selectedColor,
+      noRestriction: data.noRestriction ?? false,
     };
 
     if (editTarget) {
@@ -166,6 +171,32 @@ function GroupSheet({
                 placeholder="#3b82f6"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Acesso a equipamentos</Label>
+            <label
+              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                noRestriction
+                  ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30"
+                  : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-amber-500"
+                {...register("noRestriction")}
+              />
+              <div>
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Infinity className="w-3.5 h-3.5 text-amber-500" />
+                  Sem restrição de tipo
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Clientes vinculados a este grupo poderão ver todos os tipos de equipamento, independente do vínculo no cadastro do tipo.
+                </p>
+              </div>
+            </label>
           </div>
 
           <SheetFooter className="mt-auto pt-4">
@@ -238,6 +269,14 @@ function GroupCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {/* Badge sem restrição */}
+        {group.noRestriction && (
+          <div className="flex items-center gap-1.5 mt-3 px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+            <Infinity className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+            <span className="text-xs text-amber-700 dark:text-amber-400 font-medium">Sem restrição de tipo</span>
+          </div>
+        )}
 
         {/* Contadores */}
         <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
