@@ -76,10 +76,11 @@ async function getMyStats(): Promise<MyOsStats> {
 }
 
 async function update(
+  clientId: string | null,
   id: string,
-  dto: { title?: string; description?: string; priority?: string },
+  dto: { title?: string; description?: string; priority?: string; maintenanceType?: string; clientId?: string; resolution?: string; internalNotes?: string },
 ): Promise<ServiceOrder> {
-  const { data } = await api.patch(`/service-orders/${id}`, dto)
+  const { data } = await api.patch(osBase(clientId, id), dto)
   return data
 }
 

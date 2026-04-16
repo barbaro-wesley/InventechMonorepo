@@ -118,8 +118,8 @@ export interface ServiceOrderTask {
   position: number
   dueDate: string | null
   completedAt: string | null
-  assignedTo: { id: string; name: string } | null
   createdAt: string
+  assignedTo: { id: string; name: string } | null
 }
 
 export interface ServiceOrderStatusHistory {

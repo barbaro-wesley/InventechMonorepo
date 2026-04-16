@@ -390,6 +390,7 @@ export class ServiceOrdersService {
                         position: true,
                         dueDate: true,
                         completedAt: true,
+                        createdAt: true,
                         assignedTo: { select: { id: true, name: true } },
                     },
                     orderBy: { position: 'asc' },
@@ -886,6 +887,10 @@ export class ServiceOrdersService {
                 ...(dto.title && { title: dto.title }),
                 ...(dto.description && { description: dto.description }),
                 ...(dto.priority && { priority: dto.priority }),
+                ...(dto.maintenanceType && { maintenanceType: dto.maintenanceType }),
+                ...(dto.clientId !== undefined && {
+                    client: dto.clientId ? { connect: { id: dto.clientId } } : { disconnect: true },
+                }),
                 ...(dto.resolution !== undefined && { resolution: dto.resolution }),
                 ...(dto.internalNotes !== undefined && { internalNotes: dto.internalNotes }),
                 ...(dto.alertAfterHours !== undefined && { alertAfterHours: dto.alertAfterHours }),

@@ -71,6 +71,14 @@ export class UpdateServiceOrderDto {
     priority?: ServiceOrderPriority
 
     @IsOptional()
+    @IsEnum(MaintenanceType)
+    maintenanceType?: MaintenanceType
+
+    @IsOptional()
+    @IsUUID()
+    clientId?: string
+
+    @IsOptional()
     @IsUUID()
     groupId?: string
 

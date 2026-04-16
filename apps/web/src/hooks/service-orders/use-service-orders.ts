@@ -66,15 +66,16 @@ export function useMyOsStats() {
 }
 
 // ─────────────────────────────────────────
-// Atualizar OS (título, descrição, prioridade)
+// Atualizar OS (título, descrição, prioridade, resolução)
 // ─────────────────────────────────────────
-export function useUpdateServiceOrder(id: string) {
+export function useUpdateServiceOrder(clientId: string | null, id: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (dto: { title?: string; description?: string; priority?: string }) =>
-      serviceOrdersService.update(id, dto),
+    mutationFn: (dto: { title?: string; description?: string; priority?: string; maintenanceType?: string; clientId?: string; resolution?: string; internalNotes?: string }) =>
+      serviceOrdersService.update(clientId, id, dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.detail(clientId, id) })
       toast.success('OS atualizada')
     },
     onError: (err) => toast.error(getErrorMessage(err)),

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon } from 'lucide-react'
+import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -26,8 +26,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useServiceOrder, useUpdateServiceOrderStatus, useAssumeServiceOrder } from '@/hooks/service-orders/use-service-orders'
+import { useServiceOrder, useUpdateServiceOrderStatus, useAssumeServiceOrder, useUpdateServiceOrder } from '@/hooks/service-orders/use-service-orders'
 import { useCurrentUser } from '@/store/auth.store'
 import { OsDetailTab } from './tabs/os-detail-tab'
 import { OsTasksTab } from './tabs/os-tasks-tab'
@@ -35,7 +51,8 @@ import { OsCommentsTab } from './tabs/os-comments-tab'
 import { OsHistoryTab } from './tabs/os-history-tab'
 import { OsCostsTab } from './tabs/os-costs-tab'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from './os-utils'
-import type { ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
+import type { ServiceOrderStatus, ServiceOrderPriority, MaintenanceType } from '@/services/service-orders/service-orders.types'
+import { MAINTENANCE_TYPE_LABELS } from './os-utils'
 
 type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs'
 
@@ -82,10 +99,55 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const [completionFiles, setCompletionFiles] = useState<File[]>([])
   const completionFileInputRef = useRef<HTMLInputElement>(null)
 
+  const [editOpen, setEditOpen] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editPriority, setEditPriority] = useState<ServiceOrderPriority>('MEDIUM')
+  const [editMaintenanceType, setEditMaintenanceType] = useState<MaintenanceType>('CORRECTIVE')
+  const [editClientId, setEditClientId] = useState('')
+  const [editResolution, setEditResolution] = useState('')
+  const [editClients, setEditClients] = useState<{ id: string; name: string }[]>([])
+
   const user = useCurrentUser()
   const { data: os, isLoading } = useServiceOrder(clientId, osId ?? '')
   const updateStatus = useUpdateServiceOrderStatus(clientId, osId ?? '')
   const assume = useAssumeServiceOrder(clientId, osId ?? '')
+  const updateOs = useUpdateServiceOrder(clientId, osId ?? '')
+
+  const COMPLETED_STATUSES: ServiceOrderStatus[] = ['COMPLETED', 'COMPLETED_APPROVED', 'COMPLETED_REJECTED']
+
+  const openEdit = () => {
+    if (!os) return
+    setEditTitle(os.title)
+    setEditDescription(os.description)
+    setEditPriority(os.priority as ServiceOrderPriority)
+    setEditMaintenanceType(os.maintenanceType as MaintenanceType)
+    setEditClientId(os.client?.id ?? '')
+    setEditResolution(os.resolution ?? '')
+    setEditOpen(true)
+    // carrega lista de clientes (prestadores)
+    import('@/lib/api').then(({ api }) =>
+      api.get('/clients', { params: { limit: 100 } }).then(({ data }) =>
+        setEditClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name }))),
+      ),
+    )
+  }
+
+  const handleSaveEdit = () => {
+    updateOs.mutate(
+      {
+        title: editTitle,
+        description: editDescription,
+        priority: editPriority,
+        maintenanceType: editMaintenanceType,
+        clientId: editClientId || undefined,
+        resolution: COMPLETED_STATUSES.includes(os?.status as ServiceOrderStatus)
+          ? (editResolution || undefined)
+          : undefined,
+      },
+      { onSuccess: () => setEditOpen(false) },
+    )
+  }
 
   if (!open || !osId) return null
 
@@ -132,7 +194,17 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     { id: 'tasks', label: 'Tarefas', count: os?.tasks?.length },
     { id: 'comments', label: 'Comentários', count: os?.comments?.length },
     { id: 'costs', label: 'Custos' },
-    { id: 'history', label: 'Histórico', count: os?.statusHistory?.length },
+    {
+      id: 'history',
+      label: 'Histórico',
+      count:
+        1 + // criação
+        (os?.statusHistory?.length ?? 0) +
+        (os?.comments?.length ?? 0) +
+        (os?.tasks?.length ?? 0) +
+        (os?.technicians?.length ?? 0) +
+        (os?.attachments?.length ?? 0),
+    },
   ]
 
   const statusActions = os
@@ -197,6 +269,18 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
 
                 {/* Ações de status */}
                 <div className="flex items-center gap-2">
+                  {MANAGER_ROLES.includes(user?.role ?? '') && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs gap-1.5"
+                      onClick={openEdit}
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Editar
+                    </Button>
+                  )}
+
                   {canAssume && (
                     <Button
                       size="sm"
@@ -316,7 +400,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                   />
                 )}
                 {activeTab === 'history' && (
-                  <OsHistoryTab history={os.statusHistory ?? []} />
+                  <OsHistoryTab os={os} />
                 )}
               </div>
             </>
@@ -393,6 +477,116 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de edição da OS */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar OS</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-title">Título</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-description">Descrição</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-priority">Prioridade</Label>
+                <Select
+                  value={editPriority}
+                  onValueChange={(v) => setEditPriority(v as ServiceOrderPriority)}
+                >
+                  <SelectTrigger id="edit-priority">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(PRIORITY_CONFIG) as ServiceOrderPriority[]).map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {PRIORITY_CONFIG[p].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-maintenance-type">Tipo de manutenção</Label>
+                <Select
+                  value={editMaintenanceType}
+                  onValueChange={(v) => setEditMaintenanceType(v as MaintenanceType)}
+                >
+                  <SelectTrigger id="edit-maintenance-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(MAINTENANCE_TYPE_LABELS) as MaintenanceType[]).map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {MAINTENANCE_TYPE_LABELS[t]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {editClients.length > 0 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-client">Prestador</Label>
+                <Select
+                  value={editClientId}
+                  onValueChange={setEditClientId}
+                >
+                  <SelectTrigger id="edit-client">
+                    <SelectValue placeholder="Selecione o prestador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {editClients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {COMPLETED_STATUSES.includes(os?.status as ServiceOrderStatus) && (
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-resolution">Resolução</Label>
+                <Textarea
+                  id="edit-resolution"
+                  placeholder="Descreva a resolução aplicada..."
+                  value={editResolution}
+                  onChange={(e) => setEditResolution(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={!editTitle.trim() || updateOs.isPending}
+            >
+              {updateOs.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de reprovação */}
       <AlertDialog open={statusAction === 'COMPLETED_REJECTED'} onOpenChange={(v) => !v && setStatusAction(null)}>
