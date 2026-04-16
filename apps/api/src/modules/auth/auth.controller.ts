@@ -133,16 +133,28 @@ export class AuthController {
   // ─────────────────────────────────────────
   // POST /auth/logout
   // ─────────────────────────────────────────
+  // @Public() é necessário para que logout funcione mesmo com token expirado.
+  // Sem isso, o JwtAuthGuard rejeita a requisição com 401 antes de limpar os
+  // cookies, deixando os cookies inválidos no browser e causando loop infinito
+  // de redirecionamento (proxy.ts vê cookies → redireciona para /dashboard).
+  @Public()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout', description: 'Revoga o refresh token e limpa os cookies' })
   async logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-    @CurrentUser() user: AuthenticatedUser,
   ) {
     const rawRefreshToken = req.cookies?.['refresh_token']
-    if (rawRefreshToken) await this.authService.logout(user.sub, rawRefreshToken)
+    // Tenta revogar o refresh token se existir — falha silenciosa se token for inválido
+    if (rawRefreshToken) {
+      try {
+        const userId = this.authService.decodeRefreshTokenUserId(rawRefreshToken)
+        if (userId) await this.authService.logout(userId, rawRefreshToken)
+      } catch {
+        // Token inválido ou expirado — ignora e continua para limpar os cookies
+      }
+    }
 
     res.clearCookie('access_token', COOKIE_OPTIONS)
     res.clearCookie('refresh_token', COOKIE_OPTIONS)

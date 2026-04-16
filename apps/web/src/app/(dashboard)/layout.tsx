@@ -218,7 +218,10 @@ export default function DashboardLayout({
     const permissions = usePermissions();
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    // Route guard: bloqueia acesso direto por URL a rotas sem permissão
+    // Route guard: bloqueia acesso direto por URL a rotas sem permissão.
+    // Não inclui `permissions` nas dependências — usePermissions() retorna um
+    // novo objeto a cada render, o que causava um loop infinito de GET /dashboard.
+    // A lógica de canAccess é inlined aqui pois depende apenas de `user`.
     useEffect(() => {
         if (!user) return;
         const allNavItems = navSections.flatMap((s) => s.items);
@@ -226,18 +229,25 @@ export default function DashboardLayout({
             (item) => pathname === item.href || pathname.startsWith(item.href + "/")
         );
         if (!matched) return; // /perfil e páginas não listadas são sempre acessíveis
+
+        const redirectToDashboard = () => {
+            if (pathname !== "/dashboard") router.replace("/dashboard");
+        };
+
         // Papel personalizado: verifica permissão específica do item
         if (user.customRoleId && matched.permission) {
             const [resource, action] = matched.permission.split(":");
-            if (!permissions.canAccess(resource, action)) {
-                router.replace("/dashboard");
-            }
+            const hasAccess =
+                user.role === "SUPER_ADMIN" ||
+                (user.permissions?.includes(`${resource}:${action}`) ?? false);
+            if (!hasAccess) redirectToDashboard();
             return;
         }
         if (!matched.roles.includes(user.role as Role)) {
-            router.replace("/dashboard");
+            redirectToDashboard();
         }
-    }, [pathname, user, router, permissions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pathname, user, router]);
     const [collapsed, setCollapsed] = useState(false);
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         operacoes: true,

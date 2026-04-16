@@ -55,8 +55,22 @@ api.interceptors.response.use(
                 await refreshPromise;
                 return api(originalRequest);
             } catch {
-                if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
-                    window.location.href = "/login";
+                // Limpa os cookies HTTP-only no servidor antes de redirecionar.
+                // Sem isso, o proxy.ts vê os cookies expirados e redireciona
+                // de /login de volta ao /dashboard causando loop infinito.
+                if (typeof window !== "undefined") {
+                    const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+                    try {
+                        await fetch(`${baseURL}/auth/logout`, {
+                            method: "POST",
+                            credentials: "include",
+                        });
+                    } catch {
+                        // Ignora erros de logout — o redirect acontece de qualquer forma
+                    }
+                    if (!window.location.pathname.startsWith("/login")) {
+                        window.location.href = "/login";
+                    }
                 }
                 return Promise.reject(error);
             }

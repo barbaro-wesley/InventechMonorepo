@@ -297,6 +297,21 @@ export class AuthService {
     // ─────────────────────────────────────────
     // Logout
     // ─────────────────────────────────────────
+
+    /**
+     * Extrai o userId de um refresh token sem verificar a assinatura.
+     * Usado no logout para revogar o token mesmo quando o access_token expirou.
+     * Retorna null se o token for inválido ou não tiver o campo `sub`.
+     */
+    decodeRefreshTokenUserId(rawToken: string): string | null {
+        try {
+            const payload = this.jwtService.decode(rawToken) as { sub?: string } | null
+            return payload?.sub ?? null
+        } catch {
+            return null
+        }
+    }
+
     async logout(userId: string, rawRefreshToken: string) {
         const storedTokens = await this.prisma.refreshToken.findMany({
             where: { userId, revokedAt: null },

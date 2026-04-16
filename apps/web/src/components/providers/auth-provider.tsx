@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { authService } from "@/services/auth/auth.service";
@@ -19,7 +19,6 @@ const PUBLIC_ROUTES = [
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { setUser, setLoading } = useAuthStore();
 
   const isPublicRoute = PUBLIC_ROUTES.some((route) =>
@@ -40,11 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading) return;
+    // O interceptor do axios já trata o redirect quando tokens expiram (401).
+    // Este effect é o fallback para outros erros (rede, 403, etc).
+    // Limpa o store para que o proxy.ts não redirecione de /login de volta
+    // ao dashboard com dados obsoletos no sessionStorage.
     if (isError && !isPublicRoute) {
       setUser(null);
-      router.push("/login");
     }
-  }, [isLoading, isError, isPublicRoute, router, setUser]);
+  }, [isLoading, isError, isPublicRoute, setUser]);
 
   useEffect(() => {
     setLoading(isLoading);
