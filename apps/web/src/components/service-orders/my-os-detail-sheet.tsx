@@ -95,7 +95,7 @@ export function MyOsDetailSheet({ osId, open, onClose }: MyOsDetailSheetProps) {
 
   const { data: os, isLoading } = useServiceOrder(null, osId ?? '')
   const updateStatus = useUpdateServiceOrderStatus(null, osId ?? '')
-  const updateOs = useUpdateServiceOrder(osId ?? '')
+  const updateOs = useUpdateServiceOrder(null, osId ?? '')
   const addComment = useAddComment(null, osId ?? '')
 
   const commentForm = useForm<{ content: string }>()
