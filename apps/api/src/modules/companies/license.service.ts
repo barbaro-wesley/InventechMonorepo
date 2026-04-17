@@ -1,12 +1,14 @@
 import {
   Injectable, Logger, NotFoundException,
-  BadRequestException, ForbiddenException,
+  BadRequestException, ForbiddenException, Inject,
 } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { CompanyStatus, UserStatus } from '@prisma/client'
 import { IsDateString, IsOptional, IsString, MinLength } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import Redis from 'ioredis'
 import { PrismaService } from '../../prisma/prisma.service'
+import { REDIS_CLIENT } from '../../common/providers/redis.provider'
 
 export class SuspendCompanyDto {
   @ApiProperty({ example: 'Contrato vencido — cliente não renovou' })
@@ -34,7 +36,18 @@ export class SetTrialDto {
 export class LicenseService {
   private readonly logger = new Logger(LicenseService.name)
 
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) { }
+
+  private async invalidateLicenseCache(companyId: string): Promise<void> {
+    try {
+      await this.redis.del(`license:${companyId}`)
+    } catch {
+      // Não critico — TTL vai expirar naturalmente
+    }
+  }
 
   // ─────────────────────────────────────────
   // Suspender empresa manualmente
@@ -86,6 +99,8 @@ export class LicenseService {
       `${result} usuário(s) bloqueados | Motivo: ${reason} | Admin: ${adminId}`
     )
 
+    await this.invalidateLicenseCache(companyId)
+
     return {
       message: `Empresa "${company.name}" suspensa com sucesso`,
       reason,
@@ -128,6 +143,8 @@ export class LicenseService {
       `${result} usuário(s) reativados | Admin: ${adminId}`
     )
 
+    await this.invalidateLicenseCache(companyId)
+
     return {
       message: `Empresa "${company.name}" reativada com sucesso`,
       usersUnblocked: result,
@@ -159,6 +176,9 @@ export class LicenseService {
     })
 
     this.logger.log(`Licença renovada: ${company.name} até ${expiresAt.toLocaleDateString('pt-BR')} | Admin: ${adminId}`)
+
+    await this.invalidateLicenseCache(companyId)
+
     return {
       message: `Licença de "${company.name}" válida até ${expiresAt.toLocaleDateString('pt-BR')}`,
       licenseExpiresAt: expiresAt,
@@ -181,6 +201,9 @@ export class LicenseService {
     })
 
     this.logger.log(`Trial configurado: ${company.name} até ${trialEndsAt.toLocaleDateString('pt-BR')} | Admin: ${adminId}`)
+
+    await this.invalidateLicenseCache(companyId)
+
     return {
       message: `Período de teste de "${company.name}" até ${trialEndsAt.toLocaleDateString('pt-BR')}`,
       trialEndsAt,
@@ -354,6 +377,7 @@ export class LicenseService {
           AND revoked_at IS NULL
         `
       })
+      await this.invalidateLicenseCache(company.id)
       this.logger.warn(`Auto-suspenso: ${company.name} | ${company.reason}`)
     }
 

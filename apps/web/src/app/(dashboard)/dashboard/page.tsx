@@ -23,6 +23,7 @@ import {
   CalendarRange,
   ChevronDown,
   ChevronUp,
+  MonitorDot,
 } from "lucide-react";
 
 import { usePlatformDashboard, useCompanyDashboard, useClientDashboard } from "@/hooks/dashboard/use-dashboard";
@@ -583,6 +584,7 @@ function CompanyDashboard() {
   const user = useCurrentUser();
   const { data, isLoading, isError, refetch, isFetching } = useCompanyDashboard();
   const { data: upcomingSchedules = [] } = useUpcomingPreventives(30);
+  const [equipmentByTypeOpen, setEquipmentByTypeOpen] = useState(false);
 
   if (isLoading) return <SkeletonDash />;
   if (isError || !data) {
@@ -735,6 +737,61 @@ function CompanyDashboard() {
 
       {/* Preventivas nos próximos 30 dias */}
       <UpcomingPreventivesCard />
+
+      {/* Equipamentos por tipo */}
+      {equipmentMetrics.byType && equipmentMetrics.byType.length > 0 && (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setEquipmentByTypeOpen((v) => !v)}
+            onKeyDown={(e) => e.key === "Enter" && setEquipmentByTypeOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
+                <MonitorDot className="w-4 h-4 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Equipamentos por tipo</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {equipmentMetrics.total} equipamento{equipmentMetrics.total !== 1 ? "s" : ""} · {equipmentMetrics.byType.length} tipo{equipmentMetrics.byType.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+            </div>
+            {equipmentByTypeOpen ? (
+              <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            )}
+          </div>
+          {equipmentByTypeOpen && (
+            <div className="border-t border-slate-100 dark:border-slate-800 px-5 py-4 space-y-3">
+              {equipmentMetrics.byType.map((item) => {
+                const pct = equipmentMetrics.total > 0
+                  ? Math.round((item.count / equipmentMetrics.total) * 100)
+                  : 0;
+                return (
+                  <div key={item.id}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{item.name}</span>
+                      <span className="text-sm text-slate-500 tabular-nums">
+                        {item.count} <span className="text-xs text-slate-400">({pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Top técnicos */}
       {topTechnicians.length > 0 && (

@@ -26,6 +26,9 @@ import {
   MoreHorizontal,
   Trash2,
   UserCheck,
+  ChevronDown,
+  ChevronUp,
+  MonitorDot,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,6 +41,7 @@ import {
   useSuspendCompany,
   useActivateCompany,
   useUpdateLicense,
+  useCompanyEquipmentByType,
 } from "@/hooks/companies/use-companies";
 import {
   useUsers,
@@ -880,9 +884,11 @@ export default function EmpresaDetailPage() {
   const [suspendOpen, setSuspendOpen] = useState(false);
   const [activateOpen, setActivateOpen] = useState(false);
   const [licenseOpen, setLicenseOpen] = useState(false);
+  const [equipmentExpanded, setEquipmentExpanded] = useState(false);
 
   const { data: company, isLoading, isError } = useCompany(id);
   const { data: license, isLoading: licenseLoading } = useCompanyLicense(id);
+  const { data: equipmentByType, isLoading: equipmentLoading } = useCompanyEquipmentByType(id);
 
   const updateCompany = useUpdateCompany(id);
   const suspendMutation = useSuspendCompany();
@@ -1291,6 +1297,81 @@ export default function EmpresaDetailPage() {
                     <Button size="sm" variant="outline" className="mt-3" onClick={() => setLicenseOpen(true)}>
                       Configurar agora
                     </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {/* Equipment by type */}
+          <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+            <button
+              onClick={() => setEquipmentExpanded((v) => !v)}
+              className="w-full flex items-center justify-between gap-4 p-5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
+                  <MonitorDot className="w-4 h-4 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Equipamentos por tipo</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {equipmentLoading
+                      ? "Carregando..."
+                      : equipmentByType
+                      ? `${equipmentByType.total} equipamento${equipmentByType.total !== 1 ? "s" : ""} · ${equipmentByType.items.length} tipo${equipmentByType.items.length !== 1 ? "s" : ""}`
+                      : "Nenhum equipamento"}
+                  </p>
+                </div>
+              </div>
+              {equipmentExpanded ? (
+                <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              )}
+            </button>
+
+            {equipmentExpanded && (
+              <div className="border-t border-slate-100 dark:border-slate-800 p-5">
+                {equipmentLoading ? (
+                  <div className="space-y-3 animate-pulse">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="space-y-1.5">
+                        <div className="flex justify-between">
+                          <div className="h-3 w-28 bg-slate-100 dark:bg-slate-800 rounded" />
+                          <div className="h-3 w-8 bg-slate-100 dark:bg-slate-800 rounded" />
+                        </div>
+                        <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full" />
+                      </div>
+                    ))}
+                  </div>
+                ) : !equipmentByType || equipmentByType.items.length === 0 ? (
+                  <div className="py-8 text-center">
+                    <MonitorDot className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">Nenhum equipamento cadastrado</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {equipmentByType.items.map((item) => {
+                      const pct = equipmentByType.total > 0
+                        ? Math.round((item.count / equipmentByType.total) * 100)
+                        : 0;
+                      return (
+                        <div key={item.id}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-sm text-slate-700 dark:text-slate-300 font-medium">{item.name}</span>
+                            <span className="text-sm text-slate-500 tabular-nums">
+                              {item.count} <span className="text-xs text-slate-400">({pct}%)</span>
+                            </span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

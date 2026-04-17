@@ -91,4 +91,12 @@ export const companiesService = {
     ): Promise<void> {
         await api.patch(`/companies/${companyId}/report-settings`, dto);
     },
+
+    async getEquipmentByType(companyId: string): Promise<{
+        items: { id: string; name: string; count: number }[];
+        total: number;
+    }> {
+        const { data } = await api.get(`/companies/${companyId}/equipment-by-type`);
+        return data;
+    },
 };

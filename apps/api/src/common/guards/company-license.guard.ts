@@ -8,18 +8,19 @@ import {
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { UserRole } from '@prisma/client'
+import Redis from 'ioredis'
 import { PrismaService } from '../../prisma/prisma.service'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator'
+import { REDIS_CLIENT } from '../providers/redis.provider'
 
-const licenseCache = new Map<string, {
+const LICENSE_CACHE_TTL = 120 // 2 minutos
+
+interface LicenseCacheEntry {
   status: string
-  licenseExpiresAt: Date | null
-  trialEndsAt: Date | null
-  cachedAt: number
+  licenseExpiresAt: string | null
+  trialEndsAt: string | null
   suspendedReason: string | null
-}>()
-
-const CACHE_TTL_MS = 2 * 60 * 1000 // 2 minutos
+}
 
 @Injectable()
 export class CompanyLicenseGuard implements CanActivate {
@@ -28,6 +29,7 @@ export class CompanyLicenseGuard implements CanActivate {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -51,7 +53,7 @@ export class CompanyLicenseGuard implements CanActivate {
     const companyId = user.companyId
     if (!companyId) return true
 
-    // ── 5. Busca status da empresa (com cache) ────────────────────
+    // ── 5. Busca status da empresa (com cache Redis) ──────────────
     const company = await this.fetchCompanyStatus(companyId)
     if (!company) return true
 
@@ -100,20 +102,17 @@ export class CompanyLicenseGuard implements CanActivate {
     return true
   }
 
-  // ─────────────────────────────────────────
-  // Busca com cache — evita query no banco
-  // em todo request
-  // ─────────────────────────────────────────
-  private async fetchCompanyStatus(companyId: string) {
-    const cached = licenseCache.get(companyId)
-    const now = Date.now()
+  private async fetchCompanyStatus(companyId: string): Promise<LicenseCacheEntry | null> {
+    const cacheKey = `license:${companyId}`
 
-    if (cached && now - cached.cachedAt < CACHE_TTL_MS) {
-      return cached
+    try {
+      const cached = await this.redis.get(cacheKey)
+      if (cached) return JSON.parse(cached) as LicenseCacheEntry
+    } catch {
+      // Redis indisponível — continua para busca no banco
     }
 
     try {
-      // Busca direto no banco sem passar pelo middleware de soft delete
       const company = await this.prisma.$queryRaw<Array<{
         status: string
         license_expires_at: Date | null
@@ -130,26 +129,23 @@ export class CompanyLicenseGuard implements CanActivate {
       if (!company.length) return null
 
       const row = company[0]
-      const data = {
+      const data: LicenseCacheEntry = {
         status: row.status,
-        licenseExpiresAt: row.license_expires_at,
-        trialEndsAt: row.trial_ends_at,
+        licenseExpiresAt: row.license_expires_at?.toISOString() ?? null,
+        trialEndsAt: row.trial_ends_at?.toISOString() ?? null,
         suspendedReason: row.suspended_reason,
-        cachedAt: now,
       }
 
-      licenseCache.set(companyId, data)
+      try {
+        await this.redis.setex(cacheKey, LICENSE_CACHE_TTL, JSON.stringify(data))
+      } catch {
+        // Falha ao gravar cache não é crítica
+      }
+
       return data
     } catch (err) {
       this.logger.error(`Erro ao verificar licença da empresa ${companyId}: ${err.message}`)
       return null // fail open — não bloqueia se o banco falhar
     }
-  }
-
-  // ─────────────────────────────────────────
-  // Invalida o cache — chamar após suspender/reativar
-  // ─────────────────────────────────────────
-  static invalidateCache(companyId: string) {
-    licenseCache.delete(companyId)
   }
 }

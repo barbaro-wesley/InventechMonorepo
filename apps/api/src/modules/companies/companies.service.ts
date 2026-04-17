@@ -300,6 +300,39 @@ export class CompaniesService {
   }
 
   // ─────────────────────────────────────────
+  // Equipamentos por tipo da empresa
+  // ─────────────────────────────────────────
+  async getEquipmentByType(id: string, currentUser: AuthenticatedUser) {
+    await this.findOne(id, currentUser)
+
+    const types = await this.prisma.equipmentType.findMany({
+      where: { companyId: id, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { equipments: true } },
+      },
+      orderBy: { name: 'asc' },
+    })
+
+    const withoutType = await this.prisma.equipment.count({
+      where: { companyId: id, typeId: null },
+    })
+
+    const items = types
+      .filter((t) => t._count.equipments > 0)
+      .map((t) => ({ id: t.id, name: t.name, count: t._count.equipments }))
+
+    if (withoutType > 0) {
+      items.push({ id: 'none', name: 'Sem tipo', count: withoutType })
+    }
+
+    const total = items.reduce((acc, i) => acc + i.count, 0)
+
+    return { items, total }
+  }
+
+  // ─────────────────────────────────────────
   // Busca template completo para os relatórios
   // ─────────────────────────────────────────
   async getReportTemplate(companyId: string) {

@@ -71,6 +71,7 @@ export interface CompanyDashboard {
   equipmentMetrics: {
     total: number;
     byStatus: { active: number; underMaintenance: number; inactive: number; scrapped: number };
+    byType: Array<{ id: string; name: string; count: number }>;
     critical: number;
     availabilityRate: number;
   };

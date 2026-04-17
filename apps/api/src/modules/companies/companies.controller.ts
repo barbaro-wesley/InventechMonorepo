@@ -196,6 +196,16 @@ export class CompaniesController {
     return this.licenseService.setTrial(id, dto, cu.sub)
   }
 
+  @Get(':id/equipment-by-type')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @ApiOperation({ summary: 'Quantidade de equipamentos por tipo' })
+  getEquipmentByType(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.companiesService.getEquipmentByType(id, currentUser)
+  }
+
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   @Roles(UserRole.SUPER_ADMIN)

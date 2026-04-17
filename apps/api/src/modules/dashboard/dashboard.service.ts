@@ -1,58 +1,89 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Inject } from '@nestjs/common'
 import { ServiceOrderStatus, ServiceOrderPriority, CompanyStatus } from '@prisma/client'
+import Redis from 'ioredis'
 import { PrismaService } from '../../prisma/prisma.service'
+import { REDIS_CLIENT } from '../../common/providers/redis.provider'
+
+const DASHBOARD_TTL = 300      // 5 minutos — dashboard de empresa/cliente
+const SUPERADMIN_TTL = 600     // 10 minutos — dashboard do super admin
 
 @Injectable()
 export class DashboardService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    ) { }
+
+    private async getCached<T>(key: string, ttl: number, fn: () => Promise<T>): Promise<T> {
+        try {
+            const cached = await this.redis.get(key)
+            if (cached) return JSON.parse(cached) as T
+        } catch {
+            // Redis indisponível — executa query normalmente
+        }
+
+        const result = await fn()
+
+        try {
+            await this.redis.setex(key, ttl, JSON.stringify(result))
+        } catch {
+            // Não crítico
+        }
+
+        return result
+    }
 
     // ─────────────────────────────────────────
     // Dashboard principal — tudo em paralelo
     // ─────────────────────────────────────────
     async getCompanyDashboard(companyId: string) {
-        const [
-            osMetrics,
-            osTimeline,
-            topTechnicians,
-            equipmentMetrics,
-            groupMetrics,
-            alerts,
-        ] = await Promise.all([
-            this.getOsMetrics(companyId),
-            this.getOsTimeline(companyId),
-            this.getTopTechnicians(companyId),
-            this.getEquipmentMetrics(companyId),
-            this.getGroupMetrics(companyId),
-            this.getAlerts(companyId),
-        ])
+        return this.getCached(`dashboard:company:${companyId}`, DASHBOARD_TTL, async () => {
+            const [
+                osMetrics,
+                osTimeline,
+                topTechnicians,
+                equipmentMetrics,
+                groupMetrics,
+                alerts,
+            ] = await Promise.all([
+                this.getOsMetrics(companyId),
+                this.getOsTimeline(companyId),
+                this.getTopTechnicians(companyId),
+                this.getEquipmentMetrics(companyId),
+                this.getGroupMetrics(companyId),
+                this.getAlerts(companyId),
+            ])
 
-        return {
-            osMetrics,
-            osTimeline,
-            topTechnicians,
-            equipmentMetrics,
-            groupMetrics,
-            alerts,
-            generatedAt: new Date().toISOString(),
-        }
+            return {
+                osMetrics,
+                osTimeline,
+                topTechnicians,
+                equipmentMetrics,
+                groupMetrics,
+                alerts,
+                generatedAt: new Date().toISOString(),
+            }
+        })
     }
 
     // ─────────────────────────────────────────
     // Dashboard do cliente — visão restrita
     // ─────────────────────────────────────────
     async getClientDashboard(companyId: string, clientId: string) {
-        const [osMetrics, equipmentMetrics, recentOs] = await Promise.all([
-            this.getOsMetrics(companyId, clientId),
-            this.getEquipmentMetrics(companyId),
-            this.getRecentOs(companyId, clientId),
-        ])
+        return this.getCached(`dashboard:client:${companyId}:${clientId}`, DASHBOARD_TTL, async () => {
+            const [osMetrics, equipmentMetrics, recentOs] = await Promise.all([
+                this.getOsMetrics(companyId, clientId),
+                this.getEquipmentMetrics(companyId),
+                this.getRecentOs(companyId, clientId),
+            ])
 
-        return {
-            osMetrics,
-            equipmentMetrics,
-            recentOs,
-            generatedAt: new Date().toISOString(),
-        }
+            return {
+                osMetrics,
+                equipmentMetrics,
+                recentOs,
+                generatedAt: new Date().toISOString(),
+            }
+        })
     }
 
     // ─────────────────────────────────────────
@@ -180,7 +211,7 @@ export class DashboardService {
     private async getEquipmentMetrics(companyId: string) {
         const where = { companyId, deletedAt: null }
 
-        const [total, active, underMaintenance, inactive, scrapped, critical] =
+        const [total, active, underMaintenance, inactive, scrapped, critical, types, withoutType] =
             await Promise.all([
                 this.prisma.equipment.count({ where }),
                 this.prisma.equipment.count({ where: { ...where, status: 'ACTIVE' } }),
@@ -188,11 +219,23 @@ export class DashboardService {
                 this.prisma.equipment.count({ where: { ...where, status: 'INACTIVE' } }),
                 this.prisma.equipment.count({ where: { ...where, status: 'SCRAPPED' } }),
                 this.prisma.equipment.count({ where: { ...where, criticality: 'CRITICAL' } }),
+                this.prisma.equipmentType.findMany({
+                    where: { companyId, isActive: true },
+                    select: { id: true, name: true, _count: { select: { equipments: true } } },
+                    orderBy: { name: 'asc' },
+                }),
+                this.prisma.equipment.count({ where: { ...where, typeId: null } }),
             ])
+
+        const byTypeItems = types
+            .filter((t) => t._count.equipments > 0)
+            .map((t) => ({ id: t.id, name: t.name, count: t._count.equipments }))
+        if (withoutType > 0) byTypeItems.push({ id: 'none', name: 'Sem tipo', count: withoutType })
 
         return {
             total,
             byStatus: { active, underMaintenance, inactive, scrapped },
+            byType: byTypeItems,
             critical,
             availabilityRate: total > 0
                 ? Math.round((active / total) * 100)
@@ -293,34 +336,36 @@ export class DashboardService {
     // Dashboard plataforma — visão do SUPER_ADMIN
     // ─────────────────────────────────────────
     async getSuperAdminDashboard() {
-        const [
-            companyMetrics,
-            userMetrics,
-            clientMetrics,
-            equipmentTotal,
-            osMetrics,
-            licenseAlerts,
-            recentCompanies,
-        ] = await Promise.all([
-            this.getPlatformCompanyMetrics(),
-            this.getPlatformUserMetrics(),
-            this.getPlatformClientMetrics(),
-            this.prisma.equipment.count({ where: { deletedAt: null } }),
-            this.getPlatformOsMetrics(),
-            this.getExpiringLicenses(),
-            this.getRecentCompanies(),
-        ])
+        return this.getCached('dashboard:superadmin', SUPERADMIN_TTL, async () => {
+            const [
+                companyMetrics,
+                userMetrics,
+                clientMetrics,
+                equipmentTotal,
+                osMetrics,
+                licenseAlerts,
+                recentCompanies,
+            ] = await Promise.all([
+                this.getPlatformCompanyMetrics(),
+                this.getPlatformUserMetrics(),
+                this.getPlatformClientMetrics(),
+                this.prisma.equipment.count({ where: { deletedAt: null } }),
+                this.getPlatformOsMetrics(),
+                this.getExpiringLicenses(),
+                this.getRecentCompanies(),
+            ])
 
-        return {
-            companyMetrics,
-            userMetrics,
-            clientMetrics,
-            equipmentTotal,
-            osMetrics,
-            licenseAlerts,
-            recentCompanies,
-            generatedAt: new Date().toISOString(),
-        }
+            return {
+                companyMetrics,
+                userMetrics,
+                clientMetrics,
+                equipmentTotal,
+                osMetrics,
+                licenseAlerts,
+                recentCompanies,
+                generatedAt: new Date().toISOString(),
+            }
+        })
     }
 
     private async getPlatformCompanyMetrics() {

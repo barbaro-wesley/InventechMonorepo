@@ -17,6 +17,7 @@ export const companyKeys = {
   detail: (id: string) => ["companies", "detail", id] as const,
   license: (id: string) => ["companies", "license", id] as const,
   licenses: (params?: object) => ["companies", "licenses", params] as const,
+  equipmentByType: (id: string) => ["companies", "equipment-by-type", id] as const,
 };
 
 export function useCompanies(params?: ListCompaniesParams) {
@@ -150,6 +151,14 @@ export function useUploadCompanyLogo(companyId: string) {
     onError: (error) => {
       toast.error(getErrorMessage(error));
     },
+  });
+}
+
+export function useCompanyEquipmentByType(id: string) {
+  return useQuery({
+    queryKey: companyKeys.equipmentByType(id),
+    queryFn: () => companiesService.getEquipmentByType(id),
+    enabled: !!id,
   });
 }
 
