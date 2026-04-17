@@ -313,11 +313,27 @@ export class AuthService {
     }
 
     async logout(userId: string, rawRefreshToken: string) {
-        const storedTokens = await this.prisma.refreshToken.findMany({
+        // Tokens novos usam SHA-256 — busca direta sem loop de bcrypt
+        const incomingHash = createHash('sha256').update(rawRefreshToken).digest('hex')
+        const directMatch = await this.prisma.refreshToken.findFirst({
+            where: { userId, tokenHash: incomingHash, revokedAt: null },
+        })
+
+        if (directMatch) {
+            await this.prisma.refreshToken.update({
+                where: { id: directMatch.id },
+                data: { revokedAt: new Date() },
+            })
+            return
+        }
+
+        // Fallback para tokens legados com hash bcrypt
+        const legacyTokens = await this.prisma.refreshToken.findMany({
             where: { userId, revokedAt: null },
         })
 
-        for (const record of storedTokens) {
+        for (const record of legacyTokens) {
+            if (!record.tokenHash.startsWith('$2b$')) continue
             const matches = await bcrypt.compare(rawRefreshToken, record.tokenHash)
             if (matches) {
                 await this.prisma.refreshToken.update({

@@ -3,20 +3,25 @@ import {
     Logger,
     BadRequestException,
     UnauthorizedException,
+    Inject,
 } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
 import * as crypto from 'crypto'
+import type Redis from 'ioredis'
 import { PrismaService } from '../../../prisma/prisma.service'
+import { REDIS_CLIENT } from '../../../common/providers/redis.provider'
 import { NotificationsService } from '../../notifications/notifications.service'
 import { buildTwoFactorCodeEmail } from './templates/two-factor-code.template'
 import { buildEmailVerificationEmail } from './templates/email-verification.template'
 import { buildPasswordResetEmail } from './templates/password-reset.template'
 
-const CODE_EXPIRY_MINUTES = 10        // Código 2FA expira em 10 min
-const TOKEN_EXPIRY_HOURS = 24         // Token de email/reset expira em 24h
-const RESET_TOKEN_EXPIRY_HOURS = 1    // Token de reset de senha expira em 1h
+const CODE_TTL_SEC = 10 * 60             // 10 minutos — código 2FA no Redis
+const TOKEN_EXPIRY_HOURS = 24            // Token de email/reset expira em 24h
+const RESET_TOKEN_EXPIRY_HOURS = 1       // Token de reset de senha expira em 1h
 
 export type TwoFactorType = 'LOGIN' | 'EMAIL_CHANGE' | 'PASSWORD_RESET' | 'SENSITIVE_ACTION'
+
+const twoFaKey = (userId: string, type: TwoFactorType) => `2fa:${userId}:${type}`
 
 @Injectable()
 export class TwoFactorService {
@@ -25,11 +30,13 @@ export class TwoFactorService {
     constructor(
         private prisma: PrismaService,
         private notificationsService: NotificationsService,
+        @Inject(REDIS_CLIENT) private readonly redis: Redis,
     ) { }
 
     // ─────────────────────────────────────────
-    // Gera código numérico de 6 dígitos
-    // e envia por email
+    // Gera código numérico de 6 dígitos e
+    // armazena o hash no Redis (TTL 10 min).
+    // Substituir no Redis já invalida o código anterior.
     // ─────────────────────────────────────────
     async sendTwoFactorCode(
         userId: string,
@@ -42,28 +49,12 @@ export class TwoFactorService {
         })
         if (!user) throw new BadRequestException('Usuário não encontrado')
 
-        // Invalida códigos anteriores do mesmo tipo
-        await this.prisma.twoFactorCode.updateMany({
-            where: { userId, type, usedAt: null },
-            data: { usedAt: new Date() },
-        })
-
-        // Gera código de 6 dígitos
         const code = Math.floor(100000 + Math.random() * 900000).toString()
         const codeHash = await bcrypt.hash(code, 10)
-        const expiresAt = new Date(Date.now() + CODE_EXPIRY_MINUTES * 60 * 1000)
 
-        await this.prisma.twoFactorCode.create({
-            data: {
-                userId,
-                code: codeHash,
-                type,
-                expiresAt,
-                ipAddress,
-            },
-        })
+        // SET com EX sobrescreve automaticamente o código anterior do mesmo tipo
+        await this.redis.set(twoFaKey(userId, type), codeHash, 'EX', CODE_TTL_SEC)
 
-        // Envia o código por email
         const subjects: Record<TwoFactorType, string> = {
             LOGIN: '🔐 Seu código de verificação',
             EMAIL_CHANGE: '📧 Confirme a troca de email',
@@ -87,32 +78,21 @@ export class TwoFactorService {
         code: string,
         type: TwoFactorType,
     ): Promise<boolean> {
-        const record = await this.prisma.twoFactorCode.findFirst({
-            where: {
-                userId,
-                type,
-                usedAt: null,
-                expiresAt: { gt: new Date() },
-            },
-            orderBy: { createdAt: 'desc' },
-        })
+        const key = twoFaKey(userId, type)
+        const codeHash = await this.redis.get(key)
 
-        if (!record) {
+        if (!codeHash) {
             throw new UnauthorizedException('Código expirado ou inválido. Solicite um novo.')
         }
 
-        const isValid = await bcrypt.compare(code, record.code)
+        const isValid = await bcrypt.compare(code, codeHash)
 
         if (!isValid) {
             throw new UnauthorizedException('Código incorreto.')
         }
 
-        // Marca como usado
-        await this.prisma.twoFactorCode.update({
-            where: { id: record.id },
-            data: { usedAt: new Date() },
-        })
-
+        // Remove imediatamente após uso — impede replay
+        await this.redis.del(key)
         return true
     }
 
@@ -126,7 +106,6 @@ export class TwoFactorService {
         })
         if (!user) return
 
-        // Invalida tokens anteriores
         await this.prisma.emailVerification.updateMany({
             where: { userId, verifiedAt: null },
             data: { verifiedAt: new Date() },
@@ -185,13 +164,11 @@ export class TwoFactorService {
             select: { id: true, name: true },
         })
 
-        // Sempre retorna sucesso mesmo se o email não existir (segurança)
         if (!user) {
             this.logger.debug(`Reset solicitado para email inexistente: ${email}`)
             return
         }
 
-        // Invalida tokens anteriores
         await this.prisma.passwordReset.updateMany({
             where: { userId: user.id, usedAt: null },
             data: { usedAt: new Date() },
@@ -220,7 +197,6 @@ export class TwoFactorService {
     // Redefine a senha com o token
     // ─────────────────────────────────────────
     async resetPassword(token: string, newPassword: string): Promise<void> {
-        // Busca todos os tokens não usados e não expirados
         const records = await this.prisma.passwordReset.findMany({
             where: { usedAt: null, expiresAt: { gt: new Date() } },
             select: { id: true, userId: true, token: true },
@@ -248,7 +224,6 @@ export class TwoFactorService {
                 where: { id: validRecord.id },
                 data: { usedAt: new Date() },
             }),
-            // Revoga todos os refresh tokens do usuário
             this.prisma.refreshToken.updateMany({
                 where: { userId: validRecord.userId, revokedAt: null },
                 data: { revokedAt: new Date() },
