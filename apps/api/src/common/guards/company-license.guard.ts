@@ -8,18 +8,20 @@ import {
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { UserRole } from '@prisma/client'
+import type Redis from 'ioredis'
 import { PrismaService } from '../../prisma/prisma.service'
+import { REDIS_CLIENT } from '../providers/redis.provider'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator'
 
-const licenseCache = new Map<string, {
-  status: string
-  licenseExpiresAt: Date | null
-  trialEndsAt: Date | null
-  cachedAt: number
-  suspendedReason: string | null
-}>()
+const CACHE_TTL_SEC = 2 * 60 // 2 minutos
+const LICENSE_KEY = (companyId: string) => `license:${companyId}`
 
-const CACHE_TTL_MS = 2 * 60 * 1000 // 2 minutos
+interface LicenseData {
+  status: string
+  licenseExpiresAt: string | null
+  trialEndsAt: string | null
+  suspendedReason: string | null
+}
 
 @Injectable()
 export class CompanyLicenseGuard implements CanActivate {
@@ -28,6 +30,7 @@ export class CompanyLicenseGuard implements CanActivate {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reflector: Reflector,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -51,7 +54,7 @@ export class CompanyLicenseGuard implements CanActivate {
     const companyId = user.companyId
     if (!companyId) return true
 
-    // ── 5. Busca status da empresa (com cache) ────────────────────
+    // ── 5. Busca status da empresa (com cache Redis) ──────────────
     const company = await this.fetchCompanyStatus(companyId)
     if (!company) return true
 
@@ -101,20 +104,15 @@ export class CompanyLicenseGuard implements CanActivate {
   }
 
   // ─────────────────────────────────────────
-  // Busca com cache — evita query no banco
-  // em todo request
+  // Busca com cache Redis — compartilhado entre
+  // todas as instâncias da API
   // ─────────────────────────────────────────
-  private async fetchCompanyStatus(companyId: string) {
-    const cached = licenseCache.get(companyId)
-    const now = Date.now()
-
-    if (cached && now - cached.cachedAt < CACHE_TTL_MS) {
-      return cached
-    }
-
+  private async fetchCompanyStatus(companyId: string): Promise<LicenseData | null> {
     try {
-      // Busca direto no banco sem passar pelo middleware de soft delete
-      const company = await this.prisma.$queryRaw<Array<{
+      const cached = await this.redis.get(LICENSE_KEY(companyId))
+      if (cached !== null) return JSON.parse(cached) as LicenseData
+
+      const rows = await this.prisma.$queryRaw<Array<{
         status: string
         license_expires_at: Date | null
         trial_ends_at: Date | null
@@ -127,29 +125,28 @@ export class CompanyLicenseGuard implements CanActivate {
         LIMIT 1
       `
 
-      if (!company.length) return null
+      if (!rows.length) return null
 
-      const row = company[0]
-      const data = {
+      const row = rows[0]
+      const data: LicenseData = {
         status: row.status,
-        licenseExpiresAt: row.license_expires_at,
-        trialEndsAt: row.trial_ends_at,
+        licenseExpiresAt: row.license_expires_at?.toISOString() ?? null,
+        trialEndsAt: row.trial_ends_at?.toISOString() ?? null,
         suspendedReason: row.suspended_reason,
-        cachedAt: now,
       }
 
-      licenseCache.set(companyId, data)
+      await this.redis.set(LICENSE_KEY(companyId), JSON.stringify(data), 'EX', CACHE_TTL_SEC)
       return data
     } catch (err) {
       this.logger.error(`Erro ao verificar licença da empresa ${companyId}: ${err.message}`)
-      return null // fail open — não bloqueia se o banco falhar
+      return null // fail open — não bloqueia se Redis/banco falhar
     }
   }
 
   // ─────────────────────────────────────────
   // Invalida o cache — chamar após suspender/reativar
   // ─────────────────────────────────────────
-  static invalidateCache(companyId: string) {
-    licenseCache.delete(companyId)
+  async invalidateCache(companyId: string): Promise<void> {
+    await this.redis.del(LICENSE_KEY(companyId))
   }
 }

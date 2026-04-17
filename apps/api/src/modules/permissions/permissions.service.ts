@@ -1,35 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Inject } from '@nestjs/common'
 import { Prisma, UserRole } from '@prisma/client'
+import type Redis from 'ioredis'
 import { PrismaService } from '../../prisma/prisma.service'
+import { REDIS_CLIENT } from '../../common/providers/redis.provider'
 import {
   DEFAULT_PERMISSIONS,
   PROTECTED_MINIMUMS,
 } from './permissions.defaults'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Cache in-memory com TTL
-// Evita consulta ao banco em toda requisição
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface CacheEntry<T> {
-  value: T
-  expiresAt: number
-}
-
-const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutos
+const CACHE_TTL_SEC = 5 * 60 // 5 minutos
+const KEY_PREFIX = 'manutencao:' // espelha o keyPrefix do ioredis
 
 @Injectable()
 export class PermissionsService {
   private readonly logger = new Logger(PermissionsService.name)
 
-  // Cache de permissões de system role: "companyId:resource:action" → UserRole[]
-  private readonly systemCache = new Map<string, CacheEntry<UserRole[]>>()
-
-  // Cache de custom role: "customRoleId:resource:action" → boolean
-  private readonly customCache = new Map<string, CacheEntry<boolean>>()
-
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+  ) {}
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Ponto de entrada principal — chamado pelo PermissionGuard
@@ -40,12 +30,9 @@ export class PermissionsService {
     resource: string,
     action: string,
   ): Promise<boolean> {
-    // Usuário com custom role → verificação por permissões explícitas
     if (user.customRoleId) {
       return this.checkCustomRole(user.customRoleId, resource, action)
     }
-
-    // System role → verifica overrides da empresa ou defaults
     return this.checkSystemRole(user.role, user.companyId, resource, action)
   }
 
@@ -59,7 +46,6 @@ export class PermissionsService {
     resource: string,
     action: string,
   ): Promise<boolean> {
-    const key = `${resource}:${action}`
     const allowedRoles = await this.getEffectiveSystemRoles(companyId, resource, action)
     return allowedRoles.includes(role)
   }
@@ -75,11 +61,10 @@ export class PermissionsService {
     const applyProtected = (roles: UserRole[]) =>
       [...new Set([...roles, ...protected_])]
 
-    // Helper: busca override no banco (funciona com companyId null = global)
     const fetchOverride = async (cid: string | null) => {
-      const cacheKey = `${cid ?? '__global__'}:${permKey}`
-      const cached = this.systemCache.get(cacheKey)
-      if (cached && cached.expiresAt > Date.now()) return cached.value
+      const redisKey = `perm:sys:${cid ?? '__global__'}:${permKey}`
+      const cached = await this.redis.get(redisKey)
+      if (cached !== null) return JSON.parse(cached) as UserRole[] | null
 
       const override = cid
         ? await this.prisma.resourcePermission.findUnique({
@@ -95,33 +80,25 @@ export class PermissionsService {
         ? applyProtected(override.allowedRoles as UserRole[])
         : null
 
-      if (value) {
-        this.systemCache.set(cacheKey, { value, expiresAt: Date.now() + CACHE_TTL_MS })
-      }
+      // Armazena null explicitamente para evitar cache miss repetido
+      await this.redis.set(redisKey, JSON.stringify(value), 'EX', CACHE_TTL_SEC)
       return value
     }
 
     if (companyId) {
-      // 1. Override da empresa
       const companyOverride = await fetchOverride(companyId)
       if (companyOverride) return companyOverride
 
-      // 2. Override global (null)
       const globalOverride = await fetchOverride(null)
       if (globalOverride) return globalOverride
     } else {
-      // SA sem empresa: verifica override global
       const globalOverride = await fetchOverride(null)
       if (globalOverride) return globalOverride
     }
 
-    // 3. Default em código
     const defaultRoles = DEFAULT_PERMISSIONS[permKey] ?? []
-    const cacheKey = `${companyId ?? '__global__'}:${permKey}`
-    this.systemCache.set(cacheKey, {
-      value: defaultRoles,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    })
+    const cacheKey = `perm:sys:${companyId ?? '__global__'}:${permKey}`
+    await this.redis.set(cacheKey, JSON.stringify(defaultRoles), 'EX', CACHE_TTL_SEC)
     return defaultRoles
   }
 
@@ -134,41 +111,30 @@ export class PermissionsService {
     resource: string,
     action: string,
   ): Promise<boolean> {
-    const cacheKey = `customRole:${customRoleId}:${resource}:${action}`
-    const cached = this.customCache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value
-    }
+    const redisKey = `perm:cust:${customRoleId}:${resource}:${action}`
+    const cached = await this.redis.get(redisKey)
+    if (cached !== null) return cached === '1'
 
     const perm = await this.prisma.customRolePermission.findUnique({
       where: { customRoleId_resource_action: { customRoleId, resource, action } },
     })
 
     const allowed = !!perm
-    this.customCache.set(cacheKey, {
-      value: allowed,
-      expiresAt: Date.now() + CACHE_TTL_MS,
-    })
+    await this.redis.set(redisKey, allowed ? '1' : '0', 'EX', CACHE_TTL_SEC)
     return allowed
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Invalidação de cache — chamada após write operations
+  // Usa SCAN para remover chaves por prefixo sem bloquear o Redis
   // ─────────────────────────────────────────────────────────────────────────────
 
-  invalidateCompanyCache(companyId: string | null): void {
-    const prefix = `${companyId ?? '__global__'}:`
-    for (const key of this.systemCache.keys()) {
-      if (key.startsWith(prefix)) this.systemCache.delete(key)
-    }
+  async invalidateCompanyCache(companyId: string | null): Promise<void> {
+    await this.scanAndDelete(`perm:sys:${companyId ?? '__global__'}:*`)
   }
 
-  invalidateCustomRoleCache(customRoleId: string): void {
-    for (const key of this.customCache.keys()) {
-      if (key.startsWith(`customRole:${customRoleId}:`)) {
-        this.customCache.delete(key)
-      }
-    }
+  async invalidateCustomRoleCache(customRoleId: string): Promise<void> {
+    await this.scanAndDelete(`perm:cust:${customRoleId}:*`)
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -206,7 +172,6 @@ export class PermissionsService {
         update: { allowedRoles: merged },
       })
     } else {
-      // global (null): upsert manual pois compound unique não suporta null no Prisma
       const existing = await this.prisma.resourcePermission.findFirst({
         where: { companyId: null, resource, action } as Prisma.ResourcePermissionWhereInput,
       })
@@ -220,7 +185,7 @@ export class PermissionsService {
           })
     }
 
-    this.invalidateCompanyCache(companyId)
+    await this.invalidateCompanyCache(companyId)
     return result
   }
 
@@ -237,7 +202,7 @@ export class PermissionsService {
 
     await this.prisma.resourcePermission.delete({ where: { id: existing.id } })
 
-    this.invalidateCompanyCache(companyId)
+    await this.invalidateCompanyCache(companyId)
     return { message: `Override de ${resource}:${action} removido — voltou ao padrão` }
   }
 
@@ -245,7 +210,24 @@ export class PermissionsService {
     await this.prisma.resourcePermission.deleteMany({
       where: { companyId } as Prisma.ResourcePermissionWhereInput,
     })
-    this.invalidateCompanyCache(companyId)
+    await this.invalidateCompanyCache(companyId)
     return { message: 'Todas as permissões restauradas para os padrões do sistema' }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Percorre via SCAN e apaga chaves que casam o padrão.
+  // O KEY_PREFIX precisa estar no padrão porque o SCAN não usa o keyPrefix do ioredis.
+  // ─────────────────────────────────────────────────────────────────────────────
+  private async scanAndDelete(pattern: string): Promise<void> {
+    const fullPattern = `${KEY_PREFIX}${pattern}`
+    let cursor = '0'
+    do {
+      const [next, keys] = await this.redis.scan(cursor, 'MATCH', fullPattern, 'COUNT', 100)
+      cursor = next
+      if (keys.length > 0) {
+        // Remove o prefixo antes do DEL porque o ioredis o adiciona automaticamente
+        await this.redis.del(...keys.map((k) => k.slice(KEY_PREFIX.length)))
+      }
+    } while (cursor !== '0')
   }
 }
