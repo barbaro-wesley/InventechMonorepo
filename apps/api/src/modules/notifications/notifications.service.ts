@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bull'
 import type { Queue } from 'bull'
-import { UserRole, NotificationChannel, NotificationStatus } from '@prisma/client'
+import { NotificationChannel, NotificationStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { EmailChannel } from './channels/email.channel'
 import { AlertRuleDispatcher } from './alert-rule.dispatcher'
@@ -18,8 +18,8 @@ import {
     EventType,
     NotificationEvent,
 } from './notifications.constants'
+import { NotificationConfigsService, RecipientUser } from '../notification-configs/notification-configs.service'
 
-// Payload que cada job recebe na fila
 export interface NotificationJobPayload {
     event: NotificationEvent
     data: Record<string, any>
@@ -37,6 +37,7 @@ export class NotificationsService {
         private telegramChannel: TelegramChannel,
         private gateway: NotificationsGateway,
         private alertRuleDispatcher: AlertRuleDispatcher,
+        private notificationConfigs: NotificationConfigsService,
         @InjectQueue(NOTIFICATION_QUEUE) private notificationQueue: Queue,
     ) { }
 
@@ -47,40 +48,21 @@ export class NotificationsService {
         removeOnFail: 50,
     }
 
-    // ─────────────────────────────────────────
-    // Enfileira uma notificação de negócio
-    // Chamado pelos outros serviços (ServiceOrders, Maintenance etc.)
-    // ─────────────────────────────────────────
     async notify(payload: NotificationJobPayload) {
         await this.notificationQueue.add('dispatch', payload, this.JOB_OPTIONS)
     }
 
-    // ─────────────────────────────────────────
-    // Enfileira email de autenticação (2FA, reset, verificação)
-    // Não cria registro na tabela Notification — é fire-and-forget com retry
-    // ─────────────────────────────────────────
     async queueAuthEmail(payload: { to: string; subject: string; html: string }): Promise<void> {
         await this.notificationQueue.add('send-auth-email', payload, this.JOB_OPTIONS)
     }
 
-    // ─────────────────────────────────────────
-    // Envia email de auth — chamado pelo processor (não chamar diretamente)
-    // ─────────────────────────────────────────
     async sendAuthEmailJob(payload: { to: string; subject: string; html: string }): Promise<void> {
         await this.emailChannel.send(payload)
     }
 
-    // ─────────────────────────────────────────
-    // Envia email rastreado — chamado pelo processor (não chamar diretamente)
-    // Atualiza o status da Notification no banco
-    // ─────────────────────────────────────────
     async sendTrackedEmailJob(payload: { notificationId: string; to: string; subject: string; html: string }): Promise<void> {
         try {
-            await this.emailChannel.send({
-                to: payload.to,
-                subject: payload.subject,
-                html: payload.html,
-            })
+            await this.emailChannel.send({ to: payload.to, subject: payload.subject, html: payload.html })
             await this.prisma.notification.update({
                 where: { id: payload.notificationId },
                 data: { status: NotificationStatus.SENT, sentAt: new Date() },
@@ -95,62 +77,49 @@ export class NotificationsService {
                     retryCount: { increment: 1 },
                 },
             })
-            throw error  // re-throw para Bull fazer retry
+            throw error
         }
     }
 
-    // ─────────────────────────────────────────
-    // Dispatcher principal — chamado pelo processor
-    // Decide quem notificar e por quais canais
-    // ─────────────────────────────────────────
     async dispatch(payload: NotificationJobPayload): Promise<void> {
         const { event, data, companyId, serviceOrderId } = payload
-
         this.logger.log(`Disparando notificação: ${event} | Empresa: ${companyId}`)
 
         switch (event) {
             case EventType.OS_CREATED_NO_TECHNICIAN:
                 await this.notifyOsCreatedNoTechnician(data, companyId, serviceOrderId)
                 break
-
             case EventType.OS_TECHNICIAN_ASSIGNED:
                 await this.notifyTechnicianAssigned(data, companyId, serviceOrderId)
                 break
-
             case EventType.OS_TECHNICIAN_ASSUMED:
                 await this.notifyTechnicianAssumed(data, companyId, serviceOrderId)
                 break
-
             case EventType.OS_COMPLETED:
                 await this.notifyOsCompleted(data, companyId, serviceOrderId)
                 break
-
             case EventType.OS_APPROVED:
                 await this.notifyOsApproved(data, companyId, serviceOrderId)
                 break
-
             case EventType.OS_REJECTED:
                 await this.notifyOsRejected(data, companyId, serviceOrderId)
                 break
-
             case EventType.OS_UNASSIGNED_ALERT:
                 await this.notifyUnassignedAlert(data, companyId, serviceOrderId)
                 break
-
             case EventType.PREVENTIVE_GENERATED:
                 await this.notifyPreventiveGenerated(data, companyId, serviceOrderId)
                 break
-
+            case EventType.PREVENTIVE_UPCOMING:
+                await this.notifyPreventiveUpcoming(data, companyId)
+                break
             case EventType.DAILY_SUMMARY:
                 await this.sendDailySummary(data, companyId)
                 break
-
             default:
                 this.logger.warn(`Evento desconhecido: ${event}`)
         }
 
-        // Avalia regras de alerta dinâmicas configuradas pela empresa
-        // Roda em paralelo após os handlers fixos — falha isolada, não afeta o restante
         await this.alertRuleDispatcher
             .fireRules(event, data, companyId, serviceOrderId)
             .catch((err) =>
@@ -158,37 +127,19 @@ export class NotificationsService {
             )
     }
 
-    // ─────────────────────────────────────────
-    // OS criada sem técnico → painel
-    // ─────────────────────────────────────────
-    private async notifyOsCreatedNoTechnician(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
-        // Busca técnicos do grupo + gestores da empresa
-        const recipients = await this.getGroupTechniciansAndManagers(
-            companyId,
-            data.groupId,
+    private async notifyOsCreatedNoTechnician(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_CREATED_NO_TECHNICIAN, { groupId: data.groupId, serviceOrderId },
         )
 
-        const emailTemplate = buildOsCreatedEmail(data)
-        const telegramMsg = this.telegramChannel.buildOsCreatedMessage(data)
-
-        await this.sendToRecipients(recipients, {
-            email: emailTemplate,
-            telegram: telegramMsg,
-            ws: {
-                event: EventType.OS_CREATED_NO_TECHNICIAN,
-                title: `Nova OS no painel`,
-                body: `OS #${data.osNumber} — ${data.osTitle}`,
-                data,
-            },
+        await this.sendToRecipients(recipients, channels, {
+            email: buildOsCreatedEmail(data),
+            telegram: this.telegramChannel.buildOsCreatedMessage(data),
+            ws: { event: EventType.OS_CREATED_NO_TECHNICIAN, title: 'Nova OS no painel', body: `OS #${data.osNumber} — ${data.osTitle}`, data },
             companyId,
             serviceOrderId,
         })
 
-        // Atualiza o painel em tempo real para todos da empresa
         this.gateway.sendPanelUpdate(companyId, {
             event: 'os.panel.new',
             title: 'Nova OS disponível',
@@ -197,38 +148,24 @@ export class NotificationsService {
         })
     }
 
-    // ─────────────────────────────────────────
-    // Técnico designado a uma OS
-    // ─────────────────────────────────────────
-    private async notifyTechnicianAssigned(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
+    private async notifyTechnicianAssigned(data: any, companyId: string, serviceOrderId?: string) {
         const technician = await this.prisma.user.findUnique({
             where: { id: data.technicianId },
             select: { id: true, email: true, telegramChatId: true, name: true },
         })
         if (!technician) return
 
-        const emailTemplate = buildTechnicianAssignedEmail({
-            technicianName: technician.name,
-            ...data,
-        })
-        const telegramMsg = this.telegramChannel.buildTechnicianAssignedMessage({
-            technicianName: technician.name,
-            ...data,
-        })
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_TECHNICIAN_ASSIGNED, { technicianId: data.technicianId, serviceOrderId },
+        )
 
-        await this.sendToRecipients([technician], {
+        const emailTemplate = buildTechnicianAssignedEmail({ technicianName: technician.name, ...data })
+        const telegramMsg = this.telegramChannel.buildTechnicianAssignedMessage({ technicianName: technician.name, ...data })
+
+        await this.sendToRecipients(recipients, channels, {
             email: emailTemplate,
             telegram: telegramMsg,
-            ws: {
-                event: EventType.OS_TECHNICIAN_ASSIGNED,
-                title: 'OS atribuída a você',
-                body: `OS #${data.osNumber} — ${data.osTitle}`,
-                data,
-            },
+            ws: { event: EventType.OS_TECHNICIAN_ASSIGNED, title: 'OS atribuída a você', body: `OS #${data.osNumber} — ${data.osTitle}`, data },
             companyId,
             serviceOrderId,
         })
@@ -243,34 +180,22 @@ export class NotificationsService {
         }
     }
 
-    // ─────────────────────────────────────────
-    // Técnico assumiu a OS do painel
-    // ─────────────────────────────────────────
-    private async notifyTechnicianAssumed(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
-        // Notifica o solicitante e os gestores
-        const recipients = await this.getManagersAndRequester(companyId, data.requesterId)
+    private async notifyTechnicianAssumed(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_TECHNICIAN_ASSUMED, { requesterId: data.requesterId, serviceOrderId },
+        )
 
-        await this.sendToRecipients(recipients, {
+        await this.sendToRecipients(recipients, channels, {
             email: {
                 subject: `🔧 OS #${data.osNumber} assumida por ${data.technicianName}`,
                 html: `<p>A OS <strong>#${data.osNumber} — ${data.osTitle}</strong> foi assumida por <strong>${data.technicianName}</strong> e está em andamento.</p>`,
             },
             telegram: `🔧 <b>OS assumida</b>\n\nOS <b>#${data.osNumber}</b> foi assumida por <b>${data.technicianName}</b> e está em andamento.`,
-            ws: {
-                event: EventType.OS_TECHNICIAN_ASSUMED,
-                title: 'OS em andamento',
-                body: `${data.technicianName} assumiu a OS #${data.osNumber}`,
-                data,
-            },
+            ws: { event: EventType.OS_TECHNICIAN_ASSUMED, title: 'OS em andamento', body: `${data.technicianName} assumiu a OS #${data.osNumber}`, data },
             companyId,
             serviceOrderId,
         })
 
-        // Remove do painel em tempo real
         this.gateway.sendPanelUpdate(companyId, {
             event: 'os.panel.removed',
             title: 'OS removida do painel',
@@ -288,33 +213,15 @@ export class NotificationsService {
         }
     }
 
-    // ─────────────────────────────────────────
-    // OS concluída
-    // ─────────────────────────────────────────
-    private async notifyOsCompleted(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
-        const [managersAndRequester, clientAdmins] = await Promise.all([
-            this.getManagersAndRequester(companyId, data.requesterId),
-            this.getClientAdmins(data.clientId),
-        ])
-        const recipients = [...new Map(
-            [...managersAndRequester, ...clientAdmins].map((u) => [u.id, u])
-        ).values()]
+    private async notifyOsCompleted(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_COMPLETED, { requesterId: data.requesterId, clientId: data.clientId, serviceOrderId },
+        )
 
-        const emailTemplate = buildOsCompletedEmail(data)
-
-        await this.sendToRecipients(recipients, {
-            email: emailTemplate,
+        await this.sendToRecipients(recipients, channels, {
+            email: buildOsCompletedEmail(data),
             telegram: this.telegramChannel.buildOsCompletedMessage(data),
-            ws: {
-                event: EventType.OS_COMPLETED,
-                title: 'OS concluída — aguardando aprovação',
-                body: `OS #${data.osNumber} — ${data.osTitle}`,
-                data,
-            },
+            ws: { event: EventType.OS_COMPLETED, title: 'OS concluída — aguardando aprovação', body: `OS #${data.osNumber} — ${data.osTitle}`, data },
             companyId,
             serviceOrderId,
         })
@@ -329,28 +236,18 @@ export class NotificationsService {
         }
     }
 
-    // ─────────────────────────────────────────
-    // OS aprovada
-    // ─────────────────────────────────────────
-    private async notifyOsApproved(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
-        const technicians = await this.getOsTechnicians(serviceOrderId)
+    private async notifyOsApproved(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_APPROVED, { serviceOrderId },
+        )
 
-        await this.sendToRecipients(technicians, {
+        await this.sendToRecipients(recipients, channels, {
             email: {
                 subject: `✅ OS #${data.osNumber} aprovada`,
                 html: `<p>A OS <strong>#${data.osNumber} — ${data.osTitle}</strong> foi <strong>aprovada</strong>.</p>`,
             },
             telegram: `✅ <b>OS aprovada</b>\n\nOS <b>#${data.osNumber} — ${data.osTitle}</b> foi aprovada.`,
-            ws: {
-                event: EventType.OS_APPROVED,
-                title: 'OS aprovada',
-                body: `OS #${data.osNumber} foi aprovada`,
-                data,
-            },
+            ws: { event: EventType.OS_APPROVED, title: 'OS aprovada', body: `OS #${data.osNumber} foi aprovada`, data },
             companyId,
             serviceOrderId,
         })
@@ -365,29 +262,15 @@ export class NotificationsService {
         }
     }
 
-    // ─────────────────────────────────────────
-    // OS reprovada
-    // ─────────────────────────────────────────
-    private async notifyOsRejected(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
-        const technicians = await this.getOsTechnicians(serviceOrderId)
-        const managers = await this.getManagers(companyId)
-        const recipients = [...technicians, ...managers]
+    private async notifyOsRejected(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_REJECTED, { serviceOrderId },
+        )
 
-        const emailTemplate = buildOsRejectedEmail(data)
-
-        await this.sendToRecipients(recipients, {
-            email: emailTemplate,
+        await this.sendToRecipients(recipients, channels, {
+            email: buildOsRejectedEmail(data),
             telegram: this.telegramChannel.buildOsRejectedMessage(data),
-            ws: {
-                event: EventType.OS_REJECTED,
-                title: 'OS reprovada',
-                body: `OS #${data.osNumber} — ${data.reason}`,
-                data,
-            },
+            ws: { event: EventType.OS_REJECTED, title: 'OS reprovada', body: `OS #${data.osNumber} — ${data.reason}`, data },
             companyId,
             serviceOrderId,
         })
@@ -402,58 +285,36 @@ export class NotificationsService {
         }
     }
 
-    // ─────────────────────────────────────────
-    // Alerta de OS sem técnico há X horas
-    // ─────────────────────────────────────────
-    private async notifyUnassignedAlert(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
-        const recipients = await this.getGroupTechniciansAndManagers(companyId, data.groupId)
-        const emailTemplate = buildUnassignedAlertEmail(data)
+    private async notifyUnassignedAlert(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_UNASSIGNED_ALERT, { groupId: data.groupId, serviceOrderId },
+        )
 
-        await this.sendToRecipients(recipients, {
-            email: emailTemplate,
+        await this.sendToRecipients(recipients, channels, {
+            email: buildUnassignedAlertEmail(data),
             telegram: this.telegramChannel.buildUnassignedAlertMessage(data),
-            ws: {
-                event: EventType.OS_UNASSIGNED_ALERT,
-                title: `⚠️ OS sem técnico há ${data.hoursWaiting}h`,
-                body: `OS #${data.osNumber} — ${data.osTitle}`,
-                data,
-            },
+            ws: { event: EventType.OS_UNASSIGNED_ALERT, title: `⚠️ OS sem técnico há ${data.hoursWaiting}h`, body: `OS #${data.osNumber} — ${data.osTitle}`, data },
             companyId,
             serviceOrderId,
         })
     }
 
-    // ─────────────────────────────────────────
-    // Manutenção preventiva gerada
-    // ─────────────────────────────────────────
-    private async notifyPreventiveGenerated(
-        data: any,
-        companyId: string,
-        serviceOrderId?: string,
-    ) {
-        const recipients = await this.getGroupTechniciansAndManagers(companyId, data.groupId)
+    private async notifyPreventiveGenerated(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.PREVENTIVE_GENERATED, { groupId: data.groupId, serviceOrderId },
+        )
 
-        await this.sendToRecipients(recipients, {
+        await this.sendToRecipients(recipients, channels, {
             email: {
                 subject: `🔧 Preventiva gerada — OS #${data.osNumber}`,
                 html: `<p>OS preventiva <strong>#${data.osNumber}</strong> gerada automaticamente para o equipamento <strong>${data.equipmentName}</strong>.</p>`,
             },
             telegram: this.telegramChannel.buildPreventiveGeneratedMessage(data),
-            ws: {
-                event: EventType.PREVENTIVE_GENERATED,
-                title: 'Preventiva gerada',
-                body: `OS #${data.osNumber} — ${data.equipmentName}`,
-                data,
-            },
+            ws: { event: EventType.PREVENTIVE_GENERATED, title: 'Preventiva gerada', body: `OS #${data.osNumber} — ${data.equipmentName}`, data },
             companyId,
             serviceOrderId,
         })
 
-        // Atualiza o painel
         this.gateway.sendPanelUpdate(companyId, {
             event: 'os.panel.new',
             title: 'Nova preventiva no painel',
@@ -462,29 +323,63 @@ export class NotificationsService {
         })
     }
 
-    // ─────────────────────────────────────────
-    // Resumo diário de OS
-    // ─────────────────────────────────────────
+    private async notifyPreventiveUpcoming(data: any, companyId: string) {
+        const { daysAhead, count, schedules } = data as {
+            daysAhead: number
+            count: number
+            schedules: Array<{
+                scheduleId: string
+                title: string
+                nextRunAt: string
+                clientId: string | null
+                clientName: string
+                equipmentName: string
+                groupId: string | null
+                groupName: string
+            }>
+        }
+
+        const groupIds = [...new Set(schedules.map((s) => s.groupId).filter(Boolean))] as string[]
+
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.PREVENTIVE_UPCOMING, { groupIds },
+        )
+
+        const rows = schedules
+            .map((s) => {
+                const date = new Date(s.nextRunAt).toLocaleDateString('pt-BR')
+                return `<tr><td>${s.title}</td><td>${s.equipmentName}</td><td>${date}</td><td>${s.clientName || '—'}</td><td>${s.groupName || '—'}</td></tr>`
+            })
+            .join('')
+
+        const html = `
+<h2>Preventivas agendadas nos próximos ${daysAhead} dias</h2>
+<p><strong>${count}</strong> preventiva(s) programada(s).</p>
+<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;width:100%">
+  <thead><tr><th>Título</th><th>Equipamento</th><th>Data prevista</th><th>Cliente</th><th>Grupo</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>`
+
+        const telegramMsg = `📅 <b>Preventivas nos próximos ${daysAhead} dias</b>\n\n` +
+            schedules.map((s) => {
+                const date = new Date(s.nextRunAt).toLocaleDateString('pt-BR')
+                return `• <b>${s.title}</b> — ${s.equipmentName} — ${date}${s.clientName ? ` (${s.clientName})` : ''}`
+            }).join('\n')
+
+        await this.sendToRecipients(recipients, channels, {
+            email: { subject: `📅 ${count} preventiva(s) agendada(s) nos próximos ${daysAhead} dias`, html },
+            telegram: telegramMsg,
+            ws: { event: EventType.PREVENTIVE_UPCOMING, title: `${count} preventiva(s) nos próximos ${daysAhead} dias`, body: 'Verifique o planejamento de manutenções preventivas', data },
+            companyId,
+        })
+    }
+
     private async sendDailySummary(data: any, companyId: string) {
-        // Busca métricas do dia
         const [open, inProgress, completedPending, overdue] = await Promise.all([
-            this.prisma.serviceOrder.count({
-                where: { companyId, status: 'AWAITING_PICKUP', deletedAt: null },
-            }),
-            this.prisma.serviceOrder.count({
-                where: { companyId, status: 'IN_PROGRESS', deletedAt: null },
-            }),
-            this.prisma.serviceOrder.count({
-                where: { companyId, status: 'COMPLETED', deletedAt: null },
-            }),
-            this.prisma.serviceOrder.count({
-                where: {
-                    companyId,
-                    isAvailable: true,
-                    alertSentAt: { not: null },
-                    deletedAt: null,
-                },
-            }),
+            this.prisma.serviceOrder.count({ where: { companyId, status: 'AWAITING_PICKUP', deletedAt: null } }),
+            this.prisma.serviceOrder.count({ where: { companyId, status: 'IN_PROGRESS', deletedAt: null } }),
+            this.prisma.serviceOrder.count({ where: { companyId, status: 'COMPLETED', deletedAt: null } }),
+            this.prisma.serviceOrder.count({ where: { companyId, isAvailable: true, alertSentAt: { not: null }, deletedAt: null } }),
         ])
 
         const company = await this.prisma.company.findUnique({
@@ -492,9 +387,11 @@ export class NotificationsService {
             select: { name: true },
         })
 
-        const admins = await this.getManagers(companyId)
-        const date = new Date().toLocaleDateString('pt-BR')
+        const { recipients } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.DAILY_SUMMARY, {},
+        )
 
+        const date = new Date().toLocaleDateString('pt-BR')
         const emailTemplate = buildDailySummaryEmail({
             companyName: company?.name ?? '',
             date,
@@ -504,7 +401,7 @@ export class NotificationsService {
             overdueCount: overdue,
         })
 
-        for (const admin of admins) {
+        for (const admin of recipients) {
             if (admin.email) {
                 await this.saveAndSendEmail(admin.id, companyId, emailTemplate, undefined)
             }
@@ -512,11 +409,11 @@ export class NotificationsService {
     }
 
     // ─────────────────────────────────────────
-    // Método de envio unificado
-    // Persiste notificação no banco + envia por cada canal
+    // Envio unificado — respeita canais configurados
     // ─────────────────────────────────────────
     private async sendToRecipients(
-        recipients: Array<{ id: string; email?: string | null; telegramChatId?: string | null }>,
+        recipients: RecipientUser[],
+        channels: NotificationChannel[],
         options: {
             email: { subject: string; html: string }
             telegram: string
@@ -525,26 +422,21 @@ export class NotificationsService {
             serviceOrderId?: string
         },
     ) {
-        await Promise.all(recipients.map(async (recipient) => {
-            // WebSocket — sempre envia se o usuário estiver conectado
-            this.gateway.sendToUser(recipient.id, options.ws)
+        const sendEmail = channels.includes(NotificationChannel.EMAIL)
+        const sendTelegram = channels.includes(NotificationChannel.TELEGRAM)
+        const sendWs = channels.includes(NotificationChannel.WEBSOCKET)
 
-            // Email e Telegram em paralelo por destinatário
+        await Promise.all(recipients.map(async (recipient) => {
+            if (sendWs) {
+                this.gateway.sendToUser(recipient.id, options.ws)
+            }
+
             await Promise.all([
-                this.saveAndSendEmail(
-                    recipient.id,
-                    options.companyId,
-                    options.email,
-                    options.serviceOrderId,
-                ),
-                recipient.telegramChatId
-                    ? this.saveAndSendTelegram(
-                        recipient.id,
-                        options.companyId,
-                        recipient.telegramChatId,
-                        options.telegram,
-                        options.serviceOrderId,
-                    )
+                sendEmail
+                    ? this.saveAndSendEmail(recipient.id, options.companyId, options.email, options.serviceOrderId)
+                    : Promise.resolve(),
+                sendTelegram && recipient.telegramChatId
+                    ? this.saveAndSendTelegram(recipient.id, options.companyId, recipient.telegramChatId, options.telegram, options.serviceOrderId)
                     : Promise.resolve(),
             ])
         }))
@@ -562,7 +454,6 @@ export class NotificationsService {
         })
         if (!user?.email) return
 
-        // Cria o registro de notificação como PENDING
         const notification = await this.prisma.notification.create({
             data: {
                 companyId,
@@ -575,7 +466,6 @@ export class NotificationsService {
             },
         })
 
-        // Enfileira o envio — retorna imediatamente, não bloqueia a resposta HTTP
         await this.notificationQueue.add('send-tracked-email', {
             notificationId: notification.id,
             to: user.email,
@@ -606,7 +496,6 @@ export class NotificationsService {
 
         try {
             await this.telegramChannel.send({ chatId, message })
-
             await this.prisma.notification.update({
                 where: { id: notification.id },
                 data: { status: NotificationStatus.SENT, sentAt: new Date() },
@@ -625,7 +514,7 @@ export class NotificationsService {
     }
 
     // ─────────────────────────────────────────
-    // Listar notificações do usuário
+    // Notificações do usuário
     // ─────────────────────────────────────────
     async findUserNotifications(userId: string, page = 1, limit = 20) {
         const where = { userId }
@@ -664,89 +553,6 @@ export class NotificationsService {
         return this.prisma.notification.updateMany({
             where: { userId, readAt: null },
             data: { readAt: new Date() },
-        })
-    }
-
-    // ─────────────────────────────────────────
-    // Helpers para buscar destinatários
-    // ─────────────────────────────────────────
-    private async getGroupTechniciansAndManagers(companyId: string, groupId?: string) {
-        const [technicians, managers] = await Promise.all([
-            groupId
-                ? this.prisma.user.findMany({
-                    where: {
-                        companyId,
-                        role: UserRole.TECHNICIAN,
-                        deletedAt: null,
-                        status: 'ACTIVE',
-                        technicianGroups: { some: { groupId, isActive: true } },
-                    },
-                    select: { id: true, email: true, telegramChatId: true },
-                })
-                : this.prisma.user.findMany({
-                    where: { companyId, role: UserRole.TECHNICIAN, deletedAt: null, status: 'ACTIVE' },
-                    select: { id: true, email: true, telegramChatId: true },
-                }),
-            this.getManagers(companyId),
-        ])
-
-        // Remove duplicatas
-        const all = [...technicians, ...managers]
-        return [...new Map(all.map((u) => [u.id, u])).values()]
-    }
-
-    private async getManagers(companyId: string) {
-        return this.prisma.user.findMany({
-            where: {
-                companyId,
-                role: { in: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER] },
-                deletedAt: null,
-                status: 'ACTIVE',
-            },
-            select: { id: true, email: true, telegramChatId: true },
-        })
-    }
-
-    private async getManagersAndRequester(companyId: string, requesterId?: string) {
-        const managers = await this.getManagers(companyId)
-
-        if (requesterId) {
-            const requester = await this.prisma.user.findUnique({
-                where: { id: requesterId },
-                select: { id: true, email: true, telegramChatId: true },
-            })
-            if (requester && !managers.find((m) => m.id === requester.id)) {
-                managers.push(requester)
-            }
-        }
-
-        return managers
-    }
-
-    private async getOsTechnicians(serviceOrderId?: string) {
-        if (!serviceOrderId) return []
-
-        return this.prisma.user.findMany({
-            where: {
-                serviceOrderTechnicians: {
-                    some: { serviceOrderId, releasedAt: null },
-                },
-            },
-            select: { id: true, email: true, telegramChatId: true },
-        })
-    }
-
-    private async getClientAdmins(clientId?: string) {
-        if (!clientId) return []
-
-        return this.prisma.user.findMany({
-            where: {
-                clientId,
-                role: UserRole.CLIENT_ADMIN,
-                deletedAt: null,
-                status: 'ACTIVE',
-            },
-            select: { id: true, email: true, telegramChatId: true },
         })
     }
 }

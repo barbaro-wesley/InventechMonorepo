@@ -87,6 +87,26 @@ export class MaintenanceCronJobs {
     }
 
     // ─────────────────────────────────────────
+    // Roda todo dia às 07:00 — verifica preventivas
+    // agendadas nos próximos 30 dias e avisa gestores/técnicos
+    // ─────────────────────────────────────────
+    @Cron('0 7 * * *', { name: 'check-upcoming-preventives' })
+    async checkUpcomingPreventives() {
+        this.logger.log('Cron: verificando preventivas agendadas nos próximos 30 dias...')
+
+        await this.maintenanceQueue.add(
+            MAINTENANCE_JOBS.CHECK_UPCOMING_PREVENTIVES,
+            { daysAhead: 30 },
+            {
+                attempts: 2,
+                backoff: { type: 'fixed', delay: 10000 },
+                removeOnComplete: 30,
+                removeOnFail: 10,
+            },
+        )
+    }
+
+    // ─────────────────────────────────────────
     // Roda todo dia às 00:05 — limpa jobs antigos
     // e garante que schedules do dia foram disparados
     // ─────────────────────────────────────────

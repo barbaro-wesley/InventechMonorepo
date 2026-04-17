@@ -26,6 +26,7 @@ import { HealthModule } from './modules/health/health.module'
 import { ReportsModule } from './modules/reports/reports.module'
 import { PermissionsModule } from './modules/permissions/permissions.module'
 import { AlertRulesModule } from './modules/alert-rules/alert-rules.module'
+import { NotificationConfigsModule } from './modules/notification-configs/notification-configs.module'
 
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
 import { RateLimitGuard } from './common/guards/rate-limit.guard'
@@ -75,6 +76,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     ReportsModule,
     PermissionsModule,
     AlertRulesModule,
+    NotificationConfigsModule,
   ],
   providers: [
     // ─── Ordem dos guards é crítica ──────────────────────────────

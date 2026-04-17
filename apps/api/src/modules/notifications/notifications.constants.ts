@@ -23,5 +23,6 @@ export const EVENT_RECIPIENTS = {
     [EventType.OS_REJECTED]:             ['technicians', 'company_managers'],
     [EventType.OS_UNASSIGNED_ALERT]:     ['group_technicians', 'company_managers'],
     [EventType.PREVENTIVE_GENERATED]:    ['company_managers', 'group_technicians'],
+    [EventType.PREVENTIVE_UPCOMING]:     ['company_managers', 'group_technicians'],
     [EventType.DAILY_SUMMARY]:           ['company_admins', 'company_managers'],
 } as const

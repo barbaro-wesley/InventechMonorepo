@@ -9,6 +9,7 @@ import { EmailChannel } from './channels/email.channel'
 import { TelegramChannel } from './channels/telegram.channel'
 import { AlertRuleDispatcher } from './alert-rule.dispatcher'
 import { NOTIFICATION_QUEUE } from './notifications.constants'
+import { NotificationConfigsModule } from '../notification-configs/notification-configs.module'
 
 @Module({
     imports: [
@@ -21,8 +22,8 @@ import { NOTIFICATION_QUEUE } from './notifications.constants'
                 removeOnFail: 50,
             },
         }),
-        // JwtModule para autenticar conexões WebSocket
         JwtModule.register({}),
+        NotificationConfigsModule,
     ],
     controllers: [NotificationsController],
     providers: [

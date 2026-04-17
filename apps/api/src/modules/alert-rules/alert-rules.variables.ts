@@ -74,6 +74,14 @@ export const EVENT_VARIABLE_REGISTRY: Record<EventType, VariableDefinition[]> = 
         { key: 'equipmentName', label: 'Equipamento',   type: 'string' },
         { key: 'groupName',     label: 'Grupo',         type: 'string' },
     ],
+    [EventType.PREVENTIVE_UPCOMING]: [
+        { key: 'daysAhead',    label: 'Dias de antecedência', type: 'number' },
+        { key: 'count',        label: 'Qtd. de preventivas',  type: 'number' },
+        { key: 'clientName',   label: 'Cliente',              type: 'string' },
+        { key: 'equipmentName',label: 'Equipamento',          type: 'string' },
+        { key: 'nextRunAt',    label: 'Data prevista',        type: 'date' },
+        { key: 'groupName',    label: 'Grupo',                type: 'string' },
+    ],
     [EventType.MAINTENANCE_OVERDUE]: [
         { key: 'equipmentName',    label: 'Equipamento',          type: 'string' },
         { key: 'maintenanceTitle', label: 'Título da manutenção', type: 'string' },

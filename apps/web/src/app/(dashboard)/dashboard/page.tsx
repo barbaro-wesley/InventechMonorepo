@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   Building2,
   Users,
@@ -19,9 +20,13 @@ import {
   UserX,
   CalendarClock,
   Activity,
+  CalendarRange,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 import { usePlatformDashboard, useCompanyDashboard, useClientDashboard } from "@/hooks/dashboard/use-dashboard";
+import { useUpcomingPreventives } from "@/hooks/maintenance/use-maintenance-schedule";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { useCurrentUser } from "@/store/auth.store";
 import { cn } from "@/lib/utils";
@@ -150,6 +155,100 @@ function HBar({ label, value, max, color }: { label: string; value: number; max:
         <div className={cn("h-full rounded-full transition-all duration-500", color)} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-8 text-right shrink-0">{value}</span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Upcoming Preventives Card
+// ---------------------------------------------------------------------------
+
+function UpcomingPreventivesCard() {
+  const router = useRouter();
+  const { data: schedules = [], isLoading } = useUpcomingPreventives(30);
+  const [open, setOpen] = useState(false);
+
+  if (isLoading || schedules.length === 0) return null;
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      {/* Header — clicável para expandir */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => e.key === "Enter" && setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <CalendarRange className="w-4 h-4 text-violet-500" />
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Preventivas nos próximos 30 dias
+          </h2>
+          <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400">
+            {schedules.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={(e) => { e.stopPropagation(); router.push("/preventivas"); }}
+          >
+            Ver todas <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+          </Button>
+          {open
+            ? <ChevronUp className="w-4 h-4 text-slate-400" />
+            : <ChevronDown className="w-4 h-4 text-slate-400" />
+          }
+        </div>
+      </div>
+
+      {/* Lista expandida */}
+      {open && (
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {schedules.map((s) => {
+            const days = Math.ceil((new Date(s.nextRunAt).getTime() - Date.now()) / 86_400_000);
+            const urgency =
+              days <= 7  ? "text-red-600 font-bold" :
+              days <= 15 ? "text-orange-600 font-semibold" :
+              "text-violet-600";
+            return (
+              <div
+                key={s.id}
+                className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
+                onClick={() => router.push("/preventivas")}
+              >
+                {/* ícone */}
+                <div className="w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                  <Wrench className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                </div>
+
+                {/* info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{s.title}</p>
+                  <p className="text-xs text-slate-400 truncate">
+                    {s.equipment.name}
+                    {s.client && <> · <span className="text-slate-500">{s.client.name}</span></>}
+                    {s.group  && <> · <span>{s.group.name}</span></>}
+                  </p>
+                </div>
+
+                {/* data */}
+                <div className="flex-shrink-0 text-right">
+                  <p className={cn("text-xs", urgency)}>
+                    {days === 0 ? "Hoje" : days === 1 ? "Amanhã" : `em ${days} dias`}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    {new Date(s.nextRunAt).toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -483,6 +582,7 @@ function SuperAdminDashboard() {
 function CompanyDashboard() {
   const user = useCurrentUser();
   const { data, isLoading, isError, refetch, isFetching } = useCompanyDashboard();
+  const { data: upcomingSchedules = [] } = useUpcomingPreventives(30);
 
   if (isLoading) return <SkeletonDash />;
   if (isError || !data) {
@@ -562,7 +662,7 @@ function CompanyDashboard() {
               </span>
             )}
           </div>
-          {alerts.total === 0 && alerts.equipmentUnderMaintenance === 0 && alerts.warrantyExpiring === 0 ? (
+          {alerts.total === 0 && alerts.equipmentUnderMaintenance === 0 && alerts.warrantyExpiring === 0 && upcomingSchedules.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle2 className="w-8 h-8 text-emerald-400 mb-2" />
               <p className="text-sm text-slate-400">Nenhum alerta ativo</p>
@@ -573,6 +673,7 @@ function CompanyDashboard() {
               <AlertRow count={alerts.overdueAlerts} label="OS com alerta de atraso" icon={Clock} color="bg-orange-50 text-orange-700 border-orange-200" />
               <AlertRow count={alerts.equipmentUnderMaintenance} label="equipamentos em manutenção" icon={Wrench} color="bg-amber-50 text-amber-700 border-amber-200" />
               <AlertRow count={alerts.warrantyExpiring} label="garantias vencendo em 30 dias" icon={CalendarClock} color="bg-blue-50 text-blue-700 border-blue-200" />
+              <AlertRow count={upcomingSchedules.length} label="preventivas nos próximos 30 dias" icon={CalendarRange} color="bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:border-violet-800 dark:text-violet-400" />
             </div>
           )}
         </div>
@@ -631,6 +732,9 @@ function CompanyDashboard() {
           )}
         </div>
       </div>
+
+      {/* Preventivas nos próximos 30 dias */}
+      <UpcomingPreventivesCard />
 
       {/* Top técnicos */}
       {topTechnicians.length > 0 && (
@@ -812,6 +916,9 @@ function ClientDashboard() {
           )}
         </div>
       </div>
+
+      {/* Preventivas nos próximos 30 dias */}
+      <UpcomingPreventivesCard />
 
       {/* OS Recentes */}
       {recentOs.length > 0 && (

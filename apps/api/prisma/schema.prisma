@@ -54,7 +54,8 @@ model Company {
   reportPermissions    ReportPermission[]
   resourcePermissions  ResourcePermission[]
   users                User[]
-  alertRules           AlertRule[]
+  alertRules            AlertRule[]
+  notificationConfigs   NotificationConfig[]
 
   @@index([platformId])
   @@index([slug])
@@ -966,10 +967,40 @@ enum EventType {
   EQUIPMENT_WARRANTY_EXPIRING
   // Manutenção
   PREVENTIVE_GENERATED
+  PREVENTIVE_UPCOMING
   MAINTENANCE_OVERDUE
   // Usuários
   USER_CREATED
   USER_DEACTIVATED
   // Sistema / Relatórios
   DAILY_SUMMARY
+}
+
+enum ContextualRecipient {
+  OS_REQUESTER
+  OS_ASSIGNED_TECHNICIANS
+  OS_GROUP_TECHNICIANS
+  OS_CLIENT_ADMINS
+  OS_ASSIGNED_TECHNICIAN
+}
+
+model NotificationConfig {
+  id                      String                @id @default(uuid())
+  companyId               String                @map("company_id")
+  eventType               EventType             @map("event_type")
+  isActive                Boolean               @default(true) @map("is_active")
+  recipientRoles          UserRole[]            @map("recipient_roles")
+  recipientContextual     ContextualRecipient[] @map("recipient_contextual")
+  recipientGroupIds       String[]              @map("recipient_group_ids")
+  recipientUserIds        String[]              @map("recipient_user_ids")
+  recipientCustomRoleIds  String[]              @map("recipient_custom_role_ids")
+  channels                NotificationChannel[]
+  createdAt               DateTime              @default(now()) @map("created_at")
+  updatedAt               DateTime              @updatedAt @map("updated_at")
+
+  company             Company               @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, eventType])
+  @@index([companyId])
+  @@map("notification_configs")
 }

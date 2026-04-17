@@ -14,6 +14,7 @@ import { ListCompaniesDto } from './dto/list-companies.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ConfigService } from '@nestjs/config'
+import { NotificationConfigsService } from '../notification-configs/notification-configs.service'
 
 function toSlug(name: string): string {
   return name
@@ -32,7 +33,8 @@ export class CompaniesService {
   constructor(
     private companiesRepository: CompaniesRepository,
     private prisma: PrismaService,
-    private configService: ConfigService, // 👈 adicionado
+    private configService: ConfigService,
+    private notificationConfigs: NotificationConfigsService,
   ) { }
 
   async findAll(filters: ListCompaniesDto) {
@@ -133,6 +135,11 @@ export class CompaniesService {
 
     this.logger.log(
       `Empresa criada: ${result.company.name} | Admin: ${result.admin.email}`,
+    )
+
+    // Cria configs de notificação padrão para a nova empresa (fire-and-forget)
+    this.notificationConfigs.seedDefaults(result.company.id).catch((err) =>
+      this.logger.error(`Erro ao criar configs de notificação para empresa ${result.company.id}: ${err.message}`),
     )
 
     return {

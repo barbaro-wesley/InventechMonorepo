@@ -87,6 +87,17 @@ export class CompanyScheduleController {
         return this.maintenanceService.findAllSchedules(cu.companyId!, filters, clientId)
     }
 
+    @Get('upcoming')
+    @Permission('maintenance-schedule:list')
+    upcoming(
+        @Query('daysAhead') daysAhead: string,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.maintenanceService.getUpcomingPreventives(
+            daysAhead ? Number(daysAhead) : 30,
+        )
+    }
+
     @Patch(':id/toggle')
     @HttpCode(HttpStatus.OK)
     @Permission('maintenance-schedule:update')

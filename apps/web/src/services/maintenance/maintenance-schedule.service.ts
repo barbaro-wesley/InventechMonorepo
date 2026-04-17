@@ -57,6 +57,20 @@ export interface ListSchedulesParams {
   limit?: number
 }
 
+export interface UpcomingSchedule {
+  id: string
+  companyId: string
+  clientId: string | null
+  title: string
+  recurrenceType: RecurrenceType
+  nextRunAt: string
+  groupId: string | null
+  assignedTechnicianId: string | null
+  client: { id: string; name: string } | null
+  equipment: { id: string; name: string; brand: string | null; model: string | null }
+  group: { id: string; name: string } | null
+}
+
 export interface PaginatedSchedulesResponse {
   success?: boolean
   statusCode?: number
@@ -110,6 +124,11 @@ async function trigger(clientId: string) {
   return data.data ?? data
 }
 
+async function listUpcoming(daysAhead = 30): Promise<UpcomingSchedule[]> {
+  const { data } = await api.get('/maintenance-schedules/upcoming', { params: { daysAhead } })
+  return data.data ?? data
+}
+
 export const maintenanceScheduleService = {
   listAll,
   listByClient,
@@ -117,4 +136,5 @@ export const maintenanceScheduleService = {
   create,
   toggle,
   trigger,
+  listUpcoming,
 }

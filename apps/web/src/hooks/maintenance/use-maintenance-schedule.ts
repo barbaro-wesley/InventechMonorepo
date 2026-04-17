@@ -13,6 +13,17 @@ export const scheduleKeys = {
   all: ['maintenance-schedules'] as const,
   list: (params?: ListSchedulesParams) =>
     ['maintenance-schedules', 'list', params] as const,
+  upcoming: (daysAhead?: number) =>
+    ['maintenance-schedules', 'upcoming', daysAhead ?? 30] as const,
+}
+
+export function useUpcomingPreventives(daysAhead = 30) {
+  return useQuery({
+    queryKey: scheduleKeys.upcoming(daysAhead),
+    queryFn: () => maintenanceScheduleService.listUpcoming(daysAhead),
+    staleTime: 5 * 60_000,
+    refetchInterval: 10 * 60_000,
+  })
 }
 
 export function useMaintenanceSchedules(params?: ListSchedulesParams) {

@@ -213,4 +213,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   // ─── Regras de Alerta ─────────────────────────────────────────────────────
 
   get alertRule() { return this._db.alertRule }
+
+  // ─── Configurações de Notificação ─────────────────────────────────────────
+  get notificationConfig() { return this._db.notificationConfig }
 }

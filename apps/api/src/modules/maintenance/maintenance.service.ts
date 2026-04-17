@@ -22,9 +22,10 @@ import { calculateNextRunAt } from './schedule/recurrence.util'
 export const MAINTENANCE_QUEUE = 'maintenance'
 
 export const MAINTENANCE_JOBS = {
-    GENERATE_PREVENTIVE:      'generate-preventive-os',
-    SEND_UNASSIGNED_ALERT:    'send-unassigned-alert',
-    CHECK_WARRANTY_EXPIRING:  'check-warranty-expiring',
+    GENERATE_PREVENTIVE:         'generate-preventive-os',
+    SEND_UNASSIGNED_ALERT:       'send-unassigned-alert',
+    CHECK_WARRANTY_EXPIRING:     'check-warranty-expiring',
+    CHECK_UPCOMING_PREVENTIVES:  'check-upcoming-preventives',
 } as const
 
 const MAINTENANCE_SELECT = {
@@ -658,6 +659,40 @@ export class MaintenanceService {
             model:      eq.model,
             warrantyEnd: eq.warrantyEnd,
         }))
+    }
+
+    // ─────────────────────────────────────────
+    // Retorna preventivas agendadas nos próximos
+    // `daysAhead` dias, agrupadas por empresa
+    // ─────────────────────────────────────────
+    async getUpcomingPreventives(daysAhead = 30) {
+        const now = new Date()
+        const limit = new Date(now)
+        limit.setDate(limit.getDate() + daysAhead)
+
+        const schedules = await this.prisma.maintenanceSchedule.findMany({
+            where: {
+                isActive: true,
+                nextRunAt: { gt: now, lte: limit },
+                OR: [{ endDate: null }, { endDate: { gte: now } }],
+            },
+            select: {
+                id: true,
+                companyId: true,
+                clientId: true,
+                title: true,
+                recurrenceType: true,
+                nextRunAt: true,
+                groupId: true,
+                assignedTechnicianId: true,
+                client: { select: { id: true, name: true } },
+                equipment: { select: { id: true, name: true, brand: true, model: true } },
+                group: { select: { id: true, name: true } },
+            },
+            orderBy: { nextRunAt: 'asc' },
+        })
+
+        return schedules
     }
 
     // ─────────────────────────────────────────

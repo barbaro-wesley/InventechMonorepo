@@ -25,6 +25,7 @@ import {
     ShieldCheck,
     ClipboardCheck,
     BellRing,
+    SlidersHorizontal,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -178,6 +179,13 @@ const navSections: NavSection[] = [
                 icon: BellRing,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"],
                 permission: "alert-rule:list",
+            },
+            {
+                label: "Config. Notificações",
+                href: "/configuracoes-notificacoes",
+                icon: SlidersHorizontal,
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"],
+                permission: "notification-config:list",
             },
         ],
     },

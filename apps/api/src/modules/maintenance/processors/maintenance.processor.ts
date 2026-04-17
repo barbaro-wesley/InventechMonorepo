@@ -107,6 +107,58 @@ export class MaintenanceProcessor {
     }
 
     // ─────────────────────────────────────────
+    // Job: alerta de preventivas nos próximos 30 dias
+    // ─────────────────────────────────────────
+    @Process(MAINTENANCE_JOBS.CHECK_UPCOMING_PREVENTIVES)
+    async handleCheckUpcomingPreventives(job: Job<{ daysAhead?: number }>) {
+        const daysAhead = job.data.daysAhead ?? 30
+        this.logger.log(`Verificando preventivas nos próximos ${daysAhead} dias`)
+
+        const schedules = await this.maintenanceService.getUpcomingPreventives(daysAhead)
+
+        if (schedules.length === 0) {
+            this.logger.log('Nenhuma preventiva agendada no período')
+            return { fired: 0 }
+        }
+
+        // Agrupa por empresa para enviar um único resumo por companyId
+        const byCompany = new Map<string, typeof schedules>()
+        for (const s of schedules) {
+            const list = byCompany.get(s.companyId) ?? []
+            list.push(s)
+            byCompany.set(s.companyId, list)
+        }
+
+        await Promise.all(
+            Array.from(byCompany.entries()).map(([companyId, items]) =>
+                this.notificationsService.notify({
+                    event: EventType.PREVENTIVE_UPCOMING,
+                    companyId,
+                    data: {
+                        daysAhead,
+                        count: items.length,
+                        schedules: items.map((s) => ({
+                            scheduleId:     s.id,
+                            title:          s.title,
+                            nextRunAt:      s.nextRunAt,
+                            clientId:       s.clientId,
+                            clientName:     s.client?.name ?? '',
+                            equipmentName:  s.equipment.name,
+                            groupId:        s.groupId,
+                            groupName:      s.group?.name ?? '',
+                            technicianId:   s.assignedTechnicianId,
+                            recurrenceType: s.recurrenceType,
+                        })),
+                    },
+                }),
+            ),
+        )
+
+        this.logger.log(`Alerta de preventivas enviado para ${byCompany.size} empresa(s) — ${schedules.length} schedule(s)`)
+        return { fired: schedules.length }
+    }
+
+    // ─────────────────────────────────────────
     // Job: verifica equipamentos com garantia vencendo
     // ─────────────────────────────────────────
     @Process(MAINTENANCE_JOBS.CHECK_WARRANTY_EXPIRING)

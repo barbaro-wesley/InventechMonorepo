@@ -150,6 +150,10 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'alert-rule:create':           [SA, CA, CM],
   'alert-rule:update':           [SA, CA, CM],
   'alert-rule:delete':           [SA, CA],
+
+  // ── NOTIFICATION CONFIG ────────────────────────────────────────────────────
+  'notification-config:list':    [SA, CA, CM],
+  'notification-config:update':  [SA, CA, CM],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -171,6 +175,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'permission':           ['read', 'manage'],
   'custom-role':          ['list', 'read', 'create', 'update', 'delete', 'assign'],
   'alert-rule':           ['list', 'read', 'create', 'update', 'delete'],
+  'notification-config':  ['list', 'update'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)
