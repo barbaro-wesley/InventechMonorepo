@@ -28,6 +28,7 @@ import {
   Minus,
   Heading,
   Image,
+  Eye,
 } from "lucide-react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -54,6 +55,7 @@ import {
   AVAILABLE_VARIABLES,
 } from "@/services/laudo-templates/laudo-templates.types";
 import { SignatureConfigSection } from "@/components/laudos/signature-config-section";
+import { TemplatePreviewDialog } from "@/components/laudos/template-preview-dialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -171,6 +173,7 @@ function TemplateCard({
   onEdit,
   onDelete,
   onClone,
+  onPreview,
   onToggleActive,
   isTogglingActive,
   isLoadingEdit,
@@ -179,6 +182,7 @@ function TemplateCard({
   onEdit: () => void;
   onDelete: () => void;
   onClone: () => void;
+  onPreview: () => void;
   onToggleActive: () => void;
   isTogglingActive: boolean;
   isLoadingEdit: boolean;
@@ -263,6 +267,15 @@ function TemplateCard({
 
       {/* Actions footer */}
       <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 gap-1"
+          onClick={onPreview}
+        >
+          <Eye className="w-3 h-3" />
+          Visualizar
+        </Button>
         <Button
           variant="ghost"
           size="sm"
@@ -667,6 +680,7 @@ function TemplateForm({
   isLoading: boolean;
   formId: string;
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
   const {
     register,
     control,
@@ -800,8 +814,8 @@ function TemplateForm({
               register={register}
               errors={errors}
               watch={watch}
-              setValue={setValue}
-              getValues={getValues}
+              setValue={setValue as any}
+              getValues={getValues as any}
               onRemove={() => remove(index)}
               onMove={(dir) => {
                 if (dir === "up" && index > 0) swap(index, index - 1);
@@ -854,6 +868,33 @@ function TemplateForm({
         onChange={(cfg) => setValue("signatureConfig", cfg)}
         disabled={isLoading}
       />
+
+      {/* Preview button — floating */}
+      <div className="sticky bottom-0 pt-4 pb-1 bg-gradient-to-t from-white via-white dark:from-slate-950 dark:via-slate-950">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setPreviewOpen(true)}
+          className="w-full gap-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 text-slate-600 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 transition-all"
+        >
+          <Eye className="w-4 h-4" />
+          Visualizar preview do template
+        </Button>
+      </div>
+
+      {/* Preview dialog */}
+      <TemplatePreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        title={watch("title")}
+        description={watch("description")}
+        referenceType={watch("referenceType")}
+        fields={fields.map((f, i) => ({
+          ...f,
+          ...(getValues(`fields.${i}` as any) ?? {}),
+        })) as any}
+        signatureConfig={signatureConfig}
+      />
     </form>
   );
 }
@@ -870,6 +911,7 @@ export default function LaudoTemplatesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTemplate, setEditTemplate] = useState<LaudoTemplate | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<LaudoTemplate | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<LaudoTemplate | null>(null);
 
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [loadingEditId, setLoadingEditId] = useState<string | null>(null);
@@ -1100,11 +1142,12 @@ export default function LaudoTemplatesPage() {
               onEdit={() => openEdit(template)}
               onDelete={() => setDeleteTarget(template)}
               onClone={() => cloneMutation.mutate(template.id)}
+              onPreview={() => setPreviewTarget(template)}
               onToggleActive={() => handleToggleActive(template)}
               isTogglingActive={togglingId === template.id && updateMutation.isPending}
               isLoadingEdit={loadingEditId === template.id}
             />
-          ))}
+          ))}  
         </div>
       )}
 
@@ -1215,6 +1258,19 @@ export default function LaudoTemplatesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Preview from card ── */}
+      {previewTarget && (
+        <TemplatePreviewDialog
+          open={!!previewTarget}
+          onOpenChange={(open) => !open && setPreviewTarget(null)}
+          title={previewTarget.title}
+          description={previewTarget.description ?? ""}
+          referenceType={previewTarget.referenceType}
+          fields={previewTarget.fields ?? []}
+          signatureConfig={previewTarget.signatureConfig}
+        />
+      )}
     </div>
   );
 }

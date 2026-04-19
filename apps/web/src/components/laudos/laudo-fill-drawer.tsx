@@ -251,6 +251,7 @@ function FieldInput({
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                <th className="w-9 px-2 py-2 text-center font-medium text-slate-400 dark:text-slate-500">#</th>
                 {cols.map((col) => (
                   <th key={col.key} className="px-3 py-2 text-left font-medium text-slate-600 dark:text-slate-300">
                     {col.label}
@@ -261,15 +262,29 @@ function FieldInput({
             </thead>
             <tbody>
               {rows.map((row, ri) => (
-                <tr key={ri} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+                <tr
+                  key={ri}
+                  className={cn(
+                    "border-b border-slate-100 dark:border-slate-800 last:border-0 transition-colors",
+                    ri % 2 === 1
+                      ? "bg-slate-50/60 dark:bg-slate-800/30"
+                      : "bg-white dark:bg-slate-900"
+                  )}
+                >
+                  <td className="px-2 py-1.5 text-center">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-medium text-slate-400 dark:text-slate-500">
+                      {ri + 1}
+                    </span>
+                  </td>
                   {cols.map((col) => (
                     <td key={col.key} className="px-2 py-1.5">
                       <Input
                         type={col.type === "number" ? "number" : "text"}
                         value={row[col.key] ?? ""}
                         onChange={(e) => updateCell(ri, col.key, e.target.value)}
+                        placeholder={col.label}
                         disabled={disabled}
-                        className="h-7 text-xs border-0 shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 bg-transparent"
+                        className="h-7 text-xs border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-none focus-visible:ring-1 focus-visible:ring-blue-500 focus-visible:border-solid focus-visible:border-blue-400 placeholder:text-slate-300 dark:placeholder:text-slate-600"
                       />
                     </td>
                   ))}
@@ -287,25 +302,35 @@ function FieldInput({
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={cols.length + 1} className="px-3 py-4 text-center text-slate-400 italic text-xs">
-                    Nenhuma linha adicionada
+                  <td colSpan={cols.length + 2} className="px-3 py-6 text-center">
+                    <p className="text-slate-400 italic text-xs">Nenhuma linha adicionada</p>
+                    <p className="text-[10px] text-slate-300 dark:text-slate-600 mt-0.5">
+                      Clique em &ldquo;Adicionar linha&rdquo; abaixo para começar
+                    </p>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addRow}
-          disabled={disabled}
-          className="h-7 text-xs gap-1.5"
-        >
-          <Plus className="w-3 h-3" />
-          Adicionar linha
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addRow}
+            disabled={disabled}
+            className="h-7 text-xs gap-1.5"
+          >
+            <Plus className="w-3 h-3" />
+            Adicionar linha
+          </Button>
+          {rows.length > 0 && (
+            <span className="text-[10px] text-slate-400">
+              {rows.length} linha{rows.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
       </div>
     );
   }
