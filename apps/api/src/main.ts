@@ -73,7 +73,6 @@ async function bootstrap() {
   // ── Helmet ─────────────────────────────────────────────────────
   app.use(helmet({
     crossOriginResourcePolicy: { policy: isProd ? 'same-origin' : 'cross-origin' },
-    // CSP habilitado em produção; desabilitado em dev para o Swagger funcionar
     contentSecurityPolicy: isProd ? undefined : false,
   }))
 

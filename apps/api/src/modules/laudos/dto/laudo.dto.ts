@@ -1,6 +1,6 @@
 import {
   IsString, IsOptional, IsBoolean, IsEnum, IsArray,
-  IsObject, IsInt, Min, ValidateNested, IsIn,
+  IsObject, IsInt, Min, ValidateNested, IsIn, IsNumber,
 } from 'class-validator'
 import { Type, Transform } from 'class-transformer'
 import { LaudoReferenceType, LaudoStatus } from '@prisma/client'
@@ -18,10 +18,11 @@ export type LaudoFieldType =
   | 'CHECKBOX'
   | 'HEADING'
   | 'DIVIDER'
+  | 'IMAGE'
 
 export const LAUDO_FIELD_TYPES: LaudoFieldType[] = [
   'SHORT_TEXT', 'LONG_TEXT', 'NUMBER', 'DATE', 'TABLE',
-  'MULTI_SELECT', 'SINGLE_SELECT', 'CHECKBOX', 'HEADING', 'DIVIDER',
+  'MULTI_SELECT', 'SINGLE_SELECT', 'CHECKBOX', 'HEADING', 'DIVIDER', 'IMAGE',
 ]
 
 export interface LaudoTableColumn {
@@ -44,6 +45,67 @@ export interface LaudoFieldDefinition {
   value?: any                  // filled value (only in Laudo, not template)
 }
 
+// ─── Signature config ────────────────────────────────────────────────────────
+
+export type LaudoSignerType =
+  | 'ASSUMED_TECHNICIAN'
+  | 'CREATED_BY'
+  | 'CLIENT_ADMIN'
+  | 'COMPANY_ADMIN'
+  | 'SPECIFIC_USER'
+
+export interface SignatureSignerConfig {
+  type: LaudoSignerType
+  signerRole: string
+  specificUserId?: string
+  signingOrder?: number
+}
+
+export interface LaudoSignatureConfig {
+  requireSignature: boolean
+  requireSigningOrder: boolean
+  customMessage?: string
+  expiresInDays?: number
+  signers: SignatureSignerConfig[]
+}
+
+export class SignatureSignerConfigDto {
+  @IsIn(['ASSUMED_TECHNICIAN', 'CREATED_BY', 'CLIENT_ADMIN', 'COMPANY_ADMIN', 'SPECIFIC_USER'])
+  type: LaudoSignerType
+
+  @IsString()
+  signerRole: string
+
+  @IsOptional()
+  @IsString()
+  specificUserId?: string
+
+  @IsOptional()
+  @IsInt() @Min(0)
+  signingOrder?: number
+}
+
+export class LaudoSignatureConfigDto {
+  @IsBoolean()
+  requireSignature: boolean
+
+  @IsBoolean()
+  requireSigningOrder: boolean
+
+  @IsOptional()
+  @IsString()
+  customMessage?: string
+
+  @IsOptional()
+  @IsInt() @Min(1)
+  expiresInDays?: number
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SignatureSignerConfigDto)
+  signers: SignatureSignerConfigDto[]
+}
+
 // ─── Template DTOs ────────────────────────────────────────────────────────────
 
 export class CreateLaudoTemplateDto {
@@ -60,6 +122,18 @@ export class CreateLaudoTemplateDto {
   @IsArray()
   @Transform(({ obj, key }) => obj[key])
   fields: LaudoFieldDefinition[]
+
+  @IsOptional()
+  @IsString()
+  clientId?: string
+
+  @IsOptional()
+  @IsBoolean()
+  isSharedWithClients?: boolean
+
+  @IsOptional()
+  @IsObject()
+  signatureConfig?: LaudoSignatureConfig
 }
 
 export class UpdateLaudoTemplateDto {
@@ -83,6 +157,14 @@ export class UpdateLaudoTemplateDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean
+
+  @IsOptional()
+  @IsBoolean()
+  isSharedWithClients?: boolean
+
+  @IsOptional()
+  @IsObject()
+  signatureConfig?: LaudoSignatureConfig | null
 }
 
 export class ListLaudoTemplatesDto {
@@ -93,6 +175,10 @@ export class ListLaudoTemplatesDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean
+
+  @IsOptional()
+  @IsString()
+  clientId?: string
 
   @IsOptional()
   @IsInt() @Min(1)
@@ -192,10 +278,11 @@ export class SignerForLaudoDto {
 }
 
 export class InitiateLaudoSignDto {
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SignerForLaudoDto)
-  signers: SignerForLaudoDto[]
+  signers?: SignerForLaudoDto[]
 
   @IsOptional()
   @IsBoolean()

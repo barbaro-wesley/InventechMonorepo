@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
-  FileText, ArrowLeft, CheckCircle2, XCircle, Loader2,
+  FileText, XCircle, Loader2,
   Download, User, Building2, Calendar, Hash, ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
@@ -18,14 +18,12 @@ import { REFERENCE_TYPE_LABELS } from "@/services/laudo-templates/laudo-template
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type LaudoStatus = "DRAFT" | "PENDING_REVIEW" | "PENDING_SIGNATURE" | "SIGNED" | "APPROVED" | "CANCELLED";
+type LaudoStatus = "DRAFT" | "PENDING_SIGNATURE" | "SIGNED" | "CANCELLED";
 
 const STATUS_CONFIG: Record<LaudoStatus, { label: string; className: string }> = {
   DRAFT:             { label: "Rascunho",              className: "bg-slate-100 text-slate-600 border-slate-200" },
-  PENDING_REVIEW:    { label: "Aguardando revisão",    className: "bg-amber-50 text-amber-700 border-amber-200" },
   PENDING_SIGNATURE: { label: "Aguardando assinatura", className: "bg-blue-50 text-blue-700 border-blue-200" },
   SIGNED:            { label: "Assinado",              className: "bg-violet-50 text-violet-700 border-violet-200" },
-  APPROVED:          { label: "Aprovado",              className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   CANCELLED:         { label: "Cancelado",             className: "bg-rose-50 text-rose-600 border-rose-200" },
 };
 
@@ -42,13 +40,11 @@ interface LaudoDetail {
   maintenanceId?: string | null;
   templateId?: string | null;
   createdAt: string;
-  approvedAt?: string | null;
   signedAt?: string | null;
   client?: { id: string; name: string } | null;
   template?: { id: string; title: string } | null;
   createdBy?: { id: string; name: string } | null;
   technician?: { id: string; name: string } | null;
-  approvedBy?: { id: string; name: string } | null;
   serviceOrder?: { id: string; number: number; title: string } | null;
 }
 
@@ -141,29 +137,6 @@ export default function LaudoDetailPage() {
     },
   });
 
-  const mutate = (action: string, permission: string) =>
-    useMutation({
-      mutationFn: () => api.post(`/laudos/${id}/${action}`),
-      onSuccess: () => {
-        toast.success(
-          action === "approve" ? "Laudo aprovado!" :
-          action === "submit"  ? "Enviado para revisão!" :
-          "Laudo cancelado."
-        );
-        qc.invalidateQueries({ queryKey: ["laudos"] });
-      },
-      onError: () => toast.error("Erro ao atualizar o laudo."),
-    });
-
-  const approveMutation = useMutation({
-    mutationFn: () => api.post(`/laudos/${id}/approve`),
-    onSuccess: () => {
-      toast.success("Laudo aprovado!");
-      qc.invalidateQueries({ queryKey: ["laudos"] });
-    },
-    onError: () => toast.error("Erro ao aprovar o laudo."),
-  });
-
   const cancelMutation = useMutation({
     mutationFn: () => api.post(`/laudos/${id}/cancel`),
     onSuccess: () => {
@@ -172,15 +145,6 @@ export default function LaudoDetailPage() {
       router.push("/laudos");
     },
     onError: () => toast.error("Erro ao cancelar o laudo."),
-  });
-
-  const submitMutation = useMutation({
-    mutationFn: () => api.post(`/laudos/${id}/submit`),
-    onSuccess: () => {
-      toast.success("Enviado para revisão!");
-      qc.invalidateQueries({ queryKey: ["laudos"] });
-    },
-    onError: () => toast.error("Erro ao enviar para revisão."),
   });
 
   if (isLoading) {
@@ -200,12 +164,11 @@ export default function LaudoDetailPage() {
     );
   }
 
-  const statusCfg = STATUS_CONFIG[laudo.status];
-  const canApprove  = permissions.canAccess("laudo", "approve") || permissions.isManager;
-  const canCancel   = permissions.isManager || permissions.canAccess("laudo", "update");
+  const statusCfg = STATUS_CONFIG[laudo.status as LaudoStatus] ?? { label: laudo.status, className: "bg-slate-100 text-slate-500 border-slate-200" };
+  const canCancel    = permissions.isManager || permissions.canAccess("laudo", "update");
   const canExportPdf = permissions.canAccess("laudo", "export-pdf") || permissions.isManager || permissions.isClientAdmin;
-  const isPending   = laudo.status === "PENDING_REVIEW";
-  const isDraft     = laudo.status === "DRAFT";
+  const isDraft      = laudo.status === "DRAFT";
+  const isPendingSign = laudo.status === "PENDING_SIGNATURE";
 
   const visibleFields = laudo.fields?.filter(
     (f) => f.type !== "HEADING" && f.type !== "DIVIDER"
@@ -266,32 +229,7 @@ export default function LaudoDetailPage() {
                 </a>
               </Button>
             )}
-            {isDraft && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-xs gap-1.5"
-                onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending}
-              >
-                {submitMutation.isPending && <Loader2 className="w-3 h-3 animate-spin" />}
-                Enviar para revisão
-              </Button>
-            )}
-            {isPending && canApprove && (
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => approveMutation.mutate()}
-                disabled={approveMutation.isPending}
-              >
-                {approveMutation.isPending
-                  ? <Loader2 className="w-3 h-3 animate-spin" />
-                  : <CheckCircle2 className="w-3.5 h-3.5" />}
-                Aprovar laudo
-              </Button>
-            )}
-            {(isDraft || isPending) && canCancel && (
+            {(isDraft || isPendingSign) && canCancel && (
               <Button
                 size="sm"
                 variant="outline"
@@ -344,16 +282,6 @@ export default function LaudoDetailPage() {
               {new Date(laudo.createdAt).toLocaleDateString("pt-BR")}
             </p>
           </div>
-          {laudo.approvedBy && laudo.approvedAt && (
-            <div className="space-y-0.5">
-              <p className="text-xs text-slate-400 flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Aprovado por
-              </p>
-              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                {laudo.approvedBy.name}
-              </p>
-            </div>
-          )}
         </div>
       </div>
 

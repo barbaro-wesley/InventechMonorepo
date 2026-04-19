@@ -3,8 +3,11 @@ import {
   Req, Res, UseGuards, NotFoundException,
 } from '@nestjs/common'
 import { Response } from 'express'
+import * as Minio from 'minio'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { Permission } from '../../common/decorators/permission.decorator'
+import { ConfigService } from '@nestjs/config'
+import { PrismaService } from '../../../prisma/prisma.service'
 import { CreateLaudoDto, InitiateLaudoSignDto, ListLaudosDto, UpdateLaudoDto } from './dto/laudo.dto'
 import { LaudosService } from './services/laudos.service'
 import { LaudoPdfService } from './services/laudo-pdf.service'
@@ -12,10 +15,22 @@ import { LaudoPdfService } from './services/laudo-pdf.service'
 @UseGuards(JwtAuthGuard)
 @Controller('laudos')
 export class LaudosController {
+  private readonly minio: Minio.Client
+
   constructor(
     private readonly service: LaudosService,
     private readonly pdf: LaudoPdfService,
-  ) {}
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {
+    this.minio = new Minio.Client({
+      endPoint: config.get<string>('minio.endpoint', 'localhost'),
+      port: config.get<number>('minio.port', 9000),
+      useSSL: config.get<boolean>('minio.useSSL', false),
+      accessKey: config.get<string>('minio.accessKey', ''),
+      secretKey: config.get<string>('minio.secretKey', ''),
+    })
+  }
 
   @Post('preview-fields')
   @Permission('laudo:create')
@@ -90,6 +105,28 @@ export class LaudosController {
   @Permission('laudo:delete')
   remove(@Param('id') id: string, @Req() req: any) {
     return this.service.remove(id, req.user.companyId)
+  }
+
+  @Get(':id/signed-pdf')
+  @Permission('laudo:export-pdf')
+  async downloadSignedPdf(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
+    const esignDoc = await this.prisma.eSignDocument.findFirst({
+      where: { referenceType: 'LAUDO', referenceId: id, companyId: req.user.companyId },
+      select: { signedFileUrl: true, title: true },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (!esignDoc?.signedFileUrl) throw new NotFoundException('PDF assinado não disponível')
+
+    const parsed = new URL(esignDoc.signedFileUrl)
+    const parts = parsed.pathname.replace(/^\//, '').split('/')
+    const bucket = parts[0]
+    const key = parts.slice(1).join('/')
+
+    const stream = await this.minio.getObject(bucket, key)
+    const filename = encodeURIComponent(`Laudo_Assinado_${esignDoc.title}.pdf`)
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` })
+    stream.pipe(res)
   }
 
   @Get(':id/pdf')

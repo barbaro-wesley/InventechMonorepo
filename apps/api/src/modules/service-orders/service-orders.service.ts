@@ -417,6 +417,20 @@ export class ServiceOrdersService {
                     },
                     orderBy: { createdAt: 'asc' },
                 },
+                laudos: {
+                    where: { deletedAt: null },
+                    select: {
+                        id: true,
+                        number: true,
+                        title: true,
+                        status: true,
+                        referenceType: true,
+                        pdfUrl: true,
+                        createdAt: true,
+                        technician: { select: { id: true, name: true } },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
             },
         })
 

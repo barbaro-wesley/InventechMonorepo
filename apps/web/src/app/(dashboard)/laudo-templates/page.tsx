@@ -27,6 +27,7 @@ import {
   List,
   Minus,
   Heading,
+  Image,
 } from "lucide-react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,12 +47,13 @@ import { laudoTemplatesService } from "@/services/laudo-templates/laudo-template
 import { getErrorMessage } from "@/lib/api";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
-import type { LaudoTemplate, LaudoFieldType, LaudoReferenceType } from "@/services/laudo-templates/laudo-templates.types";
+import type { LaudoTemplate, LaudoFieldType, LaudoReferenceType, LaudoSignatureConfig } from "@/services/laudo-templates/laudo-templates.types";
 import {
   REFERENCE_TYPE_LABELS,
   FIELD_TYPE_LABELS,
   AVAILABLE_VARIABLES,
 } from "@/services/laudo-templates/laudo-templates.types";
+import { SignatureConfigSection } from "@/components/laudos/signature-config-section";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,6 +101,7 @@ const FIELD_TYPE_ICONS: Record<LaudoFieldType, React.ElementType> = {
   CHECKBOX: CheckSquare,
   HEADING: Heading,
   DIVIDER: Minus,
+  IMAGE: Image,
 };
 
 const REFERENCE_TYPE_COLORS: Record<LaudoReferenceType, string> = {
@@ -136,6 +139,8 @@ const templateFormSchema = z.object({
   referenceType: z.enum(["MAINTENANCE", "SERVICE_ORDER", "CUSTOM"]),
   fields: z.array(fieldSchema).min(1, "Adicione pelo menos um campo"),
   isActive: z.boolean().optional(),
+  isSharedWithClients: z.boolean().optional(),
+  signatureConfig: z.any().optional(),
 });
 
 type TemplateFormData = z.infer<typeof templateFormSchema>;
@@ -671,6 +676,8 @@ function TemplateForm({
     formState: { errors },
   } = form;
 
+  const signatureConfig: LaudoSignatureConfig | null | undefined = watch("signatureConfig");
+
   const { fields, append, remove, swap } = useFieldArray({ control, name: "fields" });
 
   const addField = useCallback(
@@ -818,6 +825,7 @@ function TemplateForm({
                 "MULTI_SELECT",
                 "SINGLE_SELECT",
                 "CHECKBOX",
+                "IMAGE",
                 "HEADING",
                 "DIVIDER",
               ] as LaudoFieldType[]
@@ -839,6 +847,13 @@ function TemplateForm({
           </div>
         </div>
       </div>
+
+      {/* Signature config */}
+      <SignatureConfigSection
+        value={signatureConfig}
+        onChange={(cfg) => setValue("signatureConfig", cfg)}
+        disabled={isLoading}
+      />
     </form>
   );
 }
@@ -877,6 +892,7 @@ export default function LaudoTemplatesPage() {
       referenceType: "MAINTENANCE",
       fields: [],
       isActive: true,
+      signatureConfig: null,
     },
   });
 
@@ -898,6 +914,7 @@ export default function LaudoTemplatesPage() {
         referenceType: full.referenceType,
         fields: (full.fields ?? []).map((f, i) => ({ ...f, order: i })),
         isActive: full.isActive,
+        signatureConfig: full.signatureConfig ?? null,
       });
     } catch {
       toast.error("Erro ao carregar template");
@@ -913,6 +930,7 @@ export default function LaudoTemplatesPage() {
         description: data.description,
         referenceType: data.referenceType,
         fields: data.fields.map((f, i) => ({ ...f, order: i })) as any,
+        signatureConfig: data.signatureConfig ?? null,
       },
       {
         onSuccess: () => {
@@ -932,6 +950,7 @@ export default function LaudoTemplatesPage() {
         referenceType: data.referenceType,
         fields: data.fields.map((f, i) => ({ ...f, order: i })) as any,
         isActive: data.isActive,
+        signatureConfig: data.signatureConfig ?? null,
       },
       {
         onSuccess: () => {

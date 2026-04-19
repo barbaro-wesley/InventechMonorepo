@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common'
+import { InjectQueue } from '@nestjs/bull'
+import { Queue } from 'bull'
 import { createHash } from 'crypto'
 import { ESignDocumentStatus, ESignEventType } from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
@@ -18,6 +20,7 @@ export class ESignDocumentsService {
     private readonly certificate: ESignCertificateService,
     private readonly notifications: ESignNotificationsService,
     private readonly reminderService: ESignReminderService,
+    @InjectQueue('esign-notifications') private readonly notificationsQueue: Queue,
   ) {}
 
   async create(
@@ -154,7 +157,15 @@ export class ESignDocumentsService {
       ? doc.requests.filter((r) => r.signingOrder === Math.min(...doc.requests.map((x) => x.signingOrder)))
       : doc.requests
 
-    await Promise.all(firstBatch.map((req) => this.notifications.sendInvitation(doc, req)))
+    await Promise.all(
+      firstBatch.map((req) =>
+        this.notificationsQueue.add(
+          'send-invitation',
+          { documentId, requestId: req.id },
+          { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, removeOnComplete: true },
+        ),
+      ),
+    )
 
     const settings = (doc.settings as any) ?? {}
     const reminderAfterDays = settings.reminderAfterDays ?? 2
@@ -207,7 +218,11 @@ export class ESignDocumentsService {
     await this.audit.log({ documentId, eventType: ESignEventType.DOCUMENT_COMPLETED })
     await this.certificate.issue(documentId, appBaseUrl)
     await this.audit.log({ documentId, eventType: ESignEventType.CERTIFICATE_ISSUED })
-    await this.notifications.sendCompletionEmails(doc)
+    await this.notificationsQueue.add(
+      'send-completion',
+      { documentId },
+      { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, removeOnComplete: true },
+    )
 
     // Notify referencing entity (e.g. Laudo) that signing is complete
     if (doc.referenceType === 'LAUDO' && doc.referenceId) {

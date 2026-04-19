@@ -14,15 +14,13 @@ import { REFERENCE_TYPE_LABELS } from "@/services/laudo-templates/laudo-template
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type LaudoStatus = "DRAFT" | "PENDING_REVIEW" | "PENDING_SIGNATURE" | "SIGNED" | "APPROVED" | "CANCELLED";
+type LaudoStatus = "DRAFT" | "PENDING_SIGNATURE" | "SIGNED" | "CANCELLED";
 
 const STATUS_CONFIG: Record<LaudoStatus, { label: string; className: string }> = {
-  DRAFT:              { label: "Rascunho",           className: "bg-slate-100 text-slate-600 border-slate-200" },
-  PENDING_REVIEW:     { label: "Aguardando revisão", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  PENDING_SIGNATURE:  { label: "Aguardando assinatura", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  SIGNED:             { label: "Assinado",           className: "bg-violet-50 text-violet-700 border-violet-200" },
-  APPROVED:           { label: "Aprovado",           className: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  CANCELLED:          { label: "Cancelado",          className: "bg-rose-50 text-rose-600 border-rose-200" },
+  DRAFT:             { label: "Rascunho",              className: "bg-slate-100 text-slate-600 border-slate-200" },
+  PENDING_SIGNATURE: { label: "Aguardando assinatura", className: "bg-blue-50 text-blue-700 border-blue-200" },
+  SIGNED:            { label: "Assinado",              className: "bg-violet-50 text-violet-700 border-violet-200" },
+  CANCELLED:         { label: "Cancelado",             className: "bg-rose-50 text-rose-600 border-rose-200" },
 };
 
 const REFERENCE_TYPE_ACCENT: Record<LaudoReferenceType, string> = {
@@ -82,7 +80,7 @@ export default function LaudosPage() {
   const total = data?.total ?? 0;
 
   const STATUS_FILTERS: (LaudoStatus | "ALL")[] = [
-    "ALL", "DRAFT", "PENDING_REVIEW", "PENDING_SIGNATURE", "SIGNED", "APPROVED",
+    "ALL", "DRAFT", "PENDING_SIGNATURE", "SIGNED", "CANCELLED",
   ];
 
   return (
@@ -184,7 +182,7 @@ export default function LaudosPage() {
       ) : (
         <div className="space-y-2">
           {laudos.map((laudo) => {
-            const statusCfg = STATUS_CONFIG[laudo.status];
+            const statusCfg = STATUS_CONFIG[laudo.status as LaudoStatus] ?? { label: laudo.status, className: "bg-slate-100 text-slate-500 border-slate-200" };
             return (
               <div
                 key={laudo.id}

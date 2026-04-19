@@ -50,6 +50,11 @@ const securityHeaders = [
         const wsOrigin  = apiOrigin.replace(/^http/, "ws")
         return `connect-src 'self' ${apiOrigin} ${wsOrigin}`
       })(),
+      // PDF proxy da API embutido via iframe na página de assinatura
+      (() => {
+        const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/api.*$/, "")
+        return `frame-src 'self' ${apiOrigin}`
+      })(),
       // Sem frames externos
       "frame-ancestors 'none'",
       // Sem plugins

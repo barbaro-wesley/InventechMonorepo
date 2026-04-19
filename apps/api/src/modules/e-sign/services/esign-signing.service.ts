@@ -1,5 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException, GoneException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, GoneException, Logger } from '@nestjs/common'
+import { InjectQueue } from '@nestjs/bull'
+import { Queue } from 'bull'
 import { createHash } from 'crypto'
+import * as Minio from 'minio'
 import { ESignEventType, ESignRequestStatus } from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { DeclineSignatureDto, SubmitSignatureDto } from '../dto/esign.dto'
@@ -10,13 +13,24 @@ import { ConfigService } from '@nestjs/config'
 
 @Injectable()
 export class ESignSigningService {
+  private readonly minio: Minio.Client
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: ESignAuditService,
     private readonly documents: ESignDocumentsService,
     private readonly notifications: ESignNotificationsService,
     private readonly config: ConfigService,
-  ) {}
+    @InjectQueue('esign-notifications') private readonly notificationsQueue: Queue,
+  ) {
+    this.minio = new Minio.Client({
+      endPoint: config.get<string>('minio.endpoint', 'localhost'),
+      port: config.get<number>('minio.port', 9000),
+      useSSL: config.get<boolean>('minio.useSSL', false),
+      accessKey: config.get<string>('minio.accessKey', ''),
+      secretKey: config.get<string>('minio.secretKey', ''),
+    })
+  }
 
   async getRequestByToken(token: string) {
     const request = await this.prisma.eSignRequest.findUnique({
@@ -135,7 +149,37 @@ export class ESignSigningService {
       metadata: { reason: dto.reason },
     })
 
-    await this.notifications.sendDeclineAlert(request.document, request, dto.reason)
+    // fire-and-forget — decline alert is non-critical
+    void this.notifications.sendDeclineAlert(request.document, request, dto.reason).catch((err) =>
+      new Logger(ESignSigningService.name).warn(`sendDeclineAlert failed: ${err}`),
+    )
+  }
+
+  async getDocumentStream(token: string): Promise<{ stream: NodeJS.ReadableStream; filename: string }> {
+    const request = await this.prisma.eSignRequest.findUnique({
+      where: { token },
+      include: { document: { select: { originalFileUrl: true, title: true, status: true } } },
+    })
+
+    if (!request) throw new NotFoundException('Link inválido')
+    if (!request.document) throw new NotFoundException('Documento não encontrado')
+    if (request.document.status === 'CANCELLED') throw new BadRequestException('Documento cancelado')
+
+    const url = request.document.originalFileUrl
+    const filename = `${request.document.title.replace(/[^a-z0-9]/gi, '_')}.pdf`
+
+    // Parse bucket and key from stored URL: http(s)://host:port/{bucket}/{key...}
+    const parsed = new URL(url)
+    const parts = parsed.pathname.replace(/^\//, '').split('/')
+    const bucket = parts[0]
+    const key = parts.slice(1).join('/')
+
+    try {
+      const stream = await this.minio.getObject(bucket, key)
+      return { stream, filename }
+    } catch {
+      throw new NotFoundException('Arquivo não encontrado no storage')
+    }
   }
 
   private async notifyNextSigner(documentId: string, currentOrder: number) {
@@ -150,10 +194,11 @@ export class ESignSigningService {
     })
 
     if (nextRequests.length > 0) {
-      const doc = await this.prisma.eSignDocument.findUnique({ where: { id: documentId } })
-      if (doc) {
-        await this.notifications.sendInvitation(doc, nextRequests[0])
-      }
+      await this.notificationsQueue.add(
+        'send-invitation',
+        { documentId, requestId: nextRequests[0].id },
+        { attempts: 3, backoff: { type: 'exponential', delay: 5_000 }, removeOnComplete: true },
+      )
     }
   }
 }

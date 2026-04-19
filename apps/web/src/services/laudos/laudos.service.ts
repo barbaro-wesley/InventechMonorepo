@@ -5,7 +5,7 @@ export interface Laudo {
   id: string;
   number: number;
   title: string;
-  status: "DRAFT" | "PENDING_REVIEW" | "PENDING_SIGNATURE" | "SIGNED" | "APPROVED" | "CANCELLED";
+  status: "DRAFT" | "PENDING_SIGNATURE" | "SIGNED" | "CANCELLED";
   referenceType: LaudoReferenceType;
   fields: LaudoFieldDefinition[];
   notes?: string | null;
@@ -14,7 +14,22 @@ export interface Laudo {
   maintenanceId?: string | null;
   clientId?: string | null;
   templateId?: string | null;
+  template?: { id: string; title: string; signatureConfig?: import("@/services/laudo-templates/laudo-templates.types").LaudoSignatureConfig | null } | null;
   createdAt: string;
+}
+
+export interface InitiateLaudoSignDto {
+  signers?: Array<{
+    signerName: string;
+    signerEmail: string;
+    signerPhone?: string;
+    signerCpf?: string;
+    signerRole: string;
+    signingOrder?: number;
+  }>;
+  requireSigningOrder?: boolean;
+  expiresAt?: string;
+  customMessage?: string;
 }
 
 export interface CreateLaudoDto {
@@ -66,6 +81,21 @@ export const laudosService = {
     technicianId?: string;
   }): Promise<{ fields: any[] }> {
     const { data } = await api.post("/laudos/preview-fields", payload);
+    return data;
+  },
+
+  async initiateSign(id: string, dto: InitiateLaudoSignDto): Promise<Laudo> {
+    const { data } = await api.post(`/laudos/${id}/sign`, dto);
+    return data;
+  },
+
+  async submit(id: string): Promise<Laudo> {
+    const { data } = await api.post(`/laudos/${id}/submit`);
+    return data;
+  },
+
+  async regeneratePdf(id: string): Promise<{ pdfUrl: string }> {
+    const { data } = await api.post(`/laudos/${id}/pdf/regenerate`);
     return data;
   },
 };

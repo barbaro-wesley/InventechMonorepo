@@ -88,6 +88,7 @@ model Client {
   serviceOrders        ServiceOrder[]
   users                User[]
   laudos               Laudo[]
+  laudoTemplates       LaudoTemplate[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -1197,24 +1198,29 @@ enum LaudoReferenceType {
 }
 
 model LaudoTemplate {
-  id            String             @id @default(uuid())
-  companyId     String             @map("company_id")
-  createdById   String             @map("created_by_id")
-  title         String
-  description   String?
-  referenceType LaudoReferenceType @map("reference_type")
-  fields        Json
-  isActive      Boolean            @default(true) @map("is_active")
-  createdAt     DateTime           @default(now()) @map("created_at")
-  updatedAt     DateTime           @updatedAt @map("updated_at")
-  deletedAt     DateTime?          @map("deleted_at")
+  id                  String             @id @default(uuid())
+  companyId           String             @map("company_id")
+  clientId            String?            @map("client_id")
+  createdById         String             @map("created_by_id")
+  title               String
+  description         String?
+  referenceType       LaudoReferenceType @map("reference_type")
+  fields              Json
+  isActive            Boolean            @default(true) @map("is_active")
+  isSharedWithClients Boolean            @default(false) @map("is_shared_with_clients")
+  signatureConfig     Json?              @map("signature_config")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+  deletedAt           DateTime?          @map("deleted_at")
 
-  company   Company @relation(fields: [companyId], references: [id])
-  createdBy User    @relation("LaudoTemplateCreatedBy", fields: [createdById], references: [id])
+  company   Company  @relation(fields: [companyId], references: [id])
+  client    Client?  @relation(fields: [clientId], references: [id])
+  createdBy User     @relation("LaudoTemplateCreatedBy", fields: [createdById], references: [id])
   laudos    Laudo[]
 
   @@index([companyId])
   @@index([companyId, referenceType])
+  @@index([companyId, clientId])
   @@map("laudo_templates")
 }
 

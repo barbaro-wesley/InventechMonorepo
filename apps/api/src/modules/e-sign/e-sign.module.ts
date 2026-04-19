@@ -12,6 +12,7 @@ import { ESignNotificationsService } from './services/esign-notifications.servic
 import { ESignPdfService } from './services/esign-pdf.service'
 import { ESignReminderService } from './services/esign-reminder.service'
 import { ESignReminderProcessor } from './services/esign-reminder.processor'
+import { ESignNotificationsProcessor } from './services/esign-notifications.processor'
 import { ESignExpirationScheduler } from './services/esign-expiration.scheduler'
 
 @Module({
@@ -19,6 +20,13 @@ import { ESignExpirationScheduler } from './services/esign-expiration.scheduler'
     ConfigModule,
     BullModule.registerQueue({
       name: 'esign-reminders',
+      defaultJobOptions: {
+        removeOnComplete: true,
+        removeOnFail: false,
+      },
+    }),
+    BullModule.registerQueue({
+      name: 'esign-notifications',
       defaultJobOptions: {
         removeOnComplete: true,
         removeOnFail: false,
@@ -39,6 +47,7 @@ import { ESignExpirationScheduler } from './services/esign-expiration.scheduler'
     ESignPdfService,
     ESignReminderService,
     ESignReminderProcessor,
+    ESignNotificationsProcessor,
     ESignExpirationScheduler,
   ],
   exports: [ESignDocumentsService, ESignCertificateService, ESignPdfService, ESignReminderService],

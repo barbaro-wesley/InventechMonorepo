@@ -289,20 +289,19 @@ export class ESignPdfService {
     page.drawText(text, { x: 40, y: 18, font, size: 7, color: rgb(0.5, 0.5, 0.5), maxWidth: width - 80 })
   }
 
-  // ─── Fetch PDF de uma URL externa/MinIO ──────────────────────────────────────
+  // ─── Fetch PDF via MinIO SDK (supports private buckets) ─────────────────────
 
   private async fetchPdfFromUrl(url: string): Promise<Buffer> {
-    const { default: https } = await import('https')
-    const { default: http } = await import('http')
+    const parsed = new URL(url)
+    const parts = parsed.pathname.replace(/^\//, '').split('/')
+    const bucket = parts[0]
+    const key = parts.slice(1).join('/')
+    const stream = await this.minio.getObject(bucket, key)
     return new Promise<Buffer>((resolve, reject) => {
-      const lib = url.startsWith('https') ? https : http
-      lib.get(url, (res) => {
-        if (res.statusCode !== 200) { reject(new Error(`HTTP ${res.statusCode}`)); return }
-        const chunks: Buffer[] = []
-        res.on('data', (c: Buffer) => chunks.push(c))
-        res.on('end', () => resolve(Buffer.concat(chunks)))
-        res.on('error', reject)
-      }).on('error', reject)
+      const chunks: Buffer[] = []
+      stream.on('data', (c: Buffer) => chunks.push(c))
+      stream.on('end', () => resolve(Buffer.concat(chunks)))
+      stream.on('error', reject)
     })
   }
 }

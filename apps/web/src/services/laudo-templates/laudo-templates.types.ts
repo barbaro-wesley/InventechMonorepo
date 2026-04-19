@@ -8,9 +8,17 @@ export type LaudoFieldType =
   | "SINGLE_SELECT"
   | "CHECKBOX"
   | "HEADING"
-  | "DIVIDER";
+  | "DIVIDER"
+  | "IMAGE";
 
 export type LaudoReferenceType = "MAINTENANCE" | "SERVICE_ORDER" | "CUSTOM";
+
+export type LaudoSignerType =
+  | "ASSUMED_TECHNICIAN"
+  | "CREATED_BY"
+  | "CLIENT_ADMIN"
+  | "COMPANY_ADMIN"
+  | "SPECIFIC_USER";
 
 export interface LaudoTableColumn {
   key: string;
@@ -31,19 +39,38 @@ export interface LaudoFieldDefinition {
   variable?: string;
 }
 
+export interface SignatureSignerConfig {
+  type: LaudoSignerType;
+  signerRole: string;
+  specificUserId?: string;
+  signingOrder?: number;
+}
+
+export interface LaudoSignatureConfig {
+  requireSignature: boolean;
+  requireSigningOrder: boolean;
+  customMessage?: string;
+  expiresInDays?: number;
+  signers: SignatureSignerConfig[];
+}
+
 export interface LaudoTemplate {
   id: string;
   companyId: string;
+  clientId?: string | null;
   createdById: string;
   title: string;
   description?: string | null;
   referenceType: LaudoReferenceType;
   fields: LaudoFieldDefinition[];
   isActive: boolean;
+  isSharedWithClients: boolean;
+  signatureConfig?: LaudoSignatureConfig | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
   createdBy?: { id: string; name: string };
+  client?: { id: string; name: string } | null;
   _count?: { laudos: number };
 }
 
@@ -52,6 +79,9 @@ export interface CreateLaudoTemplateDto {
   description?: string;
   referenceType: LaudoReferenceType;
   fields: LaudoFieldDefinition[];
+  clientId?: string;
+  isSharedWithClients?: boolean;
+  signatureConfig?: LaudoSignatureConfig | null;
 }
 
 export interface UpdateLaudoTemplateDto {
@@ -60,11 +90,14 @@ export interface UpdateLaudoTemplateDto {
   referenceType?: LaudoReferenceType;
   fields?: LaudoFieldDefinition[];
   isActive?: boolean;
+  isSharedWithClients?: boolean;
+  signatureConfig?: LaudoSignatureConfig | null;
 }
 
 export interface ListLaudoTemplatesParams {
   referenceType?: LaudoReferenceType;
   isActive?: boolean;
+  clientId?: string;
   page?: number;
   limit?: number;
 }
@@ -86,6 +119,15 @@ export const FIELD_TYPE_LABELS: Record<LaudoFieldType, string> = {
   CHECKBOX: "Caixa de seleção",
   HEADING: "Título de seção",
   DIVIDER: "Divisor",
+  IMAGE: "Imagem",
+};
+
+export const SIGNER_TYPE_LABELS: Record<LaudoSignerType, string> = {
+  ASSUMED_TECHNICIAN: "Técnico que assumiu a OS",
+  CREATED_BY: "Criador do laudo",
+  CLIENT_ADMIN: "Administrador do cliente",
+  COMPANY_ADMIN: "Administrador da empresa",
+  SPECIFIC_USER: "Usuário específico",
 };
 
 export const AVAILABLE_VARIABLES = [

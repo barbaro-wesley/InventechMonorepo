@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react'
+import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn, FileText } from 'lucide-react'
 import { storageService } from '@/services/storage/storage.service'
 import type { Attachment } from '@/services/storage/storage.service'
 import { Button } from '@/components/ui/button'
@@ -461,6 +461,86 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
           <p className="text-sm text-[#1d2530] leading-relaxed bg-emerald-50 rounded-lg p-3 border border-emerald-200">
             {os.resolution}
           </p>
+        </div>
+      )}
+
+      {/* Laudos Vinculados */}
+      {os.laudos && os.laudos.length > 0 && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <FileText className="h-3 w-3 text-[#6c7c93]" />
+            <p className="text-[11px] text-[#6c7c93] font-medium uppercase tracking-wide">
+              Laudos Vinculados ({os.laudos.length})
+            </p>
+          </div>
+          <div className="space-y-2">
+            {os.laudos.map((laudo) => {
+              const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
+                DRAFT: { label: 'Rascunho', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-600' },
+                PENDING_REVIEW: { label: 'Em Revisão', bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700' },
+                PENDING_SIGNATURE: { label: 'Aguard. Assinatura', bg: 'bg-orange-50 border-orange-200', text: 'text-orange-700' },
+                SIGNED: { label: 'Assinado', bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700' },
+                APPROVED: { label: 'Aprovado', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700' },
+                CANCELLED: { label: 'Cancelado', bg: 'bg-red-50 border-red-200', text: 'text-red-600' },
+              }
+              const st = statusConfig[laudo.status] ?? { label: laudo.status, bg: 'bg-slate-50 border-slate-200', text: 'text-slate-600' }
+              const laudoNum = String(laudo.number).padStart(4, '0')
+              const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1'
+
+              return (
+                <div
+                  key={laudo.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb] hover:border-[#c5cdd8] transition-colors"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                    <FileText className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-[#1d2530] truncate">
+                        #{laudoNum} — {laudo.title}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${st.bg} ${st.text}`}>
+                        {st.label}
+                      </span>
+                      {laudo.technician && (
+                        <span className="text-[11px] text-[#6c7c93] truncate">
+                          Técnico: {laudo.technician.name}
+                        </span>
+                      )}
+                      <span className="text-[11px] text-[#6c7c93]">
+                        {new Date(laudo.createdAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {laudo.status === 'SIGNED' && (
+                      <a
+                        href={`${apiBase}/laudos/${laudo.id}/signed-pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-violet-50 hover:bg-violet-100 text-violet-600 transition-colors"
+                        title="Baixar PDF assinado"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                    <a
+                      href={`${apiBase}/laudos/${laudo.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
+                      title={laudo.status === 'SIGNED' ? 'Baixar PDF original' : 'Baixar PDF'}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

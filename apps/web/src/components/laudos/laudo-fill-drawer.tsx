@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
-import { Plus, Trash2, Loader2, FileText, X } from "lucide-react";
+import { Plus, Trash2, Loader2, FileText, X, ShieldCheck, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -42,17 +42,13 @@ export interface LaudoFillDrawerProps {
   open: boolean;
   onClose: () => void;
   onSaved: (laudoId: string) => void;
-  /** Pre-fill context for variable resolution */
   serviceOrderId?: string;
   maintenanceId?: string;
   clientId?: string;
   technicianId?: string;
   referenceType?: LaudoReferenceType;
-  /** If already created (resuming a draft) */
   existingLaudoId?: string | null;
 }
-
-// ─── Field value state ────────────────────────────────────────────────────────
 
 type FieldValues = Record<string, any>;
 
@@ -79,6 +75,33 @@ function FieldInput({
 
   if (field.type === "DIVIDER") {
     return <hr className="border-slate-200 dark:border-slate-700" />;
+  }
+
+  if (field.type === "IMAGE") {
+    return (
+      <div className="space-y-1.5">
+        <Input
+          type="file"
+          accept="image/*"
+          disabled={disabled}
+          className="h-9 text-sm"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => onChange(ev.target?.result ?? "");
+            reader.readAsDataURL(file);
+          }}
+        />
+        {value && (
+          <img
+            src={value}
+            alt="preview"
+            className="max-h-40 rounded-lg border border-slate-200 dark:border-slate-700 object-contain"
+          />
+        )}
+      </div>
+    );
   }
 
   if (field.type === "SHORT_TEXT" || field.type === "NUMBER" || field.type === "DATE") {
@@ -219,11 +242,7 @@ function FieldInput({
     };
 
     if (cols.length === 0) {
-      return (
-        <p className="text-xs text-slate-400 italic">
-          Tabela sem colunas definidas no template
-        </p>
-      );
+      return <p className="text-xs text-slate-400 italic">Tabela sem colunas definidas no template</p>;
     }
 
     return (
@@ -315,6 +334,7 @@ export function LaudoFillDrawer({
   const [checkingDraft, setCheckingDraft] = useState(false);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(false);
+  const [signing, setSigning] = useState(false);
 
   function buildInitialValues(fieldList: LaudoFieldDefinition[]): FieldValues {
     const init: FieldValues = {};
@@ -345,7 +365,6 @@ export function LaudoFillDrawer({
     limit: 100,
   });
 
-  // Load an already-saved laudo (existingLaudoId passed from parent)
   useEffect(() => {
     if (!open || !existingLaudoId) return;
     setLoadingExisting(true);
@@ -356,14 +375,13 @@ export function LaudoFillDrawer({
         setNotes(laudo.notes ?? "");
         setFields(fieldList);
         setValues(buildInitialValues(fieldList));
-        setSelectedTemplate({ id: laudo.templateId ?? "", title: laudo.title } as any);
+        setSelectedTemplate({ id: laudo.templateId ?? "", title: laudo.title, signatureConfig: laudo.template?.signatureConfig } as any);
       })
       .catch(() => {})
       .finally(() => setLoadingExisting(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, existingLaudoId]);
 
-  // When drawer opens with no existing laudo, check for a DRAFT for this service order
   useEffect(() => {
     if (!open || !serviceOrderId || savedLaudoId || existingLaudoId) return;
     setCheckingDraft(true);
@@ -375,7 +393,7 @@ export function LaudoFillDrawer({
           setNotes(draft.notes ?? "");
           setFields(fieldList);
           setValues(buildInitialValues(fieldList));
-          setSelectedTemplate({ id: draft.templateId ?? "", title: draft.title } as any);
+          setSelectedTemplate({ id: draft.templateId ?? "", title: draft.title, signatureConfig: draft.template?.signatureConfig } as any);
         }
       })
       .catch(() => {})
@@ -387,6 +405,9 @@ export function LaudoFillDrawer({
   const updateLaudo = useUpdateLaudo(savedLaudoId ?? "");
 
   const templates = templatesData?.data ?? [];
+
+  // Whether the selected template requires e-sign
+  const templateRequiresSignature = !!(selectedTemplate as any)?.signatureConfig?.requireSignature;
 
   const handleSelectTemplate = useCallback(
     async (tpl: LaudoTemplate) => {
@@ -427,40 +448,64 @@ export function LaudoFillDrawer({
   const buildFilledFields = (): LaudoFieldDefinition[] =>
     fields.map((f) => ({ ...f, value: values[f.id] ?? null }));
 
-  const handleSave = async () => {
-    if (!selectedTemplate) return;
-
+  // Save laudo (returns the laudo id)
+  const doSave = async (): Promise<string> => {
+    if (!selectedTemplate) throw new Error("No template");
     const filledFields = buildFilledFields();
 
+    if (savedLaudoId) {
+      await updateLaudo.mutateAsync({ fields: filledFields, notes: notes || undefined });
+      return savedLaudoId;
+    } else {
+      const laudo = await createLaudo.mutateAsync({
+        title: selectedTemplate.title,
+        referenceType,
+        templateId: selectedTemplate.id,
+        serviceOrderId,
+        maintenanceId,
+        clientId,
+        technicianId,
+        fields: filledFields,
+        notes: notes || undefined,
+      });
+      setSavedLaudoId(laudo.id);
+      return laudo.id;
+    }
+  };
+
+  const handleSave = async () => {
     try {
-      if (savedLaudoId) {
-        await updateLaudo.mutateAsync({
-          fields: filledFields,
-          notes: notes || undefined,
-        });
-        onSaved(savedLaudoId);
-      } else {
-        const laudo = await createLaudo.mutateAsync({
-          title: selectedTemplate.title,
-          referenceType,
-          templateId: selectedTemplate.id,
-          serviceOrderId,
-          maintenanceId,
-          clientId,
-          technicianId,
-          fields: filledFields,
-          notes: notes || undefined,
-        });
-        setSavedLaudoId(laudo.id);
-        onSaved(laudo.id);
-      }
+      const laudoId = await doSave();
       toast.success("Laudo salvo com sucesso!");
+      onSaved(laudoId);
     } catch {
       // error already toasted by hook
     }
   };
 
-  const isSaving = createLaudo.isPending || updateLaudo.isPending || loadingTemplate || loadingExisting;
+  const handleSaveAndSign = async () => {
+    try {
+      const laudoId = await doSave();
+      setSigning(true);
+      try {
+        // Generate (or regenerate) PDF so pdfUrl is stored before signing
+        await laudosService.regeneratePdf(laudoId);
+        // Initiate sign — backend auto-resolves signers from template signatureConfig
+        await laudosService.initiateSign(laudoId, { signers: [] });
+        toast.success("Laudo enviado para assinatura!");
+        onSaved(laudoId);
+      } catch (err: any) {
+        const msg = err?.response?.data?.message ?? "Erro ao iniciar assinatura";
+        toast.error(msg);
+      } finally {
+        setSigning(false);
+      }
+    } catch {
+      // save error already toasted by hook
+    }
+  };
+
+  const isSaving = createLaudo.isPending || updateLaudo.isPending || loadingTemplate || loadingExisting || signing;
 
   const handleClose = () => {
     if (!savedLaudoId) {
@@ -472,9 +517,7 @@ export function LaudoFillDrawer({
     onClose();
   };
 
-  const visibleFields = fields.filter(
-    (f) => f.type !== "HEADING" && f.type !== "DIVIDER"
-  );
+  const visibleFields = fields.filter((f) => f.type !== "HEADING" && f.type !== "DIVIDER");
   const requiredFilled = visibleFields
     .filter((f) => f.required)
     .every((f) => {
@@ -517,31 +560,38 @@ export function LaudoFillDrawer({
                 </p>
               ) : (
                 <div className="grid gap-2">
-                  {templates.map((tpl) => (
-                    <button
-                      key={tpl.id}
-                      type="button"
-                      onClick={() => handleSelectTemplate(tpl)}
-                      className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all text-left"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-snug">
-                          {tpl.title}
-                        </p>
-                        {tpl.description && (
-                          <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">
-                            {tpl.description}
+                  {templates.map((tpl) => {
+                    const hasSignature = !!(tpl as any).signatureConfig?.requireSignature;
+                    return (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={() => handleSelectTemplate(tpl)}
+                        className="flex items-start gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all text-left"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-snug">
+                            {tpl.title}
                           </p>
-                        )}
-                        <p className="text-xs text-slate-400 mt-1">
-                          {tpl.fields?.length ?? 0} campos
-                        </p>
-                      </div>
-                    </button>
-                  ))}
+                          {tpl.description && (
+                            <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{tpl.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-xs text-slate-400">{tpl.fields?.length ?? 0} campos</p>
+                            {hasSignature && (
+                              <span className="inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400">
+                                <ShieldCheck className="w-3 h-3" />
+                                Requer assinatura
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -550,7 +600,6 @@ export function LaudoFillDrawer({
           {/* Field form */}
           {selectedTemplate && fields.length > 0 && (
             <div className="space-y-4">
-              {/* Change template button */}
               {!savedLaudoId && (
                 <button
                   type="button"
@@ -563,6 +612,16 @@ export function LaudoFillDrawer({
                 >
                   ← Trocar template
                 </button>
+              )}
+
+              {/* Signature badge */}
+              {templateRequiresSignature && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800">
+                  <ShieldCheck className="w-4 h-4 text-violet-600 flex-shrink-0" />
+                  <p className="text-xs text-violet-700 dark:text-violet-300">
+                    Este template requer assinatura eletrônica. Após salvar, o laudo será enviado automaticamente para os signatários configurados.
+                  </p>
+                </div>
               )}
 
               {fields.map((field, idx) => {
@@ -585,10 +644,7 @@ export function LaudoFillDrawer({
                 return (
                   <div
                     key={fieldKey}
-                    className={cn(
-                      "space-y-1.5",
-                      field.width === "half" ? "sm:w-1/2" : "w-full"
-                    )}
+                    className={cn("space-y-1.5", field.width === "half" ? "sm:w-1/2" : "w-full")}
                   >
                     <Label className="text-sm text-slate-700 dark:text-slate-300">
                       {field.label}
@@ -609,9 +665,7 @@ export function LaudoFillDrawer({
 
               {/* Notes */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <Label className="text-sm text-slate-600 dark:text-slate-400">
-                  Observações gerais
-                </Label>
+                <Label className="text-sm text-slate-600 dark:text-slate-400">Observações gerais</Label>
                 <Textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -629,15 +683,35 @@ export function LaudoFillDrawer({
           <Button variant="outline" onClick={handleClose} disabled={isSaving}>
             {savedLaudoId ? "Fechar" : "Cancelar"}
           </Button>
+
           {selectedTemplate && (
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || !requiredFilled}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {savedLaudoId ? "Atualizar laudo" : "Salvar laudo"}
-            </Button>
+            <>
+              {/* Save only — always available */}
+              <Button
+                onClick={handleSave}
+                disabled={isSaving || !requiredFilled}
+                variant={templateRequiresSignature ? "outline" : "default"}
+                className={templateRequiresSignature ? "" : "bg-blue-600 hover:bg-blue-700 text-white"}
+              >
+                {(createLaudo.isPending || updateLaudo.isPending) && !signing && (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                )}
+                {savedLaudoId ? "Atualizar laudo" : "Salvar rascunho"}
+              </Button>
+
+              {/* Save + Sign — shown when template has signatureConfig */}
+              {templateRequiresSignature && (
+                <Button
+                  onClick={handleSaveAndSign}
+                  disabled={isSaving || !requiredFilled}
+                  className="bg-violet-600 hover:bg-violet-700 text-white gap-2"
+                >
+                  {signing && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {!signing && <Send className="w-4 h-4" />}
+                  Salvar e assinar
+                </Button>
+              )}
+            </>
           )}
         </DrawerFooter>
       </DrawerContent>

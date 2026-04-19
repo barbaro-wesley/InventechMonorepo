@@ -3,7 +3,10 @@ import {
 } from '@nestjs/common'
 import { LaudoStatus, ESignReferenceType } from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
-import { CreateLaudoDto, InitiateLaudoSignDto, ListLaudosDto, UpdateLaudoDto } from '../dto/laudo.dto'
+import {
+  CreateLaudoDto, InitiateLaudoSignDto, ListLaudosDto, UpdateLaudoDto,
+  LaudoSignatureConfig, SignerForLaudoDto,
+} from '../dto/laudo.dto'
 import { LaudoVariablesService } from './laudo-variables.service'
 import { ESignDocumentsService } from '../../e-sign/services/esign-documents.service'
 
@@ -46,7 +49,6 @@ export class LaudosService {
   }
 
   async create(dto: CreateLaudoDto, companyId: string, createdById: string) {
-    // Derive clientId from serviceOrderId when not explicitly provided
     let resolvedClientId = dto.clientId ?? null
 
     if (dto.serviceOrderId && !resolvedClientId) {
@@ -65,26 +67,22 @@ export class LaudosService {
       resolvedClientId = (maint as any)?.clientId ?? null
     }
 
-    // Validate clientId belongs to this company
     if (resolvedClientId) {
       const client = await this.prisma.client.findFirst({
         where: { id: resolvedClientId, companyId, deletedAt: null },
       })
-      if (!client) resolvedClientId = null  // silently drop invalid clientId
+      if (!client) resolvedClientId = null
     }
 
-    // Load template fields if templateId provided
     let fields = dto.fields
     if (dto.templateId) {
       const tpl = await this.prisma.laudoTemplate.findFirst({
         where: { id: dto.templateId, companyId, deletedAt: null },
       })
       if (!tpl) throw new NotFoundException('Template não encontrado')
-      // Merge template fields with any provided overrides
       fields = fields?.length ? fields : (tpl.fields as any[])
     }
 
-    // Resolve variables
     const vars = await this.variables.resolve({
       companyId,
       clientId: resolvedClientId,
@@ -95,7 +93,6 @@ export class LaudosService {
 
     const resolvedFields = this.variables.applyVariablesToFields(fields, vars)
 
-    // Sequential number per company
     const lastLaudo = await this.prisma.laudo.findFirst({
       where: { companyId },
       orderBy: { number: 'desc' },
@@ -129,7 +126,6 @@ export class LaudosService {
     const { page = 1, limit = 20, clientId, status, referenceType, serviceOrderId, maintenanceId, search } = filters
     const skip = (page - 1) * limit
 
-    // Client users can only see their own client's laudos
     const effectiveClientId = requestingClientId ?? clientId
 
     const where: any = {
@@ -181,7 +177,6 @@ export class LaudosService {
     if (laudo.status !== LaudoStatus.DRAFT)
       throw new BadRequestException('Apenas laudos em DRAFT podem ser editados')
 
-    // Re-resolve variables if references changed
     let updatedFields = dto.fields ?? (laudo.fields as any[])
     if (dto.fields) {
       const vars = await this.variables.resolve({
@@ -262,18 +257,43 @@ export class LaudosService {
       throw new BadRequestException('Laudo cancelado não pode ser assinado')
     if (laudo.status === LaudoStatus.SIGNED || laudo.status === LaudoStatus.APPROVED)
       throw new BadRequestException('Laudo já foi assinado ou aprovado')
-
-    // Generate PDF if not yet done, then use pdfUrl as the source
     if (!laudo.pdfUrl)
       throw new BadRequestException('Gere o PDF do laudo antes de enviar para assinatura')
+
+    // Auto-resolve signers from template signatureConfig when not explicitly provided
+    let signers = dto.signers ?? []
+    let requireSigningOrder = dto.requireSigningOrder ?? false
+    let customMessage = dto.customMessage
+    let expiresAt = dto.expiresAt
+
+    if (signers.length === 0 && laudo.templateId) {
+      const tpl = await this.prisma.laudoTemplate.findFirst({
+        where: { id: laudo.templateId, companyId },
+        select: { signatureConfig: true },
+      })
+      const config = tpl?.signatureConfig as LaudoSignatureConfig | null
+      if (config?.requireSignature && config.signers?.length > 0) {
+        signers = await this.resolveSignersFromConfig(laudo as any, config, companyId)
+        requireSigningOrder = config.requireSigningOrder
+        customMessage = customMessage ?? config.customMessage
+        if (!expiresAt && config.expiresInDays) {
+          const exp = new Date()
+          exp.setDate(exp.getDate() + config.expiresInDays)
+          expiresAt = exp.toISOString()
+        }
+      }
+    }
+
+    if (signers.length === 0)
+      throw new BadRequestException('Nenhum signatário configurado. Informe os signatários ou configure o template de assinatura.')
 
     const eSignDoc = await this.eSign.create(
       {
         title: `Laudo Nº ${String(laudo.number).padStart(4, '0')} — ${laudo.title}`,
         referenceType: ESignReferenceType.LAUDO,
         referenceId: id,
-        requireSigningOrder: dto.requireSigningOrder ?? false,
-        expiresAt: dto.expiresAt,
+        requireSigningOrder,
+        expiresAt,
         settings: { sendCopyTo: [], reminderAfterDays: 2 },
       } as any,
       Buffer.from(''),
@@ -282,7 +302,7 @@ export class LaudosService {
       laudo.pdfUrl,
     )
 
-    for (const signer of dto.signers) {
+    for (const signer of signers) {
       await this.eSign.addSigner(eSignDoc.id, {
         signerName: signer.signerName,
         signerEmail: signer.signerEmail,
@@ -291,13 +311,90 @@ export class LaudosService {
         signerRole: signer.signerRole,
         signingOrder: signer.signingOrder ?? 0,
         notificationChannels: ['EMAIL'] as any,
-        customMessage: dto.customMessage,
+        customMessage,
       }, companyId)
     }
 
     await this.eSign.send(eSignDoc.id, companyId, createdById)
 
     return this.linkESign(id, companyId, eSignDoc.id)
+  }
+
+  private async resolveSignersFromConfig(
+    laudo: any,
+    config: LaudoSignatureConfig,
+    companyId: string,
+  ): Promise<SignerForLaudoDto[]> {
+    const signers: SignerForLaudoDto[] = []
+
+    for (const signerCfg of config.signers) {
+      const base = { signerRole: signerCfg.signerRole, signingOrder: signerCfg.signingOrder ?? 0 }
+
+      switch (signerCfg.type) {
+        case 'ASSUMED_TECHNICIAN': {
+          // Get technician who assumed the service order
+          if (!laudo.serviceOrderId) break
+          const sot = await this.prisma.serviceOrderTechnician.findFirst({
+            where: { serviceOrderId: laudo.serviceOrderId, assumedAt: { not: null } },
+            orderBy: { assumedAt: 'asc' },
+            include: { technician: { select: { name: true, email: true } } },
+          })
+          if (sot?.technician?.email) {
+            signers.push({ ...base, signerName: sot.technician.name, signerEmail: sot.technician.email })
+          } else if (laudo.technician?.name) {
+            // Fallback to laudo.technicianId user
+            const tech = await this.prisma.user.findFirst({
+              where: { id: laudo.technicianId },
+              select: { name: true, email: true },
+            })
+            if (tech?.email) signers.push({ ...base, signerName: tech.name, signerEmail: tech.email })
+          }
+          break
+        }
+
+        case 'CREATED_BY': {
+          const creator = await this.prisma.user.findFirst({
+            where: { id: laudo.createdById },
+            select: { name: true, email: true },
+          })
+          if (creator?.email) signers.push({ ...base, signerName: creator.name, signerEmail: creator.email })
+          break
+        }
+
+        case 'CLIENT_ADMIN': {
+          if (!laudo.clientId) break
+          const clientAdmin = await this.prisma.user.findFirst({
+            where: { clientId: laudo.clientId, companyId, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+            select: { name: true, email: true },
+          })
+          if (clientAdmin?.email) signers.push({ ...base, signerName: clientAdmin.name, signerEmail: clientAdmin.email })
+          break
+        }
+
+        case 'COMPANY_ADMIN': {
+          const companyAdmin = await this.prisma.user.findFirst({
+            where: { companyId, clientId: null, deletedAt: null },
+            orderBy: { createdAt: 'asc' },
+            select: { name: true, email: true },
+          })
+          if (companyAdmin?.email) signers.push({ ...base, signerName: companyAdmin.name, signerEmail: companyAdmin.email })
+          break
+        }
+
+        case 'SPECIFIC_USER': {
+          if (!signerCfg.specificUserId) break
+          const user = await this.prisma.user.findFirst({
+            where: { id: signerCfg.specificUserId, companyId, deletedAt: null },
+            select: { name: true, email: true },
+          })
+          if (user?.email) signers.push({ ...base, signerName: user.name, signerEmail: user.email })
+          break
+        }
+      }
+    }
+
+    return signers
   }
 
   async linkESign(id: string, companyId: string, eSignDocumentId: string) {
@@ -333,7 +430,7 @@ export class LaudosService {
     return {
       company: { select: { id: true, name: true, document: true } },
       client: { select: { id: true, name: true } },
-      template: { select: { id: true, title: true } },
+      template: { select: { id: true, title: true, signatureConfig: true } },
       createdBy: { select: { id: true, name: true } },
       technician: { select: { id: true, name: true } },
       approvedBy: { select: { id: true, name: true } },
