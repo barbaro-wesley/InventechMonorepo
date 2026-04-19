@@ -56,6 +56,9 @@ model Company {
   users                User[]
   alertRules            AlertRule[]
   notificationConfigs   NotificationConfig[]
+  eSignDocuments        ESignDocument[]
+  laudoTemplates        LaudoTemplate[]
+  laudos                Laudo[]
 
   @@index([platformId])
   @@index([slug])
@@ -84,6 +87,7 @@ model Client {
   maintenances         Maintenance[]
   serviceOrders        ServiceOrder[]
   users                User[]
+  laudos               Laudo[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -127,6 +131,12 @@ model User {
   technicianGroups        TechnicianGroup[]
   twoFactorCodes          TwoFactorCode[]
   alertRulesCreated       AlertRule[]
+  eSignDocumentsCreated   ESignDocument[]             @relation("ESignDocumentCreatedBy")
+  eSignRequestsSigner     ESignRequest[]              @relation("ESignRequestSigner")
+  laudoTemplatesCreated   LaudoTemplate[]             @relation("LaudoTemplateCreatedBy")
+  laudosCreated           Laudo[]                     @relation("LaudoCreatedBy")
+  laudosAsTechnician      Laudo[]                     @relation("LaudoTechnician")
+  laudosApproved          Laudo[]                     @relation("LaudoApprovedBy")
   client                  Client?                     @relation(fields: [clientId], references: [id])
   company                 Company?                    @relation(fields: [companyId], references: [id])
   customRole              CustomRole?                 @relation(fields: [customRoleId], references: [id])
@@ -389,6 +399,7 @@ model Maintenance {
   schedule      MaintenanceSchedule? @relation(fields: [scheduleId], references: [id])
   technician    User?                @relation(fields: [technicianId], references: [id])
   serviceOrders ServiceOrder[]
+  laudos        Laudo[]
 
   @@index([companyId])
   @@index([companyId, clientId])
@@ -445,6 +456,7 @@ model ServiceOrder {
   location        Location?                   @relation(fields: [locationId], references: [id])
   maintenance     Maintenance?                @relation(fields: [maintenanceId], references: [id])
   requester       User                        @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
+  laudos          Laudo[]
 
   @@unique([companyId, number])
   @@index([companyId])
@@ -1003,4 +1015,249 @@ model NotificationConfig {
   @@unique([companyId, eventType])
   @@index([companyId])
   @@map("notification_configs")
+}
+
+// ─── E-Sign Module ────────────────────────────────────────────────────────────
+
+enum ESignDocumentStatus {
+  DRAFT
+  PENDING
+  PARTIALLY_SIGNED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum ESignRequestStatus {
+  PENDING
+  VIEWED
+  SIGNED
+  DECLINED
+  BOUNCED
+  EXPIRED
+}
+
+enum ESignEventType {
+  DOCUMENT_CREATED
+  INVITATION_SENT
+  LINK_OPENED
+  DOCUMENT_VIEWED
+  SIGNING_STARTED
+  DOCUMENT_SIGNED
+  DOCUMENT_DECLINED
+  ALL_SIGNED
+  DOCUMENT_COMPLETED
+  DOCUMENT_CANCELLED
+  DOCUMENT_EXPIRED
+  REMINDER_SENT
+  PDF_DOWNLOADED
+  HASH_VERIFIED
+  CERTIFICATE_ISSUED
+}
+
+enum ESignReferenceType {
+  LAUDO
+  SERVICE_ORDER
+  CONTRACT
+  CUSTOM
+}
+
+enum ESignSignatureType {
+  DRAWN
+  TYPED
+  CLICK
+}
+
+enum ESignNotificationChannel {
+  EMAIL
+  TELEGRAM
+  WHATSAPP
+}
+
+model ESignDocument {
+  id                  String              @id @default(uuid())
+  companyId           String              @map("company_id")
+  createdById         String              @map("created_by_id")
+  title               String
+  description         String?
+  referenceType       ESignReferenceType  @map("reference_type")
+  referenceId         String?             @map("reference_id")
+  status              ESignDocumentStatus @default(DRAFT)
+  originalFileUrl     String              @map("original_file_url")
+  signedFileUrl       String?             @map("signed_file_url")
+  originalHash        String              @map("original_hash")
+  signedHash          String?             @map("signed_hash")
+  requireSigningOrder Boolean             @default(false) @map("require_signing_order")
+  expiresAt           DateTime?           @map("expires_at")
+  completedAt         DateTime?           @map("completed_at")
+  settings            Json?
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  company     Company           @relation(fields: [companyId], references: [id])
+  createdBy   User              @relation("ESignDocumentCreatedBy", fields: [createdById], references: [id])
+  requests    ESignRequest[]
+  events      ESignEvent[]
+  certificate ESignCertificate?
+
+  @@index([companyId])
+  @@index([referenceId, referenceType])
+  @@map("esign_documents")
+}
+
+model ESignRequest {
+  id                   String                    @id @default(uuid())
+  documentId           String                    @map("document_id")
+  signerUserId         String?                   @map("signer_user_id")
+  signerName           String                    @map("signer_name")
+  signerEmail          String                    @map("signer_email")
+  signerPhone          String?                   @map("signer_phone")
+  signerCpf            String?                   @map("signer_cpf")
+  signerRole           String                    @map("signer_role")
+  signingOrder         Int                       @default(0) @map("signing_order")
+  status               ESignRequestStatus        @default(PENDING)
+  token                String                    @unique @default(uuid())
+  tokenExpiresAt       DateTime                  @map("token_expires_at")
+  notificationChannels ESignNotificationChannel[] @map("notification_channels")
+  customMessage        String?                   @map("custom_message")
+  reminderCount        Int                       @default(0) @map("reminder_count")
+  lastReminderAt       DateTime?                 @map("last_reminder_at")
+  signatureData        String?                   @map("signature_data")
+  signatureType        ESignSignatureType?       @map("signature_type")
+  viewedAt             DateTime?                 @map("viewed_at")
+  signedAt             DateTime?                 @map("signed_at")
+  declinedAt           DateTime?                 @map("declined_at")
+  declineReason        String?                   @map("decline_reason")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+
+  document   ESignDocument @relation(fields: [documentId], references: [id])
+  signerUser User?         @relation("ESignRequestSigner", fields: [signerUserId], references: [id])
+  events     ESignEvent[]
+
+  @@index([documentId])
+  @@index([token])
+  @@index([signerEmail])
+  @@map("esign_requests")
+}
+
+model ESignEvent {
+  id                String         @id @default(uuid())
+  documentId        String         @map("document_id")
+  requestId         String?        @map("request_id")
+  eventType         ESignEventType @map("event_type")
+  actorUserId       String?        @map("actor_user_id")
+  actorName         String?        @map("actor_name")
+  actorEmail        String?        @map("actor_email")
+  ipAddress         String?        @map("ip_address")
+  userAgent         String?        @map("user_agent")
+  geolocation       Json?
+  deviceFingerprint String?        @map("device_fingerprint")
+  metadata          Json?
+  occurredAt        DateTime       @default(now()) @map("occurred_at")
+
+  document ESignDocument @relation(fields: [documentId], references: [id])
+  request  ESignRequest? @relation(fields: [requestId], references: [id])
+
+  @@index([documentId])
+  @@index([requestId])
+  @@map("esign_events")
+}
+
+model ESignCertificate {
+  id                  String   @id @default(uuid())
+  documentId          String   @unique @map("document_id")
+  certificateHash     String   @unique @map("certificate_hash")
+  verificationUrl     String   @map("verification_url")
+  qrCodeImageUrl      String?  @map("qr_code_image_url")
+  signaturesSnapshot  Json     @map("signatures_snapshot")
+  documentSnapshot    Json     @map("document_snapshot")
+  issuedAt            DateTime @default(now()) @map("issued_at")
+
+  document ESignDocument @relation(fields: [documentId], references: [id])
+
+  @@index([certificateHash])
+  @@map("esign_certificates")
+}
+
+// ─── Laudos Module ────────────────────────────────────────────────────────────
+
+enum LaudoStatus {
+  DRAFT
+  PENDING_REVIEW
+  PENDING_SIGNATURE
+  SIGNED
+  APPROVED
+  CANCELLED
+}
+
+enum LaudoReferenceType {
+  MAINTENANCE
+  SERVICE_ORDER
+  CUSTOM
+}
+
+model LaudoTemplate {
+  id            String             @id @default(uuid())
+  companyId     String             @map("company_id")
+  createdById   String             @map("created_by_id")
+  title         String
+  description   String?
+  referenceType LaudoReferenceType @map("reference_type")
+  fields        Json
+  isActive      Boolean            @default(true) @map("is_active")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  deletedAt     DateTime?          @map("deleted_at")
+
+  company   Company @relation(fields: [companyId], references: [id])
+  createdBy User    @relation("LaudoTemplateCreatedBy", fields: [createdById], references: [id])
+  laudos    Laudo[]
+
+  @@index([companyId])
+  @@index([companyId, referenceType])
+  @@map("laudo_templates")
+}
+
+model Laudo {
+  id                String             @id @default(uuid())
+  companyId         String             @map("company_id")
+  clientId          String?            @map("client_id")
+  templateId        String?            @map("template_id")
+  serviceOrderId    String?            @map("service_order_id")
+  maintenanceId     String?            @map("maintenance_id")
+  createdById       String             @map("created_by_id")
+  technicianId      String?            @map("technician_id")
+  approvedById      String?            @map("approved_by_id")
+  number            Int                @map("number")
+  title             String
+  status            LaudoStatus        @default(DRAFT)
+  referenceType     LaudoReferenceType @map("reference_type")
+  fields            Json
+  resolvedVariables Json?              @map("resolved_variables")
+  notes             String?
+  pdfUrl            String?            @map("pdf_url")
+  eSignDocumentId   String?            @map("esign_document_id")
+  approvedAt        DateTime?          @map("approved_at")
+  signedAt          DateTime?          @map("signed_at")
+  expiresAt         DateTime?          @map("expires_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  deletedAt         DateTime?          @map("deleted_at")
+
+  company      Company        @relation(fields: [companyId], references: [id])
+  client       Client?        @relation(fields: [clientId], references: [id])
+  template     LaudoTemplate? @relation(fields: [templateId], references: [id])
+  createdBy    User           @relation("LaudoCreatedBy", fields: [createdById], references: [id])
+  technician   User?          @relation("LaudoTechnician", fields: [technicianId], references: [id])
+  approvedBy   User?          @relation("LaudoApprovedBy", fields: [approvedById], references: [id])
+  serviceOrder ServiceOrder?  @relation(fields: [serviceOrderId], references: [id])
+  maintenance  Maintenance?   @relation(fields: [maintenanceId], references: [id])
+
+  @@unique([companyId, number])
+  @@index([companyId])
+  @@index([companyId, clientId])
+  @@index([companyId, status])
+  @@index([serviceOrderId])
+  @@index([maintenanceId])
+  @@map("laudos")
 }

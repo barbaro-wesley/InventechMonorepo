@@ -216,4 +216,14 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   // ─── Configurações de Notificação ─────────────────────────────────────────
   get notificationConfig() { return this._db.notificationConfig }
+
+  // ─── E-Sign ────────────────────────────────────────────────────────────
+  get eSignDocument() { return this._db.eSignDocument }
+  get eSignRequest() { return this._db.eSignRequest }
+  get eSignEvent() { return this._db.eSignEvent }
+  get eSignCertificate() { return this._db.eSignCertificate }
+
+  // ─── Laudos ────────────────────────────────────────────────────────────
+  get laudoTemplate() { return this._db.laudoTemplate }
+  get laudo() { return this._db.laudo }
 }

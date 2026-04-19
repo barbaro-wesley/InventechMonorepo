@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil } from 'lucide-react'
+import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2 } from 'lucide-react'
+import { LaudoFillDrawer } from '@/components/laudos/laudo-fill-drawer'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -98,6 +99,8 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const [reason, setReason] = useState('')
   const [completionFiles, setCompletionFiles] = useState<File[]>([])
   const completionFileInputRef = useRef<HTMLInputElement>(null)
+  const [laudoFillOpen, setLaudoFillOpen] = useState(false)
+  const [linkedLaudoId, setLinkedLaudoId] = useState<string | null>(null)
 
   const [editOpen, setEditOpen] = useState(false)
   const [editTitle, setEditTitle] = useState('')
@@ -164,9 +167,10 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     updateStatus.mutate(
       {
         status: statusAction,
-        resolution: statusAction === 'COMPLETED' ? resolution : undefined,
+        resolution: statusAction === 'COMPLETED' ? (resolution || undefined) : undefined,
         reason: statusAction === 'COMPLETED_REJECTED' ? reason : undefined,
         files: statusAction === 'COMPLETED' && completionFiles.length > 0 ? completionFiles : undefined,
+        laudoId: statusAction === 'COMPLETED' && linkedLaudoId ? linkedLaudoId : undefined,
       },
       {
         onSuccess: () => {
@@ -174,6 +178,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           setResolution('')
           setReason('')
           setCompletionFiles([])
+          setLinkedLaudoId(null)
         },
       },
     )
@@ -409,24 +414,66 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
       </Sheet>
 
       {/* Dialog de confirmação de conclusão */}
-      <AlertDialog open={statusAction === 'COMPLETED'} onOpenChange={(v) => !v && setStatusAction(null)}>
-        <AlertDialogContent>
+      <AlertDialog open={statusAction === 'COMPLETED'} onOpenChange={(v) => { if (!v) { setStatusAction(null); setLinkedLaudoId(null) } }}>
+        <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>Concluir OS</AlertDialogTitle>
             <AlertDialogDescription>
-              Descreva a resolução aplicada. Esta informação ficará registrada na OS.
+              {linkedLaudoId
+                ? 'Laudo técnico vinculado. A resolução em texto é opcional.'
+                : 'Descreva a resolução ou crie um laudo técnico detalhado.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* Laudo section */}
+          <div className="mt-1">
+            {linkedLaudoId ? (
+              <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                  <span className="text-sm text-emerald-700 dark:text-emerald-400 font-medium">
+                    Laudo técnico criado e vinculado
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setLaudoFillOpen(true)}
+                    className="text-xs text-emerald-600 hover:underline"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLinkedLaudoId(null)}
+                    className="text-xs text-slate-400 hover:text-rose-500"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setLaudoFillOpen(true)}
+                className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-dashed border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-sm text-blue-600 dark:text-blue-400"
+              >
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span>Criar laudo técnico <span className="text-xs text-blue-400">(opcional)</span></span>
+              </button>
+            )}
+          </div>
+
           <Textarea
-            placeholder="Descreva o que foi feito para resolver o problema..."
+            placeholder={linkedLaudoId ? 'Observação adicional (opcional)...' : 'Descreva o que foi feito para resolver o problema...'}
             value={resolution}
             onChange={(e) => setResolution(e.target.value)}
-            rows={4}
+            rows={3}
             className="mt-2"
           />
 
           {/* Anexos de conclusão */}
-          <div className="mt-3">
+          <div className="mt-2">
             <input
               type="file"
               multiple
@@ -465,10 +512,10 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setStatusAction(null); setCompletionFiles([]) }}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setStatusAction(null); setCompletionFiles([]); setLinkedLaudoId(null) }}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmStatus}
-              disabled={!resolution.trim() || updateStatus.isPending}
+              disabled={(!resolution.trim() && !linkedLaudoId) || updateStatus.isPending}
               className="bg-emerald-600 hover:bg-emerald-700"
             >
               {updateStatus.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -477,6 +524,21 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Laudo fill drawer */}
+      <LaudoFillDrawer
+        open={laudoFillOpen}
+        onClose={() => setLaudoFillOpen(false)}
+        onSaved={(id) => {
+          setLinkedLaudoId(id)
+          setLaudoFillOpen(false)
+        }}
+        serviceOrderId={osId ?? undefined}
+        clientId={os?.client?.id ?? clientId ?? undefined}
+        technicianId={user?.id}
+        referenceType="SERVICE_ORDER"
+        existingLaudoId={linkedLaudoId}
+      />
 
       {/* Dialog de edição da OS */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

@@ -26,6 +26,7 @@ import {
     ClipboardCheck,
     BellRing,
     SlidersHorizontal,
+    FileText,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -105,6 +106,20 @@ const navSections: NavSection[] = [
                 icon: CalendarClock,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"],
                 permission: "maintenance-schedule:list",
+            },
+            {
+                label: "Laudos Técnicos",
+                href: "/laudos",
+                icon: FileText,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+                permission: "laudo:list",
+            },
+            {
+                label: "Templates de Laudo",
+                href: "/laudo-templates",
+                icon: FileText,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+                permission: "laudo-template:list",
             },
         ],
     },

@@ -154,6 +154,23 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   // ── NOTIFICATION CONFIG ────────────────────────────────────────────────────
   'notification-config:list':    [SA, CA, CM],
   'notification-config:update':  [SA, CA, CM],
+
+  // ── LAUDO TEMPLATE ─────────────────────────────────────────────────────────
+  'laudo-template:list':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo-template:read':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo-template:create':       [SA, CA, CM],
+  'laudo-template:update':       [SA, CA, CM],
+  'laudo-template:delete':       [SA, CA],
+
+  // ── LAUDO ──────────────────────────────────────────────────────────────────
+  'laudo:list':                  [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo:read':                  [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo:create':                [SA, CA, CM, TEC],
+  'laudo:update':                [SA, CA, CM, TEC],
+  'laudo:approve':               [SA, CA, CM, CLA],
+  'laudo:delete':                [SA, CA, CM],
+  'laudo:export-pdf':            [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo:sign':                  [SA, CA, CM, TEC, CLA, CLU],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -176,6 +193,8 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'custom-role':          ['list', 'read', 'create', 'update', 'delete', 'assign'],
   'alert-rule':           ['list', 'read', 'create', 'update', 'delete'],
   'notification-config':  ['list', 'update'],
+  'laudo-template':       ['list', 'read', 'create', 'update', 'delete'],
+  'laudo':                ['list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)

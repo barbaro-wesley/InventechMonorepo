@@ -111,6 +111,10 @@ export class UpdateServiceOrderStatusDto {
     @IsOptional()
     @IsString()
     resolution?: string
+
+    @IsOptional()
+    @IsString()
+    laudoId?: string
 }
 
 export class AssignTechnicianDto {

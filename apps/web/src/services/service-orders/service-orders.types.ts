@@ -179,6 +179,7 @@ export interface UpdateServiceOrderStatusDto {
   resolution?: string
   reason?: string
   files?: File[]
+  laudoId?: string
 }
 
 export interface AssignTechnicianDto {
