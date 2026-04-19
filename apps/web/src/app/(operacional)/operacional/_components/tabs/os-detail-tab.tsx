@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn, FileText } from 'lucide-react'
+import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn, FileText, CheckCircle2 } from 'lucide-react'
 import { storageService } from '@/services/storage/storage.service'
 import type { Attachment } from '@/services/storage/storage.service'
 import { Button } from '@/components/ui/button'
@@ -515,28 +515,21 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {laudo.status === 'SIGNED' && (
-                      <a
-                        href={`${apiBase}/laudos/${laudo.id}/signed-pdf`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-violet-50 hover:bg-violet-100 text-violet-600 transition-colors"
-                        title="Baixar PDF assinado"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </a>
-                    )}
-                    <a
-                      href={`${apiBase}/laudos/${laudo.id}/pdf`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-50 hover:bg-blue-100 text-blue-600 transition-colors"
-                      title={laudo.status === 'SIGNED' ? 'Baixar PDF original' : 'Baixar PDF'}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </a>
-                  </div>
+                  <a
+                    href={`${apiBase}/laudos/${laudo.id}/${laudo.status === 'SIGNED' ? 'signed-pdf' : 'pdf'}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
+                      laudo.status === 'SIGNED'
+                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
+                        : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+                    }`}
+                    title={laudo.status === 'SIGNED' ? 'Baixar PDF assinado' : 'Baixar PDF'}
+                  >
+                    {laudo.status === 'SIGNED'
+                      ? <CheckCircle2 className="h-3.5 w-3.5" />
+                      : <Download className="h-3.5 w-3.5" />}
+                  </a>
                 </div>
               )
             })}
