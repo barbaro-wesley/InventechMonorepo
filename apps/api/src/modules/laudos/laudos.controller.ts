@@ -98,6 +98,7 @@ export class LaudosController {
     const laudo = await this.service.findOne(id, req.user.companyId, req.user.clientId ?? null)
 
     const buffer = await this.pdf.generate({
+      companyId: req.user.companyId,
       number: laudo.number,
       title: laudo.title,
       companyName: (laudo as any).company?.name ?? '',
@@ -132,6 +133,7 @@ export class LaudosController {
     const laudo = await this.service.findOne(id, req.user.companyId, req.user.clientId ?? null)
 
     const buffer = await this.pdf.generate({
+      companyId: req.user.companyId,
       number: laudo.number,
       title: laudo.title,
       companyName: (laudo as any).company?.name ?? '',

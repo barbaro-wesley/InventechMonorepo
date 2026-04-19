@@ -186,12 +186,20 @@ export class ReportsService {
   private drawPdfFooter(doc: any, template: ReportTemplate, y: number): void {
     const ML = 40
     const W = doc.page.width - 80
+
+    // Temporarily disable auto-page creation — writing text near the bottom
+    // margin causes PDFKit to auto-create blank pages.
+    const _origAddPage = doc.addPage
+    doc.addPage = function () { return this }
+
     doc.rect(ML, y, W, 0.5).fill('#E2E8F0')
     const parts = [template.companyName, template.footerText].filter(Boolean).join('  ·  ')
     doc.fillColor('#94A3B8').fontSize(7).font('Helvetica')
       .text(parts, ML, y + 5, { width: W / 2, lineBreak: false, ellipsis: true })
     const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     doc.text(`Emitido em ${now}`, ML, y + 5, { width: W - 4, align: 'right', lineBreak: false })
+
+    doc.addPage = _origAddPage
   }
 
   // ─────────────────────────────────────────
