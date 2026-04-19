@@ -24,6 +24,7 @@ export const MAINTENANCE_QUEUE = 'maintenance'
 export const MAINTENANCE_JOBS = {
     GENERATE_PREVENTIVE:         'generate-preventive-os',
     SEND_UNASSIGNED_ALERT:       'send-unassigned-alert',
+    NOTIFY_PREVENTIVE_GENERATED: 'notify-preventive-generated',
     CHECK_WARRANTY_EXPIRING:     'check-warranty-expiring',
     CHECK_UPCOMING_PREVENTIVES:  'check-upcoming-preventives',
 } as const
@@ -468,6 +469,8 @@ export class MaintenanceService {
                         : ServiceOrderStatus.OPEN
 
                     // Cria a OS
+                    const adminId = await this.getCompanyAdminId(schedule.companyId, tx)
+
                     const os = await tx.serviceOrder.create({
                         data: {
                             companyId: schedule.companyId,
@@ -481,7 +484,7 @@ export class MaintenanceService {
                             isAvailable,
                             alertAfterHours: 4,
                             priority: 'MEDIUM',
-                            requesterId: await this.getCompanyAdminId(schedule.companyId, tx),
+                            requesterId: adminId,
                             ...(schedule.groupId && { groupId: schedule.groupId }),
                         },
                         select: { id: true, number: true },
@@ -502,7 +505,7 @@ export class MaintenanceService {
                         data: {
                             serviceOrderId: os.id,
                             toStatus: status,
-                            changedById: await this.getCompanyAdminId(schedule.companyId, tx),
+                            changedById: adminId,
                             reason: `Gerada automaticamente pelo agendamento "${schedule.title}"`,
                         },
                     })
@@ -552,7 +555,7 @@ export class MaintenanceService {
 
                 // Enfileira notificação para cada OS gerada com dados enriquecidos
                 await this.maintenanceQueue.add(
-                    'notify-preventive-generated',
+                    MAINTENANCE_JOBS.NOTIFY_PREVENTIVE_GENERATED,
                     {
                         scheduleId: schedule.id,
                         companyId: schedule.companyId,

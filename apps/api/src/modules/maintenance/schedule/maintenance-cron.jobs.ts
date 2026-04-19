@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { InjectQueue } from '@nestjs/bull'
 import type { Queue } from 'bull'
-import { MAINTENANCE_QUEUE, MAINTENANCE_JOBS } from '../maintenance.service'
+import { MAINTENANCE_QUEUE, MAINTENANCE_JOBS, MaintenanceService } from '../maintenance.service'
 
 @Injectable()
 export class MaintenanceCronJobs {
@@ -10,6 +10,7 @@ export class MaintenanceCronJobs {
 
     constructor(
         @InjectQueue(MAINTENANCE_QUEUE) private maintenanceQueue: Queue,
+        private readonly maintenanceService: MaintenanceService,
     ) { }
 
     // ─────────────────────────────────────────
@@ -54,16 +55,9 @@ export class MaintenanceCronJobs {
     @Cron(CronExpression.EVERY_30_MINUTES)
     async checkUnassignedServiceOrders() {
         this.logger.log('Cron: verificando OS sem técnico...')
-
-        await this.maintenanceQueue.add(
-            MAINTENANCE_JOBS.SEND_UNASSIGNED_ALERT,
-            { trigger: 'cron' },
-            {
-                attempts: 2,
-                backoff: { type: 'fixed', delay: 5000 },
-                removeOnComplete: 50,
-            },
-        )
+        // Chama diretamente: o método já enfileira um SEND_UNASSIGNED_ALERT
+        // por OS com os dados corretos (serviceOrderId, number, title, etc.)
+        await this.maintenanceService.checkUnassignedAlerts()
     }
 
     // ─────────────────────────────────────────

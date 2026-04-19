@@ -8,10 +8,13 @@ import {
     MessageBody,
     ConnectedSocket,
 } from '@nestjs/websockets'
-import { Logger } from '@nestjs/common'
+import { Inject, Logger, OnModuleDestroy } from '@nestjs/common'
 import { Server, Socket } from 'socket.io'
+import { createAdapter } from '@socket.io/redis-adapter'
+import Redis from 'ioredis'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
+import { REDIS_CLIENT } from '../../common/providers/redis.provider'
 
 export interface WsNotificationPayload {
     event: string
@@ -28,7 +31,7 @@ export interface WsNotificationPayload {
     namespace: '/notifications',
 })
 export class NotificationsGateway
-    implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+    implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
     @WebSocketServer()
     server: Server
 
@@ -37,13 +40,23 @@ export class NotificationsGateway
     // Mapa de userId → socketId(s) — um usuário pode ter múltiplas abas abertas
     private userSockets = new Map<string, Set<string>>()
 
+    // subClient é um duplicate do pubClient — conexões em modo subscribe
+    // não podem executar outros comandos Redis, por isso precisam ser separadas
+    private subClient: Redis
+
     constructor(
         private jwtService: JwtService,
         private configService: ConfigService,
+        @Inject(REDIS_CLIENT) private readonly redis: Redis,
     ) { }
 
     afterInit() {
-        this.logger.log('WebSocket Gateway inicializado — namespace: /notifications')
+        this.subClient = this.redis.duplicate()
+        // this.server é o Namespace (/notifications), não o Server raiz.
+        // O adapter precisa ser aplicado no Server raiz para funcionar entre namespaces.
+        const rootServer = (this.server as any).server ?? this.server
+        rootServer.adapter(createAdapter(this.redis, this.subClient))
+        this.logger.log('WebSocket Gateway inicializado — namespace: /notifications | Redis adapter ativo')
     }
 
     // ─────────────────────────────────────────
@@ -107,6 +120,10 @@ export class NotificationsGateway
             }
         }
         this.logger.log(`Socket desconectado: ${client.id}`)
+    }
+
+    onModuleDestroy() {
+        this.subClient?.disconnect()
     }
 
     // ─────────────────────────────────────────

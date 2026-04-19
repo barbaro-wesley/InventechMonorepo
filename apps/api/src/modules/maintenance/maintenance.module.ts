@@ -9,18 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module'
 @Module({
     imports: [
         // Registra a fila no Redis via Bull
-        BullModule.registerQueue({
-            name: MAINTENANCE_QUEUE,
-            defaultJobOptions: {
-                attempts: 3,
-                backoff: {
-                    type: 'exponential',
-                    delay: 5000,
-                },
-                removeOnComplete: 100,
-                removeOnFail: 50,
-            },
-        }),
+        BullModule.registerQueue({ name: MAINTENANCE_QUEUE }),
         NotificationsModule,
     ],
     controllers: [

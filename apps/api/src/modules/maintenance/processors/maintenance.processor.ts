@@ -3,9 +3,11 @@ import {
     Process,
     OnQueueFailed,
     OnQueueCompleted,
+    OnQueueStalled,
 } from '@nestjs/bull'
 import { Logger } from '@nestjs/common'
 import type { Job } from 'bull'
+import { ConfigService } from '@nestjs/config'
 import {
     MaintenanceService,
     MAINTENANCE_QUEUE,
@@ -21,6 +23,7 @@ export class MaintenanceProcessor {
     constructor(
         private readonly maintenanceService: MaintenanceService,
         private readonly notificationsService: NotificationsService,
+        private readonly configService: ConfigService,
     ) { }
 
     // ─────────────────────────────────────────
@@ -75,7 +78,7 @@ export class MaintenanceProcessor {
     // ─────────────────────────────────────────
     // Job: notifica sobre preventiva gerada
     // ─────────────────────────────────────────
-    @Process('notify-preventive-generated')
+    @Process(MAINTENANCE_JOBS.NOTIFY_PREVENTIVE_GENERATED)
     async handleNotifyPreventiveGenerated(
         job: Job<{
             scheduleId: string
@@ -206,11 +209,45 @@ export class MaintenanceProcessor {
     // Handlers de eventos da fila
     // ─────────────────────────────────────────
     @OnQueueFailed()
-    onFailed(job: Job, error: Error) {
+    async onFailed(job: Job, error: Error) {
+        const maxAttempts = job.opts.attempts ?? 3
+        const isFinalFailure = job.attemptsMade >= maxAttempts
+
         this.logger.error(
             `Job falhou: ${job.name} (id: ${job.id}) | ` +
-            `Tentativa: ${job.attemptsMade} | Erro: ${error.message}`,
+            `Tentativa: ${job.attemptsMade}/${maxAttempts} | Erro: ${error.message}`,
         )
+
+        if (isFinalFailure) {
+            this.logger.error(
+                `[DEAD_LETTER] Job ${job.name} (id: ${job.id}) esgotou todas as tentativas. ` +
+                `Payload: ${JSON.stringify(job.data)}`,
+            )
+            await this.sendDeadLetterAlert(job, error)
+        }
+    }
+
+    private async sendDeadLetterAlert(job: Job, error: Error): Promise<void> {
+        const adminEmail = this.configService.get<string>('ADMIN_ALERT_EMAIL')
+        if (!adminEmail) return
+
+        try {
+            await this.notificationsService.queueAuthEmail({
+                to: adminEmail,
+                subject: `[ALERTA] Job "${job.name}" falhou definitivamente`,
+                html: `
+                    <h2>Job esgotou todas as tentativas</h2>
+                    <p><strong>Fila:</strong> ${MAINTENANCE_QUEUE}</p>
+                    <p><strong>Job:</strong> ${job.name} (id: ${job.id})</p>
+                    <p><strong>Tentativas:</strong> ${job.attemptsMade}</p>
+                    <p><strong>Erro:</strong> ${error.message}</p>
+                    <p><strong>Horário:</strong> ${new Date().toLocaleString('pt-BR')}</p>
+                    <pre style="background:#f5f5f5;padding:12px">${JSON.stringify(job.data, null, 2)}</pre>
+                `,
+            })
+        } catch (alertErr) {
+            this.logger.error(`Falha ao enviar alerta de dead letter: ${alertErr.message}`)
+        }
     }
 
     @OnQueueCompleted()
@@ -218,5 +255,10 @@ export class MaintenanceProcessor {
         this.logger.debug(
             `Job concluído: ${job.name} (id: ${job.id}) | Resultado: ${JSON.stringify(result)}`,
         )
+    }
+
+    @OnQueueStalled()
+    onStalled(job: Job) {
+        this.logger.warn(`Job travado (stalled): ${job.name} (id: ${job.id}) — será reprocessado`)
     }
 }

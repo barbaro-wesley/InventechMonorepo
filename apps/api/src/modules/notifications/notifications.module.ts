@@ -13,15 +13,7 @@ import { NotificationConfigsModule } from '../notification-configs/notification-
 
 @Module({
     imports: [
-        BullModule.registerQueue({
-            name: NOTIFICATION_QUEUE,
-            defaultJobOptions: {
-                attempts: 3,
-                backoff: { type: 'exponential', delay: 5000 },
-                removeOnComplete: 100,
-                removeOnFail: 50,
-            },
-        }),
+        BullModule.registerQueue({ name: NOTIFICATION_QUEUE }),
         JwtModule.register({}),
         NotificationConfigsModule,
     ],
