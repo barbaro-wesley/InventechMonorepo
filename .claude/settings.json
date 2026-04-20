@@ -8,7 +8,9 @@
       "Bash(node -e \"const ts = require\\('./node_modules/typescript'\\); console.log\\(ts.version\\)\")",
       "Bash(grep -E \"\\\\.\\(ts|tsx|js|jsx\\)$\")",
       "Bash(xargs grep:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git checkout *)",
+      "Bash(node -e \"require\\('chokidar'\\); console.log\\('ok'\\)\")"
     ]
   }
 }

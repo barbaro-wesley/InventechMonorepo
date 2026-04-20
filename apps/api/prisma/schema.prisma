@@ -59,6 +59,8 @@ model Company {
   eSignDocuments        ESignDocument[]
   laudoTemplates        LaudoTemplate[]
   laudos                Laudo[]
+  printers              Printer[]
+  scans                 Scan[]
 
   @@index([platformId])
   @@index([slug])
@@ -228,6 +230,7 @@ model CostCenter {
   equipments     Equipment[]
   locations      Location[]
   serviceOrders  ServiceOrder[]
+  printers       Printer[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -1266,4 +1269,61 @@ model Laudo {
   @@index([serviceOrderId])
   @@index([maintenanceId])
   @@map("laudos")
+}
+
+// ─── PRINTERS & SCANS ────────────────────────────────────────────────────────
+
+enum ScanStatus {
+  PENDING
+  PROCESSED
+  ERROR
+}
+
+model Printer {
+  id            String    @id @default(uuid())
+  companyId     String    @map("company_id")
+  costCenterId  String?   @map("cost_center_id")
+  name          String
+  ipAddress     String    @map("ip_address")
+  model         String?
+  brand         String?
+  sftpDirectory String    @unique @map("sftp_directory")
+  isActive      Boolean   @default(true) @map("is_active")
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  company    Company     @relation(fields: [companyId], references: [id])
+  costCenter CostCenter? @relation(fields: [costCenterId], references: [id])
+  scans      Scan[]
+
+  @@index([companyId])
+  @@index([companyId, isActive])
+  @@index([costCenterId])
+  @@map("printers")
+}
+
+model Scan {
+  id          String     @id @default(uuid())
+  companyId   String     @map("company_id")
+  printerId   String     @map("printer_id")
+  fileName    String     @map("file_name")
+  storedKey   String     @map("stored_key")
+  bucket      String
+  mimeType    String     @map("mime_type")
+  sizeBytes   Int        @map("size_bytes")
+  status      ScanStatus @default(PENDING)
+  errorMsg    String?    @map("error_msg")
+  scannedAt   DateTime   @default(now()) @map("scanned_at")
+  processedAt DateTime?  @map("processed_at")
+
+  company Company @relation(fields: [companyId], references: [id])
+  printer Printer @relation(fields: [printerId], references: [id])
+
+  @@index([companyId])
+  @@index([companyId, printerId])
+  @@index([companyId, status])
+  @@index([printerId, scannedAt(sort: Desc)])
+  @@map("scans")
 }
