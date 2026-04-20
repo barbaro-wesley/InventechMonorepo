@@ -27,20 +27,26 @@ echo ""
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Atualiza o sistema
 # ─────────────────────────────────────────────────────────────────────────────
-step "[1/10] Atualizando pacotes do sistema..."
-apt-get update -y
-apt-get upgrade -y \
+step "[1/10] Atualizando lista de pacotes..."
+apt-get update -y --fix-missing || { warning "apt-get update teve erros menores, continuando..."; true; }
+# Upgrade completo é opcional — ignora falhas de download (conexão instável)
+apt-get upgrade -y --fix-missing \
   -o Dpkg::Options::="--force-confdef" \
-  -o Dpkg::Options::="--force-confold"
-info "Sistema atualizado."
+  -o Dpkg::Options::="--force-confold" \
+  -o Acquire::Retries=3 \
+  -o Acquire::http::Timeout=30 \
+  || warning "Upgrade parcial (alguns pacotes não baixaram) — não afeta o setup, continuando."
+info "Lista de pacotes atualizada."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Instala dependências básicas
 # ─────────────────────────────────────────────────────────────────────────────
 step "[2/10] Instalando dependências básicas..."
-apt-get install -y \
+apt-get install -y --fix-missing \
   -o Dpkg::Options::="--force-confdef" \
   -o Dpkg::Options::="--force-confold" \
+  -o Acquire::Retries=3 \
+  -o Acquire::http::Timeout=30 \
   curl wget git unzip \
   ca-certificates gnupg lsb-release \
   ufw fail2ban \
@@ -63,10 +69,12 @@ echo \
   https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
   | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-apt-get update -y
-apt-get install -y \
+apt-get update -y --fix-missing
+apt-get install -y --fix-missing \
   -o Dpkg::Options::="--force-confdef" \
   -o Dpkg::Options::="--force-confold" \
+  -o Acquire::Retries=3 \
+  -o Acquire::http::Timeout=30 \
   docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
 systemctl enable docker
