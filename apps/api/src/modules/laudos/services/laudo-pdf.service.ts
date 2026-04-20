@@ -223,6 +223,15 @@ export class LaudoPdfService {
     const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
     const PDFDocument = (await import('pdfkit')).default
 
+    // Pre-fetch all IMAGE field buffers so we can use them synchronously in the PDF callback
+    const imageBuffers = new Map<string, Buffer | null>()
+    for (const field of (data.fields ?? [])) {
+      if (field.type === 'IMAGE' && field.value) {
+        const buf = await this.fetchLogoBuffer(String(field.value))
+        imageBuffers.set(field.id, buf)
+      }
+    }
+
     return new Promise<Buffer>((resolve, reject) => {
       const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true })
       const buffers: Buffer[] = []
@@ -296,10 +305,30 @@ export class LaudoPdfService {
           if (field.type === 'CHECKBOX') {
             y = this.ensureSpace(doc, y, 18, template, data.title, subtitle, logoBuffer)
             const checked = field.value === true || field.value === 'true'
-            const icon = checked ? '☑' : '☐'
+            const boxSize = 10
+            const boxX = ML
+            const boxY = y + 1
+            // Draw checkbox box
+            doc.rect(boxX, boxY, boxSize, boxSize)
+              .lineWidth(1)
+              .strokeColor(checked ? blue : '#94A3B8')
+            if (checked) {
+              doc.fillAndStroke(secondary, checked ? blue : '#94A3B8')
+              // Draw checkmark
+              doc.save()
+                .strokeColor(blue)
+                .lineWidth(1.5)
+                .moveTo(boxX + 2, boxY + 5)
+                .lineTo(boxX + 4.5, boxY + 7.5)
+                .lineTo(boxX + 8, boxY + 2.5)
+                .stroke()
+              doc.restore()
+            } else {
+              doc.fillAndStroke('#FFFFFF', '#94A3B8')
+            }
             doc.fontSize(9).fillColor(textDark).font('Helvetica')
-              .text(`${icon}  ${field.label}`, ML, y, { width: W })
-            y += 14
+              .text(field.label, ML + boxSize + 6, y, { width: W - boxSize - 6 })
+            y += 16
             continue
           }
 
@@ -315,12 +344,111 @@ export class LaudoPdfService {
             continue
           }
 
-          // ─ Regular field (SHORT_TEXT, LONG_TEXT, NUMBER, DATE, SELECT…) ─
+          // ─ SINGLE_SELECT ─
+          if (field.type === 'SINGLE_SELECT') {
+            const selValue = field.value != null ? String(field.value) : ''
+            y = this.ensureSpace(doc, y, 32, template, data.title, subtitle, logoBuffer)
+
+            // Label
+            doc.fontSize(8).fillColor(textMuted).font('Helvetica-Bold')
+              .text(field.label + (field.required ? ' *' : ''), ML, y, { width: W })
+            y += 12
+
+            if (selValue) {
+              // Draw selected option as a colored badge
+              doc.fontSize(9).font('Helvetica')
+              const tw = doc.widthOfString(selValue)
+              const badgeW = tw + 16
+              const badgeH = 18
+              doc.roundedRect(ML, y, badgeW, badgeH, 4).fill(secondary)
+              doc.fillColor(blue).text(selValue, ML + 8, y + 4, { width: badgeW - 16 })
+            } else {
+              doc.fontSize(9).fillColor('#9CA3AF').font('Helvetica')
+                .text('—', ML + 6, y)
+            }
+            y += 22
+            continue
+          }
+
+          // ─ MULTI_SELECT ─
+          if (field.type === 'MULTI_SELECT') {
+            const selValues: string[] = Array.isArray(field.value) ? field.value : []
+            const pillH = 18
+            y = this.ensureSpace(doc, y, 32, template, data.title, subtitle, logoBuffer)
+
+            // Label
+            doc.fontSize(8).fillColor(textMuted).font('Helvetica-Bold')
+              .text(field.label + (field.required ? ' *' : ''), ML, y, { width: W })
+            y += 12
+
+            if (selValues.length > 0) {
+              let px = ML
+              const maxX = ML + W
+              doc.fontSize(8).font('Helvetica')
+              for (const sv of selValues) {
+                const tw = doc.widthOfString(sv)
+                const badgeW = tw + 14
+                // Wrap to next line if needed
+                if (px + badgeW > maxX && px > ML) {
+                  px = ML
+                  y += pillH + 4
+                  y = this.ensureSpace(doc, y, pillH + 4, template, data.title, subtitle, logoBuffer)
+                }
+                doc.roundedRect(px, y, badgeW, pillH, 9).fill(secondary)
+                doc.fillColor(blue).text(sv, px + 7, y + 4, { width: badgeW - 14, lineBreak: false })
+                px += badgeW + 6
+              }
+            } else {
+              doc.fontSize(9).fillColor('#9CA3AF').font('Helvetica')
+                .text('—', ML + 6, y)
+            }
+            y += pillH + 6
+            continue
+          }
+
+          // ─ IMAGE ─
+          if (field.type === 'IMAGE') {
+            const imgUrl = field.value ? String(field.value) : ''
+            y = this.ensureSpace(doc, y, 40, template, data.title, subtitle, logoBuffer)
+
+            // Label
+            doc.fontSize(8).fillColor(textMuted).font('Helvetica-Bold')
+              .text(field.label + (field.required ? ' *' : ''), ML, y, { width: W })
+            y += 12
+
+            if (imgUrl) {
+              const imgBuffer = imageBuffers.get(field.id)
+              if (imgBuffer) {
+                const maxImgW = Math.min(W, 300)
+                const maxImgH = 180
+                y = this.ensureSpace(doc, y, maxImgH + 10, template, data.title, subtitle, logoBuffer)
+                try {
+                  doc.image(imgBuffer, ML, y, { fit: [maxImgW, maxImgH] })
+                  y += maxImgH + 8
+                } catch {
+                  doc.fontSize(9).fillColor('#9CA3AF').font('Helvetica')
+                    .text('Erro ao renderizar imagem', ML + 6, y)
+                  y += 16
+                }
+              } else {
+                doc.fontSize(9).fillColor('#9CA3AF').font('Helvetica')
+                  .text('Imagem indisponível', ML + 6, y)
+                y += 16
+              }
+            } else {
+              doc.fontSize(9).fillColor('#9CA3AF').font('Helvetica')
+                .text('—', ML + 6, y)
+              y += 16
+            }
+            continue
+          }
+
+          // ─ Regular field (SHORT_TEXT, LONG_TEXT, NUMBER, DATE…) ─
           const value = this.formatFieldValue(field)
           const isLong = field.type === 'LONG_TEXT'
 
           // Estimate height needed
-          doc.fontSize(9)
+          doc.fontSize(9).font('Helvetica')
           const valH = isLong && value
             ? Math.min(doc.heightOfString(value, { width: W - 8 }), 80)
             : 14
@@ -335,10 +463,14 @@ export class LaudoPdfService {
 
           // Value row — subtle bg
           const boxH = valH + 6
+          doc.save()
           doc.rect(ML, y, W, boxH).fill('#F8FAFC')
           doc.rect(ML, y, W, boxH).strokeColor(borderColor).lineWidth(0.5).stroke()
+          doc.restore()
 
-          doc.fontSize(9).fillColor(value ? textDark : '#9CA3AF').font('Helvetica')
+          // IMPORTANT: re-set fillColor explicitly after rect fill operations
+          const textColor = value ? textDark : '#9CA3AF'
+          doc.fillColor(textColor).fontSize(9).font('Helvetica')
             .text(value || '—', ML + 6, y + 3, {
               width: W - 12,
               height: boxH - 6,

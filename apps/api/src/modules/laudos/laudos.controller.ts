@@ -1,9 +1,12 @@
 import {
   Body, Controller, Delete, Get, Param, Patch, Post, Query,
-  Req, Res, UseGuards, NotFoundException,
+  Req, Res, UseGuards, NotFoundException, BadRequestException,
+  UseInterceptors, UploadedFile,
 } from '@nestjs/common'
 import { Response } from 'express'
+import { FileInterceptor } from '@nestjs/platform-express'
 import * as Minio from 'minio'
+import { v4 as uuidv4 } from 'uuid'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { Permission } from '../../common/decorators/permission.decorator'
 import { ConfigService } from '@nestjs/config'
@@ -11,6 +14,8 @@ import { PrismaService } from '../../prisma/prisma.service'
 import { CreateLaudoDto, InitiateLaudoSignDto, ListLaudosDto, UpdateLaudoDto } from './dto/laudo.dto'
 import { LaudosService } from './services/laudos.service'
 import { LaudoPdfService } from './services/laudo-pdf.service'
+
+const LAUDO_IMAGES_BUCKET = 'laudos'
 
 @UseGuards(JwtAuthGuard)
 @Controller('laudos')
@@ -187,5 +192,43 @@ export class LaudosController {
     const url = await this.pdf.upload(buffer, laudo.id)
     await this.service.savePdfUrl(laudo.id, url)
     return { pdfUrl: url }
+  }
+
+  // ─── Upload de imagem para campo IMAGE do laudo ───────────────
+  @Post('upload-image')
+  @Permission('laudo:create')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      fileFilter: (_req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) cb(null, true)
+        else cb(new BadRequestException('Apenas imagens são permitidas (JPG, PNG, WEBP)'), false)
+      },
+    }),
+  )
+  async uploadImage(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    if (!file) throw new BadRequestException('Nenhum arquivo enviado.')
+
+    // Ensure bucket exists
+    const exists = await this.minio.bucketExists(LAUDO_IMAGES_BUCKET)
+    if (!exists) await this.minio.makeBucket(LAUDO_IMAGES_BUCKET, 'us-east-1')
+
+    const ext = file.originalname.substring(file.originalname.lastIndexOf('.')) || '.jpg'
+    const key = `images/${req.user.companyId}/${uuidv4()}${ext}`
+
+    await this.minio.putObject(LAUDO_IMAGES_BUCKET, key, file.buffer, file.size, {
+      'Content-Type': file.mimetype,
+    })
+
+    const endpoint = this.config.get<string>('minio.endpoint', 'localhost')
+    const port = this.config.get<number>('minio.port', 9000)
+    const useSSL = this.config.get<boolean>('minio.useSSL', false)
+    const proto = useSSL ? 'https' : 'http'
+    const url = `${proto}://${endpoint}:${port}/${LAUDO_IMAGES_BUCKET}/${key}`
+
+    return { url, key, originalName: file.originalname, size: file.size }
   }
 }

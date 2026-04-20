@@ -3,6 +3,7 @@ import { ValidationPipe, Logger, ClassSerializerInterceptor } from '@nestjs/comm
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { IoAdapter } from '@nestjs/platform-socket.io'
 import cookieParser from 'cookie-parser'
+import * as bodyParser from 'body-parser'
 import helmet from 'helmet'
 import { AppModule } from './app.module'
 import { ResponseInterceptor } from './common/interceptors/response.interceptor'
@@ -78,6 +79,10 @@ async function bootstrap() {
 
   // ── Cookie parser ───────────────────────────────────────────────
   app.use(cookieParser())
+
+  // ── Body parser — aumenta limite para laudos com muitos campos ──
+  app.use(bodyParser.json({ limit: '2mb' }))
+  app.use(bodyParser.urlencoded({ limit: '2mb', extended: true }))
 
   // ── Prefixo global ──────────────────────────────────────────────
   app.setGlobalPrefix('api/v1')

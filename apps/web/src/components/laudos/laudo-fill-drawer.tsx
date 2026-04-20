@@ -65,6 +65,9 @@ function FieldInput({
   onChange: (v: any) => void;
   disabled: boolean;
 }) {
+  // Must be top-level (Rules of Hooks — no conditional hooks)
+  const [uploading, setUploading] = React.useState(false);
+
   if (field.type === "HEADING") {
     return (
       <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 pt-2">
@@ -83,17 +86,29 @@ function FieldInput({
         <Input
           type="file"
           accept="image/*"
-          disabled={disabled}
+          disabled={disabled || uploading}
           className="h-9 text-sm"
-          onChange={(e) => {
+          onChange={async (e) => {
             const file = e.target.files?.[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => onChange(ev.target?.result ?? "");
-            reader.readAsDataURL(file);
+            setUploading(true);
+            try {
+              const result = await laudosService.uploadImage(file);
+              onChange(result.url);
+            } catch {
+              toast.error("Erro ao enviar imagem. Tente novamente.");
+            } finally {
+              setUploading(false);
+            }
           }}
         />
-        {value && (
+        {uploading && (
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Enviando imagem...
+          </div>
+        )}
+        {value && !uploading && (
           <img
             src={value}
             alt="preview"

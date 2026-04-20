@@ -98,4 +98,13 @@ export const laudosService = {
     const { data } = await api.post(`/laudos/${id}/pdf/regenerate`);
     return data;
   },
+
+  async uploadImage(file: File): Promise<{ url: string; key: string; originalName: string; size: number }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const { data } = await api.post("/laudos/upload-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return data;
+  },
 };

@@ -146,6 +146,16 @@ export class LaudoVariablesService {
   ): LaudoFieldDefinition[] {
     return fields.map((field) => {
       if (!field.variable) return field
+
+      // If the user already filled in a value, preserve it.
+      // Only auto-fill from variable when value is empty/null/undefined.
+      const hasUserValue =
+        field.value !== undefined &&
+        field.value !== null &&
+        field.value !== ''
+
+      if (hasUserValue) return field
+
       const resolved = vars[field.variable] ?? ''
       return { ...field, value: resolved }
     })
