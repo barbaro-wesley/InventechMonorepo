@@ -171,6 +171,19 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'laudo:delete':                [SA, CA, CM],
   'laudo:export-pdf':            [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo:sign':                  [SA, CA, CM, TEC, CLA, CLU],
+
+  // ── PRINTER ────────────────────────────────────────────────────────────────
+  'printer:list':                [SA, CA, CM],
+  'printer:read':                [SA, CA, CM],
+  'printer:create':              [SA, CA],
+  'printer:update':              [SA, CA, CM],
+  'printer:delete':              [SA, CA],
+
+  // ── SCAN ───────────────────────────────────────────────────────────────────
+  'scan:list':                   [SA, CA, CM, TEC],
+  'scan:read':                   [SA, CA, CM, TEC],
+  'scan:download':               [SA, CA, CM, TEC],
+  'scan:delete':                 [SA, CA, CM],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -195,6 +208,8 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'notification-config':  ['list', 'update'],
   'laudo-template':       ['list', 'read', 'create', 'update', 'delete'],
   'laudo':                ['list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
+  'printer':              ['list', 'read', 'create', 'update', 'delete'],
+  'scan':                 ['list', 'read', 'download', 'delete'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)
