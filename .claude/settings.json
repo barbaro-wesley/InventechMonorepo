@@ -10,7 +10,11 @@
       "Bash(xargs grep:*)",
       "Bash(npx tsc:*)",
       "Bash(git checkout *)",
-      "Bash(node -e \"require\\('chokidar'\\); console.log\\('ok'\\)\")"
+      "Bash(node -e \"require\\('chokidar'\\); console.log\\('ok'\\)\")",
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git stash *)"
     ]
   }
 }

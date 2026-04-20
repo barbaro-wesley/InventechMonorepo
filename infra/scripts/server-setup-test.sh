@@ -192,7 +192,7 @@ Match User $SCANNER_USER
 EOF
 fi
 
-systemctl restart sshd
+systemctl restart ssh
 
 # vsftpd (Samsung FTP)
 VM_IP=$(hostname -I | awk '{print $1}')
