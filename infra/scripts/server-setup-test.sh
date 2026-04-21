@@ -27,7 +27,7 @@ echo ""
 # ─────────────────────────────────────────────────────────────────────────────
 # 1. Atualiza o sistema
 # ─────────────────────────────────────────────────────────────────────────────
-step "[1/10] Atualizando lista de pacotes..."
+step "[1/9] Atualizando lista de pacotes..."
 apt-get update -y --fix-missing || { warning "apt-get update teve erros menores, continuando..."; true; }
 # Upgrade completo é opcional — ignora falhas de download (conexão instável)
 apt-get upgrade -y --fix-missing \
@@ -41,7 +41,7 @@ info "Lista de pacotes atualizada."
 # ─────────────────────────────────────────────────────────────────────────────
 # 2. Instala dependências básicas
 # ─────────────────────────────────────────────────────────────────────────────
-step "[2/10] Instalando dependências básicas..."
+step "[2/9] Instalando dependências básicas..."
 apt-get install -y --fix-missing \
   -o Dpkg::Options::="--force-confdef" \
   -o Dpkg::Options::="--force-confold" \
@@ -58,7 +58,7 @@ info "Dependências instaladas."
 # ─────────────────────────────────────────────────────────────────────────────
 # 3. Instala Docker
 # ─────────────────────────────────────────────────────────────────────────────
-step "[3/10] Instalando Docker..."
+step "[3/9] Instalando Docker..."
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
   | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -84,7 +84,7 @@ info "Docker $(docker --version) instalado."
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. Cria usuário 'deploy'
 # ─────────────────────────────────────────────────────────────────────────────
-step "[4/10] Criando usuário deploy..."
+step "[4/9] Criando usuário deploy..."
 DEPLOY_USER="deploy"
 DEPLOY_HOME="/home/$DEPLOY_USER"
 
@@ -109,7 +109,7 @@ info "Usuário deploy configurado."
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Configura diretório da aplicação
 # ─────────────────────────────────────────────────────────────────────────────
-step "[5/10] Criando diretório da aplicação..."
+step "[5/9] Criando diretório da aplicação..."
 APP_DIR="/opt/inventech"
 mkdir -p "$APP_DIR"
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
@@ -118,7 +118,7 @@ info "Diretório $APP_DIR criado."
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Configura Firewall (UFW)
 # ─────────────────────────────────────────────────────────────────────────────
-step "[6/10] Configurando firewall UFW..."
+step "[6/9] Configurando firewall UFW..."
 ufw --force reset
 ufw default deny incoming
 ufw default allow outgoing
@@ -132,7 +132,7 @@ info "Firewall configurado."
 # ─────────────────────────────────────────────────────────────────────────────
 # 7. Configura Fail2Ban
 # ─────────────────────────────────────────────────────────────────────────────
-step "[7/10] Configurando Fail2Ban..."
+step "[7/9] Configurando Fail2Ban..."
 cat > /etc/fail2ban/jail.local << 'EOF'
 [DEFAULT]
 bantime  = 3600
@@ -153,7 +153,7 @@ info "Fail2Ban configurado."
 # ─────────────────────────────────────────────────────────────────────────────
 # 8. Usuário e diretórios SFTP para impressoras
 # ─────────────────────────────────────────────────────────────────────────────
-step "[8/10] Configurando SFTP para impressoras..."
+step "[8/9] Configurando SFTP para impressoras..."
 
 SCANNER_USER="scanner"
 SFTP_ROOT="/srv/scans"
@@ -230,38 +230,9 @@ systemctl restart vsftpd
 info "SFTP + vsftpd configurados."
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 9. GitHub Actions — Self-hosted runner (download apenas)
+# 9. Cria template .env
 # ─────────────────────────────────────────────────────────────────────────────
-step "[9/10] Baixando self-hosted runner do GitHub Actions..."
-
-RUNNER_DIR="$DEPLOY_HOME/actions-runner"
-mkdir -p "$RUNNER_DIR"
-
-RUNNER_VERSION=$(curl -sf --connect-timeout 15 --max-time 30 \
-  https://api.github.com/repos/actions/runner/releases/latest \
-  | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
-
-if [[ -z "$RUNNER_VERSION" ]]; then
-  warning "Não foi possível detectar versão do runner via API. Usando 2.323.0 como fallback."
-  RUNNER_VERSION="2.323.0"
-fi
-
-RUNNER_FILE="actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
-info "Baixando runner v${RUNNER_VERSION}..."
-
-curl -fsSL --connect-timeout 30 --max-time 300 \
-  "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${RUNNER_FILE}" \
-  -o "/tmp/${RUNNER_FILE}"
-
-tar -xzf "/tmp/${RUNNER_FILE}" -C "$RUNNER_DIR"
-chown -R "$DEPLOY_USER:$DEPLOY_USER" "$RUNNER_DIR"
-rm "/tmp/${RUNNER_FILE}"
-info "Runner baixado em: $RUNNER_DIR"
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 10. Cria template .env
-# ─────────────────────────────────────────────────────────────────────────────
-step "[10/10] Criando template .env..."
+step "[9/9] Criando template .env..."
 cat > "$APP_DIR/.env" << EOF
 # ─────────────────────────────────────────────────────────────────
 # AMBIENTE DE TESTE — VM INTERNA (sem domínio, sem SSL)
@@ -351,16 +322,18 @@ warning "  → Troque depois: passwd scanner"
 warning "═══════════════════════════════════════════════════════════════"
 echo ""
 info "Próximos passos:"
-info "  1. Registrar o runner (como usuário deploy):"
+info "  1. Instalar o runner manualmente (como usuário deploy):"
+info "     Baixe em: https://github.com/barbaro-wesley/InventechMonorepo/settings/actions/runners/new"
 info "     su - deploy"
-info "     cd ~/actions-runner"
+info "     mkdir -p ~/actions-runner && cd ~/actions-runner"
+info "     # Extraia o pacote baixado e execute:"
 info "     ./config.sh --url https://github.com/barbaro-wesley/InventechMonorepo \\"
 info "                 --token SEU_TOKEN \\"
 info "                 --name inventech-test-vm \\"
 info "                 --labels self-hosted,linux \\"
 info "                 --unattended"
 info "     exit"
-info "     cd $RUNNER_DIR && ./svc.sh install deploy && ./svc.sh start"
+info "     cd /home/deploy/actions-runner && ./svc.sh install deploy && ./svc.sh start"
 echo ""
 info "  2. Editar $APP_DIR/.env (substituir TROQUE_POR_*)"
 info "     nano $APP_DIR/.env"
@@ -371,5 +344,3 @@ info "     NEXT_PUBLIC_API_URL_TEST = http://$VM_IP/api/v1"
 info "     NEXT_PUBLIC_WS_URL_TEST  = http://$VM_IP"
 echo ""
 info "  4. Push para develop → deploy automático"
-echo ""
-info "Token do runner: https://github.com/barbaro-wesley/InventechMonorepo/settings/actions/runners/new"
