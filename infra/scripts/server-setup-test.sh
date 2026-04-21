@@ -168,8 +168,9 @@ fi
 mkdir -p "$SFTP_INCOMING"
 chown root:root "$SFTP_ROOT"
 chmod 755 "$SFTP_ROOT"
+# incoming precisa ser escrito pelo scanner (SFTP) e pelo Docker API (uid 1001)
 chown "$SCANNER_USER:$SCANNER_USER" "$SFTP_INCOMING"
-chmod 755 "$SFTP_INCOMING"
+chmod 777 "$SFTP_INCOMING"
 
 # Senha padrão — TROQUE após o setup
 SCANNER_PASS="Scanner@$(openssl rand -hex 4)"

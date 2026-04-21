@@ -21,6 +21,8 @@ services:
       MINIO_ENDPOINT: minio
     ports:
       - "127.0.0.1:3000:3000"
+    volumes:
+      - /srv/scans/incoming:/srv/scans/incoming
     depends_on:
       postgres:
         condition: service_healthy
