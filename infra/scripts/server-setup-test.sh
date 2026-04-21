@@ -237,7 +237,8 @@ step "[9/10] Baixando self-hosted runner do GitHub Actions..."
 RUNNER_DIR="$DEPLOY_HOME/actions-runner"
 mkdir -p "$RUNNER_DIR"
 
-RUNNER_VERSION=$(curl -sf https://api.github.com/repos/actions/runner/releases/latest \
+RUNNER_VERSION=$(curl -sf --connect-timeout 15 --max-time 30 \
+  https://api.github.com/repos/actions/runner/releases/latest \
   | grep '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/')
 
 if [[ -z "$RUNNER_VERSION" ]]; then
@@ -248,7 +249,7 @@ fi
 RUNNER_FILE="actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz"
 info "Baixando runner v${RUNNER_VERSION}..."
 
-curl -fsSL \
+curl -fsSL --connect-timeout 30 --max-time 300 \
   "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${RUNNER_FILE}" \
   -o "/tmp/${RUNNER_FILE}"
 
