@@ -14,7 +14,8 @@
       "Bash(git add *)",
       "Bash(git push *)",
       "Bash(git merge *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(git commit *)"
     ]
   }
 }
