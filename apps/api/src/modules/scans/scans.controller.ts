@@ -43,14 +43,18 @@ export class ScansController {
 
   @Get(':id/download')
   @Permission('scan:download')
-  @ApiOperation({ summary: 'Gerar URL de download do scan (presigned, 1h)' })
+  @ApiOperation({ summary: 'Download do arquivo de scan via stream' })
   async download(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() cu: AuthenticatedUser,
     @Res() res: Response,
   ) {
-    const url = await this.scansService.getDownloadUrl(id, cu)
-    return res.redirect(url)
+    const { stream, fileName, mimeType, sizeBytes } = await this.scansService.download(id, cu)
+    res.setHeader('Content-Type', mimeType)
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`)
+    res.setHeader('Content-Length', sizeBytes)
+    res.setHeader('Cache-Control', 'no-store')
+    stream.pipe(res)
   }
 
   @Delete(':id')

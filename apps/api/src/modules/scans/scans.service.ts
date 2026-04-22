@@ -137,10 +137,11 @@ export class ScansService implements OnModuleInit {
     return scan
   }
 
-  async getDownloadUrl(id: string, cu: AuthenticatedUser): Promise<string> {
+  async download(id: string, cu: AuthenticatedUser) {
     const scan = await this.findOne(id, cu)
     if (scan.status !== 'PROCESSED') throw new NotFoundException('Arquivo ainda não disponível')
-    return this.minioClient.presignedGetObject(scan.bucket, scan.storedKey, 60 * 60)
+    const stream = await this.minioClient.getObject(scan.bucket, scan.storedKey)
+    return { stream, fileName: scan.fileName, mimeType: scan.mimeType, sizeBytes: scan.sizeBytes }
   }
 
   async remove(id: string, cu: AuthenticatedUser) {
