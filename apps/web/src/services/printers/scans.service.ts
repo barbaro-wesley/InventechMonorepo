@@ -34,13 +34,11 @@ export const scansService = {
     const response = await api.get(`/scans/${id}/download`, {
       responseType: "blob",
     });
-    const url = URL.createObjectURL(response.data as Blob);
+    const url = URL.createObjectURL(new Blob([response.data]));
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   },
 
