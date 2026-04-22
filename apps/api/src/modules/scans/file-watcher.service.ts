@@ -42,10 +42,14 @@ export class FileWatcherService implements OnModuleInit, OnModuleDestroy {
       ],
       persistent: true,
       ignoreInitial: true,
+      // polling necessário para detectar arquivos em volumes bind-mount do Docker
+      usePolling: true,
+      interval: 3000,
+      binaryInterval: 3000,
       // aguarda o arquivo ser completamente escrito antes de emitir o evento
       awaitWriteFinish: {
-        stabilityThreshold: 2000,
-        pollInterval: 500,
+        stabilityThreshold: 4000,
+        pollInterval: 1000,
       },
       depth: 1,
     })
