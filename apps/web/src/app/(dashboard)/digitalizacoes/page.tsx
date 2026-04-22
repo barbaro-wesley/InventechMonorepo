@@ -99,10 +99,9 @@ export default function ScansPage() {
   async function handleDownload(scan: Scan) {
     setDownloading(scan.id);
     try {
-      const url = await scansService.getDownloadUrl(scan.id);
-      window.open(url, "_blank");
+      await scansService.download(scan.id, scan.fileName);
     } catch {
-      toast.error("Erro ao gerar link de download");
+      toast.error("Erro ao baixar o arquivo");
     } finally {
       setDownloading(null);
     }

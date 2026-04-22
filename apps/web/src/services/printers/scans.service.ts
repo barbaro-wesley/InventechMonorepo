@@ -30,9 +30,18 @@ export const scansService = {
     return Array.isArray(data) ? data : (data?.data ?? []);
   },
 
-  async getDownloadUrl(id: string): Promise<string> {
-    const { data } = await api.get(`/scans/${id}/download`);
-    return typeof data === "string" ? data : data?.url ?? data;
+  async download(id: string, fileName: string): Promise<void> {
+    const response = await api.get(`/scans/${id}/download`, {
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(response.data as Blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   async remove(id: string): Promise<void> {
