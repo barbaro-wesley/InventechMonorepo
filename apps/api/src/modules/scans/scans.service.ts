@@ -4,7 +4,6 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common'
-import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as Minio from 'minio'
 import { ConfigService } from '@nestjs/config'
@@ -36,74 +35,6 @@ export class ScansService implements OnModuleInit {
     await this.ensureBucket()
   }
 
-  // ─── Chamado pelo FileWatcherService ao detectar arquivo novo ───────────────
-
-  async processFile(filePath: string, sftpDirectory: string): Promise<void> {
-    const printer = await this.prisma.printer.findFirst({
-      where: { sftpDirectory, isActive: true, deletedAt: null },
-    })
-
-    if (!printer) {
-      this.logger.warn(`Nenhuma impressora ativa para diretório: ${sftpDirectory}`)
-      await this.moveToError(filePath)
-      return
-    }
-
-    const fileName = path.basename(filePath)
-    const mimeType = this.detectMimeType(fileName)
-    let fileBuffer: Buffer
-
-    try {
-      fileBuffer = await fs.readFile(filePath)
-    } catch {
-      this.logger.error(`Falha ao ler arquivo: ${filePath}`)
-      return
-    }
-
-    const scan = await this.prisma.scan.create({
-      data: {
-        companyId: printer.companyId,
-        printerId: printer.id,
-        fileName,
-        storedKey: '',
-        bucket: SCANS_BUCKET,
-        mimeType,
-        sizeBytes: fileBuffer.length,
-        status: 'PENDING',
-      },
-    })
-
-    const storedKey = `${printer.companyId}/${printer.id}/${scan.id}/${fileName}`
-
-    try {
-      await this.minioClient.putObject(SCANS_BUCKET, storedKey, fileBuffer, fileBuffer.length, {
-        'Content-Type': mimeType,
-        'x-amz-meta-printer-id': printer.id,
-        'x-amz-meta-company-id': printer.companyId,
-        'x-amz-meta-original-name': encodeURIComponent(fileName),
-      })
-
-      await this.prisma.scan.update({
-        where: { id: scan.id },
-        data: { storedKey, status: 'PROCESSED', processedAt: new Date() },
-      })
-
-      await fs.unlink(filePath)
-      this.logger.log(`Scan processado: ${fileName} [${printer.name}] → ${storedKey}`)
-    } catch (err) {
-      await this.prisma.scan.update({
-        where: { id: scan.id },
-        data: {
-          storedKey,
-          status: 'ERROR',
-          errorMsg: err instanceof Error ? err.message : String(err),
-        },
-      })
-      await this.moveToError(filePath)
-      this.logger.error(`Falha ao processar scan ${fileName}: ${err}`)
-    }
-  }
-
   // ─── API endpoints ───────────────────────────────────────────────────────────
 
   async findAll(cu: AuthenticatedUser, filters: ListScansDto) {
@@ -123,6 +54,16 @@ export class ScansService implements OnModuleInit {
         scannedAt: true,
         processedAt: true,
         printer: { select: { id: true, name: true, brand: true, model: true, costCenter: { select: { id: true, name: true, code: true } } } },
+        metadata: {
+          select: {
+            ocrStatus: true,
+            paciente: true,
+            cpf: true,
+            prontuario: true,
+            numeroAtendimento: true,
+            extractedAt: true,
+          },
+        },
       },
       take: 200,
     })
@@ -131,7 +72,10 @@ export class ScansService implements OnModuleInit {
   async findOne(id: string, cu: AuthenticatedUser) {
     const scan = await this.prisma.scan.findFirst({
       where: { id, companyId: cu.companyId! },
-      include: { printer: { select: { id: true, name: true, costCenter: { select: { id: true, name: true, code: true } } } } },
+      include: {
+        printer: { select: { id: true, name: true, costCenter: { select: { id: true, name: true, code: true } } } },
+        metadata: true,
+      },
     })
     if (!scan) throw new NotFoundException('Scan não encontrado')
     return scan
@@ -180,12 +124,5 @@ export class ScansService implements OnModuleInit {
       '.tiff': 'image/tiff',
     }
     return map[ext] ?? 'application/octet-stream'
-  }
-
-  private async moveToError(filePath: string) {
-    const errorDir = path.join(path.dirname(filePath), '..', '_error')
-    await fs.mkdir(errorDir, { recursive: true })
-    const dest = path.join(errorDir, path.basename(filePath))
-    await fs.rename(filePath, dest).catch(() => null)
   }
 }

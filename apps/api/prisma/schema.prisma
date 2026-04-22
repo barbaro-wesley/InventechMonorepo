@@ -1279,6 +1279,12 @@ enum ScanStatus {
   ERROR
 }
 
+enum OcrStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model Printer {
   id            String    @id @default(uuid())
   companyId     String    @map("company_id")
@@ -1318,12 +1324,29 @@ model Scan {
   scannedAt   DateTime   @default(now()) @map("scanned_at")
   processedAt DateTime?  @map("processed_at")
 
-  company Company @relation(fields: [companyId], references: [id])
-  printer Printer @relation(fields: [printerId], references: [id])
+  company  Company        @relation(fields: [companyId], references: [id])
+  printer Printer        @relation(fields: [printerId], references: [id])
+  metadata ScanMetadata?
 
   @@index([companyId])
   @@index([companyId, printerId])
   @@index([companyId, status])
   @@index([printerId, scannedAt(sort: Desc)])
   @@map("scans")
+}
+
+model ScanMetadata {
+  id                String    @id @default(uuid())
+  scanId            String    @unique @map("scan_id")
+  ocrStatus         OcrStatus @default(PENDING) @map("ocr_status")
+  paciente          String?
+  cpf               String?
+  prontuario        String?
+  numeroAtendimento String?   @map("numero_atendimento")
+  extractedAt       DateTime? @map("extracted_at")
+
+  scan Scan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@map("scan_metadata")
 }
