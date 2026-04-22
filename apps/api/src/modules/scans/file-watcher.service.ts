@@ -51,7 +51,7 @@ export class FileWatcherService implements OnModuleInit, OnModuleDestroy {
         stabilityThreshold: 4000,
         pollInterval: 1000,
       },
-      depth: 1,
+      depth: 2,
     })
 
     this.watcher.on('add', (filePath) => this.handleNewFile(filePath))
