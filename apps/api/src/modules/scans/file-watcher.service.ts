@@ -1,14 +1,16 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import * as fs from 'fs/promises'
 import * as path from 'path'
-import * as chokidar from 'chokidar'
 import { ScansService } from './scans.service'
 
 @Injectable()
 export class FileWatcherService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(FileWatcherService.name)
-  private watcher: chokidar.FSWatcher | null = null
   private readonly baseDir: string
+  private pollTimer: NodeJS.Timeout | null = null
+  private readonly seenFiles = new Set<string>()
+  private readonly pendingFiles = new Set<string>()
 
   constructor(
     private readonly scansService: ScansService,
@@ -18,13 +20,11 @@ export class FileWatcherService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    // No Windows ou quando o diretório base não existe, o watcher é ignorado
     if (process.platform === 'win32') {
-      this.logger.warn('FileWatcher desativado — não suportado no Windows (use o servidor Linux)')
+      this.logger.warn('FileWatcher desativado — não suportado no Windows')
       return
     }
 
-    const fs = await import('fs/promises')
     try {
       await fs.access(this.baseDir)
     } catch {
@@ -32,45 +32,80 @@ export class FileWatcherService implements OnModuleInit, OnModuleDestroy {
       return
     }
 
-    this.watcher = chokidar.watch(`${this.baseDir}/**/*`, {
-      ignored: [
-        // ignora diretórios e arquivos de erro/temporários
-        /(^|[/\\])\../,
-        `${this.baseDir}/_error/**`,
-        /\.tmp$/,
-        /\.part$/,
-      ],
-      persistent: true,
-      ignoreInitial: true,
-      // polling necessário para detectar arquivos em volumes bind-mount do Docker
-      usePolling: true,
-      interval: 3000,
-      binaryInterval: 3000,
-      // aguarda o arquivo ser completamente escrito antes de emitir o evento
-      awaitWriteFinish: {
-        stabilityThreshold: 4000,
-        pollInterval: 1000,
-      },
-      depth: 2,
-    })
+    await this.seedExistingFiles()
 
-    this.watcher.on('add', (filePath) => this.handleNewFile(filePath))
-    this.watcher.on('error', (err) => this.logger.error(`Watcher error: ${err}`))
-
-    this.logger.log(`Monitorando diretório SFTP: ${this.baseDir}`)
+    this.pollTimer = setInterval(() => void this.pollDirectories(), 5000)
+    this.logger.log(`Monitorando diretório SFTP (polling 5s): ${this.baseDir}`)
   }
 
   async onModuleDestroy() {
-    if (this.watcher) {
-      await this.watcher.close()
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer)
       this.logger.log('File watcher encerrado')
     }
   }
 
-  private async handleNewFile(filePath: string) {
-    // extrai o slug do diretório pai (ex: /srv/scans/incoming/rh-brother/scan.pdf → rh-brother)
-    const sftpDirectory = path.basename(path.dirname(filePath))
-    this.logger.log(`Arquivo detectado: ${path.basename(filePath)} [${sftpDirectory}]`)
+  private async seedExistingFiles() {
+    try {
+      const subdirs = await fs.readdir(this.baseDir, { withFileTypes: true })
+      for (const dirent of subdirs) {
+        if (!dirent.isDirectory()) continue
+        const subdir = path.join(this.baseDir, dirent.name)
+        try {
+          const files = await fs.readdir(subdir)
+          for (const file of files) {
+            this.seenFiles.add(path.join(subdir, file))
+          }
+        } catch { /* ignore */ }
+      }
+      this.logger.log(`FileWatcher: ${this.seenFiles.size} arquivos existentes ignorados na inicialização`)
+    } catch { /* ignore */ }
+  }
+
+  private async pollDirectories() {
+    try {
+      const entries = await fs.readdir(this.baseDir, { withFileTypes: true })
+      for (const dirent of entries) {
+        if (!dirent.isDirectory() || dirent.name === '_error' || dirent.name.startsWith('.')) continue
+        const subdir = path.join(this.baseDir, dirent.name)
+        try {
+          const files = await fs.readdir(subdir)
+          for (const file of files) {
+            if (file.startsWith('.') || file.endsWith('.tmp') || file.endsWith('.part')) continue
+            const filePath = path.join(subdir, file)
+            if (!this.seenFiles.has(filePath) && !this.pendingFiles.has(filePath)) {
+              this.pendingFiles.add(filePath)
+              this.logger.log(`Arquivo detectado (aguardando estabilização): ${file} [${dirent.name}]`)
+              setTimeout(() => void this.processStableFile(filePath, dirent.name), 6000)
+            }
+          }
+        } catch { /* subdiretório pode ter sido removido */ }
+      }
+    } catch (err) {
+      this.logger.error(`Erro no poll: ${err}`)
+    }
+  }
+
+  private async processStableFile(filePath: string, sftpDirectory: string) {
+    try {
+      const stat1 = await fs.stat(filePath)
+      await new Promise<void>((r) => setTimeout(r, 2000))
+      const stat2 = await fs.stat(filePath)
+
+      if (stat1.size !== stat2.size) {
+        this.logger.log(`Arquivo ainda sendo escrito: ${path.basename(filePath)}, reagendando...`)
+        this.pendingFiles.delete(filePath)
+        return
+      }
+    } catch {
+      this.pendingFiles.delete(filePath)
+      this.seenFiles.add(filePath)
+      return
+    }
+
+    this.seenFiles.add(filePath)
+    this.pendingFiles.delete(filePath)
+    this.logger.log(`Processando: ${path.basename(filePath)} [${sftpDirectory}]`)
     await this.scansService.processFile(filePath, sftpDirectory)
   }
 }
