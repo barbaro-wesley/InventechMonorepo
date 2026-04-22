@@ -15,7 +15,9 @@
       "Bash(git push *)",
       "Bash(git merge *)",
       "Bash(git stash *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(grep -E \"\\\\.tsx$\")"
     ]
   }
 }

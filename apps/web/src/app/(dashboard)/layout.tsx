@@ -27,6 +27,8 @@ import {
     BellRing,
     SlidersHorizontal,
     FileText,
+    Printer,
+    ScanLine,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -120,6 +122,20 @@ const navSections: NavSection[] = [
                 icon: FileText,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
                 permission: "laudo-template:list",
+            },
+            {
+                label: "Impressoras",
+                href: "/impressoras",
+                icon: Printer,
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"],
+                permission: "printer:list",
+            },
+            {
+                label: "Digitalizações",
+                href: "/digitalizacoes",
+                icon: ScanLine,
+                roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+                permission: "scan:list",
             },
         ],
     },
