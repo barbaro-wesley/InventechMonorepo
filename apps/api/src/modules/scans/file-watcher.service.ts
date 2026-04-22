@@ -34,8 +34,8 @@ export class FileWatcherService implements OnModuleInit, OnModuleDestroy {
 
     await this.seedExistingFiles()
 
-    this.pollTimer = setInterval(() => void this.pollDirectories(), 5000)
-    this.logger.log(`Monitorando diretório SFTP (polling 5s): ${this.baseDir}`)
+    this.pollTimer = setInterval(() => void this.pollDirectories(), 2000)
+    this.logger.log(`Monitorando diretório SFTP (polling 2s): ${this.baseDir}`)
   }
 
   async onModuleDestroy() {
@@ -76,7 +76,7 @@ export class FileWatcherService implements OnModuleInit, OnModuleDestroy {
             if (!this.seenFiles.has(filePath) && !this.pendingFiles.has(filePath)) {
               this.pendingFiles.add(filePath)
               this.logger.log(`Arquivo detectado (aguardando estabilização): ${file} [${dirent.name}]`)
-              setTimeout(() => void this.processStableFile(filePath, dirent.name), 6000)
+              setTimeout(() => void this.processStableFile(filePath, dirent.name), 3000)
             }
           }
         } catch { /* subdiretório pode ter sido removido */ }
