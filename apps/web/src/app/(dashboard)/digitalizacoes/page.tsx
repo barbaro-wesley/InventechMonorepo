@@ -80,7 +80,6 @@ export default function ScansPage() {
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
   const [deleteScan, setDeleteScan] = useState<Scan | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
 
   const permissions = usePermissions();
   const canDelete = permissions.canSeeNav(["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"]);
@@ -96,15 +95,8 @@ export default function ScansPage() {
   const { data: printers = [] } = usePrinters();
   const remove = useDeleteScan();
 
-  async function handleDownload(scan: Scan) {
-    setDownloading(scan.id);
-    try {
-      await scansService.download(scan.id, scan.fileName);
-    } catch {
-      toast.error("Erro ao baixar o arquivo");
-    } finally {
-      setDownloading(null);
-    }
+  function handleDownload(scan: Scan) {
+    window.open(scansService.getDownloadUrl(scan.id), "_blank");
   }
 
   return (
@@ -247,14 +239,10 @@ export default function ScansPage() {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        title="Download"
-                        disabled={downloading === scan.id}
+                        title="Abrir arquivo"
                         onClick={() => handleDownload(scan)}
                       >
-                        {downloading === scan.id
-                          ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          : <Download className="w-3.5 h-3.5 text-muted-foreground" />
-                        }
+                        <Download className="w-3.5 h-3.5 text-muted-foreground" />
                       </Button>
                       {canDelete && (
                         <Button

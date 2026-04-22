@@ -30,16 +30,9 @@ export const scansService = {
     return Array.isArray(data) ? data : (data?.data ?? []);
   },
 
-  async download(id: string, fileName: string): Promise<void> {
-    const response = await api.get(`/scans/${id}/download`, {
-      responseType: "blob",
-    });
-    const url = URL.createObjectURL(new Blob([response.data]));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
+  getDownloadUrl(id: string): string {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/api/v1";
+    return `${base}/scans/${id}/download`;
   },
 
   async remove(id: string): Promise<void> {

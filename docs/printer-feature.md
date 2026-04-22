@@ -196,6 +196,38 @@ sudo ufw allow 21/tcp
 sudo ufw allow 40000:40100/tcp
 ```
 
+### 6.1 — Liberar o usuário `scanner` para o vsftpd
+
+O usuário `scanner` foi criado com shell `/sbin/nologin` (segurança). O `vsftpd` por padrão **nega login para usuários cujo shell não está listado em `/etc/shells`**, o que faz o login FTP falhar.
+
+**Solução:** adicionar `/sbin/nologin` ao `/etc/shells`:
+
+```bash
+echo "/sbin/nologin" | sudo tee -a /etc/shells
+```
+
+> Isso libera o `scanner` para autenticar via FTP/vsftpd sem comprometer a segurança — login interativo via SSH ainda é bloqueado. Não é necessário criar um segundo usuário FTP.
+
+Para confirmar se o problema existe antes de aplicar:
+
+```bash
+cat /etc/shells | grep nologin
+# Se não retornar nada, o vsftpd está rejeitando o scanner
+```
+
+Após aplicar, reinicie o vsftpd:
+
+```bash
+sudo systemctl restart vsftpd
+```
+
+E teste:
+
+```bash
+ftp 192.168.0.70
+# usuário: scanner / senha: a mesma definida no passo 1.1
+```
+
 A impressora Samsung deve usar:
 - **Protocol:** FTP
 - **Port:** 21
