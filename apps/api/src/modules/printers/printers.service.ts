@@ -136,6 +136,7 @@ export class PrintersService {
   private async ensureDirectory(slug: string) {
     const dirPath = path.join(this.baseDir, slug)
     await fs.mkdir(dirPath, { recursive: true })
+    await fs.chmod(dirPath, 0o777)
     this.logger.log(`Diretório SFTP criado: ${dirPath}`)
   }
 

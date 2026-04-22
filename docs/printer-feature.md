@@ -215,23 +215,45 @@ cat /etc/shells | grep nologin
 # Se não retornar nada, o vsftpd está rejeitando o scanner
 ```
 
-Após aplicar, reinicie o vsftpd:
+### 6.2 — Corrigir "Acesso negado" ao escrever via FTP
+
+O `vsftpd` com `chroot_local_user=YES` aprisiona o usuário no seu **home directory**. O `scanner` foi criado com home em `/home/scanner`, mas os arquivos precisam ir para `/srv/scans/incoming` — por isso o FTP autentica mas retorna "acesso negado" ao tentar enviar arquivos.
+
+**Solução:** mudar o home do `scanner` para `/srv/scans` (mesmo chroot do SFTP):
+
+```bash
+sudo usermod -d /srv/scans scanner
+```
+
+Confirme as permissões do diretório destino:
+
+```bash
+sudo chown scanner:scanner /srv/scans/incoming
+sudo chmod 755 /srv/scans/incoming
+```
+
+Reinicie os dois serviços:
 
 ```bash
 sudo systemctl restart vsftpd
+sudo systemctl restart sshd
 ```
 
-E teste:
+Teste FTP:
 
 ```bash
 ftp 192.168.0.70
 # usuário: scanner / senha: a mesma definida no passo 1.1
+# após login, deve conseguir entrar em: cd incoming/nome-da-impressora
 ```
+
+> Com esta configuração, tanto SFTP quanto FTP caem em `/srv/scans` como raiz e o usuário escreve normalmente em `incoming/`. O SFTP continua funcionando — o `ChrootDirectory /srv/scans` no sshd_config já era esse mesmo caminho.
 
 A impressora Samsung deve usar:
 - **Protocol:** FTP
 - **Port:** 21
-- **Remaining fields:** mesmos da Brother
+- **Store Directory:** `/incoming/nome-da-impressora` (sem `/srv/scans` — já está dentro do chroot)
+- **Username / Password:** mesmos do SFTP
 
 ---
 

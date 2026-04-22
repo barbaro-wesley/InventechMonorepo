@@ -114,16 +114,27 @@ export class DashboardService {
             this.prisma.serviceOrder.count({ where: { ...where, status: ServiceOrderStatus.CANCELLED } }),
             this.prisma.serviceOrder.count({ where: { ...where, priority: ServiceOrderPriority.URGENT, status: { notIn: ['COMPLETED_APPROVED', 'CANCELLED'] } } }),
             // Tempo médio de resolução em horas (últimos 30 dias)
-            this.prisma.$queryRaw<[{ avg_hours: number }]>`
-        SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1) as avg_hours
-        FROM service_orders
-        WHERE company_id = ${companyId}
-          ${clientId ? this.prisma.$queryRaw`AND client_id = ${clientId}` : this.prisma.$queryRaw``}
-          AND status IN ('COMPLETED', 'COMPLETED_APPROVED')
-          AND completed_at IS NOT NULL
-          AND created_at >= NOW() - INTERVAL '30 days'
-          AND deleted_at IS NULL
-      `.catch(() => [{ avg_hours: null }]),
+            (clientId
+              ? this.prisma.$queryRaw<[{ avg_hours: number }]>`
+                  SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1) as avg_hours
+                  FROM service_orders
+                  WHERE company_id = ${companyId}
+                    AND client_id = ${clientId}
+                    AND status IN ('COMPLETED', 'COMPLETED_APPROVED')
+                    AND completed_at IS NOT NULL
+                    AND created_at >= NOW() - INTERVAL '30 days'
+                    AND deleted_at IS NULL
+                `
+              : this.prisma.$queryRaw<[{ avg_hours: number }]>`
+                  SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1) as avg_hours
+                  FROM service_orders
+                  WHERE company_id = ${companyId}
+                    AND status IN ('COMPLETED', 'COMPLETED_APPROVED')
+                    AND completed_at IS NOT NULL
+                    AND created_at >= NOW() - INTERVAL '30 days'
+                    AND deleted_at IS NULL
+                `
+            ).catch(() => [{ avg_hours: null }]),
         ])
 
         const activeOs = open + awaitingPickup + inProgress + completed
