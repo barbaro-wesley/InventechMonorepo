@@ -34,6 +34,7 @@ import {
   CalendarClock,
   MoreHorizontal,
   Printer,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
 import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-create-sheet";
 import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
+import { EquipmentManualsSheet } from "@/components/equipment/equipment-manuals-sheet";
 import { OsDetailDrawer } from "@/app/(operacional)/operacional/_components/os-detail-drawer";
 
 import { equipmentService } from "@/services/equipment/equipment.service";
@@ -920,6 +922,7 @@ function DetailSheet({
 }) {
   const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history">("info");
   const [selectedHistoryOs, setSelectedHistoryOs] = React.useState<{ id: string; clientId: string | null } | null>(null);
+  const [manualsOpen, setManualsOpen] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: movements = [], isLoading: movementsLoading } = useMovements(equipment?.id ?? "");
@@ -957,6 +960,7 @@ function DetailSheet({
   }
 
   return (
+    <>
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <SheetContent className="overflow-y-auto" style={{ maxWidth: "680px", width: "100%" }}>
         <SheetHeader className="pb-4 border-b">
@@ -997,6 +1001,9 @@ function DetailSheet({
           </Button>
           <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => window.open(equipmentService.getLifeCyclePdfUrl(equipment.id), "_blank")}>
             <FileText className="w-3.5 h-3.5 mr-1.5 text-violet-500" />Ficha Vida
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => setManualsOpen(true)}>
+            <BookOpen className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />Manuais
           </Button>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground font-medium uppercase px-2">Ações rápidas</span>
@@ -1246,6 +1253,15 @@ function DetailSheet({
         )}
       </SheetContent>
     </Sheet>
+
+    {manualsOpen && (
+      <EquipmentManualsSheet
+        equipment={equipment}
+        open={manualsOpen}
+        onClose={() => setManualsOpen(false)}
+      />
+    )}
+    </>
   );
 }
 

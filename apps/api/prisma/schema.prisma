@@ -140,6 +140,7 @@ model User {
   laudosCreated           Laudo[]                     @relation("LaudoCreatedBy")
   laudosAsTechnician      Laudo[]                     @relation("LaudoTechnician")
   laudosApproved          Laudo[]                     @relation("LaudoApprovedBy")
+  manuaisCreated          EquipmentManual[]           @relation("ManualCreatedBy")
   client                  Client?                     @relation(fields: [clientId], references: [id])
   company                 Company?                    @relation(fields: [companyId], references: [id])
   customRole              CustomRole?                 @relation(fields: [customRoleId], references: [id])
@@ -332,6 +333,7 @@ model Equipment {
   totalServiceOrders   Int                   @default(0) @map("total_service_orders")
   attachments          Attachment[]          @relation("EquipmentAttachments")
   movements            EquipmentMovement[]
+  manuals              EquipmentManual[]
   costCenter           CostCenter?           @relation(fields: [costCenterId], references: [id])
   currentLocation      Location?             @relation("CurrentLocation", fields: [currentLocationId], references: [id])
   location             Location?             @relation(fields: [locationId], references: [id])
@@ -347,6 +349,42 @@ model Equipment {
   @@index([serialNumber])
   @@index([patrimonyNumber])
   @@map("equipments")
+}
+
+model EquipmentManual {
+  id            String      @id @default(uuid())
+  companyId     String      @map("company_id")
+  equipmentId   String      @map("equipment_id")
+  createdById   String      @map("created_by_id")
+
+  titulo        String
+  descricao     String?
+
+  tipo          ManualType
+
+  conteudoTexto String?     @map("conteudo_texto") @db.Text
+
+  url           String?
+
+  // Campos preenchidos apenas quando tipo = PDF (armazenado no MinIO)
+  fileName      String?     @map("file_name")
+  storedName    String?     @map("stored_name")
+  bucket        String?
+  key           String?
+  mimeType      String?     @map("mime_type")
+  sizeBytes     Int?        @map("size_bytes")
+
+  ativo         Boolean     @default(true)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  equipment     Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  createdBy     User        @relation("ManualCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId])
+  @@index([equipmentId])
+  @@index([equipmentId, ativo])
+  @@map("equipment_manuals")
 }
 
 model MaintenanceSchedule {
@@ -924,6 +962,12 @@ enum CostItemType {
 enum MovementType {
   TRANSFER
   LOAN
+}
+
+enum ManualType {
+  PDF
+  TEXTO
+  LINK
 }
 
 enum MovementStatus {

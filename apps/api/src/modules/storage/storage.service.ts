@@ -414,6 +414,7 @@ export class StorageService implements OnModuleInit {
   private async ensureBucketsExist() {
     const buckets = [
       'equipment-attachments',
+      'equipment-manuals',
       'service-order-attachments',
       'invoices',
       'avatars',

@@ -37,3 +37,10 @@ export const AttachmentEntity = {
   COMMENT: 'COMMENT',
 } as const;
 export type AttachmentEntity = (typeof AttachmentEntity)[keyof typeof AttachmentEntity];
+
+export const ManualType = {
+  PDF: 'PDF',
+  TEXTO: 'TEXTO',
+  LINK: 'LINK',
+} as const;
+export type ManualType = (typeof ManualType)[keyof typeof ManualType];
