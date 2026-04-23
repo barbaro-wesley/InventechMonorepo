@@ -116,7 +116,7 @@ O runner deve aparecer como **Idle** (verde).
 
 ## ETAPA 3 — Adicionar Secrets no GitHub
 
-Acesse: GitHub → Repositório → **Settings** → **Secrets and variables** → **Actions**
+Acesse: GitHub → Repositório>>> → **Settings** → **Secrets and variables** → **Actions**
 
 | Nome do Secret | Valor |
 |----------------|-------|
