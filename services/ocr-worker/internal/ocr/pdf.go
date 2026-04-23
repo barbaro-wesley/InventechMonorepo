@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 )
 
 type PDFConverter struct {
@@ -16,35 +17,39 @@ func NewPDFConverter(dpi int) *PDFConverter {
 }
 
 func (c *PDFConverter) ConvertToImages(pdfPath string) ([]string, error) {
-	outputDir := filepath.Dir(pdfPath)
-	baseName := filepath.Base(pdfPath)
-	baseName = baseName[:len(baseName)-4] // Remove .pdf extension
+	tmpDir, err := os.MkdirTemp("", "ocr-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+
+	outputPrefix := filepath.Join(tmpDir, "page")
 
 	cmd := exec.Command(
 		"pdftoppm",
 		"-r", fmt.Sprintf("%d", c.dpi),
 		"-png",
-		"-singlefile",
 		pdfPath,
-		filepath.Join(outputDir, baseName),
+		outputPrefix,
 	)
-
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		os.RemoveAll(tmpDir)
 		return nil, fmt.Errorf("failed to convert pdf: %w\n%s", err, output)
 	}
 
-	// pdftoppm outputs the first page as <baseName>-0001.png
-	imagePath := filepath.Join(outputDir, baseName+"-0001.png")
-	if _, err := os.Stat(imagePath); err != nil {
-		return nil, fmt.Errorf("failed to find converted image: %w", err)
+	matches, err := filepath.Glob(outputPrefix + "-*.png")
+	if err != nil || len(matches) == 0 {
+		os.RemoveAll(tmpDir)
+		return nil, fmt.Errorf("no pages generated from PDF at %s", pdfPath)
 	}
 
-	return []string{imagePath}, nil
+	sort.Strings(matches)
+	return matches, nil
 }
 
 func (c *PDFConverter) CleanupImages(imagePaths []string) {
-	for _, path := range imagePaths {
-		os.Remove(path)
+	if len(imagePaths) == 0 {
+		return
 	}
+	os.RemoveAll(filepath.Dir(imagePaths[0]))
 }

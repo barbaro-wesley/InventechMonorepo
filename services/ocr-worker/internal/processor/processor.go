@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -20,13 +21,15 @@ import (
 )
 
 type Processor struct {
-	cfg      *config.Config
-	db       *db.DB
-	storage  *storage.MinIO
-	watcher  *fsnotify.Watcher
-	converter *ocr.PDFConverter
-	tesseract *ocr.Tesseract
-	extractor *extractor.Extractor
+	cfg        *config.Config
+	db         *db.DB
+	storage    *storage.MinIO
+	watcher    *fsnotify.Watcher
+	converter  *ocr.PDFConverter
+	tesseract  *ocr.Tesseract
+	extractor  *extractor.Extractor
+	sem        chan struct{}
+	inProgress sync.Map
 }
 
 func NewProcessor(cfg *config.Config, database *db.DB, stor *storage.MinIO) (*Processor, error) {
@@ -45,13 +48,14 @@ func NewProcessor(cfg *config.Config, database *db.DB, stor *storage.MinIO) (*Pr
 	extr := extractor.NewExtractor()
 
 	return &Processor{
-		cfg:      cfg,
-		db:       database,
-		storage:  stor,
-		watcher:  watcher,
+		cfg:       cfg,
+		db:        database,
+		storage:   stor,
+		watcher:   watcher,
 		converter: converter,
 		tesseract: tesseract,
 		extractor: extr,
+		sem:       make(chan struct{}, 1),
 	}, nil
 }
 
@@ -66,7 +70,10 @@ func (p *Processor) Close() {
 }
 
 func (p *Processor) Start(ctx context.Context) error {
-	// Add all subdirectories in scan base dir
+	if err := p.watcher.Add(p.cfg.SFTPScanBaseDir); err != nil {
+		log.Printf("Warning: failed to watch base dir %s: %v", p.cfg.SFTPScanBaseDir, err)
+	}
+
 	entries, err := os.ReadDir(p.cfg.SFTPScanBaseDir)
 	if err != nil {
 		return fmt.Errorf("failed to read scan directory: %w", err)
@@ -93,7 +100,16 @@ func (p *Processor) Start(ctx context.Context) error {
 				continue
 			}
 			if event.Op&fsnotify.Create == fsnotify.Create {
-				p.handleNewFile(ctx, event.Name)
+				info, err := os.Stat(event.Name)
+				if err != nil {
+					continue
+				}
+				if info.IsDir() {
+					log.Printf("New directory detected, watching: %s", event.Name)
+					p.watcher.Add(event.Name)
+				} else {
+					go p.handleNewFile(ctx, event.Name)
+				}
 			}
 		case err, ok := <-p.watcher.Errors:
 			if !ok {
@@ -105,43 +121,61 @@ func (p *Processor) Start(ctx context.Context) error {
 }
 
 func (p *Processor) handleNewFile(ctx context.Context, filePath string) {
-	// Check if it's a PDF
 	if !strings.HasSuffix(strings.ToLower(filePath), ".pdf") {
 		return
 	}
 
+	if _, loaded := p.inProgress.LoadOrStore(filePath, struct{}{}); loaded {
+		log.Printf("Already processing, skipping: %s", filePath)
+		return
+	}
+	defer p.inProgress.Delete(filePath)
+
 	log.Printf("New file detected: %s", filePath)
 
-	// Wait for file to stabilize (3 seconds)
-	time.Sleep(3 * time.Second)
-
-	// Check if file still exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		log.Printf("File no longer exists: %s", filePath)
+	if err := waitForFileStable(filePath, 30*time.Second); err != nil {
+		log.Printf("File did not stabilize, skipping: %s — %v", filePath, err)
 		return
 	}
 
-	// Get sftp directory from path
 	sftpDir := filepath.Base(filepath.Dir(filePath))
 
-	// Process the file
+	p.sem <- struct{}{}
+	defer func() { <-p.sem }()
+
 	if err := p.processFile(ctx, filePath, sftpDir); err != nil {
-		log.Printf("Error processing file: %v", err)
+		log.Printf("Error processing file %s: %v", filePath, err)
 	}
 }
 
+func waitForFileStable(filePath string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var prevSize int64 = -1
+
+	for time.Now().Before(deadline) {
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return fmt.Errorf("file disappeared: %w", err)
+		}
+		if info.Size() == prevSize {
+			return nil
+		}
+		prevSize = info.Size()
+		time.Sleep(3 * time.Second)
+	}
+	return fmt.Errorf("file not stable after %v", timeout)
+}
+
 func (p *Processor) processFile(ctx context.Context, filePath, sftpDirectory string) error {
-	// Lookup printer
 	printer, err := p.db.FindPrinterBySftpDirectory(ctx, sftpDirectory)
 	if err != nil {
 		log.Printf("Printer not found for directory: %s", sftpDirectory)
-		return p.moveToError(ctx, filePath, "printer not found")
+		return p.moveToError(filePath, "printer not found")
 	}
 
 	fileName := filepath.Base(filePath)
 	scanID := uuid.New().String()
 
-	// Get file info
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to stat file: %w", err)
@@ -150,14 +184,13 @@ func (p *Processor) processFile(ctx context.Context, filePath, sftpDirectory str
 	mimeType := detectMimeType(fileName)
 	sizeBytes := int(fileInfo.Size())
 
-	// Insert scan with PENDING
 	now := time.Now()
 	scan := &db.Scan{
-		ID:          scanID,
-		CompanyID:   printer.CompanyID,
-		PrinterID:  printer.ID,
-		FileName:   fileName,
-		StoredKey:  "",
+		ID:        scanID,
+		CompanyID: printer.CompanyID,
+		PrinterID: printer.ID,
+		FileName:  fileName,
+		StoredKey: "",
 		Bucket:    p.storage.GetBucket(),
 		MimeType:  mimeType,
 		SizeBytes: sizeBytes,
@@ -169,89 +202,80 @@ func (p *Processor) processFile(ctx context.Context, filePath, sftpDirectory str
 		return fmt.Errorf("failed to insert scan: %w", err)
 	}
 
-	// Convert PDF to images
 	imagePaths, err := p.converter.ConvertToImages(filePath)
 	if err != nil {
 		log.Printf("Failed to convert PDF: %v", err)
-		p.updateScanError(ctx, scanID, err.Error())
+		p.updateScanError(ctx, scanID, filePath, err.Error())
 		return err
 	}
 	defer p.converter.CleanupImages(imagePaths)
 
-	// Run OCR
 	ocrText, err := p.tesseract.ProcessImages(imagePaths)
 	if err != nil {
 		log.Printf("Failed to process OCR: %v", err)
-		p.updateScanError(ctx, scanID, err.Error())
+		p.updateScanError(ctx, scanID, filePath, err.Error())
 		return err
 	}
 
-	log.Printf("OCR text length: %d bytes", len(ocrText))
+	log.Printf("[DEBUG] OCR text (%d bytes) for %s:\n%s", len(ocrText), fileName, ocrText)
 
-	// Extract fields
 	extracted := p.extractor.Extract(ocrText)
 
-	// Determine OCR status
 	ocrStatus := "FAILED"
 	if extracted.Paciente != nil || extracted.CPF != nil || extracted.Prontuario != nil || extracted.NumeroAtendimento != nil {
 		ocrStatus = "SUCCESS"
 	}
 
-	// Upload to MinIO
 	storedKey := fmt.Sprintf("%s/%s/%s/%s", printer.CompanyID, printer.ID, scanID, fileName)
 	if err := p.storage.UploadFile(ctx, storedKey, filePath, fileInfo.Size(), mimeType); err != nil {
 		log.Printf("Failed to upload to MinIO: %v", err)
-		p.updateScanError(ctx, scanID, err.Error())
+		p.updateScanError(ctx, scanID, filePath, err.Error())
 		return err
 	}
 
-	// Update scan status
 	processedAt := time.Now()
 	if err := p.db.UpdateScanStatus(ctx, scanID, "PROCESSED", storedKey, &processedAt, nil); err != nil {
 		return fmt.Errorf("failed to update scan: %w", err)
 	}
 
-	// Insert scan metadata
 	metadata := &db.ScanMetadata{
 		ID:                uuid.New().String(),
 		ScanID:            scanID,
 		OcrStatus:         ocrStatus,
 		Paciente:          extracted.Paciente,
-		CPF:              extracted.CPF,
+		CPF:               extracted.CPF,
 		Prontuario:        extracted.Prontuario,
 		NumeroAtendimento: extracted.NumeroAtendimento,
-		ExtractedAt:      &processedAt,
+		ExtractedAt:       &processedAt,
 	}
 
 	if err := p.db.InsertScanMetadata(ctx, metadata); err != nil {
 		log.Printf("Failed to insert metadata: %v", err)
 	}
 
-	// Delete local file
 	os.Remove(filePath)
 
-	log.Printf("Successfully processed scan: %s [%s]", fileName, printer.Name)
+	log.Printf("Successfully processed scan: %s [ocr_status=%s, printer=%s]", fileName, ocrStatus, printer.Name)
 
 	return nil
 }
 
-func (p *Processor) moveToError(ctx context.Context, filePath, errorMsg string) error {
+func (p *Processor) moveToError(filePath, errorMsg string) error {
 	errorDir := filepath.Join(filepath.Dir(filePath), "..", "_error")
 	os.MkdirAll(errorDir, 0755)
-	
+
 	newPath := filepath.Join(errorDir, filepath.Base(filePath))
 	if err := os.Rename(filePath, newPath); err != nil {
-		log.Printf("Failed to move file to error: %v", err)
+		log.Printf("Failed to move file to error dir: %v", err)
 	}
-	
 	return nil
 }
 
-func (p *Processor) updateScanError(ctx context.Context, scanID, errorMsg string) {
+func (p *Processor) updateScanError(ctx context.Context, scanID, filePath, errorMsg string) {
 	errorMsgP := errorMsg
 	processedAt := time.Now()
 	p.db.UpdateScanStatus(ctx, scanID, "ERROR", "", &processedAt, &errorMsgP)
-	p.moveToError(ctx, fmt.Sprintf("%s/%s", p.cfg.SFTPScanBaseDir, scanID), errorMsg)
+	p.moveToError(filePath, errorMsg)
 }
 
 func detectMimeType(fileName string) string {

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -48,9 +49,10 @@ func (m *MinIO) UploadFile(ctx context.Context, key string, filePath string, fil
 }
 
 func (m *MinIO) UploadBuffer(ctx context.Context, key string, buffer []byte, contentType string) error {
-	_, err := m.client.PutObject(ctx, m.bucket, key, minio.NewReader(buffer, minio.ObjectOptions{
-		ContentType: contentType,
-	}))
+	reader := bytes.NewReader(buffer)
+	_, err := m.client.PutObject(ctx, m.bucket, key, reader, int64(len(buffer)),
+		minio.PutObjectOptions{ContentType: contentType},
+	)
 	return err
 }
 
