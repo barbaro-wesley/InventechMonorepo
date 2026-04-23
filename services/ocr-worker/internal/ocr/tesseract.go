@@ -3,19 +3,15 @@ package ocr
 import (
 	"fmt"
 
-	"github.com/otiai10/gosseract/v2"
+	goss "github.com/otiai10/gosseract/v2"
 )
 
 type Tesseract struct {
-	client *gosseract.Client
+	client *goss.Client
 }
 
 func NewTesseract(lang string) (*Tesseract, error) {
-	client, err := gosseract.NewClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tesseract client: %w", err)
-	}
-
+	client := goss.NewClient()
 	if err := client.SetLanguage(lang); err != nil {
 		client.Close()
 		return nil, fmt.Errorf("failed to set language: %w", err)
