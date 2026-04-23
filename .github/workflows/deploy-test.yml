@@ -100,6 +100,18 @@ jobs:
           cache-from: type=gha,scope=web-develop
           cache-to: type=gha,mode=max,scope=web-develop
 
+      - name: Build & push imagem do OCR Worker (develop)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/ocr-worker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/ocr-worker:develop
+            ghcr.io/${{ env.REPO_LOWER }}/ocr-worker:develop-${{ github.sha }}
+          cache-from: type=gha,scope=ocr-worker-develop
+          cache-to: type=gha,mode=max,scope=ocr-worker-develop
+
   # ─────────────────────────────────────────
   # Deploy na VM de teste via SSH
   # ─────────────────────────────────────────
@@ -133,7 +145,7 @@ jobs:
 
           echo "→ Baixando imagens develop..."
           IMAGE_TAG=develop GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
-            docker compose -f docker-compose.prod.yml --env-file .env pull api web
+            docker compose -f docker-compose.prod.yml --env-file .env pull api web ocr-worker
 
           echo "→ Rodando migrations do banco..."
           IMAGE_TAG=develop GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
