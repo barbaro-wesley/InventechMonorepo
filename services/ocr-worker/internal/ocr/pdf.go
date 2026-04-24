@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 type PDFConverter struct {
@@ -52,4 +53,15 @@ func (c *PDFConverter) CleanupImages(imagePaths []string) {
 		return
 	}
 	os.RemoveAll(filepath.Dir(imagePaths[0]))
+}
+
+// ExtractTextDirect extracts the embedded text layer from a searchable PDF using pdftotext.
+// Returns an empty string (no error) if the PDF has no text layer.
+func (c *PDFConverter) ExtractTextDirect(pdfPath string) (string, error) {
+	cmd := exec.Command("pdftotext", "-layout", "-enc", "UTF-8", pdfPath, "-")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("pdftotext failed: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
 }

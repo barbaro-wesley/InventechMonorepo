@@ -202,22 +202,10 @@ func (p *Processor) processFile(ctx context.Context, filePath, sftpDirectory str
 		return fmt.Errorf("failed to insert scan: %w", err)
 	}
 
-	imagePaths, err := p.converter.ConvertToImages(filePath)
+	ocrText, err := p.extractText(ctx, scanID, filePath, fileName)
 	if err != nil {
-		log.Printf("Failed to convert PDF: %v", err)
-		p.updateScanError(ctx, scanID, filePath, err.Error())
 		return err
 	}
-	defer p.converter.CleanupImages(imagePaths)
-
-	ocrText, err := p.tesseract.ProcessImages(imagePaths)
-	if err != nil {
-		log.Printf("Failed to process OCR: %v", err)
-		p.updateScanError(ctx, scanID, filePath, err.Error())
-		return err
-	}
-
-	log.Printf("[DEBUG] OCR text (%d bytes) for %s:\n%s", len(ocrText), fileName, ocrText)
 
 	extracted := p.extractor.Extract(ocrText)
 
@@ -258,6 +246,37 @@ func (p *Processor) processFile(ctx context.Context, filePath, sftpDirectory str
 	log.Printf("Successfully processed scan: %s [ocr_status=%s, printer=%s]", fileName, ocrStatus, printer.Name)
 
 	return nil
+}
+
+func (p *Processor) extractText(ctx context.Context, scanID, filePath, fileName string) (string, error) {
+	text, err := p.converter.ExtractTextDirect(filePath)
+	if err == nil && text != "" {
+		log.Printf("[%s] direct text extraction succeeded (%d bytes)", fileName, len(text))
+		return text, nil
+	}
+	if err != nil {
+		log.Printf("[%s] pdftotext failed, falling back to OCR: %v", fileName, err)
+	} else {
+		log.Printf("[%s] no embedded text found, falling back to OCR", fileName)
+	}
+
+	imagePaths, err := p.converter.ConvertToImages(filePath)
+	if err != nil {
+		log.Printf("Failed to convert PDF: %v", err)
+		p.updateScanError(ctx, scanID, filePath, err.Error())
+		return "", err
+	}
+	defer p.converter.CleanupImages(imagePaths)
+
+	ocrText, err := p.tesseract.ProcessImages(imagePaths)
+	if err != nil {
+		log.Printf("Failed to process OCR: %v", err)
+		p.updateScanError(ctx, scanID, filePath, err.Error())
+		return "", err
+	}
+
+	log.Printf("[%s] OCR text extracted (%d bytes)", fileName, len(ocrText))
+	return ocrText, nil
 }
 
 func (p *Processor) moveToError(filePath, errorMsg string) error {
