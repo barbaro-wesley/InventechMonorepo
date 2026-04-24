@@ -201,6 +201,8 @@ services:
       SFTP_SCAN_BASE_DIR: /srv/scans/incoming
       OCR_LANG: por
       OCR_DPI: "300"
+      SCAN_WEBHOOK_URL: http://api:3000/api/v1/scans/webhook/processed
+      SCAN_WEBHOOK_SECRET: ${SCAN_WEBHOOK_SECRET}
     volumes:
       - sftp_scans:/srv/scans/incoming
     depends_on:
