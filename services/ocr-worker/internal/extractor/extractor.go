@@ -30,7 +30,6 @@ func NewExtractor() *Extractor {
 func (e *Extractor) Extract(text string) *ExtractedData {
 	data := &ExtractedData{}
 
-	// Extrai paciente
 	if match := e.patterns["paciente"].FindStringSubmatch(text); len(match) > 1 {
 		value := strings.TrimSpace(match[1])
 		if value != "" {
@@ -38,7 +37,6 @@ func (e *Extractor) Extract(text string) *ExtractedData {
 		}
 	}
 
-	// Extrai CPF
 	if match := e.patterns["cpf"].FindStringSubmatch(text); len(match) > 1 {
 		value := strings.TrimSpace(match[1])
 		value = normalizeCPF(value)
@@ -47,7 +45,6 @@ func (e *Extractor) Extract(text string) *ExtractedData {
 		}
 	}
 
-	// Extrai prontuário
 	if match := e.patterns["prontuario"].FindStringSubmatch(text); len(match) > 1 {
 		value := strings.TrimSpace(match[1])
 		if value != "" {
@@ -55,7 +52,6 @@ func (e *Extractor) Extract(text string) *ExtractedData {
 		}
 	}
 
-	// Extrai número de atendimento
 	if match := e.patterns["numero_atendimento"].FindStringSubmatch(text); len(match) > 1 {
 		value := strings.TrimSpace(match[1])
 		if value != "" {
@@ -64,6 +60,31 @@ func (e *Extractor) Extract(text string) *ExtractedData {
 	}
 
 	return data
+}
+
+// ExtractInto preenche apenas os campos ainda nulos em dst a partir de text.
+// Retorna true se dst passou a ter dados de paciente após a operação.
+func (e *Extractor) ExtractInto(dst *ExtractedData, text string) bool {
+	src := e.Extract(text)
+	if dst.Paciente == nil {
+		dst.Paciente = src.Paciente
+	}
+	if dst.CPF == nil {
+		dst.CPF = src.CPF
+	}
+	if dst.Prontuario == nil {
+		dst.Prontuario = src.Prontuario
+	}
+	if dst.NumeroAtendimento == nil {
+		dst.NumeroAtendimento = src.NumeroAtendimento
+	}
+	return dst.Paciente != nil
+}
+
+// HasPatientData retorna true quando pelo menos o nome do paciente foi encontrado.
+// Esse é o critério de parada antecipada — dados secundários são bonus.
+func (d *ExtractedData) HasPatientData() bool {
+	return d.Paciente != nil
 }
 
 func normalizeCPF(cpf string) string {

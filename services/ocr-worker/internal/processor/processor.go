@@ -205,12 +205,10 @@ func (p *Processor) processFile(ctx context.Context, filePath, sftpDirectory str
 		return fmt.Errorf("failed to insert scan: %w", err)
 	}
 
-	ocrText, err := p.extractText(ctx, scanID, filePath, fileName)
+	extracted, err := p.extractData(filePath, fileName)
 	if err != nil {
 		return err
 	}
-
-	extracted := p.extractor.Extract(ocrText)
 
 	ocrStatus := "FAILED"
 	if extracted.Paciente != nil || extracted.CPF != nil || extracted.Prontuario != nil || extracted.NumeroAtendimento != nil {
@@ -290,35 +288,59 @@ func (p *Processor) notifyAPI(ctx context.Context, scanID, companyID, status str
 	log.Printf("Webhook: notified API for scan %s [%s]", scanID, status)
 }
 
-func (p *Processor) extractText(ctx context.Context, scanID, filePath, fileName string) (string, error) {
-	text, err := p.converter.ExtractTextDirect(filePath)
-	if err == nil && text != "" {
-		log.Printf("[%s] direct text extraction succeeded (%d bytes)", fileName, len(text))
-		return text, nil
-	}
-	if err != nil {
-		log.Printf("[%s] pdftotext failed, falling back to OCR: %v", fileName, err)
-	} else {
-		log.Printf("[%s] no embedded text found, falling back to OCR", fileName)
+const maxPages = 20 // limite de segurança para PDFs muito grandes
+
+// extractData processa o PDF página a página e para assim que encontrar
+// os dados do paciente, evitando OCR desnecessário nas páginas restantes.
+func (p *Processor) extractData(filePath, fileName string) (*extractor.ExtractedData, error) {
+	result := &extractor.ExtractedData{}
+
+	for page := 1; page <= maxPages; page++ {
+		// ── 1. Tenta extração direta do texto embutido ────────────────────────
+		text, err := p.converter.ExtractTextDirectPage(filePath, page)
+		if err != nil {
+			// pdftotext falhou nesta página — tenta OCR diretamente
+			log.Printf("[%s] pdftotext page %d failed, trying OCR: %v", fileName, page, err)
+		} else if text != "" {
+			found := p.extractor.ExtractInto(result, text)
+			log.Printf("[%s] page %d: direct text (%d bytes), paciente=%v", fileName, page, len(text), result.Paciente != nil)
+			if found {
+				log.Printf("[%s] paciente encontrado na página %d via texto direto — parando", fileName, page)
+				return result, nil
+			}
+			// Tem texto mas não achou paciente — continua para próxima página
+			continue
+		} else {
+			// Página vazia no texto direto = fim do PDF (todas as páginas foram processadas)
+			// ou PDF sem camada de texto — neste caso tenta OCR nesta página
+			log.Printf("[%s] page %d: sem texto embutido, tentando OCR", fileName, page)
+		}
+
+		// ── 2. Fallback OCR para esta página ─────────────────────────────────
+		imagePath, cleanup, err := p.converter.ConvertPageToImage(filePath, page)
+		if err != nil {
+			// Página não existe (além do final do PDF) — encerra loop
+			log.Printf("[%s] page %d: não foi possível converter — fim do PDF ou erro: %v", fileName, page, err)
+			break
+		}
+
+		ocrText, err := p.tesseract.ProcessImage(imagePath)
+		cleanup()
+
+		if err != nil {
+			log.Printf("[%s] page %d: OCR falhou: %v", fileName, page, err)
+			continue
+		}
+
+		found := p.extractor.ExtractInto(result, ocrText)
+		log.Printf("[%s] page %d: OCR (%d bytes), paciente=%v", fileName, page, len(ocrText), result.Paciente != nil)
+		if found {
+			log.Printf("[%s] paciente encontrado na página %d via OCR — parando", fileName, page)
+			return result, nil
+		}
 	}
 
-	imagePaths, err := p.converter.ConvertToImages(filePath)
-	if err != nil {
-		log.Printf("Failed to convert PDF: %v", err)
-		p.updateScanError(ctx, scanID, filePath, err.Error())
-		return "", err
-	}
-	defer p.converter.CleanupImages(imagePaths)
-
-	ocrText, err := p.tesseract.ProcessImages(imagePaths)
-	if err != nil {
-		log.Printf("Failed to process OCR: %v", err)
-		p.updateScanError(ctx, scanID, filePath, err.Error())
-		return "", err
-	}
-
-	log.Printf("[%s] OCR text extracted (%d bytes)", fileName, len(ocrText))
-	return ocrText, nil
+	return result, nil
 }
 
 func (p *Processor) moveToError(filePath, errorMsg string) error {
