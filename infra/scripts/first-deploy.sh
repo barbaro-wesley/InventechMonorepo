@@ -98,10 +98,14 @@ for service in inventech_postgres inventech_redis inventech_minio; do
 done
 
 # ── Baixa e sobe API e Web ────────────────────────────────────────────────────
-info "Baixando imagens da API e Web..."
+info "Criando diretório de scans (SFTP/scanner)..."
+sudo mkdir -p /srv/scans/incoming
+sudo chown 1000:1000 /srv/scans/incoming
+
+info "Baixando imagens da API, Web e OCR Worker..."
 IMAGE_TAG=latest GITHUB_REPOSITORY_LOWER="${GITHUB_USER}/inventechmonorepo" \
   docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" \
-  pull api web
+  pull api web ocr-worker
 
 info "Rodando migrations do banco de dados..."
 IMAGE_TAG=latest GITHUB_REPOSITORY_LOWER="${GITHUB_USER}/inventechmonorepo" \
