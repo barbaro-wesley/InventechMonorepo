@@ -69,7 +69,7 @@ import {
 } from "@/hooks/printers/use-printers";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { usePermissions } from "@/hooks/auth/use-permissions";
-import { scansService } from "@/services/printers/scans.service";
+import { scansService, type Scan } from "@/services/printers/scans.service";
 import type { Printer as PrinterType } from "@/services/printers/printers.service";
 
 // ─── IP validation ────────────────────────────────────────────────────────────
@@ -378,15 +378,15 @@ function PrinterDetailSheet({
   onEdit: (p: PrinterType) => void;
 }) {
   const [tab, setTab] = useState<"info" | "scans">("info");
-  const [scans, setScans] = useState<Awaited<ReturnType<typeof scansService.list>>>([]);
+  const [scans, setScans] = useState<Scan[]>([]);
   const [loadingScans, setLoadingScans] = useState(false);
 
   function loadScans() {
     if (!printer) return;
     setLoadingScans(true);
     scansService
-      .list({ printerId: printer.id })
-      .then((data) => setScans(data.slice(0, 10)))
+      .list({ printerId: printer.id, limit: 10 })
+      .then((page) => setScans(page.data))
       .catch(() => toast.error("Erro ao carregar scans"))
       .finally(() => setLoadingScans(false));
   }
