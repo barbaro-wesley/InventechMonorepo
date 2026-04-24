@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { Bell, CheckCheck } from 'lucide-react'
 import { io, Socket } from 'socket.io-client'
+import { getWsUrl } from '@/lib/ws'
 import { useQueryClient } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -37,9 +38,7 @@ export function NotificationBell() {
   useEffect(() => {
     if (!isAuthenticated) return
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3000'
-
-    const socket = io(`${wsUrl}/notifications`, {
+    const socket = io(`${getWsUrl()}/notifications`, {
       withCredentials: true, // envia o cookie access_token automaticamente
       transports: ['websocket', 'polling'],
     })

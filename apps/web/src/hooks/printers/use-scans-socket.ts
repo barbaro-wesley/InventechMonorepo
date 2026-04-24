@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useIsAuthenticated } from '@/store/auth.store'
+import { getWsUrl } from '@/lib/ws'
 import { scanKeys } from './use-scans'
 import type { ScanMetadata } from '@/services/printers/scans.service'
 
@@ -26,9 +27,7 @@ export function useScansSocket() {
   useEffect(() => {
     if (!isAuthenticated) return
 
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:3000'
-
-    const socket = io(`${wsUrl}/notifications`, {
+    const socket = io(`${getWsUrl()}/notifications`, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
     })
