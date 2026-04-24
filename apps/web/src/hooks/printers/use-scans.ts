@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api";
 import {
@@ -9,14 +9,25 @@ import {
 
 export const scanKeys = {
   all: () => ["scans"] as const,
-  list: (params?: ListScansParams) => ["scans", "list", params] as const,
+  list: (params?: Omit<ListScansParams, "cursor">) =>
+    ["scans", "list", params] as const,
 };
 
-export function useScans(params?: ListScansParams) {
-  return useQuery<Scan[]>({
+export function useScans(params?: Omit<ListScansParams, "cursor">) {
+  return useInfiniteQuery({
     queryKey: scanKeys.list(params),
-    queryFn: () => scansService.list(params),
+    queryFn: ({ pageParam }) =>
+      scansService.list({ ...params, cursor: pageParam as string | undefined }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     staleTime: 30 * 1000,
+    select: (data) => ({
+      pages: data.pages,
+      pageParams: data.pageParams,
+      // Vista plana para consumo simples
+      scans: data.pages.flatMap((p) => p.data) as Scan[],
+      hasNextPage: data.pages[data.pages.length - 1]?.hasNextPage ?? false,
+    }),
   });
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Trash2,
   RefreshCw,
@@ -12,6 +12,7 @@ import {
   ExternalLink,
   ChevronDown,
   Filter,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,13 +51,6 @@ import type { Scan, ScanStatus } from "@/services/printers/scans.service";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function normalize(str: string | null | undefined): string {
-  return (str ?? "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-}
-
 function formatCpf(cpf: string | null | undefined): string {
   if (!cpf) return "";
   const d = cpf.replace(/\D/g, "");
@@ -85,7 +79,17 @@ function StatusBadge({ status, errorMsg }: { status: ScanStatus; errorMsg: strin
 
 function NullCell({ children }: { children: React.ReactNode }) {
   if (children) return <>{children}</>;
-  return <span className="text-muted-foreground/50 text-xs italic">—</span>;
+  return <span className="text-muted-foreground/40 text-xs">—</span>;
+}
+
+// Debounce simples para não disparar request a cada tecla
+function useDebounce<T>(value: T, delay = 400): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -94,50 +98,52 @@ export default function ScansPage() {
   const [search, setSearch] = useState("");
   const [filterPrinter, setFilterPrinter] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterFrom, setFilterFrom] = useState("");
-  const [filterTo, setFilterTo] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [deleteScan, setDeleteScan] = useState<Scan | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const debouncedSearch = useDebounce(search, 400);
 
   const permissions = usePermissions();
   const canDelete = permissions.canSeeNav(["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"]);
 
-  // Escuta eventos em tempo real e invalida a lista automaticamente
   useScansSocket();
 
   const queryParams = {
     ...(filterPrinter ? { printerId: filterPrinter } : {}),
     ...(filterStatus ? { status: filterStatus as ScanStatus } : {}),
-    ...(filterFrom ? { from: filterFrom } : {}),
-    ...(filterTo ? { to: filterTo } : {}),
+    ...(debouncedSearch.trim().length >= 2 ? { search: debouncedSearch.trim() } : {}),
   };
 
-  const { data: scans = [], isLoading } = useScans(queryParams);
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    fetchNextPage,
+    hasNextPage,
+  } = useScans(queryParams);
+
+  const scans = data?.scans ?? [];
   const { data: printers = [] } = usePrinters();
   const remove = useDeleteScan();
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return scans;
-    const q = normalize(search);
-    return scans.filter((s) =>
-      normalize(s.fileName).includes(q) ||
-      normalize(s.metadata?.paciente).includes(q) ||
-      normalize(s.metadata?.cpf).includes(q) ||
-      normalize(s.metadata?.prontuario).includes(q) ||
-      normalize(s.metadata?.numeroAtendimento).includes(q) ||
-      normalize(s.printer.name).includes(q) ||
-      normalize(s.printer.costCenter?.name).includes(q)
-    );
-  }, [scans, search]);
-
-  const hasActiveFilters = filterPrinter || filterStatus || filterFrom || filterTo;
+  const hasActiveFilters = filterPrinter || filterStatus;
 
   function clearFilters() {
     setFilterPrinter("");
     setFilterStatus("");
-    setFilterFrom("");
-    setFilterTo("");
   }
+
+  // Intersection Observer para "infinite scroll" automático
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasNextPage) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) fetchNextPage(); },
+      { threshold: 0.5 }
+    );
+    observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, fetchNextPage]);
 
   return (
     <div className="space-y-5">
@@ -153,11 +159,10 @@ export default function ScansPage() {
 
       {/* ── Search + Filters ── */}
       <div className="space-y-2">
-        {/* Busca principal */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Buscar por paciente, CPF, prontuário, nº atendimento, arquivo..."
+            placeholder="Buscar por paciente, CPF, prontuário ou nº atendimento..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 pr-9 h-10 bg-white"
@@ -171,8 +176,10 @@ export default function ScansPage() {
             </button>
           )}
         </div>
+        {search.trim().length === 1 && (
+          <p className="text-xs text-muted-foreground pl-1">Digite pelo menos 2 caracteres para buscar.</p>
+        )}
 
-        {/* Filtros avançados */}
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -181,10 +188,10 @@ export default function ScansPage() {
             onClick={() => setFiltersOpen((v) => !v)}
           >
             <Filter className="w-3.5 h-3.5" />
-            Filtros avançados
+            Filtros
             {hasActiveFilters && (
               <Badge className="ml-1 bg-primary text-primary-foreground border-0 text-[10px] px-1.5 py-0 h-4">
-                {[filterPrinter, filterStatus, filterFrom, filterTo].filter(Boolean).length}
+                {[filterPrinter, filterStatus].filter(Boolean).length}
               </Badge>
             )}
             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${filtersOpen ? "rotate-180" : ""}`} />
@@ -193,7 +200,7 @@ export default function ScansPage() {
           {hasActiveFilters && (
             <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={clearFilters}>
               <X className="w-3 h-3 mr-1" />
-              Limpar filtros
+              Limpar
             </Button>
           )}
         </div>
@@ -223,24 +230,6 @@ export default function ScansPage() {
                 <SelectItem value="ERROR">Erro</SelectItem>
               </SelectContent>
             </Select>
-
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="date"
-                className="h-9 text-sm w-36 bg-white"
-                value={filterFrom}
-                onChange={(e) => setFilterFrom(e.target.value)}
-                title="Data inicial"
-              />
-              <span className="text-muted-foreground text-sm">até</span>
-              <Input
-                type="date"
-                className="h-9 text-sm w-36 bg-white"
-                value={filterTo}
-                onChange={(e) => setFilterTo(e.target.value)}
-                title="Data final"
-              />
-            </div>
           </div>
         )}
       </div>
@@ -252,18 +241,18 @@ export default function ScansPage() {
             <div key={i} className="h-16 rounded-lg border border-border bg-white animate-pulse" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : scans.length === 0 ? (
         <div className="bg-white rounded-xl border border-dashed border-border py-16 text-center">
           <ScanLine className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-            {search ? "Nenhum resultado para a busca" : "Nenhuma digitalização encontrada"}
+            {debouncedSearch ? "Nenhum resultado para a busca" : "Nenhuma digitalização encontrada"}
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            {search
-              ? `Sem resultados para "${search}". Tente outros termos.`
+            {debouncedSearch
+              ? `Sem resultados para "${debouncedSearch}". Tente outros termos.`
               : "Ajuste os filtros ou aguarde novos scans chegarem."}
           </p>
-          {search && (
+          {debouncedSearch && (
             <Button variant="ghost" size="sm" className="mt-3 text-xs" onClick={() => setSearch("")}>
               Limpar busca
             </Button>
@@ -278,7 +267,7 @@ export default function ScansPage() {
                   <TableHead className="w-[220px]">Paciente</TableHead>
                   <TableHead className="hidden md:table-cell w-[130px]">CPF</TableHead>
                   <TableHead className="hidden lg:table-cell w-[120px]">Prontuário</TableHead>
-                  <TableHead className="hidden lg:table-cell w-[120px]">Nº Atendimento</TableHead>
+                  <TableHead className="hidden lg:table-cell w-[130px]">Nº Atendimento</TableHead>
                   <TableHead className="hidden sm:table-cell">Origem</TableHead>
                   <TableHead className="hidden xl:table-cell w-[100px]">Data</TableHead>
                   <TableHead className="w-[100px]">Status</TableHead>
@@ -286,9 +275,8 @@ export default function ScansPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((scan) => (
+                {scans.map((scan) => (
                   <TableRow key={scan.id} className="hover:bg-muted/20 group">
-                    {/* Paciente + arquivo */}
                     <TableCell>
                       <div>
                         <p className="font-medium text-sm leading-tight">
@@ -303,22 +291,18 @@ export default function ScansPage() {
                       </div>
                     </TableCell>
 
-                    {/* CPF */}
                     <TableCell className="hidden md:table-cell text-sm tabular-nums">
                       <NullCell>{formatCpf(scan.metadata?.cpf)}</NullCell>
                     </TableCell>
 
-                    {/* Prontuário */}
                     <TableCell className="hidden lg:table-cell text-sm font-mono">
                       <NullCell>{scan.metadata?.prontuario}</NullCell>
                     </TableCell>
 
-                    {/* Nº Atendimento */}
                     <TableCell className="hidden lg:table-cell text-sm font-mono">
                       <NullCell>{scan.metadata?.numeroAtendimento}</NullCell>
                     </TableCell>
 
-                    {/* Origem: impressora + centro de custo */}
                     <TableCell className="hidden sm:table-cell">
                       <p className="text-sm leading-tight">{scan.printer.name}</p>
                       {scan.printer.costCenter && (
@@ -328,7 +312,6 @@ export default function ScansPage() {
                       )}
                     </TableCell>
 
-                    {/* Data */}
                     <TableCell className="hidden xl:table-cell text-xs text-muted-foreground tabular-nums">
                       {new Date(scan.scannedAt).toLocaleDateString("pt-BR", {
                         day: "2-digit",
@@ -344,12 +327,10 @@ export default function ScansPage() {
                       </span>
                     </TableCell>
 
-                    {/* Status */}
                     <TableCell>
                       <StatusBadge status={scan.status} errorMsg={scan.errorMsg} />
                     </TableCell>
 
-                    {/* Ações */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-0.5">
                         {scan.status === "PROCESSED" && (
@@ -383,18 +364,22 @@ export default function ScansPage() {
             </Table>
           </div>
 
-          <div className="px-4 py-2.5 border-t border-border flex items-center justify-between">
+          {/* ── Footer: contagem + load more ── */}
+          <div className="px-4 py-2.5 border-t border-border flex items-center justify-between gap-4">
             <span className="text-xs text-muted-foreground">
-              {filtered.length === scans.length
-                ? `${scans.length} digitalização(ões)`
-                : `${filtered.length} de ${scans.length} digitalização(ões)`}
+              {scans.length} digitalização(ões) carregada(s)
+              {hasNextPage && " · Role para carregar mais"}
             </span>
-            {search && filtered.length > 0 && (
-              <span className="text-xs text-muted-foreground">
-                Buscando por <strong>&quot;{search}&quot;</strong>
+            {isFetchingNextPage && (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Carregando...
               </span>
             )}
           </div>
+
+          {/* Sentinel do IntersectionObserver */}
+          <div ref={loadMoreRef} className="h-1" />
         </div>
       )}
 

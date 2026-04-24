@@ -28,17 +28,28 @@ export interface Scan {
   metadata: ScanMetadata | null;
 }
 
+export interface ScansPage {
+  data: Scan[];
+  nextCursor: string | null;
+  hasNextPage: boolean;
+}
+
 export interface ListScansParams {
   printerId?: string;
   status?: ScanStatus;
-  from?: string;
-  to?: string;
+  search?: string;
+  cursor?: string;
+  limit?: number;
 }
 
 export const scansService = {
-  async list(params?: ListScansParams): Promise<Scan[]> {
+  async list(params?: ListScansParams): Promise<ScansPage> {
     const { data } = await api.get("/scans", { params });
-    return Array.isArray(data) ? data : (data?.data ?? []);
+    // Compatibilidade: API retorna { data, nextCursor, hasNextPage }
+    if (data && "data" in data && Array.isArray(data.data)) return data;
+    // Fallback se vier array direto
+    const arr = Array.isArray(data) ? data : [];
+    return { data: arr, nextCursor: null, hasNextPage: false };
   },
 
   getDownloadUrl(id: string): string {

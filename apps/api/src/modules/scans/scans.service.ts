@@ -70,32 +70,40 @@ export class ScansService implements OnModuleInit {
   // ─── API endpoints ───────────────────────────────────────────────────────────
 
   async findAll(cu: AuthenticatedUser, filters: ListScansDto) {
-    const { printerId, status, search } = filters
-
-    // Termo de busca normalizado para ILIKE
+    const { printerId, status, search, cursor, limit = 50 } = filters
     const term = search?.trim()
 
-    return this.prisma.scan.findMany({
-      where: {
-        companyId: cu.companyId!,
-        ...(printerId && { printerId }),
-        ...(status && { status }),
-        // Busca livre: paciente, prontuário e nº atendimento/RA são o mesmo conceito
-        ...(term && {
-          metadata: {
-            OR: [
-              { paciente: { contains: term, mode: 'insensitive' } },
-              { prontuario: { contains: term, mode: 'insensitive' } },
-              { numeroAtendimento: { contains: term, mode: 'insensitive' } },
-              { cpf: { contains: term.replace(/\D/g, ''), mode: 'insensitive' } },
-            ],
-          },
-        }),
-      },
+    const where = {
+      companyId: cu.companyId!,
+      ...(printerId && { printerId }),
+      ...(status && { status }),
+      ...(term && {
+        metadata: {
+          OR: [
+            { paciente: { contains: term, mode: 'insensitive' as const } },
+            { prontuario: { contains: term, mode: 'insensitive' as const } },
+            { numeroAtendimento: { contains: term, mode: 'insensitive' as const } },
+            { cpf: { contains: term.replace(/\D/g, ''), mode: 'insensitive' as const } },
+          ],
+        },
+      }),
+      // Cursor: retorna apenas scans mais antigos que o cursor (scannedAt anterior)
+      ...(cursor && { scannedAt: { lt: new Date(cursor) } }),
+    }
+
+    // Busca limit+1 para saber se há próxima página sem custo extra
+    const items = await this.prisma.scan.findMany({
+      where,
       orderBy: { scannedAt: 'desc' },
       select: SCAN_SELECT,
-      take: 200,
+      take: limit + 1,
     })
+
+    const hasNextPage = items.length > limit
+    const data = hasNextPage ? items.slice(0, limit) : items
+    const nextCursor = hasNextPage ? data[data.length - 1].scannedAt.toISOString() : null
+
+    return { data, nextCursor, hasNextPage }
   }
 
   async findOne(id: string, cu: AuthenticatedUser) {

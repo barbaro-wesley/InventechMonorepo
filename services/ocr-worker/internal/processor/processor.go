@@ -58,7 +58,7 @@ func NewProcessor(cfg *config.Config, database *db.DB, stor *storage.MinIO) (*Pr
 		converter: converter,
 		tesseract: tesseract,
 		extractor: extr,
-		sem:       make(chan struct{}, 1),
+		sem:       make(chan struct{}, 3),
 	}, nil
 }
 
