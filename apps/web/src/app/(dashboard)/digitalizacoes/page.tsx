@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { useScans, useDeleteScan } from "@/hooks/printers/use-scans";
+import { useScansSocket } from "@/hooks/printers/use-scans-socket";
 import { usePrinters } from "@/hooks/printers/use-printers";
 import { scansService } from "@/services/printers/scans.service";
 import { usePermissions } from "@/hooks/auth/use-permissions";
@@ -100,6 +101,9 @@ export default function ScansPage() {
 
   const permissions = usePermissions();
   const canDelete = permissions.canSeeNav(["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"]);
+
+  // Escuta eventos em tempo real e invalida a lista automaticamente
+  useScansSocket();
 
   const queryParams = {
     ...(filterPrinter ? { printerId: filterPrinter } : {}),

@@ -10,4 +10,7 @@ export default registerAs('app', () => ({
   jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
   jwtAccessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN ?? '15m',
   jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '7d',
+
+  // Webhook interno do OCR worker
+  scanWebhookSecret: process.env.SCAN_WEBHOOK_SECRET,
 }))

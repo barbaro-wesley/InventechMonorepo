@@ -1,9 +1,12 @@
 package processor
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -245,7 +248,46 @@ func (p *Processor) processFile(ctx context.Context, filePath, sftpDirectory str
 
 	log.Printf("Successfully processed scan: %s [ocr_status=%s, printer=%s]", fileName, ocrStatus, printer.Name)
 
+	p.notifyAPI(ctx, scanID, printer.CompanyID, "PROCESSED")
+
 	return nil
+}
+
+// notifyAPI chama o webhook da API NestJS para acionar o evento WebSocket.
+// Falhas são apenas logadas — não interrompem o fluxo.
+func (p *Processor) notifyAPI(ctx context.Context, scanID, companyID, status string) {
+	if p.cfg.WebhookURL == "" || p.cfg.WebhookSecret == "" {
+		return
+	}
+
+	payload, _ := json.Marshal(map[string]string{
+		"scanId":    scanID,
+		"companyId": companyID,
+		"status":    status,
+	})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.cfg.WebhookURL, bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("Webhook: failed to build request: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-webhook-secret", p.cfg.WebhookSecret)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Webhook: request failed: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		log.Printf("Webhook: unexpected status %d for scan %s", resp.StatusCode, scanID)
+		return
+	}
+
+	log.Printf("Webhook: notified API for scan %s [%s]", scanID, status)
 }
 
 func (p *Processor) extractText(ctx context.Context, scanID, filePath, fileName string) (string, error) {

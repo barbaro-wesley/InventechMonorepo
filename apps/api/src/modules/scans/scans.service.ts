@@ -8,10 +8,41 @@ import * as path from 'path'
 import * as Minio from 'minio'
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../../prisma/prisma.service'
+import { NotificationsGateway } from '../notifications/notifications.gateway'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { ListScansDto } from './dto/scan.dto'
 
 export const SCANS_BUCKET = 'scans'
+
+// Shape mínimo retornado pela listagem — reutilizado pelo webhook
+const SCAN_SELECT = {
+  id: true,
+  fileName: true,
+  mimeType: true,
+  sizeBytes: true,
+  status: true,
+  scannedAt: true,
+  processedAt: true,
+  printer: {
+    select: {
+      id: true,
+      name: true,
+      brand: true,
+      model: true,
+      costCenter: { select: { id: true, name: true, code: true } },
+    },
+  },
+  metadata: {
+    select: {
+      ocrStatus: true,
+      paciente: true,
+      cpf: true,
+      prontuario: true,
+      numeroAtendimento: true,
+      extractedAt: true,
+    },
+  },
+} as const
 
 @Injectable()
 export class ScansService implements OnModuleInit {
@@ -21,6 +52,7 @@ export class ScansService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly gateway: NotificationsGateway,
   ) {}
 
   async onModuleInit() {
@@ -38,33 +70,30 @@ export class ScansService implements OnModuleInit {
   // ─── API endpoints ───────────────────────────────────────────────────────────
 
   async findAll(cu: AuthenticatedUser, filters: ListScansDto) {
+    const { printerId, status, search } = filters
+
+    // Termo de busca normalizado para ILIKE
+    const term = search?.trim()
+
     return this.prisma.scan.findMany({
       where: {
         companyId: cu.companyId!,
-        ...(filters.printerId && { printerId: filters.printerId }),
-        ...(filters.status && { status: filters.status }),
+        ...(printerId && { printerId }),
+        ...(status && { status }),
+        // Busca livre: paciente, prontuário e nº atendimento/RA são o mesmo conceito
+        ...(term && {
+          metadata: {
+            OR: [
+              { paciente: { contains: term, mode: 'insensitive' } },
+              { prontuario: { contains: term, mode: 'insensitive' } },
+              { numeroAtendimento: { contains: term, mode: 'insensitive' } },
+              { cpf: { contains: term.replace(/\D/g, ''), mode: 'insensitive' } },
+            ],
+          },
+        }),
       },
       orderBy: { scannedAt: 'desc' },
-      select: {
-        id: true,
-        fileName: true,
-        mimeType: true,
-        sizeBytes: true,
-        status: true,
-        scannedAt: true,
-        processedAt: true,
-        printer: { select: { id: true, name: true, brand: true, model: true, costCenter: { select: { id: true, name: true, code: true } } } },
-        metadata: {
-          select: {
-            ocrStatus: true,
-            paciente: true,
-            cpf: true,
-            prontuario: true,
-            numeroAtendimento: true,
-            extractedAt: true,
-          },
-        },
-      },
+      select: SCAN_SELECT,
       take: 200,
     })
   }
@@ -73,7 +102,13 @@ export class ScansService implements OnModuleInit {
     const scan = await this.prisma.scan.findFirst({
       where: { id, companyId: cu.companyId! },
       include: {
-        printer: { select: { id: true, name: true, costCenter: { select: { id: true, name: true, code: true } } } },
+        printer: {
+          select: {
+            id: true,
+            name: true,
+            costCenter: { select: { id: true, name: true, code: true } },
+          },
+        },
         metadata: true,
       },
     })
@@ -101,6 +136,29 @@ export class ScansService implements OnModuleInit {
 
     await this.prisma.scan.delete({ where: { id } })
     return { message: 'Scan removido' }
+  }
+
+  // ─── Webhook interno (chamado pelo OCR worker) ────────────────────────────────
+
+  async notifyProcessed(scanId: string, companyId: string) {
+    const scan = await this.prisma.scan.findFirst({
+      where: { id: scanId, companyId },
+      select: SCAN_SELECT,
+    })
+
+    if (!scan) {
+      this.logger.warn(`Webhook: scan ${scanId} não encontrado para empresa ${companyId}`)
+      return
+    }
+
+    this.gateway.emitScanEvent(companyId, {
+      event: 'scan:processed',
+      scan,
+    })
+
+    this.logger.log(
+      `WS scan:processed → company:${companyId} | ${scan.fileName} | ocr=${scan.metadata?.ocrStatus}`,
+    )
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -1392,5 +1392,8 @@ model ScanMetadata {
   scan Scan @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
   @@index([scanId])
+  @@index([paciente])
+  @@index([prontuario])
+  @@index([numeroAtendimento])
   @@map("scan_metadata")
 }

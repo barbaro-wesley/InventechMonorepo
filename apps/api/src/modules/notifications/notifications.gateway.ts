@@ -23,6 +23,11 @@ export interface WsNotificationPayload {
     data?: Record<string, any>
 }
 
+export interface WsScanPayload {
+    event: string
+    scan: Record<string, any>
+}
+
 @WebSocketGateway({
     cors: {
         origin: '*',
@@ -182,5 +187,11 @@ export class NotificationsGateway
     getConnectedCount(companyId: string): number {
         const room = this.server.sockets.adapter.rooms.get(`company:${companyId}`)
         return room?.size ?? 0
+    }
+
+    // Emite evento de scan para todos os usuários da empresa
+    emitScanEvent(companyId: string, payload: WsScanPayload) {
+        this.server.to(`company:${companyId}`).emit('scan:event', payload)
+        this.logger.debug(`WS scan:event → company:${companyId} | ${payload.event}`)
     }
 }

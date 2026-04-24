@@ -7,14 +7,17 @@ import (
 
 type Config struct {
 	PostgresDSN      string
-	MinIOEndpoint     string
+	MinIOEndpoint    string
 	MinIOAccessKey   string
 	MinIOSecretKey   string
-	MinIOUseSSL       bool
+	MinIOUseSSL      bool
 	MinIOBucket      string
 	SFTPScanBaseDir  string
 	OCRLang          string
 	OCRDPI           int
+	// Webhook para notificar a API após processar cada scan
+	WebhookURL    string
+	WebhookSecret string
 }
 
 func Load() *Config {
@@ -28,6 +31,8 @@ func Load() *Config {
 		SFTPScanBaseDir: getEnv("SFTP_SCAN_BASE_DIR", "/srv/scans/incoming"),
 		OCRLang:         getEnv("OCR_LANG", "por"),
 		OCRDPI:          getEnvInt("OCR_DPI", 300),
+		WebhookURL:      getEnv("SCAN_WEBHOOK_URL", ""),
+		WebhookSecret:   getEnv("SCAN_WEBHOOK_SECRET", ""),
 	}
 }
 
