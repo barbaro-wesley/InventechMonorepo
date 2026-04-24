@@ -5,7 +5,7 @@ import {
   Trash2,
   RefreshCw,
   ScanLine,
-  Download,
+  Eye,
   FileText,
   Image,
 } from "lucide-react";
@@ -40,8 +40,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useScans, useDeleteScan } from "@/hooks/printers/use-scans";
 import { usePrinters } from "@/hooks/printers/use-printers";
-import { scansService } from "@/services/printers/scans.service";
 import { usePermissions } from "@/hooks/auth/use-permissions";
+import { ScanViewerSheet } from "@/components/scans/scan-viewer-sheet";
 import type { Scan, ScanStatus } from "@/services/printers/scans.service";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -80,6 +80,7 @@ export default function ScansPage() {
   const [filterFrom, setFilterFrom] = useState<string>("");
   const [filterTo, setFilterTo] = useState<string>("");
   const [deleteScan, setDeleteScan] = useState<Scan | null>(null);
+  const [viewScan, setViewScan] = useState<Scan | null>(null);
 
   const permissions = usePermissions();
   const canDelete = permissions.canSeeNav(["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"]);
@@ -94,10 +95,6 @@ export default function ScansPage() {
   const { data: scans = [], isLoading } = useScans(queryParams);
   const { data: printers = [] } = usePrinters();
   const remove = useDeleteScan();
-
-  function handleDownload(scan: Scan) {
-    window.open(scansService.getDownloadUrl(scan.id), "_blank");
-  }
 
   return (
     <div className="space-y-6">
@@ -239,10 +236,10 @@ export default function ScansPage() {
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        title="Abrir arquivo"
-                        onClick={() => handleDownload(scan)}
+                        title="Visualizar"
+                        onClick={() => setViewScan(scan)}
                       >
-                        <Download className="w-3.5 h-3.5 text-muted-foreground" />
+                        <Eye className="w-3.5 h-3.5 text-muted-foreground" />
                       </Button>
                       {canDelete && (
                         <Button
@@ -266,6 +263,9 @@ export default function ScansPage() {
           </div>
         </div>
       )}
+
+      {/* ── Viewer ── */}
+      <ScanViewerSheet scan={viewScan} onClose={() => setViewScan(null)} />
 
       {/* ── Delete Confirm ── */}
       <AlertDialog open={!!deleteScan} onOpenChange={(o) => !o && setDeleteScan(null)}>

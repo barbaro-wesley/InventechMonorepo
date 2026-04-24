@@ -1,6 +1,16 @@
 import { api } from "@/lib/api";
 
 export type ScanStatus = "PENDING" | "PROCESSED" | "ERROR";
+export type OcrStatus = "PENDING" | "SUCCESS" | "FAILED";
+
+export interface ScanMetadata {
+  ocrStatus: OcrStatus;
+  paciente: string | null;
+  cpf: string | null;
+  prontuario: string | null;
+  numeroAtendimento: string | null;
+  extractedAt: string | null;
+}
 
 export interface Scan {
   id: string;
@@ -15,6 +25,7 @@ export interface Scan {
     name: string;
     costCenter: { name: string } | null;
   };
+  metadata: ScanMetadata | null;
 }
 
 export interface ListScansParams {
