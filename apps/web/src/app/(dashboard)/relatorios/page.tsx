@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Settings2,
   Loader2,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
+import { useMaintenanceGroups } from "@/hooks/maintenance-groups/use-maintenance-groups";
 import { api, getErrorMessage } from "@/lib/api";
 import { useCurrentUser } from "@/store/auth.store";
 import { toast } from "sonner";
@@ -351,7 +353,7 @@ function EquipmentReport() {
           </div>
 
           {/* Tipo / CC */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <MultiSelect
               label="Tipo de equipamento"
               placeholder="Todos os tipos"
@@ -376,7 +378,7 @@ function EquipmentReport() {
 
       {/* Agrupamento e ordenação */}
       <Section title="Agrupamento e ordenação" collapsible>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Agrupar por</Label>
             <Select value={groupBy} onValueChange={setGroupBy}>
@@ -540,16 +542,164 @@ function EquipmentReport() {
 
 // ─── Service Orders Report Tab ────────────────────────────────────────────────
 
+type OsStatus = "OPEN" | "AWAITING_PICKUP" | "IN_PROGRESS" | "COMPLETED" | "COMPLETED_APPROVED" | "COMPLETED_REJECTED" | "CANCELLED";
+type OsPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+type OsMaintenanceType = "PREVENTIVE" | "CORRECTIVE" | "INITIAL_ACCEPTANCE" | "EXTERNAL_SERVICE" | "TECHNOVIGILANCE" | "TRAINING" | "IMPROPER_USE" | "DEACTIVATION";
+
+const OS_STATUS_LABEL: Record<OsStatus, string> = {
+  OPEN: "Aberta",
+  AWAITING_PICKUP: "Ag. técnico",
+  IN_PROGRESS: "Em andamento",
+  COMPLETED: "Concluída",
+  COMPLETED_APPROVED: "Aprovada",
+  COMPLETED_REJECTED: "Reprovada",
+  CANCELLED: "Cancelada",
+};
+
+const OS_STATUS_COLOR: Record<OsStatus, string> = {
+  OPEN: "border-gray-300 text-gray-600 bg-gray-50 data-[selected=true]:bg-gray-500 data-[selected=true]:text-white data-[selected=true]:border-gray-500",
+  AWAITING_PICKUP: "border-purple-300 text-purple-700 bg-purple-50 data-[selected=true]:bg-purple-600 data-[selected=true]:text-white data-[selected=true]:border-purple-600",
+  IN_PROGRESS: "border-amber-300 text-amber-700 bg-amber-50 data-[selected=true]:bg-amber-600 data-[selected=true]:text-white data-[selected=true]:border-amber-600",
+  COMPLETED: "border-blue-300 text-blue-700 bg-blue-50 data-[selected=true]:bg-blue-600 data-[selected=true]:text-white data-[selected=true]:border-blue-600",
+  COMPLETED_APPROVED: "border-emerald-300 text-emerald-700 bg-emerald-50 data-[selected=true]:bg-emerald-600 data-[selected=true]:text-white data-[selected=true]:border-emerald-600",
+  COMPLETED_REJECTED: "border-red-300 text-red-700 bg-red-50 data-[selected=true]:bg-red-600 data-[selected=true]:text-white data-[selected=true]:border-red-600",
+  CANCELLED: "border-zinc-300 text-zinc-500 bg-zinc-50 data-[selected=true]:bg-zinc-500 data-[selected=true]:text-white data-[selected=true]:border-zinc-500",
+};
+
+const OS_PRIORITY_LABEL: Record<OsPriority, string> = {
+  LOW: "Baixa",
+  MEDIUM: "Média",
+  HIGH: "Alta",
+  URGENT: "Urgente",
+};
+
+const OS_PRIORITY_COLOR: Record<OsPriority, string> = {
+  LOW: "border-emerald-300 text-emerald-700 bg-emerald-50 data-[selected=true]:bg-emerald-600 data-[selected=true]:text-white data-[selected=true]:border-emerald-600",
+  MEDIUM: "border-blue-300 text-blue-700 bg-blue-50 data-[selected=true]:bg-blue-600 data-[selected=true]:text-white data-[selected=true]:border-blue-600",
+  HIGH: "border-amber-300 text-amber-700 bg-amber-50 data-[selected=true]:bg-amber-600 data-[selected=true]:text-white data-[selected=true]:border-amber-600",
+  URGENT: "border-red-300 text-red-700 bg-red-50 data-[selected=true]:bg-red-600 data-[selected=true]:text-white data-[selected=true]:border-red-600",
+};
+
+const OS_MAINT_LABEL: Record<OsMaintenanceType, string> = {
+  PREVENTIVE: "Preventiva",
+  CORRECTIVE: "Corretiva",
+  INITIAL_ACCEPTANCE: "Aceitação inicial",
+  EXTERNAL_SERVICE: "Serviço externo",
+  TECHNOVIGILANCE: "Tecnovigilância",
+  TRAINING: "Treinamento",
+  IMPROPER_USE: "Uso inadequado",
+  DEACTIVATION: "Desativação",
+};
+
+const DATE_FIELD_LABEL: Record<string, string> = {
+  createdAt: "Criação",
+  startedAt: "Início",
+  completedAt: "Conclusão",
+  approvedAt: "Aprovação",
+};
+
+interface SimpleOption { id: string; name: string }
+
+function ActiveFiltersBar({
+  statuses, priorities, maintTypes,
+  onClearStatus, onClearPriority, onClearMaint, onClearAll,
+}: {
+  statuses: OsStatus[]
+  priorities: OsPriority[]
+  maintTypes: OsMaintenanceType[]
+  onClearStatus: (s: OsStatus) => void
+  onClearPriority: (p: OsPriority) => void
+  onClearMaint: (m: OsMaintenanceType) => void
+  onClearAll: () => void
+}) {
+  const total = statuses.length + priorities.length + maintTypes.length;
+  if (total === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-muted/30 px-3 py-2">
+      <span className="text-xs text-muted-foreground mr-1">Filtros ativos:</span>
+      {statuses.map((s) => (
+        <span key={s} className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs text-primary">
+          {OS_STATUS_LABEL[s]}
+          <button type="button" onClick={() => onClearStatus(s)}><X className="h-3 w-3" /></button>
+        </span>
+      ))}
+      {priorities.map((p) => (
+        <span key={p} className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+          {OS_PRIORITY_LABEL[p]}
+          <button type="button" onClick={() => onClearPriority(p)}><X className="h-3 w-3" /></button>
+        </span>
+      ))}
+      {maintTypes.map((m) => (
+        <span key={m} className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs text-violet-700">
+          {OS_MAINT_LABEL[m]}
+          <button type="button" onClick={() => onClearMaint(m)}><X className="h-3 w-3" /></button>
+        </span>
+      ))}
+      <button type="button" onClick={onClearAll} className="ml-auto text-xs text-destructive hover:underline">
+        Limpar todos
+      </button>
+    </div>
+  );
+}
+
 function ServiceOrdersReport() {
+  const currentUser = useCurrentUser();
+  const isClientAdmin = currentUser?.role === "CLIENT_ADMIN";
+
+  const { data: groupsData } = useMaintenanceGroups({ isActive: true });
+
+  const [clients, setClients] = useState<SimpleOption[]>([]);
+  const [assignees, setAssignees] = useState<SimpleOption[]>([]);
+
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [status, setStatus] = useState("__all__");
+  const [dateField, setDateField] = useState("createdAt");
+
+  const [statuses, setStatuses] = useState<OsStatus[]>([]);
+  const [priorities, setPriorities] = useState<OsPriority[]>([]);
+  const [maintTypes, setMaintTypes] = useState<OsMaintenanceType[]>([]);
+
+  const [clientId, setClientId] = useState("");
+  const [groupId, setGroupId] = useState("");
+  const [technicianId, setTechnicianId] = useState("");
+  const [osGroupBy, setOsGroupBy] = useState("none");
+
   const [loading, setLoading] = useState<"excel" | "pdf" | null>(null);
+
+  useEffect(() => {
+    api.get("/reports/service-orders/assignees").then(({ data }) => {
+      setAssignees((data ?? []).map((u: any) => ({ id: u.id, name: u.name })));
+    }).catch(() => {});
+    if (isClientAdmin) return;
+    api.get("/clients", { params: { limit: 100 } }).then(({ data }) => {
+      setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name })));
+    }).catch(() => {});
+  }, [isClientAdmin]);
+
+  const toggleStatus = (s: OsStatus) =>
+    setStatuses((prev) => prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]);
+
+  const togglePriority = (p: OsPriority) =>
+    setPriorities((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
+
+  const toggleMaint = (m: OsMaintenanceType) =>
+    setMaintTypes((prev) => prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]);
+
+  const clearAll = () => { setStatuses([]); setPriorities([]); setMaintTypes([]); };
+
+  const groups: SimpleOption[] = (groupsData as any)?.data ?? groupsData ?? [];
 
   const params: Record<string, string | undefined> = {
     ...(dateFrom && { dateFrom }),
     ...(dateTo && { dateTo }),
-    ...(status !== "__all__" && { status }),
+    ...(dateField !== "createdAt" && { dateField }),
+    ...(statuses.length > 0 && { status: statuses.join(",") }),
+    ...(priorities.length > 0 && { priority: priorities.join(",") }),
+    ...(maintTypes.length > 0 && { maintenanceType: maintTypes.join(",") }),
+    ...(!isClientAdmin && clientId && { clientId }),
+    ...(groupId && { groupId }),
+    ...(technicianId && { technicianId }),
+    ...(osGroupBy !== "none" && { groupBy: osGroupBy }),
   };
 
   const handleDownload = async (format: "excel" | "pdf") => {
@@ -563,44 +713,179 @@ function ServiceOrdersReport() {
     }
   };
 
-  const OS_STATUS_LABELS: Record<string, string> = {
-    OPEN: "Aberta",
-    AWAITING_PICKUP: "Aguardando técnico",
-    IN_PROGRESS: "Em andamento",
-    COMPLETED: "Concluída",
-    COMPLETED_APPROVED: "Aprovada",
-    COMPLETED_REJECTED: "Reprovada",
-    CANCELLED: "Cancelada",
-  };
-
   return (
     <div className="space-y-4">
-      <Section title="Filtros" collapsible>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* Período */}
+      <Section title="Período" collapsible>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Data de (criação)</Label>
+            <Label className="text-xs text-muted-foreground">Filtrar por data de</Label>
+            <Select value={dateField} onValueChange={setDateField}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(DATE_FIELD_LABEL).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">De</Label>
             <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Data até (criação)</Label>
+            <Label className="text-xs text-muted-foreground">Até</Label>
             <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
           </div>
+        </div>
+      </Section>
+
+      {/* Status */}
+      <Section title="Status" collapsible>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(OS_STATUS_LABEL) as OsStatus[]).map((s) => (
+            <ChipToggle
+              key={s}
+              label={OS_STATUS_LABEL[s]}
+              selected={statuses.includes(s)}
+              colorClass={OS_STATUS_COLOR[s]}
+              onClick={() => toggleStatus(s)}
+            />
+          ))}
+        </div>
+        {statuses.length === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">Nenhum selecionado = todos os status</p>
+        )}
+      </Section>
+
+      {/* Prioridade */}
+      <Section title="Prioridade" collapsible>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(OS_PRIORITY_LABEL) as OsPriority[]).map((p) => (
+            <ChipToggle
+              key={p}
+              label={OS_PRIORITY_LABEL[p]}
+              selected={priorities.includes(p)}
+              colorClass={OS_PRIORITY_COLOR[p]}
+              onClick={() => togglePriority(p)}
+            />
+          ))}
+        </div>
+        {priorities.length === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">Nenhuma selecionada = todas as prioridades</p>
+        )}
+      </Section>
+
+      {/* Tipo de manutenção */}
+      <Section title="Tipo de manutenção" collapsible>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(OS_MAINT_LABEL) as OsMaintenanceType[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              data-selected={maintTypes.includes(m)}
+              onClick={() => toggleMaint(m)}
+              className="px-3 py-1 rounded-full border text-xs font-medium transition-colors
+                border-border text-muted-foreground bg-background
+                data-[selected=true]:border-violet-600 data-[selected=true]:text-violet-700 data-[selected=true]:bg-violet-50"
+            >
+              {OS_MAINT_LABEL[m]}
+            </button>
+          ))}
+        </div>
+        {maintTypes.length === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">Nenhum selecionado = todos os tipos</p>
+        )}
+      </Section>
+
+      {/* Entidades */}
+      <Section title="Entidades" collapsible>
+        <div className={`grid grid-cols-1 gap-3 ${isClientAdmin ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-4"}`}>
+          {!isClientAdmin && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Prestador / Cliente</Label>
+              <Select value={clientId || "__all__"} onValueChange={(v) => setClientId(v === "__all__" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Status</Label>
-            <Select value={status} onValueChange={setStatus}>
+            <Label className="text-xs text-muted-foreground">Grupo de manutenção</Label>
+            <Select value={groupId || "__all__"} onValueChange={(v) => setGroupId(v === "__all__" ? "" : v)}>
               <SelectTrigger>
-                <SelectValue placeholder="Todos os status" />
+                <SelectValue placeholder="Todos os grupos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">Todos os status</SelectItem>
-                {Object.entries(OS_STATUS_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                <SelectItem value="__all__">Todos os grupos</SelectItem>
+                {groups.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Responsável pela OS</Label>
+            <Select value={technicianId || "__all__"} onValueChange={(v) => setTechnicianId(v === "__all__" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os responsáveis" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">Todos os responsáveis</SelectItem>
+                {assignees.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
         </div>
       </Section>
+
+      {/* Agrupamento / Quebra */}
+      <Section title="Agrupamento (quebra)" collapsible>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Quebrar relatório por</Label>
+            <Select value={osGroupBy} onValueChange={setOsGroupBy}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem agrupamento</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="priority">Prioridade</SelectItem>
+                <SelectItem value="maintenanceType">Tipo de manutenção</SelectItem>
+                <SelectItem value="client">Cliente / Prestador</SelectItem>
+                <SelectItem value="group">Grupo de manutenção</SelectItem>
+                <SelectItem value="technician">Técnico responsável</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Insere seções separadas com subtotal por grupo no Excel e PDF.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* Resumo de filtros ativos */}
+      <ActiveFiltersBar
+        statuses={statuses}
+        priorities={priorities}
+        maintTypes={maintTypes}
+        onClearStatus={(s) => setStatuses((prev) => prev.filter((x) => x !== s))}
+        onClearPriority={(p) => setPriorities((prev) => prev.filter((x) => x !== p))}
+        onClearMaint={(m) => setMaintTypes((prev) => prev.filter((x) => x !== m))}
+        onClearAll={clearAll}
+      />
 
       <div className="flex gap-3">
         <Button
@@ -717,7 +1002,7 @@ function PreventiveReport() {
           </div>
 
           {/* Cliente (company admin only) + Tipo + Status */}
-          <div className={`grid grid-cols-1 gap-3 ${isClientAdmin ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+          <div className={`grid grid-cols-1 gap-3 ${isClientAdmin ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-4"}`}>
             {!isClientAdmin && (
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Prestador</Label>
@@ -795,7 +1080,7 @@ function PreventiveReport() {
 
 export default function RelatoriosPage() {
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -811,7 +1096,7 @@ export default function RelatoriosPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="equipment">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+        <TabsList className="grid w-full grid-cols-3 max-w-xl">
           <TabsTrigger value="equipment" className="gap-2">
             <Settings2 className="h-3.5 w-3.5" />
             Equipamentos

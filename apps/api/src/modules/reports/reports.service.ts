@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { ServiceOrderStatus, UserRole } from '@prisma/client'
+import { UserRole } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CompaniesService } from '../companies/companies.service'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -23,9 +23,18 @@ export interface ReportFilters {
   clientId?: string
   groupId?: string
   technicianId?: string
-  status?: ServiceOrderStatus
+  /** Comma-separated status values */
+  status?: string
+  /** Comma-separated priority values */
+  priority?: string
+  /** Comma-separated maintenance type values */
+  maintenanceType?: string
+  /** Which date field to filter: 'createdAt' | 'startedAt' | 'completedAt' | 'approvedAt' */
+  dateField?: string
   dateFrom?: string
   dateTo?: string
+  /** Group rows by: 'status' | 'priority' | 'maintenanceType' | 'client' | 'group' | 'technician' */
+  groupBy?: string
 }
 
 export interface EquipmentReportFilters {
@@ -203,17 +212,40 @@ export class ReportsService {
   }
 
   // ─────────────────────────────────────────
+  // Usuários distintos vinculados a alguma OS
+  // ─────────────────────────────────────────
+  async getServiceOrderAssignees(companyId: string) {
+    const rows = await this.prisma.serviceOrderTechnician.findMany({
+      where: { serviceOrder: { companyId, deletedAt: null } },
+      select: { technician: { select: { id: true, name: true } } },
+      distinct: ['technicianId'],
+      orderBy: { technician: { name: 'asc' } },
+    })
+    return rows.map((r) => r.technician)
+  }
+
+  // ─────────────────────────────────────────
   // Busca dados das OS para os relatórios
   // ─────────────────────────────────────────
   async getServiceOrdersData(companyId: string, filters: ReportFilters) {
+    const dateField = ['startedAt', 'completedAt', 'approvedAt'].includes(filters.dateField ?? '')
+      ? filters.dateField!
+      : 'createdAt'
+
+    const statuses = filters.status?.split(',').map((s) => s.trim()).filter(Boolean)
+    const priorities = filters.priority?.split(',').map((s) => s.trim()).filter(Boolean)
+    const maintTypes = filters.maintenanceType?.split(',').map((s) => s.trim()).filter(Boolean)
+
     const where: any = {
       companyId,
       deletedAt: null,
       ...(filters.clientId && { clientId: filters.clientId }),
       ...(filters.groupId && { groupId: filters.groupId }),
-      ...(filters.status && { status: filters.status }),
+      ...(statuses?.length && { status: { in: statuses as any[] } }),
+      ...(priorities?.length && { priority: { in: priorities as any[] } }),
+      ...(maintTypes?.length && { maintenanceType: { in: maintTypes as any[] } }),
       ...((filters.dateFrom || filters.dateTo) && {
-        createdAt: {
+        [dateField]: {
           ...(filters.dateFrom && { gte: new Date(filters.dateFrom) }),
           ...(filters.dateTo && { lte: new Date(filters.dateTo) }),
         },
@@ -328,6 +360,12 @@ export class ReportsService {
       LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', URGENT: 'Urgente',
     }
 
+    const priorityOrder: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+    const statusOrder: Record<string, number> = {
+      OPEN: 0, AWAITING_PICKUP: 1, IN_PROGRESS: 2, COMPLETED: 3,
+      COMPLETED_APPROVED: 4, COMPLETED_REJECTED: 5, CANCELLED: 6,
+    }
+
     const fmt = (d: Date | null) => d
       ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
       : '-'
@@ -338,8 +376,99 @@ export class ReportsService {
       return h.toFixed(1)
     }
 
-    // ── Dados ──
-    orders.forEach((os, idx) => {
+    const statusColors: Record<string, string> = {
+      'Aprovada': 'FF16A34A',
+      'Concluída': 'FF2563EB',
+      'Em andamento': 'FFD97706',
+      'Aguard. técnico': 'FF9333EA',
+      'Reprovada': 'FFDC2626',
+      'Cancelada': 'FF6B7280',
+      'Aberta': 'FF374151',
+    }
+
+    // ── Extrair chave de quebra para cada OS ──
+    const groupBy = filters.groupBy
+    const getGroupKey = (os: (typeof orders)[number]): string => {
+      switch (groupBy) {
+        case 'status': return statusLabels[os.status] ?? os.status
+        case 'priority': return priorityLabels[os.priority] ?? os.priority
+        case 'maintenanceType': return typeLabels[os.maintenanceType] ?? os.maintenanceType
+        case 'client': return os.client?.name ?? 'Sem cliente'
+        case 'group': return os.group?.name ?? 'Sem grupo'
+        case 'technician': return os.technicians.find((t) => t.role === 'LEAD')?.technician.name
+          ?? os.technicians[0]?.technician.name
+          ?? 'Sem técnico'
+        default: return ''
+      }
+    }
+
+    // ── Ordenar por grupo (mantém sub-ordem por número) ──
+    const sortedOrders = groupBy
+      ? [...orders].sort((a, b) => {
+        const ka = getGroupKey(a)
+        const kb = getGroupKey(b)
+        if (groupBy === 'priority') {
+          return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
+        }
+        if (groupBy === 'status') {
+          return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+        }
+        return ka.localeCompare(kb, 'pt-BR')
+      })
+      : orders
+
+    // ── Estilo da linha de cabeçalho de grupo ──
+    const groupHeaderArgb = 'FF' + template.primaryColor.replace('#', '')
+    const groupHeaderStyle = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 },
+      fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: groupHeaderArgb } },
+      alignment: { vertical: 'middle' as const },
+    }
+
+    // ── Dados com quebras ──
+    let currentGroup = ''
+    let groupRowCount = 0
+    let groupHoursSum = 0
+    let groupStartRow = 2
+    let zIdx = 0
+
+    const flushGroupSubtotal = (groupLabel: string, count: number, avgH: number) => {
+      if (!groupBy || count === 0) return
+      const subtotalRow = sheet.addRow([
+        `  ↳ Subtotal — ${groupLabel}: ${count} OS  ·  Tempo médio: ${avgH > 0 ? avgH.toFixed(1) + 'h' : '-'}`,
+        '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+      ])
+      subtotalRow.font = { bold: true, italic: true, size: 9 }
+      subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
+      subtotalRow.height = 16
+    }
+
+    sortedOrders.forEach((os) => {
+      const groupKey = getGroupKey(os)
+
+      // Quebra de grupo
+      if (groupBy && groupKey !== currentGroup) {
+        if (currentGroup !== '') {
+          const hoursNums = sortedOrders
+            .slice(groupStartRow - 2, groupStartRow - 2 + groupRowCount)
+            .map((o) => {
+              if (!o.startedAt || !o.completedAt) return 0
+              return (new Date(o.completedAt).getTime() - new Date(o.startedAt).getTime()) / 3600000
+            })
+            .filter((h) => h > 0)
+          const avgH = hoursNums.length ? hoursNums.reduce((a, b) => a + b, 0) / hoursNums.length : 0
+          flushGroupSubtotal(currentGroup, groupRowCount, avgH)
+        }
+        // Cabeçalho do novo grupo
+        const hRow = sheet.addRow([`  ${groupKey}`, '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+        hRow.height = 22
+        hRow.eachCell((cell) => { Object.assign(cell, groupHeaderStyle) })
+        currentGroup = groupKey
+        groupRowCount = 0
+        groupStartRow = sheet.rowCount + 1
+        zIdx = 0
+      }
+
       const row = sheet.addRow({
         number: os.number,
         title: os.title,
@@ -361,35 +490,37 @@ export class ReportsService {
         resolution: os.resolution ?? '-',
       })
 
-      // Zebra striping
-      if (idx % 2 === 0) {
+      if (zIdx % 2 === 0) {
         row.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' } }
         })
       }
-
       row.height = 18
 
-      // Cor por status na coluna status (col 7)
       const statusCell = row.getCell(7)
-      const statusColors: Record<string, string> = {
-        'Aprovada': 'FF16A34A',
-        'Concluída': 'FF2563EB',
-        'Em andamento': 'FFD97706',
-        'Aguard. técnico': 'FF9333EA',
-        'Reprovada': 'FFDC2626',
-        'Cancelada': 'FF6B7280',
-        'Aberta': 'FF374151',
-      }
       const color = statusColors[statusCell.value as string]
-      if (color) {
-        statusCell.font = { bold: true, color: { argb: color } }
-      }
+      if (color) statusCell.font = { bold: true, color: { argb: color } }
+
+      groupRowCount++
+      zIdx++
     })
 
-    // ── Linha de total ──
+    // Subtotal do último grupo
+    if (groupBy && currentGroup !== '') {
+      const hoursNums = sortedOrders
+        .slice(sortedOrders.length - groupRowCount)
+        .map((o) => {
+          if (!o.startedAt || !o.completedAt) return 0
+          return (new Date(o.completedAt).getTime() - new Date(o.startedAt).getTime()) / 3600000
+        })
+        .filter((h) => h > 0)
+      const avgH = hoursNums.length ? hoursNums.reduce((a, b) => a + b, 0) / hoursNums.length : 0
+      flushGroupSubtotal(currentGroup, groupRowCount, avgH)
+    }
+
+    // ── Linha de total geral ──
     const totalRow = sheet.addRow([
-      `${template.companyName} — Total: ${orders.length} OS`, '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+      `${template.companyName} — Total geral: ${orders.length} OS`, '', '', '', '', '', '', '', '', '', '', '', '', '', '',
     ])
     totalRow.font = { bold: true, italic: true }
     totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
@@ -439,10 +570,39 @@ export class ReportsService {
       TECHNOVIGILANCE: 'Tecnovig.', TRAINING: 'Treinamento',
       IMPROPER_USE: 'Uso inad.', DEACTIVATION: 'Desativação',
     }
+    const priorityLabels: Record<string, string> = { LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', URGENT: 'Urgente' }
+    const priorityOrder: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+    const statusOrder: Record<string, number> = {
+      OPEN: 0, AWAITING_PICKUP: 1, IN_PROGRESS: 2, COMPLETED: 3,
+      COMPLETED_APPROVED: 4, COMPLETED_REJECTED: 5, CANCELLED: 6,
+    }
+
     const fmt = (d: Date | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
 
+    const groupBy = filters.groupBy
+    const getGroupKey = (os: (typeof orders)[number]): string => {
+      switch (groupBy) {
+        case 'status': return statusLabels[os.status] ?? os.status
+        case 'priority': return priorityLabels[os.priority] ?? os.priority
+        case 'maintenanceType': return typeLabels[os.maintenanceType] ?? os.maintenanceType
+        case 'client': return os.client?.name ?? 'Sem cliente'
+        case 'group': return os.group?.name ?? 'Sem grupo'
+        case 'technician': return os.technicians.find((t) => t.role === 'LEAD')?.technician.name
+          ?? os.technicians[0]?.technician.name ?? 'Sem técnico'
+        default: return ''
+      }
+    }
+
+    const sortedOrders = groupBy
+      ? [...orders].sort((a, b) => {
+        if (groupBy === 'priority') return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
+        if (groupBy === 'status') return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+        return getGroupKey(a).localeCompare(getGroupKey(b), 'pt-BR')
+      })
+      : orders
+
     // ── Cabeçalho ──
-    const subtitle = `Gerado em: ${dateStr}  ·  Total: ${orders.length} OS`
+    const subtitle = `Gerado em: ${dateStr}  ·  Total: ${orders.length} OS${groupBy ? `  ·  Quebra: ${groupBy}` : ''}`
     let y = this.drawPdfHeader(doc, template, template.headerTitle || 'Relatório de Ordens de Serviço', subtitle, logoBuffer)
 
     // ── Colunas da tabela ──
@@ -457,23 +617,59 @@ export class ReportsService {
       { label: 'Concluída', w: 65 },
     ]
 
-    let x = 40
-    doc.rect(40, y, W, 20).fill(lightBlue)
-    doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
-    cols.forEach((col) => {
-      doc.text(col.label, x + 3, y + 6, { width: col.w - 6, ellipsis: true })
-      x += col.w
-    })
-    y += 20
-    let rowIdx = 0
+    const drawTableHeader = (atY: number) => {
+      let x = 40
+      doc.rect(40, atY, W, 20).fill(lightBlue)
+      doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
+      cols.forEach((col) => {
+        doc.text(col.label, x + 3, atY + 6, { width: col.w - 6, ellipsis: true })
+        x += col.w
+      })
+      return atY + 20
+    }
 
-    orders.forEach((os) => {
-      if (y > doc.page.height - 80) { doc.addPage(); y = 40; rowIdx = 0 }
+    y = drawTableHeader(y)
+    let rowIdx = 0
+    let currentGroup = ''
+    let groupCount = 0
+    let groupAvgHours: number[] = []
+
+    const drawGroupSubtotal = (label: string, count: number, avgHrs: number[]) => {
+      if (!groupBy) return
+      const avg = avgHrs.length ? (avgHrs.reduce((a, b) => a + b, 0) / avgHrs.length).toFixed(1) + 'h' : '-'
+      const subtotalH = 14
+      if (y > doc.page.height - 80) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
+      doc.rect(40, y, W, subtotalH).fill('#F1F5F9')
+      doc.fillColor('#475569').fontSize(7).font('Helvetica-Bold')
+        .text(`  ↳ ${label}: ${count} OS  ·  Tempo médio: ${avg}`, 43, y + 4, { width: W - 6, lineBreak: false })
+      y += subtotalH
+    }
+
+    sortedOrders.forEach((os) => {
+      const groupKey = getGroupKey(os)
+
+      if (groupBy && groupKey !== currentGroup) {
+        if (currentGroup !== '') drawGroupSubtotal(currentGroup, groupCount, groupAvgHours)
+
+        // Cabeçalho do grupo
+        if (y > doc.page.height - 100) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
+        const ghH = 20
+        doc.rect(40, y, W, ghH).fill(blue)
+        doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
+          .text(`  ${groupKey}`, 43, y + 6, { width: W - 6, lineBreak: false })
+        y += ghH
+        currentGroup = groupKey
+        groupCount = 0
+        groupAvgHours = []
+        rowIdx = 0
+      }
+
+      if (y > doc.page.height - 80) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
 
       const rowH = 18
       doc.rect(40, y, W, rowH).fill(rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC').stroke('#E2E8F0')
       doc.fillColor('#1F2937').fontSize(7.5).font('Helvetica')
-      x = 40
+      let x = 40
 
       const cells = [
         String(os.number), os.title, os.client?.name ?? '-',
@@ -486,7 +682,13 @@ export class ReportsService {
       })
       y += rowH
       rowIdx++
+      groupCount++
+      if (os.startedAt && os.completedAt) {
+        groupAvgHours.push((new Date(os.completedAt).getTime() - new Date(os.startedAt).getTime()) / 3600000)
+      }
     })
+
+    if (groupBy && currentGroup !== '') drawGroupSubtotal(currentGroup, groupCount, groupAvgHours)
 
     // ── Rodapé ──
     this.drawPdfFooter(doc, template, y + 12)
