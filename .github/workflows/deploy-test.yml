@@ -104,7 +104,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: services/ocr-worker-py
-          dockerfile: Dockerfile
+          file: services/ocr-worker-py/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/ocr-worker:develop
