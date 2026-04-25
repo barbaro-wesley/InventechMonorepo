@@ -78,7 +78,7 @@ const RESOURCE_LABEL: Record<string, string> = {
 };
 
 const ACTION_LABEL: Record<string, string> = {
-  list: "Listar", read: "Ver", create: "Criar", update: "Editar",
+  browse: "Navegar", list: "Listar", read: "Ver", create: "Criar", update: "Editar",
   delete: "Deletar", upload: "Upload", download: "Download",
   "upload-logo": "Upload Logo", assume: "Assumir", depreciation: "Depreciação",
   "update-status": "Alterar Status", "manage-techs": "Gerenciar Técnicos",

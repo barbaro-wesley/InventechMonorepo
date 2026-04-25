@@ -408,18 +408,8 @@ function ManualCard({
           </p>
         </div>
 
-        {/* Ações */}
+        {/* Ações secundárias */}
         <div className="flex items-center gap-1 flex-shrink-0">
-          {manual.tipo === 'PDF' && (
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onOpenPdf} title="Abrir PDF">
-              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-            </Button>
-          )}
-          {manual.tipo === 'LINK' && (
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => window.open(manual.url!, '_blank')} title="Abrir link">
-              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-            </Button>
-          )}
           {manual.tipo === 'TEXTO' && (
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onToggleExpand} title={expanded ? 'Recolher' : 'Ver conteúdo'}>
               {expanded ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
@@ -442,21 +432,26 @@ function ManualCard({
         </div>
       </div>
 
+      {/* Botão de ação principal - PDF / Link */}
+      {(manual.tipo === 'PDF' || manual.tipo === 'LINK') && (
+        <div className="px-4 pb-3">
+          <button
+            type="button"
+            onClick={manual.tipo === 'PDF' ? onOpenPdf : () => window.open(manual.url!, '_blank')}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-primary/5 hover:bg-primary/10 active:bg-primary/20 border border-primary/20 text-primary text-sm font-medium transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            {manual.tipo === 'PDF' ? 'Abrir PDF' : 'Abrir Link'}
+          </button>
+        </div>
+      )}
+
       {/* Conteúdo expandido (TEXTO) */}
       {manual.tipo === 'TEXTO' && expanded && manual.conteudoTexto && (
         <div className="px-4 pb-4 pt-1 border-t bg-muted/20">
           <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
             {manual.conteudoTexto}
           </p>
-        </div>
-      )}
-
-      {/* Info PDF */}
-      {manual.tipo === 'PDF' && manual.fileName && (
-        <div className="px-4 pb-3 pt-0 flex items-center gap-1.5 text-[11px] text-muted-foreground border-t bg-muted/10">
-          <FileText className="w-3 h-3 flex-shrink-0" />
-          <span className="truncate">{manual.fileName}</span>
-          {manual.sizeBytes && <span className="flex-shrink-0">· {formatBytes(manual.sizeBytes)}</span>}
         </div>
       )}
     </div>

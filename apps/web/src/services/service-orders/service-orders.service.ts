@@ -253,6 +253,11 @@ async function deleteCostItem(
   return data
 }
 
+async function deleteServiceOrder(clientId: string | null, id: string) {
+  const { data } = await api.delete(osBase(clientId, id))
+  return data
+}
+
 export const serviceOrdersService = {
   listCompany,
   listByClient,
@@ -276,4 +281,5 @@ export const serviceOrdersService = {
   createCostItem,
   updateCostItem,
   deleteCostItem,
+  deleteServiceOrder,
 }

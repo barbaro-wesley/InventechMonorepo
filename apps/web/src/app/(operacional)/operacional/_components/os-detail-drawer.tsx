@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2 } from 'lucide-react'
+import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2, Trash2, Settings2 } from 'lucide-react'
 import { LaudoFillDrawer } from '@/components/laudos/laudo-fill-drawer'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,7 +44,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useServiceOrder, useUpdateServiceOrderStatus, useAssumeServiceOrder, useUpdateServiceOrder } from '@/hooks/service-orders/use-service-orders'
+import { useServiceOrder, useUpdateServiceOrderStatus, useAssumeServiceOrder, useUpdateServiceOrder, useDeleteServiceOrder } from '@/hooks/service-orders/use-service-orders'
 import { useCurrentUser } from '@/store/auth.store'
 import { OsDetailTab } from './tabs/os-detail-tab'
 import { OsTasksTab } from './tabs/os-tasks-tab'
@@ -110,12 +110,14 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const [editClientId, setEditClientId] = useState('')
   const [editResolution, setEditResolution] = useState('')
   const [editClients, setEditClients] = useState<{ id: string; name: string }[]>([])
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   const user = useCurrentUser()
   const { data: os, isLoading } = useServiceOrder(clientId, osId ?? '')
   const updateStatus = useUpdateServiceOrderStatus(clientId, osId ?? '')
   const assume = useAssumeServiceOrder(clientId, osId ?? '')
   const updateOs = useUpdateServiceOrder(clientId, osId ?? '')
+  const deleteOs = useDeleteServiceOrder(clientId, osId ?? '')
 
   const COMPLETED_STATUSES: ServiceOrderStatus[] = ['COMPLETED', 'COMPLETED_APPROVED', 'COMPLETED_REJECTED']
 
@@ -219,6 +221,8 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     os?.status === 'AWAITING_PICKUP' &&
     os?.isAvailable &&
     (user?.permissions?.includes('service-order:assume') ?? false)
+  const canEdit = user?.permissions?.includes('service-order:update') ?? false
+  const canDelete = user?.permissions?.includes('service-order:delete') ?? false
 
   return (
     <>
@@ -274,16 +278,38 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
 
                 {/* Ações de status */}
                 <div className="flex items-center gap-2">
-                  {MANAGER_ROLES.includes(user?.role ?? '') && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs gap-1.5"
-                      onClick={openEdit}
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Editar
-                    </Button>
+                  {(canEdit || canDelete) && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs gap-1.5"
+                        >
+                          <Settings2 className="h-3 w-3" />
+                          Ações
+                          <ChevronDown className="h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        {canEdit && (
+                          <DropdownMenuItem onClick={openEdit}>
+                            <Pencil className="h-3.5 w-3.5 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                        )}
+                        {canEdit && canDelete && <DropdownMenuSeparator />}
+                        {canDelete && (
+                          <DropdownMenuItem
+                            className="text-red-600 focus:text-red-600"
+                            onClick={() => setDeleteConfirmOpen(true)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-2" />
+                            Excluir OS
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
 
                   {canAssume && (
@@ -675,6 +701,29 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
             >
               {updateStatus.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Reprovar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação de exclusão da OS */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir OS #{os?.number}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível. A ordem de serviço será permanentemente excluída.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteOs.mutate(undefined, { onSuccess: onClose })}
+              disabled={deleteOs.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteOs.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -13,6 +13,14 @@ export const authKeys = {
     me: ["auth", "me"] as const,
 };
 
+function getPostLoginRedirect() {
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect");
+    // Só permite redirecionamentos internos (evita open redirect)
+    if (redirect && redirect.startsWith("/")) return redirect;
+    return "/dashboard";
+}
+
 export function useAuth() {
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -35,7 +43,7 @@ export function useAuth() {
             }
             setUser(response.user);
             toast.success(`Bem-vindo, ${response.user.name?.split(" ")[0] ?? response.user.name}!`);
-            router.push("/dashboard");
+            router.push(getPostLoginRedirect());
         },
 
         onError: (error) => {
@@ -51,7 +59,7 @@ export function useAuth() {
             const user = await authService.me();
             setUser(user);
             toast.success(`Bem-vindo, ${user.name?.split(" ")[0] ?? user.name}!`);
-            router.push("/dashboard");
+            router.push(getPostLoginRedirect());
         },
         onError: (error) => {
             toast.error(getErrorMessage(error));

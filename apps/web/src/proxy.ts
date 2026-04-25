@@ -35,7 +35,8 @@ export function proxy(request: NextRequest) {
   // Não autenticado tentando acessar rota protegida → vai pro login
   if (!isPublicRoute && !hasSession && pathname !== "/") {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    const { search } = request.nextUrl;
+    loginUrl.searchParams.set("redirect", pathname + search);
     return NextResponse.redirect(loginUrl);
   }
 

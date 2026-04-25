@@ -107,6 +107,16 @@ export class CompanyServiceOrdersController {
         return this.serviceOrdersService.findOne(id, null, cu.companyId!, cu)
     }
 
+    @Delete(':id')
+    @HttpCode(HttpStatus.OK)
+    @Permission('service-order:delete')
+    remove(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.serviceOrdersService.remove(id, null, cu.companyId!)
+    }
+
     @Patch(':id')
     @Permission('service-order:update')
     update(

@@ -1096,6 +1096,15 @@ export class ServiceOrdersService {
         return updated
     }
 
+    async remove(id: string, clientId: string | null, companyId: string) {
+        await this.findExisting(id, clientId, companyId)
+        await this.prisma.serviceOrder.update({
+            where: { id },
+            data: { deletedAt: new Date() },
+        })
+        return { message: 'Ordem de serviço excluída com sucesso' }
+    }
+
     private async findExisting(id: string, clientId: string | null, companyId: string) {
         const os = await this.prisma.serviceOrder.findFirst({
             where: {

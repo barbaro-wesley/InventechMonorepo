@@ -23,6 +23,7 @@ const CLV = UserRole.CLIENT_VIEWER
 export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
 
   // ── EQUIPMENT ──────────────────────────────────────────────────────────────
+  'equipment:browse':            [SA, CA, CM, TEC, CLA, CLU, CLV],
   'equipment:list':              [SA, CA, CM, TEC, CLA, CLU, CLV],
   'equipment:read':              [SA, CA, CM, TEC, CLA, CLU, CLV],
   'equipment:create':            [SA, CA, CM, CLA, CLU],
@@ -38,6 +39,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'equipment-manual:delete':         [SA, CA, CM, CLA],
 
   // ── COST CENTER ────────────────────────────────────────────────────────────
+  'cost-center:browse':          [SA, CA, CM, TEC, CLA, CLU, CLV],
   'cost-center:list':            [SA, CA, CM, TEC, CLA, CLU, CLV],
   'cost-center:read':            [SA, CA, CM, TEC, CLA, CLU, CLV],
   'cost-center:create':          [SA, CA, CM],
@@ -52,6 +54,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'location:delete':             [SA, CA, CM],
 
   // ── EQUIPMENT TYPE ─────────────────────────────────────────────────────────
+  'equipment-type:browse':       [SA, CA, CM, TEC, CLA, CLU, CLV],
   'equipment-type:list':         [SA, CA, CM, TEC, CLA, CLU, CLV],
   'equipment-type:read':         [SA, CA, CM, TEC, CLA, CLU, CLV],
   'equipment-type:create':       [SA, CA, CM],
@@ -73,6 +76,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'storage:delete':              [SA, CA, CM, TEC, CLA, CLU],
 
   // ── USER ───────────────────────────────────────────────────────────────────
+  'user:browse':                 [SA, CA, CM],
   'user:list':                   [SA, CA, CM],
   'user:read':                   [SA, CA, CM],
   'user:create':                 [SA, CA, CM],
@@ -80,6 +84,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'user:delete':                 [SA, CA],
 
   // ── CLIENT ─────────────────────────────────────────────────────────────────
+  'client:browse':               [SA, CA, CM, TEC],
   'client:list':                 [SA, CA, CM, TEC],
   'client:read':                 [SA, CA, CM, TEC, CLA, CLU, CLV],
   'client:create':               [SA, CA, CM],
@@ -88,6 +93,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'client:upload-logo':          [SA, CA, CM],
 
   // ── SERVICE ORDER ──────────────────────────────────────────────────────────
+  'service-order:browse':        [SA, CA, CM, TEC, CLA, CLU, CLV],
   'service-order:list':          [SA, CA, CM, TEC, CLA, CLU, CLV],
   'service-order:read':          [SA, CA, CM, TEC, CLA, CLU, CLV],
   'service-order:create':        [SA, CA, CM, TEC, CLA, CLU],
@@ -113,6 +119,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'maintenance:delete':          [SA, CA, CM],
 
   // ── MAINTENANCE SCHEDULE ───────────────────────────────────────────────────
+  'maintenance-schedule:browse': [SA, CA, CM, TEC, CLA, CLV],
   'maintenance-schedule:list':   [SA, CA, CM, TEC, CLA, CLV],
   'maintenance-schedule:read':   [SA, CA, CM, TEC, CLA, CLV],
   'maintenance-schedule:create': [SA, CA, CM],
@@ -121,6 +128,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'maintenance-schedule:trigger':[SA, CA],
 
   // ── MAINTENANCE GROUP ──────────────────────────────────────────────────────
+  'maintenance-group:browse':    [SA, CA, CM, TEC],
   'maintenance-group:list':      [SA, CA, CM, TEC],
   'maintenance-group:read':      [SA, CA, CM, TEC],
   'maintenance-group:create':    [SA, CA, CM],
@@ -152,6 +160,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'custom-role:assign':          [SA, CA, CM],
 
   // ── ALERT RULE ─────────────────────────────────────────────────────────────
+  'alert-rule:browse':           [SA, CA, CM],
   'alert-rule:list':             [SA, CA, CM],
   'alert-rule:read':             [SA, CA, CM],
   'alert-rule:create':           [SA, CA, CM],
@@ -159,10 +168,12 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'alert-rule:delete':           [SA, CA],
 
   // ── NOTIFICATION CONFIG ────────────────────────────────────────────────────
+  'notification-config:browse':  [SA, CA, CM],
   'notification-config:list':    [SA, CA, CM],
   'notification-config:update':  [SA, CA, CM],
 
   // ── LAUDO TEMPLATE ─────────────────────────────────────────────────────────
+  'laudo-template:browse':       [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo-template:list':         [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo-template:read':         [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo-template:create':       [SA, CA, CM],
@@ -170,6 +181,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'laudo-template:delete':       [SA, CA],
 
   // ── LAUDO ──────────────────────────────────────────────────────────────────
+  'laudo:browse':                [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo:list':                  [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo:read':                  [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo:create':                [SA, CA, CM, TEC],
@@ -180,6 +192,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'laudo:sign':                  [SA, CA, CM, TEC, CLA, CLU],
 
   // ── PRINTER ────────────────────────────────────────────────────────────────
+  'printer:browse':              [SA, CA, CM],
   'printer:list':                [SA, CA, CM],
   'printer:read':                [SA, CA, CM],
   'printer:create':              [SA, CA],
@@ -187,6 +200,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'printer:delete':              [SA, CA],
 
   // ── SCAN ───────────────────────────────────────────────────────────────────
+  'scan:browse':                 [SA, CA, CM, TEC],
   'scan:list':                   [SA, CA, CM, TEC],
   'scan:read':                   [SA, CA, CM, TEC],
   'scan:download':               [SA, CA, CM, TEC],
@@ -195,29 +209,29 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
 export const RESOURCE_ACTIONS: Record<string, string[]> = {
-  'equipment':            ['list', 'read', 'create', 'update', 'delete', 'depreciation'],
+  'equipment':            ['browse', 'list', 'read', 'create', 'update', 'delete', 'depreciation'],
   'equipment-manual':     ['list', 'read', 'create', 'update', 'delete'],
-  'cost-center':          ['list', 'read', 'create', 'update', 'delete'],
+  'cost-center':          ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'location':             ['list', 'read', 'create', 'update', 'delete'],
-  'equipment-type':       ['list', 'read', 'create', 'update', 'delete', 'create-sub', 'update-sub', 'delete-sub'],
+  'equipment-type':       ['browse', 'list', 'read', 'create', 'update', 'delete', 'create-sub', 'update-sub', 'delete-sub'],
   'movement':             ['list', 'create', 'return'],
   'storage':              ['upload', 'download', 'list', 'delete'],
-  'user':                 ['list', 'read', 'create', 'update', 'delete'],
-  'client':               ['list', 'read', 'create', 'update', 'delete', 'upload-logo'],
-  'service-order':        ['list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own', 'create-without-equipment', 'link-equipment'],
+  'user':                 ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'client':               ['browse', 'list', 'read', 'create', 'update', 'delete', 'upload-logo'],
+  'service-order':        ['browse', 'list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own', 'create-without-equipment', 'link-equipment'],
   'maintenance':          ['list', 'read', 'create', 'update', 'delete'],
-  'maintenance-schedule': ['list', 'read', 'create', 'update', 'delete', 'trigger'],
-  'maintenance-group':    ['list', 'read', 'create', 'update', 'delete'],
+  'maintenance-schedule': ['browse', 'list', 'read', 'create', 'update', 'delete', 'trigger'],
+  'maintenance-group':    ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'dashboard':            ['company', 'platform', 'client'],
   'report':               ['service-orders', 'equipment', 'preventive', 'technicians', 'financial'],
   'permission':           ['read', 'manage'],
   'custom-role':          ['list', 'read', 'create', 'update', 'delete', 'assign'],
-  'alert-rule':           ['list', 'read', 'create', 'update', 'delete'],
-  'notification-config':  ['list', 'update'],
-  'laudo-template':       ['list', 'read', 'create', 'update', 'delete'],
-  'laudo':                ['list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
-  'printer':              ['list', 'read', 'create', 'update', 'delete'],
-  'scan':                 ['list', 'read', 'download', 'delete'],
+  'alert-rule':           ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'notification-config':  ['browse', 'list', 'update'],
+  'laudo-template':       ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'laudo':                ['browse', 'list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
+  'printer':              ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'scan':                 ['browse', 'list', 'read', 'download', 'delete'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)
