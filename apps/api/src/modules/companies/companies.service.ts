@@ -198,6 +198,7 @@ export class CompaniesService {
       // Visual dos relatórios
       ...(dto.reportPrimaryColor !== undefined && { reportPrimaryColor: dto.reportPrimaryColor }),
       ...(dto.reportSecondaryColor !== undefined && { reportSecondaryColor: dto.reportSecondaryColor }),
+      ...(dto.reportHeaderTitle !== undefined && { reportHeaderTitle: dto.reportHeaderTitle }),
       ...(dto.reportFooterText !== undefined && { reportFooterText: dto.reportFooterText }),
     })
   }

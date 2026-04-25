@@ -165,10 +165,14 @@ export class ReportsService {
     // Barra lateral interna de destaque (secondaryColor, 3pt)
     doc.rect(panelX, bodyTop, 3, BODY_H).fill(template.secondaryColor)
 
-    // Título do relatório (em caixa alta, branco)
+    // Cores de texto calculadas automaticamente pelo contraste do fundo
+    const panelTextColor = this.getContrastColor(template.primaryColor)
+    const panelSubColor = panelTextColor === '#FFFFFF' ? '#CBD5E1' : '#6B7280'
+
+    // Título do relatório (em caixa alta)
     const pTextX = panelX + 14
     const pTextW = panelW - 20
-    doc.fillColor('#FFFFFF').fontSize(9.5).font('Helvetica-Bold')
+    doc.fillColor(panelTextColor).fontSize(9.5).font('Helvetica-Bold')
       .text(title.toUpperCase(), pTextX, bodyTop + 14, { width: pTextW, lineBreak: true })
 
     // Subtítulo — quebramos por · e exibimos uma linha por item
@@ -176,7 +180,7 @@ export class ReportsService {
     let sy = bodyTop + 14 + 18
     subParts.forEach((part) => {
       if (sy < bodyTop + BODY_H - 8) {
-        doc.fillColor('#CBD5E1').fontSize(7.5).font('Helvetica')
+        doc.fillColor(panelSubColor).fontSize(7.5).font('Helvetica')
           .text(part, pTextX, sy, { width: pTextW, lineBreak: false })
         sy += 11
       }
@@ -209,6 +213,30 @@ export class ReportsService {
     doc.text(`Emitido em ${now}`, ML, y + 5, { width: W - 4, align: 'right', lineBreak: false })
 
     doc.addPage = _origAddPage
+  }
+
+  // ─────────────────────────────────────────
+  // Contraste automático de texto (WCAG)
+  // ─────────────────────────────────────────
+
+  /** Retorna '#FFFFFF' para fundos escuros e '#1F2937' para fundos claros. */
+  private getContrastColor(hex: string): string {
+    const h = hex.replace('#', '')
+    if (h.length !== 6) return '#FFFFFF'
+    const r = parseInt(h.slice(0, 2), 16)
+    const g = parseInt(h.slice(2, 4), 16)
+    const b = parseInt(h.slice(4, 6), 16)
+    const toLinear = (c: number) => {
+      const s = c / 255
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+    }
+    const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+    return L > 0.179 ? '#1F2937' : '#FFFFFF'
+  }
+
+  /** Versão ARGB para ExcelJS (ex: 'FFFFFFFF' ou 'FF1F2937'). */
+  private getContrastArgb(hex: string): string {
+    return this.getContrastColor(hex) === '#FFFFFF' ? 'FFFFFFFF' : 'FF1F2937'
   }
 
   // ─────────────────────────────────────────
@@ -301,7 +329,7 @@ export class ReportsService {
 
     // ── Cabeçalho com estilo ──
     const headerStyle: Partial<import('exceljs').Style> = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+      font: { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) }, size: 11 },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.primaryColor.replace('#', '') } },
       alignment: { horizontal: 'center', vertical: 'middle' },
       border: {
@@ -420,7 +448,7 @@ export class ReportsService {
     // ── Estilo da linha de cabeçalho de grupo ──
     const groupHeaderArgb = 'FF' + template.primaryColor.replace('#', '')
     const groupHeaderStyle = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 },
+      font: { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) }, size: 10 },
       fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: groupHeaderArgb } },
       alignment: { vertical: 'middle' as const },
     }
@@ -620,7 +648,7 @@ export class ReportsService {
     const drawTableHeader = (atY: number) => {
       let x = 40
       doc.rect(40, atY, W, 20).fill(lightBlue)
-      doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
+      doc.fillColor(this.getContrastColor(template.secondaryColor)).fontSize(8).font('Helvetica-Bold')
       cols.forEach((col) => {
         doc.text(col.label, x + 3, atY + 6, { width: col.w - 6, ellipsis: true })
         x += col.w
@@ -655,7 +683,7 @@ export class ReportsService {
         if (y > doc.page.height - 100) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
         const ghH = 20
         doc.rect(40, y, W, ghH).fill(blue)
-        doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
+        doc.fillColor(this.getContrastColor(template.primaryColor)).fontSize(9).font('Helvetica-Bold')
           .text(`  ${groupKey}`, 43, y + 6, { width: W - 6, lineBreak: false })
         y += ghH
         currentGroup = groupKey
@@ -844,7 +872,7 @@ export class ReportsService {
     const secondaryArgb = 'FF' + template.secondaryColor.replace('#', '')
 
     const headerStyle: Partial<import('exceljs').Style> = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+      font: { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) }, size: 11 },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryArgb } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     }
@@ -877,7 +905,7 @@ export class ReportsService {
           groupRow.height = 20
           groupRow.eachCell((cell) => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryArgb } }
-            cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+            cell.font = { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) }, size: 10 }
           })
         }
       }
@@ -1013,7 +1041,7 @@ export class ReportsService {
       const drawTableHeader = () => {
         x = 40
         doc.rect(40, y, W, 20).fill(template.secondaryColor)
-        doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
+        doc.fillColor(this.getContrastColor(template.secondaryColor)).fontSize(8).font('Helvetica-Bold')
         cols.forEach((col) => {
           doc.text(col.label, x + 3, y + 6, { width: col.w - 6, ellipsis: true })
           x += col.w
@@ -1037,7 +1065,7 @@ export class ReportsService {
             if (y > doc.page.height - 80) { doc.addPage(); y = 40; drawTableHeader() }
 
             doc.rect(40, y, W, 18).fill(blue)
-            doc.fillColor('white').fontSize(8).font('Helvetica-Bold')
+            doc.fillColor(this.getContrastColor(template.primaryColor)).fontSize(8).font('Helvetica-Bold')
               .text(groupLabel, 45, y + 5, { width: W - 10, ellipsis: true })
             y += 18
             rowIdx = 0
@@ -1136,7 +1164,7 @@ export class ReportsService {
     })
 
     const headerStyle: Partial<import('exceljs').Style> = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 },
+      font: { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) }, size: 11 },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.primaryColor.replace('#', '') } },
       alignment: { horizontal: 'center', vertical: 'middle' },
     }
@@ -1288,7 +1316,7 @@ export class ReportsService {
 
     let x = 40
     doc.rect(40, y, W, 20).fill(template.secondaryColor)
-    doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
+    doc.fillColor(this.getContrastColor(template.secondaryColor)).fontSize(8).font('Helvetica-Bold')
     cols.forEach((col) => {
       doc.text(col.label, x + 3, y + 6, { width: col.w - 6, ellipsis: true })
       x += col.w
@@ -1477,7 +1505,7 @@ export class ReportsService {
       doc.fillColor(blue).fontSize(12).font('Helvetica-Bold').text(title, 40, localY)
       let tableY = localY + 20
       doc.rect(40, tableY, W, 20).fill(secondaryBlue)
-      doc.fillColor(blue).fontSize(8).font('Helvetica-Bold')
+      doc.fillColor(this.getContrastColor(secondaryBlue)).fontSize(8).font('Helvetica-Bold')
       let x = 40
       tableCols.forEach((c: any) => {
         doc.text(c.label, x + 3, tableY + 6, { width: c.w - 6, ellipsis: true })

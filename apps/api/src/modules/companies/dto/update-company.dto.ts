@@ -30,6 +30,7 @@ export class UpdateCompanyDto {
   // Visual dos relatórios
   @IsOptional() @IsHexColor() reportPrimaryColor?: string
   @IsOptional() @IsHexColor() reportSecondaryColor?: string
+  @IsOptional() @IsString() reportHeaderTitle?: string
   @IsOptional() @IsString() reportFooterText?: string
 
   // Segurança

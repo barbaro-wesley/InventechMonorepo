@@ -103,7 +103,7 @@ jobs:
       - name: Build & push imagem do OCR Worker (develop)
         uses: docker/build-push-action@v6
         with:
-          context: services/ocr-worker
+          context: services/ocr-worker-py
           dockerfile: Dockerfile
           push: true
           tags: |

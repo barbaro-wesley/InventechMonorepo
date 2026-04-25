@@ -111,8 +111,8 @@ jobs:
       - name: Build & push imagem do OCR Worker
         uses: docker/build-push-action@v6
         with:
-          context: services/ocr-worker
-          file: services/ocr-worker/Dockerfile
+          context: services/ocr-worker-py
+          file: services/ocr-worker-py/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ steps.repo.outputs.name }}/ocr-worker:${{ steps.meta.outputs.version }}

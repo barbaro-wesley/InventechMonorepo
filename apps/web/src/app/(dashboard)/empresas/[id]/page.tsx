@@ -190,6 +190,7 @@ const editSchema = z.object({
   // Visual relatórios
   reportPrimaryColor: z.string().optional(),
   reportSecondaryColor: z.string().optional(),
+  reportHeaderTitle: z.string().optional(),
   reportFooterText: z.string().optional(),
   // Segurança
   enforce2FAForAll: z.boolean().optional(),
@@ -911,6 +912,7 @@ export default function EmpresaDetailPage() {
       state: company?.state ?? "",
       reportPrimaryColor: company?.reportPrimaryColor ?? "#1E40AF",
       reportSecondaryColor: company?.reportSecondaryColor ?? "#DBEAFE",
+      reportHeaderTitle: company?.reportHeaderTitle ?? "",
       reportFooterText: company?.reportFooterText ?? "",
       enforce2FAForAll: company?.enforce2FAForAll ?? false,
     },
@@ -1475,6 +1477,16 @@ export default function EmpresaDetailPage() {
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Visual dos relatórios</p>
                 <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="edit-headerTitle">Título do relatório</Label>
+                    <Input
+                      id="edit-headerTitle"
+                      placeholder="Ex: Relatório Técnico — Aria Engenharia"
+                      className="mt-1.5"
+                      {...editForm.register("reportHeaderTitle")}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Aparece no canto superior direito do PDF</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="edit-primaryColor">Cor primária</Label>
@@ -1491,7 +1503,7 @@ export default function EmpresaDetailPage() {
                           {...editForm.register("reportPrimaryColor")}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Cabeçalho do relatório</p>
+                      <p className="text-xs text-muted-foreground mt-1">Cabeçalho e linhas de grupo</p>
                     </div>
                     <div>
                       <Label htmlFor="edit-secondaryColor">Cor secundária</Label>
@@ -1508,9 +1520,10 @@ export default function EmpresaDetailPage() {
                           {...editForm.register("reportSecondaryColor")}
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">Linhas alternadas / destaque</p>
+                      <p className="text-xs text-muted-foreground mt-1">Cabeçalho da tabela / linhas alternadas</p>
                     </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">A cor do texto é ajustada automaticamente para garantir legibilidade.</p>
                   <div>
                     <Label htmlFor="edit-footerText">Texto do rodapé</Label>
                     <Input id="edit-footerText" placeholder="Ex: Documento confidencial" className="mt-1.5" {...editForm.register("reportFooterText")} />

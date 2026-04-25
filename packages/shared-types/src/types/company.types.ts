@@ -107,6 +107,7 @@ export interface UpdateCompanyDto {
   zipCode?: string;
   reportPrimaryColor?: string;
   reportSecondaryColor?: string;
+  reportHeaderTitle?: string;
   reportFooterText?: string;
   enforce2FAForAll?: boolean;
 }
