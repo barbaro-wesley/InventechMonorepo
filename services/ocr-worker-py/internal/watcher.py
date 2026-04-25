@@ -1,17 +1,22 @@
 import asyncio
 import logging
+import os
 from typing import Awaitable, Callable
 
-from watchdog.events import DirCreatedEvent, FileCreatedEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+from watchdog.events import FileCreatedEvent, FileMovedEvent, FileSystemEventHandler
+from watchdog.observers.polling import PollingObserver
 
 logger = logging.getLogger(__name__)
 
 FileCallback = Callable[[str], Awaitable[None]]
 
+# Intervalo de polling em segundos — baixo o suficiente para reagir rápido,
+# alto o suficiente para não desperdiçar CPU.
+_POLL_INTERVAL = int(os.environ.get("WATCHER_POLL_INTERVAL", "3"))
+
 
 class _EventHandler(FileSystemEventHandler):
-    """Bridges watchdog's background thread to the asyncio event loop."""
+    """Bridges watchdog's polling thread to the asyncio event loop."""
 
     def __init__(self, callback: FileCallback, loop: asyncio.AbstractEventLoop) -> None:
         super().__init__()
@@ -23,28 +28,33 @@ class _EventHandler(FileSystemEventHandler):
             asyncio.run_coroutine_threadsafe(
                 self._callback(event.src_path), self._loop
             )
-        elif isinstance(event, DirCreatedEvent):
-            logger.debug("New subdirectory detected (auto-watched): %s", event.src_path)
+
+    def on_moved(self, event: FileSystemEventHandler) -> None:
+        # SFTP renomeia o arquivo temporário para o nome final — isso é um MOVE, não CREATE
+        if isinstance(event, FileMovedEvent):
+            asyncio.run_coroutine_threadsafe(
+                self._callback(event.dest_path), self._loop
+            )
 
 
 class DirectoryWatcher:
     """
-    Watches a base directory recursively for new files.
-    New subdirectories (one per printer SFTP slot) are automatically included
-    because recursive=True is set on the observer.
+    Watches a base directory recursively using polling.
+    PollingObserver is used instead of InotifyObserver because inotify
+    does not reliably propagate events inside Docker bind-mount volumes.
     """
 
     def __init__(self, base_dir: str, callback: FileCallback) -> None:
         self._base_dir = base_dir
         self._callback = callback
-        self._observer: Observer | None = None
+        self._observer: PollingObserver | None = None
 
     def start(self, loop: asyncio.AbstractEventLoop) -> None:
         handler = _EventHandler(self._callback, loop)
-        self._observer = Observer()
+        self._observer = PollingObserver(timeout=_POLL_INTERVAL)
         self._observer.schedule(handler, self._base_dir, recursive=True)
         self._observer.start()
-        logger.info("Watching (recursive): %s", self._base_dir)
+        logger.info("Watching (polling every %ds, recursive): %s", _POLL_INTERVAL, self._base_dir)
 
     def stop(self) -> None:
         if self._observer is not None:
