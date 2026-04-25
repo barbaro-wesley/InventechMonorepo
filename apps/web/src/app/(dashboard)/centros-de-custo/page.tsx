@@ -49,6 +49,7 @@ import {
   useUpdateLocation,
   useDeleteLocation,
 } from "@/hooks/equipment/use-locations";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import type { CostCenter, EmbeddedLocation } from "@/services/equipment/cost-centers.service";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -244,6 +245,7 @@ function SubEmbeddedLocationRow({
   onAddChild,
   allEmbeddedLocations,
   depth,
+  canManage,
 }: {
   location: EmbeddedLocation;
   onEdit: (l: EmbeddedLocation) => void;
@@ -251,6 +253,7 @@ function SubEmbeddedLocationRow({
   onAddChild: (parent: EmbeddedLocation) => void;
   allEmbeddedLocations: EmbeddedLocation[];
   depth: number;
+  canManage: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const children = allEmbeddedLocations.filter((l) => l.parentId === location.id);
@@ -285,25 +288,27 @@ function SubEmbeddedLocationRow({
           </span>
         )}
 
-        {/* Actions — visible on hover */}
-        <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            variant="ghost" size="sm" className="h-6 w-6 p-0" title="Adicionar sublocalização"
-            onClick={() => onAddChild(location)}
-          >
-            <Plus className="w-3 h-3 text-muted-foreground" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(location)}>
-            <Pencil className="w-3 h-3 text-muted-foreground" />
-          </Button>
-          <Button
-            variant="ghost" size="sm" className="h-6 w-6 p-0"
-            onClick={() => onDelete(location)}
-            disabled={location._count.equipments > 0 || children.length > 0}
-          >
-            <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
-          </Button>
-        </div>
+        {/* Actions */}
+        {canManage && (
+          <div className="flex items-center gap-0.5 flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="ghost" size="sm" className="h-6 w-6 p-0" title="Adicionar sublocalização"
+              onClick={() => onAddChild(location)}
+            >
+              <Plus className="w-3 h-3 text-muted-foreground" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => onEdit(location)}>
+              <Pencil className="w-3 h-3 text-muted-foreground" />
+            </Button>
+            <Button
+              variant="ghost" size="sm" className="h-6 w-6 p-0"
+              onClick={() => onDelete(location)}
+              disabled={location._count.equipments > 0 || children.length > 0}
+            >
+              <Trash2 className="w-3 h-3 text-muted-foreground hover:text-destructive" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {expanded && children.map((child) => (
@@ -315,6 +320,7 @@ function SubEmbeddedLocationRow({
             onAddChild={onAddChild}
             allEmbeddedLocations={allEmbeddedLocations}
             depth={depth + 1}
+            canManage={canManage}
           />
         </div>
       ))}
@@ -332,6 +338,7 @@ function CostCenterCard({
   onAddSubLocation,
   onEditLocation,
   onDeleteLocation,
+  canManage,
 }: {
   cc: CostCenter;
   onEditCc: (cc: CostCenter) => void;
@@ -340,6 +347,7 @@ function CostCenterCard({
   onAddSubLocation: (parent: EmbeddedLocation) => void;
   onEditLocation: (l: EmbeddedLocation) => void;
   onDeleteLocation: (l: EmbeddedLocation) => void;
+  canManage: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
   const rootLocations = cc.locations.filter((l) => !l.parentId);
@@ -394,19 +402,21 @@ function CostCenterCard({
         </div>
 
         {/* Actions — stop propagation so click doesn't toggle expand */}
-        <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onEditCc(cc)}>
-            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-          </Button>
-          <Button
-            variant="ghost" size="sm" className="h-8 w-8 p-0"
-            onClick={() => onDeleteCc(cc)}
-            disabled={cc._count.equipments > 0 || cc._count.locations > 0}
-            title={cc._count.locations > 0 ? "Remova as localizações antes" : "Remover"}
-          >
-            <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => onEditCc(cc)}>
+              <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+            </Button>
+            <Button
+              variant="ghost" size="sm" className="h-8 w-8 p-0"
+              onClick={() => onDeleteCc(cc)}
+              disabled={cc._count.equipments > 0 || cc._count.locations > 0}
+              title={cc._count.locations > 0 ? "Remova as localizações antes" : "Remover"}
+            >
+              <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ── Locations Panel ── */}
@@ -416,26 +426,30 @@ function CostCenterCard({
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Localizações
             </p>
-            <Button
-              variant="outline" size="sm" className="h-7 text-xs gap-1"
-              onClick={() => onAddLocation(cc)}
-            >
-              <Plus className="w-3 h-3" />
-              Nova localização
-            </Button>
+            {canManage && (
+              <Button
+                variant="outline" size="sm" className="h-7 text-xs gap-1"
+                onClick={() => onAddLocation(cc)}
+              >
+                <Plus className="w-3 h-3" />
+                Nova localização
+              </Button>
+            )}
           </div>
 
           {rootLocations.length === 0 ? (
             <div className="text-center py-6 border border-dashed border-border rounded-lg bg-white">
               <MapPin className="w-7 h-7 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-xs text-muted-foreground">Nenhuma localização ainda.</p>
-              <button
-                className="text-xs mt-1 font-medium hover:underline"
-                style={{ color: "var(--primary)" }}
-                onClick={() => onAddLocation(cc)}
-              >
-                Adicionar primeira localização
-              </button>
+              {canManage && (
+                <button
+                  className="text-xs mt-1 font-medium hover:underline"
+                  style={{ color: "var(--primary)" }}
+                  onClick={() => onAddLocation(cc)}
+                >
+                  Adicionar primeira localização
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -448,6 +462,7 @@ function CostCenterCard({
                   onAddChild={onAddSubLocation}
                   allEmbeddedLocations={cc.locations}
                   depth={0}
+                  canManage={canManage}
                 />
               ))}
             </div>
@@ -461,6 +476,8 @@ function CostCenterCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CostCentersPage() {
+  const { canManageEquipment } = usePermissions();
+
   // Sheet state
   type SheetState =
     | { type: "cc"; editTarget: CostCenter | null }
@@ -479,7 +496,7 @@ export default function CostCentersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
             Centros de Custo & Localizações
@@ -488,10 +505,12 @@ export default function CostCentersPage() {
             Organize onde os equipamentos estão instalados dentro de cada cliente.
           </p>
         </div>
-        <Button onClick={() => setSheet({ type: "cc", editTarget: null })}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo centro de custo
-        </Button>
+        {canManageEquipment && (
+          <Button onClick={() => setSheet({ type: "cc", editTarget: null })}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo centro de custo
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
@@ -509,10 +528,12 @@ export default function CostCentersPage() {
           <p className="text-xs text-muted-foreground mt-1 mb-4">
             Comece criando o primeiro centro de custo para este cliente
           </p>
-          <Button size="sm" onClick={() => setSheet({ type: "cc", editTarget: null })}>
-            <Plus className="w-4 h-4 mr-2" />
-            Criar centro de custo
-          </Button>
+          {canManageEquipment && (
+            <Button size="sm" onClick={() => setSheet({ type: "cc", editTarget: null })}>
+              <Plus className="w-4 h-4 mr-2" />
+              Criar centro de custo
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
@@ -526,6 +547,7 @@ export default function CostCentersPage() {
               onAddSubLocation={(parent) => setSheet({ type: "loc", context: { type: "child", parent }, editTarget: null })}
               onEditLocation={(l) => setSheet({ type: "loc", context: { type: "root", cc: costCenters.find((c) => c.id === l.costCenterId)! }, editTarget: l })}
               onDeleteLocation={setDeleteLoc}
+              canManage={canManageEquipment}
             />
           ))}
           <p className="text-xs text-muted-foreground pt-1">

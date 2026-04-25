@@ -28,6 +28,7 @@ import {
 } from "@/hooks/permissions/use-permissions";
 import type { CustomRole, PermissionMatrixItem } from "@/services/permissions/permissions.service";
 import { useCurrentUser } from "@/store/auth.store";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import { useCompanies } from "@/hooks/companies/use-companies";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -103,6 +104,7 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
   const [expanded, setExpanded] = useState(false);
   const upsert = useUpsertPermission();
   const remove = useRemovePermission();
+  const { isSuperAdmin } = usePermissions();
 
   function toggle(role: string) {
     const has = item.effectiveRoles.includes(role);
@@ -145,7 +147,7 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
           <div className="flex flex-wrap gap-2 mb-3">
             {ALL_SYSTEM_ROLES.map((role) => {
               const active = item.effectiveRoles.includes(role);
-              const isLocked = role === "SUPER_ADMIN";
+              const isLocked = role === "SUPER_ADMIN" || !isSuperAdmin;
               return (
                 <button
                   key={role}
@@ -161,12 +163,12 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
                 >
                   {active ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
                   {ROLE_LABEL[role]}
-                  {isLocked && <Shield className="w-3 h-3 ml-0.5" />}
+                  {role === "SUPER_ADMIN" && <Shield className="w-3 h-3 ml-0.5" />}
                 </button>
               );
             })}
           </div>
-          {item.isOverridden && (
+          {item.isOverridden && isSuperAdmin && (
             <button
               onClick={resetToDefault}
               disabled={remove.isPending}
@@ -404,6 +406,7 @@ export default function PapeisPermissoesPage() {
 
   const currentUser = useCurrentUser();
   const isSuperAdmin = currentUser?.role === "SUPER_ADMIN";
+  const isCompanyAdmin = currentUser?.role === "COMPANY_ADMIN";
   // SUPER_ADMIN without a company needs to pick one; otherwise use their own
   const needsCompanySelector = isSuperAdmin && !currentUser?.companyId;
   const effectiveCompanyId = needsCompanySelector
@@ -430,7 +433,7 @@ export default function PapeisPermissoesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
             Papéis & Permissões
@@ -439,13 +442,13 @@ export default function PapeisPermissoesPage() {
             Configure o que cada papel pode acessar na plataforma.
           </p>
         </div>
-        {tab === "custom" && effectiveCompanyId && (
+        {tab === "custom" && effectiveCompanyId && (isSuperAdmin || isCompanyAdmin) && (
           <Button onClick={() => setRoleSheet({ open: true, target: null })}>
             <Plus className="w-4 h-4 mr-2" />
             Novo papel
           </Button>
         )}
-        {tab === "system" && totalOverrides > 0 && (
+        {tab === "system" && totalOverrides > 0 && isSuperAdmin && (
           <Button variant="outline" onClick={() => setResetConfirm(true)}>
             <RotateCcw className="w-4 h-4 mr-2" />
             Restaurar todos os padrões
@@ -454,7 +457,7 @@ export default function PapeisPermissoesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted rounded-xl p-1 w-fit">
+      <div className="flex gap-1 bg-muted rounded-xl p-1 overflow-x-auto">
         {[
           { key: "custom", label: "Papéis personalizados", icon: Users },
           { key: "system", label: "Permissões por papel de sistema", icon: ShieldCheck },
@@ -462,7 +465,7 @@ export default function PapeisPermissoesPage() {
           <button
             key={key}
             onClick={() => setTab(key as any)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
               ${tab === key ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Icon className="w-4 h-4" />
@@ -476,16 +479,16 @@ export default function PapeisPermissoesPage() {
         <>
           {/* Company selector for SUPER_ADMIN without their own company */}
           {needsCompanySelector && (
-            <div className="bg-white rounded-xl border border-border px-5 py-4 flex items-center gap-4">
+            <div className="bg-white rounded-xl border border-border px-5 py-4 flex flex-wrap items-center gap-4">
               <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 min-w-[200px]">
                 <p className="text-sm font-medium mb-1">Selecione a empresa</p>
                 <p className="text-xs text-muted-foreground">Gerencie os papéis personalizados de uma empresa específica.</p>
               </div>
               <select
                 value={selectedCompanyId}
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="border border-border rounded-lg px-3 py-2 text-sm bg-white min-w-[220px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="border border-border rounded-lg px-3 py-2 text-sm bg-white w-full sm:w-auto sm:min-w-[220px] focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
                 <option value="">Selecione uma empresa...</option>
                 {companies.map((c) => (
@@ -513,10 +516,12 @@ export default function PapeisPermissoesPage() {
               <p className="text-xs text-muted-foreground mt-1">
                 Crie papéis com permissões específicas e atribua a usuários.
               </p>
-              <Button className="mt-4" onClick={() => setRoleSheet({ open: true, target: null })}>
-                <Plus className="w-4 h-4 mr-2" />
-                Criar primeiro papel
-              </Button>
+              {(isSuperAdmin || isCompanyAdmin) && (
+                <Button className="mt-4" onClick={() => setRoleSheet({ open: true, target: null })}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar primeiro papel
+                </Button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -556,19 +561,21 @@ export default function PapeisPermissoesPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button size="sm" variant="ghost" onClick={() => setRoleSheet({ open: true, target: role })}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      size="sm" variant="ghost"
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => setDeleteTarget(role)}
-                      disabled={role._count.users > 0}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                  {(isSuperAdmin || isCompanyAdmin) && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button size="sm" variant="ghost" onClick={() => setRoleSheet({ open: true, target: role })}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        size="sm" variant="ghost"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => setDeleteTarget(role)}
+                        disabled={role._count.users > 0}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -49,6 +49,7 @@ import {
   useSuspendCompany,
   useActivateCompany,
 } from "@/hooks/companies/use-companies";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import type { CompanyLicenseRow } from "@/types/company";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -383,6 +384,7 @@ function SuspendSheet({
 type FilterStatus = "all" | "ACTIVE" | "TRIAL" | "SUSPENDED" | "INACTIVE";
 
 export default function LicensesPage() {
+  const { canManageLicenses } = usePermissions();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [filterExpiring, setFilterExpiring] = useState<number | undefined>();
   const [search, setSearch] = useState("");
@@ -484,8 +486,95 @@ export default function LicensesPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Mobile card list */}
+        <div className="sm:hidden">
+          {isLoading ? (
+            <p className="px-4 py-12 text-center text-muted-foreground">Carregando…</p>
+          ) : filtered.length === 0 ? (
+            <p className="px-4 py-12 text-center text-muted-foreground">Nenhuma empresa encontrada.</p>
+          ) : (
+            <div className="divide-y">
+              {filtered.map((company) => {
+                const isSuspended = company.status === "SUSPENDED";
+                const isTrial = company.status === "TRIAL";
+                const isActive = company.status === "ACTIVE";
+                const days = company.daysUntilExpiry;
+                const expiryDate = isTrial ? company.trialEndsAt : company.licenseExpiresAt;
+
+                return (
+                  <div key={company.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <Link
+                          href={`/empresas/${company.id}`}
+                          className="font-medium hover:underline flex items-center gap-1 text-sm"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          {company.name}
+                          <ChevronRight className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                        </Link>
+                        <p className="text-xs text-muted-foreground">{company.slug}</p>
+                        {isSuspended && company.suspendedReason && (
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">{company.suspendedReason}</p>
+                        )}
+                      </div>
+                      <StatusBadge status={company.status} />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        {formatDate(expiryDate)}
+                      </span>
+                      {days !== null && days !== undefined && (
+                        <span
+                          className="px-2 py-0.5 rounded-full font-medium"
+                          style={{
+                            background: days < 0 ? "#fee2e2" : days <= 7 ? "#fef3c7" : days <= 30 ? "#fef9c3" : "#f0fdf4",
+                            color: days < 0 ? "#dc2626" : days <= 7 ? "#d97706" : days <= 30 ? "#ca8a04" : "#16a34a",
+                          }}
+                        >
+                          {daysLabel(days)}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 ml-auto">
+                        <Users className="w-3.5 h-3.5" />
+                        {company._count.users}
+                      </span>
+                    </div>
+
+                    {canManageLicenses && (
+                      <div className="flex gap-1.5 flex-wrap pt-0.5">
+                        {(isActive || isSuspended) && (
+                          <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setRenewTarget(company)}>
+                            <Shield className="w-3 h-3 mr-1" />Renovar
+                          </Button>
+                        )}
+                        {!isTrial && (
+                          <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => setTrialTarget(company)}>
+                            <Clock className="w-3 h-3 mr-1" />Trial
+                          </Button>
+                        )}
+                        {isSuspended ? (
+                          <Button variant="outline" size="sm" className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-50" disabled={activate.isPending} onClick={() => setActivateTarget(company)}>
+                            <CheckCircle className="w-3 h-3 mr-1" />Reativar
+                          </Button>
+                        ) : (
+                          <Button variant="outline" size="sm" className="text-xs h-7 border-red-300 text-red-600 hover:bg-red-50" onClick={() => setSuspendTarget(company)}>
+                            <Ban className="w-3 h-3 mr-1" />Suspender
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
@@ -634,57 +723,59 @@ export default function LicensesPage() {
 
                       {/* Actions */}
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                          {/* Renovar licença — para ativas e suspensas */}
-                          {(isActive || isSuspended) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7"
-                              onClick={() => setRenewTarget(company)}
-                            >
-                              <Shield className="w-3 h-3 mr-1" />
-                              Renovar
-                            </Button>
-                          )}
+                        {canManageLicenses && (
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            {/* Renovar licença — para ativas e suspensas */}
+                            {(isActive || isSuspended) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => setRenewTarget(company)}
+                              >
+                                <Shield className="w-3 h-3 mr-1" />
+                                Renovar
+                              </Button>
+                            )}
 
-                          {/* Configurar trial — para qualquer não-trial */}
-                          {!isTrial && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7"
-                              onClick={() => setTrialTarget(company)}
-                            >
-                              <Clock className="w-3 h-3 mr-1" />
-                              Trial
-                            </Button>
-                          )}
+                            {/* Configurar trial — para qualquer não-trial */}
+                            {!isTrial && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7"
+                                onClick={() => setTrialTarget(company)}
+                              >
+                                <Clock className="w-3 h-3 mr-1" />
+                                Trial
+                              </Button>
+                            )}
 
-                          {/* Suspender / Reativar */}
-                          {isSuspended ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
-                              disabled={activate.isPending}
-                              onClick={() => setActivateTarget(company)}
-                            >
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              Reativar
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-xs h-7 border-red-300 text-red-600 hover:bg-red-50"
-                              onClick={() => setSuspendTarget(company)}
-                            >
-                              <Ban className="w-3 h-3 mr-1" />
-                              Suspender
-                            </Button>
-                          )}
-                        </div>
+                            {/* Suspender / Reativar */}
+                            {isSuspended ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7 border-green-300 text-green-700 hover:bg-green-50"
+                                disabled={activate.isPending}
+                                onClick={() => setActivateTarget(company)}
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Reativar
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs h-7 border-red-300 text-red-600 hover:bg-red-50"
+                                onClick={() => setSuspendTarget(company)}
+                              >
+                                <Ban className="w-3 h-3 mr-1" />
+                                Suspender
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

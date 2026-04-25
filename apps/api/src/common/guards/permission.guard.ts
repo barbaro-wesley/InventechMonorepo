@@ -39,9 +39,7 @@ export class PermissionGuard implements CanActivate {
       const allowed = await this.permissionsService.checkAccess(user, resource, action)
 
       if (!allowed) {
-        throw new ForbiddenException(
-          `Acesso negado. Permissão necessária: ${permission}`,
-        )
+        throw new ForbiddenException('Acesso negado.')
       }
       return true
     }
@@ -55,9 +53,7 @@ export class PermissionGuard implements CanActivate {
     if (requiredRoles?.length) {
       const hasRole = requiredRoles.includes(user.role)
       if (!hasRole) {
-        throw new ForbiddenException(
-          `Acesso negado. Papéis necessários: ${requiredRoles.join(', ')}`,
-        )
+        throw new ForbiddenException('Acesso negado.')
       }
     }
 

@@ -28,6 +28,7 @@ import {
   useToggleSchedule,
 } from "@/hooks/maintenance/use-maintenance-schedule";
 import { useCurrentUser } from "@/store/auth.store";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-schedule.service";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
@@ -138,6 +139,7 @@ function StatCard({
 export default function PrevenTivasPage() {
   const currentUser = useCurrentUser();
   const isCompanyLevel = !currentUser?.clientId;
+  const { isManager } = usePermissions();
 
   const [search, setSearch] = useState("");
   const [recurrenceType, setRecurrenceType] = useState<string | undefined>();
@@ -282,7 +284,77 @@ export default function PrevenTivasPage() {
 
       {/* Table */}
       <div className="rounded-xl border bg-white dark:bg-slate-900 overflow-hidden">
-        <div className="overflow-x-auto">
+
+        {/* Mobile card list */}
+        <div className="sm:hidden">
+          {isLoading ? (
+            <p className="px-4 py-12 text-center text-muted-foreground">Carregando…</p>
+          ) : filtered.length === 0 ? (
+            <p className="px-4 py-12 text-center text-muted-foreground">Nenhum agendamento encontrado.</p>
+          ) : (
+            <div className="divide-y">
+              {filtered.map((s) => (
+                <div key={s.id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm leading-snug">{s.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {s.equipment.name}{s.equipment.brand ? ` · ${s.equipment.brand}` : ""}
+                      </p>
+                      {isCompanyLevel && s.client?.name && (
+                        <p className="text-xs text-muted-foreground">{s.client.name}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <StatusBadge schedule={s} />
+                      {isManager && (
+                        <Button
+                          variant="ghost" size="sm" className="h-7 w-7 p-0"
+                          disabled={toggle.isPending}
+                          onClick={() => toggle.mutate({ id: s.id, isActive: !s.isActive })}
+                          title={s.isActive ? "Desativar" : "Ativar"}
+                        >
+                          {s.isActive
+                            ? <PowerOff className="w-3.5 h-3.5 text-muted-foreground" />
+                            : <Power className="w-3.5 h-3.5 text-emerald-600" />}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {s.group && (
+                      <span
+                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                        style={{
+                          background: s.group.color ? `${s.group.color}20` : undefined,
+                          color: s.group.color ?? undefined,
+                          border: `1px solid ${s.group.color ?? "transparent"}`,
+                        }}
+                      >
+                        {s.group.name}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {RECURRENCE_LABELS[s.recurrenceType] ?? s.recurrenceType}
+                      {s.recurrenceType === "CUSTOM" && s.customIntervalDays ? ` (${s.customIntervalDays}d)` : ""}
+                    </span>
+                    <span
+                      className={`text-xs font-medium ${
+                        getScheduleStatus(s) === "overdue" ? "text-red-600" :
+                        getScheduleStatus(s) === "due_soon" ? "text-amber-600" : "text-muted-foreground"
+                      }`}
+                    >
+                      Próxima: {formatDate(s.nextRunAt)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-slate-50 dark:bg-slate-800">
               <tr>
@@ -416,22 +488,24 @@ export default function PrevenTivasPage() {
 
                     {/* Actions */}
                     <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        disabled={toggle.isPending}
-                        onClick={() =>
-                          toggle.mutate({ id: s.id, isActive: !s.isActive })
-                        }
-                        title={s.isActive ? "Desativar agendamento" : "Ativar agendamento"}
-                      >
-                        {s.isActive ? (
-                          <PowerOff className="w-3.5 h-3.5 text-muted-foreground" />
-                        ) : (
-                          <Power className="w-3.5 h-3.5 text-emerald-600" />
-                        )}
-                      </Button>
+                      {isManager && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          disabled={toggle.isPending}
+                          onClick={() =>
+                            toggle.mutate({ id: s.id, isActive: !s.isActive })
+                          }
+                          title={s.isActive ? "Desativar agendamento" : "Ativar agendamento"}
+                        >
+                          {s.isActive ? (
+                            <PowerOff className="w-3.5 h-3.5 text-muted-foreground" />
+                          ) : (
+                            <Power className="w-3.5 h-3.5 text-emerald-600" />
+                          )}
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))

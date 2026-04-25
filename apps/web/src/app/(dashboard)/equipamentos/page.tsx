@@ -81,6 +81,7 @@ import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-s
 import { EquipmentManualsSheet } from "@/components/equipment/equipment-manuals-sheet";
 import { OsDetailDrawer } from "@/app/(operacional)/operacional/_components/os-detail-drawer";
 
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import { equipmentService } from "@/services/equipment/equipment.service";
 import type { Equipment, EquipmentStatus, EquipmentCriticality, EquipmentServiceOrdersResponse } from "@/services/equipment/equipment.service";
 import type { InfiniteData } from "@tanstack/react-query";
@@ -646,6 +647,12 @@ function EquipmentCard({
   onCreateOs: (e: Equipment) => void;
   onCreateSchedule: (e: Equipment) => void;
 }) {
+  const { canAccess } = usePermissions();
+  const canEdit = canAccess("equipment", "update");
+  const canDelete = canAccess("equipment", "delete");
+  const canMove = canAccess("movement", "create");
+  const canCreateOs = canAccess("service-order", "create");
+  const canSchedule = canAccess("maintenance-schedule", "create");
   return (
     <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
       {/* Header */}
@@ -710,43 +717,53 @@ function EquipmentCard({
 
       {/* Actions */}
       <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-shrink-0">
-        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
-          <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
-        </Button>
+        {canEdit && (
+          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
+          </Button>
+        )}
         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onView(equipment)}>
           <Eye className="w-3.5 h-3.5 mr-1.5" />Detalhes
         </Button>
         <Button size="sm" variant="outline" onClick={() => onPrint(equipment)}>
           <Printer className="w-3.5 h-3.5 mr-1.5" />QR Code
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onCreateOs(equipment)}>
-              <ClipboardList className="w-3.5 h-3.5 mr-2" />Nova OS
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onCreateSchedule(equipment)}>
-              <CalendarClock className="w-3.5 h-3.5 mr-2" />Agendar Preventiva
-            </DropdownMenuItem>
-            {equipment.status === "ACTIVE" && (
-              <DropdownMenuItem onClick={() => onMove(equipment)}>
-                <ArrowRightLeft className="w-3.5 h-3.5 mr-2" />Movimentar
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              disabled={equipment._count.serviceOrders > 0}
-              onClick={() => onDelete(equipment)}
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-2" />
-              {equipment._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {(canCreateOs || canSchedule || canMove || canDelete) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canCreateOs && (
+                <DropdownMenuItem onClick={() => onCreateOs(equipment)}>
+                  <ClipboardList className="w-3.5 h-3.5 mr-2" />Nova OS
+                </DropdownMenuItem>
+              )}
+              {canSchedule && (
+                <DropdownMenuItem onClick={() => onCreateSchedule(equipment)}>
+                  <CalendarClock className="w-3.5 h-3.5 mr-2" />Agendar Preventiva
+                </DropdownMenuItem>
+              )}
+              {canMove && equipment.status === "ACTIVE" && (
+                <DropdownMenuItem onClick={() => onMove(equipment)}>
+                  <ArrowRightLeft className="w-3.5 h-3.5 mr-2" />Movimentar
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={equipment._count.serviceOrders > 0}
+                  onClick={() => onDelete(equipment)}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                  {equipment._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );
@@ -939,6 +956,10 @@ function DetailSheet({
     fetchNextPage,
   } = useEquipmentServiceOrders(equipment?.id ?? "");
 
+  const { canAccess } = usePermissions();
+  const canEdit = canAccess("equipment", "update");
+  const canMove = canAccess("movement", "create");
+
   if (!equipment) return null;
 
   const activeMovement = movements.find((m) => m.status === "ACTIVE");
@@ -988,10 +1009,12 @@ function DetailSheet({
 
         {/* Action bar - More integrated */}
         <div className="flex flex-wrap items-center gap-2 mt-6 p-1.5 bg-muted/40 rounded-xl border border-border/50">
-          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onEdit(equipment); }}>
-            <Pencil className="w-3.5 h-3.5 mr-1.5 text-blue-500" />Editar
-          </Button>
-          {equipment.status === "ACTIVE" && (
+          {canEdit && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onEdit(equipment); }}>
+              <Pencil className="w-3.5 h-3.5 mr-1.5 text-blue-500" />Editar
+            </Button>
+          )}
+          {canMove && equipment.status === "ACTIVE" && (
             <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onMove(equipment); }}>
               <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5 text-amber-500" />Movimentar
             </Button>
@@ -1001,9 +1024,6 @@ function DetailSheet({
           </Button>
           <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => window.open(equipmentService.getLifeCyclePdfUrl(equipment.id), "_blank")}>
             <FileText className="w-3.5 h-3.5 mr-1.5 text-violet-500" />Ficha Vida
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => setManualsOpen(true)}>
-            <BookOpen className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />Manuais
           </Button>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-[10px] text-muted-foreground font-medium uppercase px-2">Ações rápidas</span>
@@ -1035,6 +1055,13 @@ function DetailSheet({
               )}
             </button>
           ))}
+          <button
+            onClick={() => setManualsOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-3 text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all whitespace-nowrap"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+            Manuais
+          </button>
         </div>
 
         {/* ── Info tab ── */}
@@ -1579,6 +1606,8 @@ function QRLabelModal({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EquipamentosPage() {
+  const { canAccess } = usePermissions();
+  const canCreateEquipment = canAccess("equipment", "create");
   const [search, setSearch] = useState("");
   const [ipFilter, setIpFilter] = useState("");
   const [patrimonyFilter, setPatrimonyFilter] = useState("");
@@ -1661,10 +1690,12 @@ export default function EquipamentosPage() {
             Gerencie o parque de equipamentos.
           </p>
         </div>
-        <Button onClick={() => setFormSheet({ open: true, target: null })}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo equipamento
-        </Button>
+        {canCreateEquipment && (
+          <Button onClick={() => setFormSheet({ open: true, target: null })}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo equipamento
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -1799,7 +1830,7 @@ export default function EquipamentosPage() {
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             {search || activeFilterCount > 0 ? "Nenhum equipamento encontrado" : "Nenhum equipamento cadastrado"}
           </p>
-          {!search && activeFilterCount === 0 && (
+          {!search && activeFilterCount === 0 && canCreateEquipment && (
             <Button size="sm" className="mt-4" onClick={() => setFormSheet({ open: true, target: null })}>
               <Plus className="w-4 h-4 mr-2" />Cadastrar equipamento
             </Button>

@@ -177,6 +177,7 @@ function TemplateCard({
   onToggleActive,
   isTogglingActive,
   isLoadingEdit,
+  canEdit,
 }: {
   template: LaudoTemplate;
   onEdit: () => void;
@@ -186,6 +187,7 @@ function TemplateCard({
   onToggleActive: () => void;
   isTogglingActive: boolean;
   isLoadingEdit: boolean;
+  canEdit: boolean;
 }) {
   const fieldCount = template.fields?.length ?? 0;
 
@@ -214,20 +216,22 @@ function TemplateCard({
           </div>
 
           {/* Active toggle */}
-          <button
-            onClick={onToggleActive}
-            disabled={isTogglingActive}
-            className="flex-shrink-0 mt-0.5"
-            title={template.isActive ? "Desativar template" : "Ativar template"}
-          >
-            {isTogglingActive ? (
-              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-            ) : template.isActive ? (
-              <ToggleRight className="w-5 h-5 text-emerald-500" />
-            ) : (
-              <ToggleLeft className="w-5 h-5 text-slate-400" />
-            )}
-          </button>
+          {canEdit && (
+            <button
+              onClick={onToggleActive}
+              disabled={isTogglingActive}
+              className="flex-shrink-0 mt-0.5"
+              title={template.isActive ? "Desativar template" : "Ativar template"}
+            >
+              {isTogglingActive ? (
+                <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+              ) : template.isActive ? (
+                <ToggleRight className="w-5 h-5 text-emerald-500" />
+              ) : (
+                <ToggleLeft className="w-5 h-5 text-slate-400" />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Description */}
@@ -266,7 +270,7 @@ function TemplateCard({
       </div>
 
       {/* Actions footer */}
-      <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="px-5 py-3 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <Button
           variant="ghost"
           size="sm"
@@ -276,34 +280,38 @@ function TemplateCard({
           <Eye className="w-3 h-3" />
           Visualizar
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 gap-1"
-          onClick={onEdit}
-          disabled={isLoadingEdit}
-        >
-          {isLoadingEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />}
-          Editar
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 gap-1"
-          onClick={onClone}
-        >
-          <Copy className="w-3 h-3" />
-          Duplicar
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 gap-1 ml-auto"
-          onClick={onDelete}
-        >
-          <Trash2 className="w-3 h-3" />
-          Excluir
-        </Button>
+        {canEdit && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 gap-1"
+              onClick={onEdit}
+              disabled={isLoadingEdit}
+            >
+              {isLoadingEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : <Pencil className="w-3 h-3" />}
+              Editar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 gap-1"
+              onClick={onClone}
+            >
+              <Copy className="w-3 h-3" />
+              Duplicar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 gap-1 ml-auto"
+              onClick={onDelete}
+            >
+              <Trash2 className="w-3 h-3" />
+              Excluir
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1146,6 +1154,7 @@ export default function LaudoTemplatesPage() {
               onToggleActive={() => handleToggleActive(template)}
               isTogglingActive={togglingId === template.id && updateMutation.isPending}
               isLoadingEdit={loadingEditId === template.id}
+              canEdit={canEdit}
             />
           ))}  
         </div>

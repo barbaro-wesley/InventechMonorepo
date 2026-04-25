@@ -49,6 +49,7 @@ import {
   useUpdateMaintenanceGroup,
   useDeleteMaintenanceGroup,
 } from "@/hooks/maintenance-groups/use-maintenance-groups";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import type { MaintenanceGroup } from "@/services/maintenance-groups/maintenance-groups.service";
 
 // ─── Cores predefinidas ───────────────────────────────────────────────────────
@@ -219,10 +220,12 @@ function GroupCard({
   group,
   onEdit,
   onDelete,
+  canManage,
 }: {
   group: MaintenanceGroup;
   onEdit: (g: MaintenanceGroup) => void;
   onDelete: (g: MaintenanceGroup) => void;
+  canManage: boolean;
 }) {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
@@ -246,28 +249,30 @@ function GroupCard({
             </div>
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
-                <MoreHorizontal className="w-3.5 h-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(group)}>
-                <Pencil className="w-3.5 h-3.5 mr-2" />Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive focus:text-destructive"
-                disabled={group._count.serviceOrders > 0 || group._count.technicians > 0}
-                onClick={() => onDelete(group)}
-              >
-                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                {group._count.serviceOrders > 0 || group._count.technicians > 0
-                  ? "Possui vínculos"
-                  : "Remover"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onEdit(group)}>
+                  <Pencil className="w-3.5 h-3.5 mr-2" />Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={group._count.serviceOrders > 0 || group._count.technicians > 0}
+                  onClick={() => onDelete(group)}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                  {group._count.serviceOrders > 0 || group._count.technicians > 0
+                    ? "Possui vínculos"
+                    : "Remover"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Badge sem restrição */}
@@ -309,6 +314,7 @@ export default function GruposManutencaoPage() {
   });
   const [deleteTarget, setDeleteTarget] = useState<MaintenanceGroup | null>(null);
 
+  const { canManageEquipment } = usePermissions();
   const { data: groups = [], isLoading } = useMaintenanceGroups(
     search ? { search } : undefined
   );
@@ -317,7 +323,7 @@ export default function GruposManutencaoPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
             Grupos de Manutenção
@@ -326,10 +332,12 @@ export default function GruposManutencaoPage() {
             Categorize os serviços e controle o acesso dos clientes aos equipamentos.
           </p>
         </div>
-        <Button onClick={() => setSheet({ open: true, target: null })}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo grupo
-        </Button>
+        {canManageEquipment && (
+          <Button onClick={() => setSheet({ open: true, target: null })}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo grupo
+          </Button>
+        )}
       </div>
 
       {/* Search */}
@@ -356,7 +364,7 @@ export default function GruposManutencaoPage() {
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             {search ? "Nenhum grupo encontrado" : "Nenhum grupo cadastrado"}
           </p>
-          {!search && (
+          {!search && canManageEquipment && (
             <Button size="sm" className="mt-4" onClick={() => setSheet({ open: true, target: null })}>
               <Plus className="w-4 h-4 mr-2" />Criar primeiro grupo
             </Button>
@@ -370,6 +378,7 @@ export default function GruposManutencaoPage() {
               group={g}
               onEdit={(g) => setSheet({ open: true, target: g })}
               onDelete={setDeleteTarget}
+              canManage={canManageEquipment}
             />
           ))}
         </div>
