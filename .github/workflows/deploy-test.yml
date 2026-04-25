@@ -82,6 +82,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/api:develop
             ghcr.io/${{ env.REPO_LOWER }}/api:develop-${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/api:latest
           cache-from: type=gha,scope=api-develop
           cache-to: type=gha,mode=max,scope=api-develop
 
@@ -97,6 +98,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/web:develop
             ghcr.io/${{ env.REPO_LOWER }}/web:develop-${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/web:latest
           cache-from: type=gha,scope=web-develop
           cache-to: type=gha,mode=max,scope=web-develop
 
@@ -109,6 +111,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/ocr-worker:develop
             ghcr.io/${{ env.REPO_LOWER }}/ocr-worker:develop-${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER }}/ocr-worker:latest
           no-cache: true
 
   # ─────────────────────────────────────────
@@ -142,17 +145,17 @@ jobs:
           echo "→ Fazendo login no GHCR..."
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-          echo "→ Baixando imagens develop..."
-          IMAGE_TAG=develop GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+          echo "→ Baixando imagens latest..."
+          GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
             docker compose -f docker-compose.prod.yml --env-file .env pull api web ocr-worker
 
           echo "→ Rodando migrations do banco..."
-          IMAGE_TAG=develop GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+          GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
             docker compose -f docker-compose.prod.yml --env-file .env \
             run --rm api sh -c "cd apps/api && npx prisma migrate deploy"
 
           echo "→ Subindo todos os serviços..."
-          IMAGE_TAG=develop GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+          GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
             docker compose -f docker-compose.prod.yml --env-file .env \
             up -d --no-build --remove-orphans
 
