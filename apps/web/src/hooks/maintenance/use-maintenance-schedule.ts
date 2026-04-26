@@ -5,8 +5,10 @@ import { toast } from 'sonner'
 import {
   maintenanceScheduleService,
   type CreateMaintenanceScheduleDto,
+  type UpdateMaintenanceScheduleDto,
   type ListSchedulesParams,
 } from '@/services/maintenance/maintenance-schedule.service'
+import { maintenanceGroupsService } from '@/services/maintenance-groups/maintenance-groups.service'
 import { getErrorMessage } from '@/lib/api'
 
 export const scheduleKeys = {
@@ -50,6 +52,29 @@ export function useCreateMaintenanceSchedule() {
   })
 }
 
+export function useUpdateMaintenanceSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      clientId,
+      id,
+      dto,
+    }: {
+      clientId: string
+      id: string
+      dto: UpdateMaintenanceScheduleDto
+    }) => maintenanceScheduleService.update(clientId, id, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all })
+      toast.success('Agendamento atualizado com sucesso')
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
+    },
+  })
+}
+
 export function useToggleSchedule() {
   const queryClient = useQueryClient()
 
@@ -63,5 +88,44 @@ export function useToggleSchedule() {
     onError: (err) => {
       toast.error(getErrorMessage(err))
     },
+  })
+}
+
+export function useTriggerSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (clientId: string) => maintenanceScheduleService.trigger(clientId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all })
+      toast.success('Geração de OS preventivas iniciada!')
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
+    },
+  })
+}
+
+export function useDeleteMaintenanceSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ clientId, id }: { clientId: string; id: string }) =>
+      maintenanceScheduleService.remove(clientId, id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all })
+      toast.success('Agendamento removido com sucesso')
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
+    },
+  })
+}
+
+export function useMaintenanceGroups() {
+  return useQuery({
+    queryKey: ['maintenance-groups', 'list'],
+    queryFn: () => maintenanceGroupsService.list({ isActive: true }),
+    staleTime: 5 * 60_000,
   })
 }

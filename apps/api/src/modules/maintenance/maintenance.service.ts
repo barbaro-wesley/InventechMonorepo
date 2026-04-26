@@ -66,6 +66,7 @@ const SCHEDULE_SELECT = {
     equipment: { select: { id: true, name: true, brand: true, model: true } },
     group: { select: { id: true, name: true, color: true } },
     client: { select: { id: true, name: true } },
+    assignedTechnician: { select: { id: true, name: true } },
     _count: { select: { maintenances: true } },
 } satisfies Prisma.MaintenanceScheduleSelect
 
