@@ -92,7 +92,7 @@ class DB:
             INSERT INTO scans
               (id, company_id, printer_id, file_name, stored_key,
                bucket, mime_type, size_bytes, status, scanned_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamp)
             """,
             scan.id,
             scan.company_id,
@@ -117,7 +117,7 @@ class DB:
         await self._pool.execute(
             """
             UPDATE scans
-            SET status = $2, stored_key = $3, processed_at = $4, error_msg = $5
+            SET status = $2, stored_key = $3, processed_at = $4::timestamp, error_msg = $5
             WHERE id = $1
             """,
             scan_id,
@@ -133,7 +133,7 @@ class DB:
             INSERT INTO scan_metadata
               (id, scan_id, ocr_status, paciente, cpf,
                prontuario, numero_atendimento, extracted_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamp)
             """,
             metadata.id,
             metadata.scan_id,

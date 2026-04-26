@@ -3,7 +3,7 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -123,7 +123,7 @@ class Processor:
         file_name = Path(file_path).name
         scan_id = str(uuid.uuid4())
         mime_type = _detect_mime(file_name)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         printer = await self._db.find_printer_by_sftp_directory(sftp_dir)
         if not printer:
@@ -158,14 +158,14 @@ class Processor:
             await self._storage.upload_file(stored_key, file_path, mime_type)
         except Exception as exc:
             logger.error("MinIO upload failed for %s: %s", file_name, exc)
-            processed_at = datetime.utcnow()
+            processed_at = datetime.now(timezone.utc)
             await self._db.update_scan_status(
                 scan_id, "ERROR", "", processed_at, str(exc)
             )
             await self._move_to_error(file_path)
             return
 
-        processed_at = datetime.utcnow()
+        processed_at = datetime.now(timezone.utc)
         await self._db.update_scan_status(scan_id, "PROCESSED", stored_key, processed_at)
         await self._db.insert_scan_metadata(
             ScanMetadata(
