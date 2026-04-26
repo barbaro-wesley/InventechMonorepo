@@ -3,10 +3,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 # Mirrors the regex patterns from the Go extractor (internal/extractor/extractor.go)
-_PATTERN_PACIENTE = re.compile(r"(?i)Paciente:\s*([A-ZÀ-Ú][A-ZÀ-Ú\s]+)")
+_PATTERN_PACIENTE = re.compile(r"(?i)Paciente[:\s]+([A-ZÀ-Ú][A-ZÀ-Ú ]+?)(?=\s{2,}|\n|\r|$)")
 _PATTERN_CPF = re.compile(r"(?i)CPF[:\s]+(\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2})")
 _PATTERN_PRONTUARIO = re.compile(r"(?i)Prontu[aá]rio[:\s]+(\d+)")
-_PATTERN_NUMERO_ATENDIMENTO = re.compile(r"(?i)(?:R\.A\.|Atendimento)[:\s]+(\d+)")
+_PATTERN_NUMERO_ATENDIMENTO = re.compile(r"(?i)(?:R\.?\s*A\.?|N\.?\s*Intern[oa]?|Atendimento)[:\s]+(\d+)")
 _NORMALIZE_CPF = re.compile(r"[.\s\-]")
 
 
