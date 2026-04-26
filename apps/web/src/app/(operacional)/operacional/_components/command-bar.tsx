@@ -141,17 +141,7 @@ export function CommandBar({
           <SelectItem value="all">Todos os grupos</SelectItem>
           {groups.map((g) => (
             <SelectItem key={g.id} value={g.id}>
-              {g.color ? (
-                <span className="flex items-center gap-1.5">
-                  <span
-                    className="inline-block h-2 w-2 rounded-full shrink-0"
-                    style={{ backgroundColor: g.color }}
-                  />
-                  {g.name}
-                </span>
-              ) : (
-                g.name
-              )}
+              {g.name}
             </SelectItem>
           ))}
         </SelectContent>

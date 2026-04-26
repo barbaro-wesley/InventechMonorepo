@@ -21,7 +21,8 @@
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(go build *)",
       "Bash(git fetch *)",
-      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")"
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
+      "Bash(grep -n \"keys\\\\|{s,\" \"C:\\\\Users\\\\Wesley Barbaro\\\\Documents\\\\inventech-monorepo\\\\node_modules\\\\next\\\\dist\\\\compiled\\\\react\\\\jsx-dev-runtime.js\")"
     ]
   }
 }
