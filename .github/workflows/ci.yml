@@ -74,16 +74,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Metadados da imagem (tag = SHA curto)
+      - name: SHA curto
         id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/${{ steps.repo.outputs.name }}/api
-            ghcr.io/${{ steps.repo.outputs.name }}/web
-          tags: |
-            type=sha,prefix=,format=short
-            type=raw,value=latest
+        run: echo "version=$(echo '${{ github.sha }}' | cut -c1-7)" >> $GITHUB_OUTPUT
 
       # ── Build API ────────────────────────────────────────────────
       - name: Build & push imagem da API
@@ -113,6 +106,19 @@ jobs:
             ghcr.io/${{ steps.repo.outputs.name }}/web:latest
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
+
+      # ── Build OCR Worker ─────────────────────────────────────────
+      - name: Build & push imagem do OCR Worker
+        uses: docker/build-push-action@v6
+        with:
+          context: services/ocr-worker
+          file: services/ocr-worker/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.name }}/ocr-worker:${{ steps.meta.outputs.version }}
+            ghcr.io/${{ steps.repo.outputs.name }}/ocr-worker:latest
+          cache-from: type=gha,scope=ocr-worker
+          cache-to: type=gha,mode=max,scope=ocr-worker
 
   # ─────────────────────────────────────────
   # Deploy — aciona o script no servidor

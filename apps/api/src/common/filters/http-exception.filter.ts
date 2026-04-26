@@ -81,6 +81,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       message = 'Dados inválidos enviados ao banco'
       error = 'Validation Error'
       this.logger.error('Prisma Validation Error:', exception.message)
+      if (process.env.NODE_ENV !== 'production') {
+        extra.detail = exception.message
+      }
     }
 
     // ── Erros desconhecidos ──

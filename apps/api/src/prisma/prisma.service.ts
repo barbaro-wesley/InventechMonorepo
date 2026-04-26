@@ -183,6 +183,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get equipmentSubtype() { return this._db.equipmentSubtype }
   get equipment() { return this._db.equipment }
   get equipmentMovement() { return this._db.equipmentMovement }
+  get equipmentManual() { return this._db.equipmentManual }
 
   // ─── Manutenção ────────────────────────────────────────────────────────────
 
@@ -216,4 +217,18 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   // ─── Configurações de Notificação ─────────────────────────────────────────
   get notificationConfig() { return this._db.notificationConfig }
+
+  // ─── E-Sign ────────────────────────────────────────────────────────────
+  get eSignDocument() { return this._db.eSignDocument }
+  get eSignRequest() { return this._db.eSignRequest }
+  get eSignEvent() { return this._db.eSignEvent }
+  get eSignCertificate() { return this._db.eSignCertificate }
+
+  // ─── Laudos ────────────────────────────────────────────────────────────
+  get laudoTemplate() { return this._db.laudoTemplate }
+  get laudo() { return this._db.laudo }
+
+  // ─── Impressoras & Scans ──────────────────────────────────────────────
+  get printer() { return this._db.printer }
+  get scan() { return this._db.scan }
 }

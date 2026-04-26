@@ -23,25 +23,29 @@ export function usePermissions() {
     function canAccess(resource: string, action: string): boolean {
         if (!user) return false;
         if (user.role === "SUPER_ADMIN") return true;
-        if (user.customRoleId) {
-            return user.permissions?.includes(`${resource}:${action}`) ?? false;
-        }
-        // Fallback para papéis de sistema — sem papel personalizado, confia no roles[]
-        return false;
+        // Verifica user.permissions para tanto papéis personalizados quanto de sistema.
+        // Permissões de sistema são derivadas da matriz de papéis configurada via UI.
+        return user.permissions?.includes(`${resource}:${action}`) ?? false;
     }
 
     /**
      * Verifica se o usuário pode ver um item de navegação.
-     * Custom role users: usa canAccess com o permission key do item.
-     * System role users: usa o array roles[] do item.
+     * Custom role users: usa apenas user.permissions (canAccess).
+     * System role users: usa roles[] OU user.permissions se o item tiver permission key.
+     * Isso permite que permissões concedidas via matriz de papéis (UI) funcionem
+     * tanto para papéis personalizados quanto para papéis de sistema.
      */
     function canSeeNav(roles: Role[], permission?: string): boolean {
         if (!user) return false;
-        if (user.customRoleId && permission && user.role !== "SUPER_ADMIN") {
+        if (user.role === "SUPER_ADMIN") return true;
+        if (user.customRoleId && permission) {
             const [resource, action] = permission.split(":");
             return canAccess(resource, action);
         }
-        return roles.includes(user.role as Role);
+        // Papel de sistema: verifica roles[] primeiro, depois user.permissions
+        if (roles.includes(user.role as Role)) return true;
+        if (permission && (user.permissions?.includes(permission) ?? false)) return true;
+        return false;
     }
 
     return {

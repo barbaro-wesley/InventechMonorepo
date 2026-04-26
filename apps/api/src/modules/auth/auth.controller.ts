@@ -127,7 +127,7 @@ export class AuthController {
     res.cookie('access_token', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE })
     res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE })
 
-    return { message: 'Tokens renovados com sucesso' }
+    return { message: 'Tokens renovados com sucesso...' }
   }
 
   // ─────────────────────────────────────────

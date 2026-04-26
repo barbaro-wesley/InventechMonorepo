@@ -417,6 +417,20 @@ export class ServiceOrdersService {
                     },
                     orderBy: { createdAt: 'asc' },
                 },
+                laudos: {
+                    where: { deletedAt: null },
+                    select: {
+                        id: true,
+                        number: true,
+                        title: true,
+                        status: true,
+                        referenceType: true,
+                        pdfUrl: true,
+                        createdAt: true,
+                        technician: { select: { id: true, name: true } },
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
             },
         })
 
@@ -950,6 +964,7 @@ export class ServiceOrdersService {
         if (dto.status === ServiceOrderStatus.COMPLETED) {
             statusData.completedAt = new Date()
             if (dto.resolution) statusData.resolution = dto.resolution
+            else if (!dto.laudoId) statusData.resolution = null
         }
         if (dto.status === ServiceOrderStatus.COMPLETED_APPROVED || dto.status === ServiceOrderStatus.COMPLETED_REJECTED) {
             statusData.approvedAt = new Date()
@@ -1000,6 +1015,13 @@ export class ServiceOrdersService {
                     reason: dto.reason,
                 },
             })
+
+            if (dto.laudoId && dto.status === ServiceOrderStatus.COMPLETED) {
+                await tx.laudo.updateMany({
+                    where: { id: dto.laudoId, companyId, status: 'DRAFT' },
+                    data: { serviceOrderId: id, status: 'PENDING_REVIEW' },
+                })
+            }
 
             // Se OS chegou a estado terminal, atualiza status do equipamento
             const TERMINAL: ServiceOrderStatus[] = [ServiceOrderStatus.COMPLETED_APPROVED, ServiceOrderStatus.CANCELLED]

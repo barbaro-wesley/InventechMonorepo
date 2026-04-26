@@ -19,6 +19,11 @@ import { EquipmentTypesController } from './equipment-types/equipment-types.cont
 // Movements
 import { MovementsService } from './movement/movements.service'
 import { MovementsController } from './movement/movements.controller'
+
+// Manuals
+import { ManualsService } from './manuals/manuals.service'
+import { ManualsController } from './manuals/manuals.controller'
+
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { ReportsModule } from '../reports/reports.module'
@@ -31,6 +36,7 @@ import { ReportsModule } from '../reports/reports.module'
         CostCentersController,
         EquipmentTypesController,
         MovementsController,
+        ManualsController,
     ],
     providers: [
         EquipmentService,
@@ -38,6 +44,7 @@ import { ReportsModule } from '../reports/reports.module'
         CostCentersService,
         EquipmentTypesService,
         MovementsService,
+        ManualsService,
     ],
     exports: [EquipmentService],
 })

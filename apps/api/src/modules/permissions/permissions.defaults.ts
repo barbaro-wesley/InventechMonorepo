@@ -30,6 +30,13 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'equipment:delete':            [SA, CA, CM, CLA],
   'equipment:depreciation':      [SA, CA, CM, CLA],
 
+  // ── EQUIPMENT MANUAL ───────────────────────────────────────────────────────
+  'equipment-manual:list':           [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'equipment-manual:read':           [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'equipment-manual:create':         [SA, CA, CM, CLA, CLU],
+  'equipment-manual:update':         [SA, CA, CM, CLA, CLU],
+  'equipment-manual:delete':         [SA, CA, CM, CLA],
+
   // ── COST CENTER ────────────────────────────────────────────────────────────
   'cost-center:list':            [SA, CA, CM, TEC, CLA, CLU, CLV],
   'cost-center:read':            [SA, CA, CM, TEC, CLA, CLU, CLV],
@@ -154,11 +161,42 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   // ── NOTIFICATION CONFIG ────────────────────────────────────────────────────
   'notification-config:list':    [SA, CA, CM],
   'notification-config:update':  [SA, CA, CM],
+
+  // ── LAUDO TEMPLATE ─────────────────────────────────────────────────────────
+  'laudo-template:list':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo-template:read':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo-template:create':       [SA, CA, CM],
+  'laudo-template:update':       [SA, CA, CM],
+  'laudo-template:delete':       [SA, CA],
+
+  // ── LAUDO ──────────────────────────────────────────────────────────────────
+  'laudo:list':                  [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo:read':                  [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo:create':                [SA, CA, CM, TEC],
+  'laudo:update':                [SA, CA, CM, TEC],
+  'laudo:approve':               [SA, CA, CM, CLA],
+  'laudo:delete':                [SA, CA, CM],
+  'laudo:export-pdf':            [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'laudo:sign':                  [SA, CA, CM, TEC, CLA, CLU],
+
+  // ── PRINTER ────────────────────────────────────────────────────────────────
+  'printer:list':                [SA, CA, CM],
+  'printer:read':                [SA, CA, CM],
+  'printer:create':              [SA, CA],
+  'printer:update':              [SA, CA, CM],
+  'printer:delete':              [SA, CA],
+
+  // ── SCAN ───────────────────────────────────────────────────────────────────
+  'scan:list':                   [SA, CA, CM, TEC],
+  'scan:read':                   [SA, CA, CM, TEC],
+  'scan:download':               [SA, CA, CM, TEC],
+  'scan:delete':                 [SA, CA, CM],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
 export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'equipment':            ['list', 'read', 'create', 'update', 'delete', 'depreciation'],
+  'equipment-manual':     ['list', 'read', 'create', 'update', 'delete'],
   'cost-center':          ['list', 'read', 'create', 'update', 'delete'],
   'location':             ['list', 'read', 'create', 'update', 'delete'],
   'equipment-type':       ['list', 'read', 'create', 'update', 'delete', 'create-sub', 'update-sub', 'delete-sub'],
@@ -176,6 +214,10 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'custom-role':          ['list', 'read', 'create', 'update', 'delete', 'assign'],
   'alert-rule':           ['list', 'read', 'create', 'update', 'delete'],
   'notification-config':  ['list', 'update'],
+  'laudo-template':       ['list', 'read', 'create', 'update', 'delete'],
+  'laudo':                ['list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
+  'printer':              ['list', 'read', 'create', 'update', 'delete'],
+  'scan':                 ['list', 'read', 'download', 'delete'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)

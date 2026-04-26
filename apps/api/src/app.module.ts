@@ -27,6 +27,10 @@ import { ReportsModule } from './modules/reports/reports.module'
 import { PermissionsModule } from './modules/permissions/permissions.module'
 import { AlertRulesModule } from './modules/alert-rules/alert-rules.module'
 import { NotificationConfigsModule } from './modules/notification-configs/notification-configs.module'
+import { ESignModule } from './modules/e-sign/e-sign.module'
+import { LaudosModule } from './modules/laudos/laudos.module'
+import { PrintersModule } from './modules/printers/printers.module'
+import { ScansModule } from './modules/scans/scans.module'
 
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
 import { RateLimitGuard } from './common/guards/rate-limit.guard'
@@ -77,6 +81,10 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     PermissionsModule,
     AlertRulesModule,
     NotificationConfigsModule,
+    ESignModule,
+    LaudosModule,
+    PrintersModule,
+    ScansModule,
   ],
   providers: [
     // ─── Ordem dos guards é crítica ──────────────────────────────

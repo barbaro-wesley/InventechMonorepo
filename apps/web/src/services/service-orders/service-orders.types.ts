@@ -131,11 +131,23 @@ export interface ServiceOrderStatusHistory {
   changedBy: { id: string; name: string } | null
 }
 
+export interface ServiceOrderLaudo {
+  id: string
+  number: number
+  title: string
+  status: string
+  referenceType: string
+  pdfUrl: string | null
+  createdAt: string
+  technician: { id: string; name: string } | null
+}
+
 export interface ServiceOrderDetail extends ServiceOrder {
   comments: ServiceOrderComment[]
   tasks: ServiceOrderTask[]
   statusHistory: ServiceOrderStatusHistory[]
   attachments: Attachment[]
+  laudos?: ServiceOrderLaudo[]
 }
 
 export interface PaginatedResponse<T> {
@@ -179,6 +191,7 @@ export interface UpdateServiceOrderStatusDto {
   resolution?: string
   reason?: string
   files?: File[]
+  laudoId?: string
 }
 
 export interface AssignTechnicianDto {

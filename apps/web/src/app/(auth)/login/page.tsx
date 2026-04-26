@@ -258,7 +258,7 @@ export default function LoginPage() {
                 href="/forgot-password"
                 className="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 hover:underline transition-colors"
               >
-                Esqueceu a senha?
+                Esqueceu a sua senha ?? senha?
               </Link>
             </div>
             <div className="relative">

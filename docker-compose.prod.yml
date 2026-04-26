@@ -21,6 +21,8 @@ services:
       MINIO_ENDPOINT: minio
     ports:
       - "127.0.0.1:3000:3000"
+    volumes:
+      - /srv/scans/incoming:/srv/scans/incoming
     depends_on:
       postgres:
         condition: service_healthy
@@ -183,6 +185,45 @@ services:
       - inventech_network
     restart: on-failure
 
+# OCR Worker — Processamento de scans
+  # ─────────────────────────────────────────
+  ocr-worker:
+    image: ghcr.io/${GITHUB_REPOSITORY_LOWER}/ocr-worker:${IMAGE_TAG:-latest}
+    container_name: inventech_ocr_worker
+    restart: unless-stopped
+    environment:
+      POSTGRES_DSN: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_USE_SSL: "false"
+      MINIO_BUCKET: scans
+      SFTP_SCAN_BASE_DIR: /srv/scans/incoming
+      OCR_LANG: por
+      OCR_DPI: "300"
+      SCAN_WEBHOOK_URL: http://api:3000/api/v1/scans/webhook/processed
+      SCAN_WEBHOOK_SECRET: ${SCAN_WEBHOOK_SECRET}
+    volumes:
+      - sftp_scans:/srv/scans/incoming
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - inventech_network
+    healthcheck:
+      test: ["CMD", "pgrep", "ocr-worker"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
 # ─────────────────────────────────────────
 # Volumes persistentes
 # ─────────────────────────────────────────
@@ -193,6 +234,12 @@ volumes:
     driver: local
   minio_data:
     driver: local
+  sftp_scans:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /srv/scans/incoming
 
 # ─────────────────────────────────────────
 # Rede interna — containers se comunicam por nome

@@ -112,6 +112,7 @@ async function updateStatus(
   formData.append('status', dto.status)
   if (dto.resolution) formData.append('resolution', dto.resolution)
   if (dto.reason) formData.append('reason', dto.reason)
+  if (dto.laudoId) formData.append('laudoId', dto.laudoId)
   dto.files.forEach((file) => formData.append('files', file))
 
   const { data } = await api.patch(`${osBase(clientId, id)}/status`, formData)
