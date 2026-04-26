@@ -241,12 +241,13 @@ export class ServiceOrdersService {
     ) {
         const {
             search, status, priority, equipmentId,
-            groupId, dateFrom, dateTo, page = 1, limit = 50,
+            clientId, groupId, dateFrom, dateTo, page = 1, limit = 50,
         } = filters
 
         const where: Prisma.ServiceOrderWhereInput = {
             companyId,
             deletedAt: null,
+            ...(clientId && { clientId }),
             ...(status && { status }),
             ...(priority && { priority }),
             ...(equipmentId && { equipmentId }),

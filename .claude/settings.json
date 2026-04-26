@@ -20,7 +20,8 @@
       "Bash(grep -E \"\\\\.tsx$\")",
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(go build *)",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(grep -E \"\\\\.\\(ts|js\\)$\")"
     ]
   }
 }

@@ -151,7 +151,8 @@ class Processor:
             None, self._extract_sync, file_path, file_name
         )
 
-        ocr_status = "SUCCESS" if extracted.has_patient_data else "FAILED"
+        # is_confident = True quando >= 2 campos foram extraídos (critério mínimo para persistir)
+        ocr_status = "SUCCESS" if extracted.is_confident else "FAILED"
         stored_key = f"{printer.company_id}/{printer.id}/{scan_id}/{file_name}"
 
         try:
@@ -186,15 +187,22 @@ class Processor:
             logger.warning("Could not delete local file %s: %s", file_path, exc)
 
         logger.info(
-            "Processed: %s [ocr=%s, printer=%s]", file_name, ocr_status, printer.name
+            "Processed: %s [ocr=%s, fields=%d/4, printer=%s]",
+            file_name, ocr_status, extracted.filled_count, printer.name,
         )
         await self._notify_api(scan_id, printer.company_id, "PROCESSED")
 
     def _extract_sync(self, file_path: str, file_name: str) -> ExtractedData:
         """
-        Opens the PDF and iterates page by page.
-        For each page: tries native text first, falls back to OCR.
-        Stops as soon as patient data (Paciente field) is found — remaining pages are skipped.
+        Abre o PDF e itera página por página.
+        Para cada página: tenta texto nativo primeiro, cai para OCR se não houver.
+
+        Estratégia de parada:
+          - Se uma única página contribuir >= 3 campos novos, para imediatamente
+            (o cabeçalho do HCR sempre concentra os dados na mesma página).
+          - Se nenhuma página atingiu esse threshold, continua acumulando.
+          - Ao final, o caller usa extracted.is_confident (>= 2 campos) para
+            decidir se o resultado é válido.
         """
         result = ExtractedData()
 
@@ -210,24 +218,24 @@ class Processor:
             for idx in range(total):
                 page_num = idx + 1  # 1-based for logging
 
-                # ── 1. Native text layer ──────────────────────────────────────
+                # ── 1. Texto nativo ───────────────────────────────────────────
                 text = self._pdf_reader.extract_text_page(doc, idx)
                 if text:
-                    found = self._extractor.extract_into(result, text)
+                    stop = self._extractor.extract_into(result, text)
                     logger.debug(
-                        "[%s] page %d: direct text (%d chars), paciente=%s",
-                        file_name, page_num, len(text), result.paciente is not None,
+                        "[%s] page %d: direct text (%d chars), fields=%d/4",
+                        file_name, page_num, len(text), result.filled_count,
                     )
-                    if found:
+                    if stop:
                         logger.info(
-                            "[%s] patient found on page %d via text — stopping",
+                            "[%s] page %d: >= 3 fields found via text — stopping early",
                             file_name, page_num,
                         )
                         return result
-                    # Page has text but no patient data — skip OCR for this page
+                    # Página tem texto mas não atingiu threshold — pula OCR.
                     continue
 
-                # ── 2. OCR fallback (page has no text layer) ─────────────────
+                # ── 2. Fallback OCR (página sem camada de texto) ──────────────
                 logger.debug("[%s] page %d: no embedded text, running OCR", file_name, page_num)
                 image_bytes = self._pdf_reader.render_page_to_bytes(doc, idx, dpi=self._cfg.ocr_dpi)
                 if image_bytes is None:
@@ -237,14 +245,14 @@ class Processor:
                 if not ocr_text:
                     continue
 
-                found = self._extractor.extract_into(result, ocr_text)
+                stop = self._extractor.extract_into(result, ocr_text)
                 logger.debug(
-                    "[%s] page %d: OCR (%d chars), paciente=%s",
-                    file_name, page_num, len(ocr_text), result.paciente is not None,
+                    "[%s] page %d: OCR (%d chars), fields=%d/4",
+                    file_name, page_num, len(ocr_text), result.filled_count,
                 )
-                if found:
+                if stop:
                     logger.info(
-                        "[%s] patient found on page %d via OCR — stopping",
+                        "[%s] page %d: >= 3 fields found via OCR — stopping early",
                         file_name, page_num,
                     )
                     return result
