@@ -162,7 +162,7 @@ export function ScheduleFormSheet({
         startDate: schedule.startDate?.split("T")[0] ?? new Date().toISOString().split("T")[0],
         endDate: schedule.endDate?.split("T")[0] ?? "",
       });
-      setSelectedEquipment(schedule.equipment);
+      setSelectedEquipment({ ...schedule.equipment, patrimonyNumber: null });
     } else {
       form.reset({
         clientId: fixedClientId ?? "",
