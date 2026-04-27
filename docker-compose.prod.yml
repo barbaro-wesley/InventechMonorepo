@@ -203,6 +203,9 @@ services:
       OCR_DPI: "300"
       SCAN_WEBHOOK_URL: http://api:3000/api/v1/scans/webhook/processed
       SCAN_WEBHOOK_SECRET: ${SCAN_WEBHOOK_SECRET}
+      MAX_CONCURRENT: "5"
+      MAX_FILE_SIZE_MB: "50"
+      LOG_LEVEL: INFO
     volumes:
       - sftp_scans:/srv/scans/incoming
     depends_on:
@@ -212,12 +215,6 @@ services:
         condition: service_healthy
     networks:
       - inventech_network
-    healthcheck:
-      test: ["CMD", "pgrep", "ocr-worker"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
     logging:
       driver: json-file
       options:

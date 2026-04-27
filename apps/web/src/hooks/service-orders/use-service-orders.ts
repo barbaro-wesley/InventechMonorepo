@@ -302,3 +302,18 @@ export function useDeleteCostItem(clientId: string | null, osId: string) {
     onError: (err) => toast.error(getErrorMessage(err)),
   })
 }
+
+// ─────────────────────────────────────────
+// Excluir OS
+// ─────────────────────────────────────────
+export function useDeleteServiceOrder(clientId: string | null, id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => serviceOrdersService.deleteServiceOrder(clientId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      toast.success('OS excluída com sucesso')
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}

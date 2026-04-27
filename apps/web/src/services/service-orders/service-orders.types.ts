@@ -161,6 +161,7 @@ export interface ListServiceOrdersParams {
   search?: string
   status?: ServiceOrderStatus
   priority?: ServiceOrderPriority
+  clientId?: string
   groupId?: string
   equipmentId?: string
   dateFrom?: string

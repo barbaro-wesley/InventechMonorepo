@@ -145,6 +145,10 @@ export class ListServiceOrdersDto {
 
     @IsOptional()
     @IsUUID()
+    clientId?: string
+
+    @IsOptional()
+    @IsUUID()
     groupId?: string
 
     @IsOptional()

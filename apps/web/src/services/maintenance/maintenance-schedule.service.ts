@@ -10,13 +10,23 @@ export type RecurrenceType =
   | 'ANNUAL'
   | 'CUSTOM'
 
+export type MaintenanceType =
+  | 'PREVENTIVE'
+  | 'CORRECTIVE'
+  | 'INITIAL_ACCEPTANCE'
+  | 'EXTERNAL_SERVICE'
+  | 'TECHNOVIGILANCE'
+  | 'TRAINING'
+  | 'IMPROPER_USE'
+  | 'DEACTIVATION'
+
 export interface MaintenanceSchedule {
   id: string
   companyId: string
   clientId: string | null
   title: string
   description: string | null
-  maintenanceType: string
+  maintenanceType: MaintenanceType
   recurrenceType: RecurrenceType
   customIntervalDays: number | null
   estimatedDurationMin: number | null
@@ -30,6 +40,7 @@ export interface MaintenanceSchedule {
   equipment: { id: string; name: string; brand: string | null; model: string | null }
   group: { id: string; name: string; color: string | null } | null
   client: { id: string; name: string } | null
+  assignedTechnician: { id: string; name: string } | null
   _count: { maintenances: number }
 }
 
@@ -38,20 +49,34 @@ export interface CreateMaintenanceScheduleDto {
   equipmentId: string
   title: string
   description?: string
-  maintenanceType: string
+  maintenanceType: MaintenanceType
   recurrenceType: RecurrenceType
   customIntervalDays?: number
   estimatedDurationMin?: number
+  assignedTechnicianId?: string
   groupId?: string
   startDate: string
   endDate?: string
 }
 
+export interface UpdateMaintenanceScheduleDto {
+  title?: string
+  description?: string
+  recurrenceType?: RecurrenceType
+  customIntervalDays?: number
+  estimatedDurationMin?: number
+  assignedTechnicianId?: string | null
+  groupId?: string | null
+  endDate?: string | null
+  isActive?: boolean
+}
+
 export interface ListSchedulesParams {
   search?: string
   equipmentId?: string
-  maintenanceType?: string
+  maintenanceType?: MaintenanceType
   recurrenceType?: RecurrenceType
+  groupId?: string
   isActive?: boolean
   page?: number
   limit?: number
@@ -114,14 +139,27 @@ async function create(dto: CreateMaintenanceScheduleDto): Promise<MaintenanceSch
   return data.data ?? data
 }
 
+async function update(
+  clientId: string,
+  id: string,
+  dto: UpdateMaintenanceScheduleDto,
+): Promise<MaintenanceSchedule> {
+  const { data } = await api.patch(`/clients/${clientId}/maintenance-schedules/${id}`, dto)
+  return data.data ?? data
+}
+
 async function toggle(id: string, isActive: boolean): Promise<MaintenanceSchedule> {
   const { data } = await api.patch(`/maintenance-schedules/${id}/toggle`, { isActive })
   return data.data ?? data
 }
 
-async function trigger(clientId: string) {
+async function trigger(clientId: string): Promise<{ message: string; jobId: string | number }> {
   const { data } = await api.post(`/clients/${clientId}/maintenance-schedules/trigger`)
   return data.data ?? data
+}
+
+async function remove(clientId: string, id: string): Promise<void> {
+  await api.delete(`/clients/${clientId}/maintenance-schedules/${id}`)
 }
 
 async function listUpcoming(daysAhead = 30): Promise<UpcomingSchedule[]> {
@@ -134,7 +172,9 @@ export const maintenanceScheduleService = {
   listByClient,
   getById,
   create,
+  update,
   toggle,
   trigger,
+  remove,
   listUpcoming,
 }

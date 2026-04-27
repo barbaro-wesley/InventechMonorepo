@@ -10,6 +10,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { ServiceOrderStatus, ServiceOrderPriority } from '@/services/service-orders/service-orders.types'
+import type { Client } from '@/types/client'
+import type { MaintenanceGroup } from '@/services/maintenance-groups/maintenance-groups.service'
 
 export type ViewMode = 'board' | 'list'
 
@@ -23,6 +25,12 @@ interface CommandBarProps {
   onStatusChange: (s: ServiceOrderStatus | '') => void
   priority: ServiceOrderPriority | ''
   onPriorityChange: (p: ServiceOrderPriority | '') => void
+  clientId: string
+  onClientIdChange: (id: string) => void
+  groupId: string
+  onGroupIdChange: (id: string) => void
+  clients: Client[]
+  groups: MaintenanceGroup[]
   myOrders: boolean
   onMyOrdersChange: (v: boolean) => void
   showClosed: boolean
@@ -39,15 +47,21 @@ export function CommandBar({
   onStatusChange,
   priority,
   onPriorityChange,
+  clientId,
+  onClientIdChange,
+  groupId,
+  onGroupIdChange,
+  clients,
+  groups,
   myOrders,
   onMyOrdersChange,
   showClosed,
   onShowClosedChange,
 }: CommandBarProps) {
   return (
-    <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-[#e0e5eb]">
+    <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-[#e0e5eb] flex-wrap">
       {/* Busca */}
-      <div className="relative flex-1 max-w-sm">
+      <div className="relative flex-1 min-w-[180px] max-w-sm">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6c7c93]" />
         <Input
           placeholder="Buscar por nº da OS, patrimônio ou descrição..."
@@ -94,6 +108,42 @@ export function CommandBar({
           <SelectItem value="HIGH">🟠 Alta</SelectItem>
           <SelectItem value="MEDIUM">🔵 Média</SelectItem>
           <SelectItem value="LOW">⚪ Baixa</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Filtro prestador */}
+      <Select
+        value={clientId || 'all'}
+        onValueChange={(v) => onClientIdChange(v === 'all' ? '' : v)}
+      >
+        <SelectTrigger className="h-8 w-44 text-xs bg-[#f3f4f7] border-transparent">
+          <SelectValue placeholder="Prestador" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os prestadores</SelectItem>
+          {clients.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Filtro grupo de manutenção */}
+      <Select
+        value={groupId || 'all'}
+        onValueChange={(v) => onGroupIdChange(v === 'all' ? '' : v)}
+      >
+        <SelectTrigger className="h-8 w-44 text-xs bg-[#f3f4f7] border-transparent">
+          <SelectValue placeholder="Grupo" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os grupos</SelectItem>
+          {groups.map((g) => (
+            <SelectItem key={g.id} value={g.id}>
+              {g.name}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
 

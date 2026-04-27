@@ -10,7 +10,6 @@ import {
   IsBoolean, IsArray, IsString,
 } from 'class-validator'
 import { Transform } from 'class-transformer'
-import { ServiceOrderStatus } from '@prisma/client'
 import { ReportsService } from './reports.service'
 import { ReportPermissionsService, type ReportType } from './report-permissions.service'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
@@ -24,9 +23,18 @@ class OsFiltersDto {
   @IsOptional() @IsUUID() clientId?: string
   @IsOptional() @IsUUID() groupId?: string
   @IsOptional() @IsUUID() technicianId?: string
-  @IsOptional() @IsEnum(ServiceOrderStatus) status?: ServiceOrderStatus
+  /** Comma-separated status values, e.g. 'OPEN,IN_PROGRESS' */
+  @IsOptional() @IsString() status?: string
+  /** Comma-separated priority values, e.g. 'HIGH,URGENT' */
+  @IsOptional() @IsString() priority?: string
+  /** Comma-separated maintenance type values, e.g. 'PREVENTIVE,CORRECTIVE' */
+  @IsOptional() @IsString() maintenanceType?: string
+  /** Which date field to filter: 'createdAt' | 'startedAt' | 'completedAt' | 'approvedAt' */
+  @IsOptional() @IsString() dateField?: string
   @IsOptional() @IsDateString() dateFrom?: string
   @IsOptional() @IsDateString() dateTo?: string
+  /** Group rows by: 'status' | 'priority' | 'maintenanceType' | 'client' | 'group' | 'technician' */
+  @IsOptional() @IsString() groupBy?: string
 }
 
 class EquipmentFiltersDto {
@@ -78,6 +86,12 @@ export class ReportsController {
   // ─────────────────────────────────────────
   // OS
   // ─────────────────────────────────────────
+
+  @Get('service-orders/assignees')
+  @ApiOperation({ summary: 'Listar usuários que já foram atribuídos a alguma OS da empresa' })
+  async getOsAssignees(@CurrentUser() cu: AuthenticatedUser) {
+    return this.reportsService.getServiceOrderAssignees(cu.companyId!)
+  }
 
   @Get('service-orders/excel')
   @ApiOperation({ summary: 'Exportar OS em Excel' })

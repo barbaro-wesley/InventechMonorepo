@@ -81,6 +81,7 @@ import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-s
 import { EquipmentManualsSheet } from "@/components/equipment/equipment-manuals-sheet";
 import { OsDetailDrawer } from "@/app/(operacional)/operacional/_components/os-detail-drawer";
 
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import { equipmentService } from "@/services/equipment/equipment.service";
 import type { Equipment, EquipmentStatus, EquipmentCriticality, EquipmentServiceOrdersResponse } from "@/services/equipment/equipment.service";
 import type { InfiniteData } from "@tanstack/react-query";
@@ -646,6 +647,12 @@ function EquipmentCard({
   onCreateOs: (e: Equipment) => void;
   onCreateSchedule: (e: Equipment) => void;
 }) {
+  const { canAccess } = usePermissions();
+  const canEdit = canAccess("equipment", "update");
+  const canDelete = canAccess("equipment", "delete");
+  const canMove = canAccess("movement", "create");
+  const canCreateOs = canAccess("service-order", "create");
+  const canSchedule = canAccess("maintenance-schedule", "create");
   return (
     <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
       {/* Header */}
@@ -710,43 +717,53 @@ function EquipmentCard({
 
       {/* Actions */}
       <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-shrink-0">
-        <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
-          <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
-        </Button>
+        {canEdit && (
+          <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
+            <Pencil className="w-3.5 h-3.5 mr-1.5" />Editar
+          </Button>
+        )}
         <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onView(equipment)}>
           <Eye className="w-3.5 h-3.5 mr-1.5" />Detalhes
         </Button>
         <Button size="sm" variant="outline" onClick={() => onPrint(equipment)}>
           <Printer className="w-3.5 h-3.5 mr-1.5" />QR Code
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onCreateOs(equipment)}>
-              <ClipboardList className="w-3.5 h-3.5 mr-2" />Nova OS
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onCreateSchedule(equipment)}>
-              <CalendarClock className="w-3.5 h-3.5 mr-2" />Agendar Preventiva
-            </DropdownMenuItem>
-            {equipment.status === "ACTIVE" && (
-              <DropdownMenuItem onClick={() => onMove(equipment)}>
-                <ArrowRightLeft className="w-3.5 h-3.5 mr-2" />Movimentar
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              disabled={equipment._count.serviceOrders > 0}
-              onClick={() => onDelete(equipment)}
-            >
-              <Trash2 className="w-3.5 h-3.5 mr-2" />
-              {equipment._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {(canCreateOs || canSchedule || canMove || canDelete) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canCreateOs && (
+                <DropdownMenuItem onClick={() => onCreateOs(equipment)}>
+                  <ClipboardList className="w-3.5 h-3.5 mr-2" />Nova OS
+                </DropdownMenuItem>
+              )}
+              {canSchedule && (
+                <DropdownMenuItem onClick={() => onCreateSchedule(equipment)}>
+                  <CalendarClock className="w-3.5 h-3.5 mr-2" />Agendar Preventiva
+                </DropdownMenuItem>
+              )}
+              {canMove && equipment.status === "ACTIVE" && (
+                <DropdownMenuItem onClick={() => onMove(equipment)}>
+                  <ArrowRightLeft className="w-3.5 h-3.5 mr-2" />Movimentar
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  disabled={equipment._count.serviceOrders > 0}
+                  onClick={() => onDelete(equipment)}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-2" />
+                  {equipment._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
     </div>
   );
@@ -756,7 +773,7 @@ function EquipmentCard({
 
 function DetailRow({ label, value, mono, fullWidth }: { label: string; value: string; mono?: boolean; fullWidth?: boolean }) {
   return (
-    <div className={`space-y-1 ${fullWidth ? "col-span-2" : ""}`}>
+    <div className={`space-y-1 ${fullWidth ? "sm:col-span-2" : ""}`}>
       <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">{label}</p>
       <p className={`text-sm font-medium leading-none ${mono ? "font-mono text-[13px]" : ""}`} style={{ color: "var(--foreground)" }}>
         {value}
@@ -774,7 +791,7 @@ function DetailSection({ title, icon: Icon, children }: { title: string; icon: a
         </div>
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
       </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-4 px-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 px-1">
         {children}
       </div>
     </div>
@@ -939,6 +956,10 @@ function DetailSheet({
     fetchNextPage,
   } = useEquipmentServiceOrders(equipment?.id ?? "");
 
+  const { canAccess } = usePermissions();
+  const canEdit = canAccess("equipment", "update");
+  const canMove = canAccess("movement", "create");
+
   if (!equipment) return null;
 
   const activeMovement = movements.find((m) => m.status === "ACTIVE");
@@ -964,77 +985,80 @@ function DetailSheet({
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
       <SheetContent className="overflow-y-auto" style={{ maxWidth: "680px", width: "100%" }}>
         <SheetHeader className="pb-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
-                style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
-              >
-                <Wrench className="w-6 h-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <SheetTitle className="text-xl font-bold truncate tracking-tight">{equipment.name}</SheetTitle>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate uppercase font-medium tracking-wide">
-                  {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(" › ") || "Sem categoria"}
-                </p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <StatusBadge status={equipment.status} />
-                  <CriticalityBadge criticality={equipment.criticality} />
-                </div>
+          <div className="flex items-start gap-4 min-w-0">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm"
+              style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
+            >
+              <Wrench className="w-6 h-6 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="text-xl font-bold truncate tracking-tight">{equipment.name}</SheetTitle>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate uppercase font-medium tracking-wide">
+                {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(" › ") || "Sem categoria"}
+              </p>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <StatusBadge status={equipment.status} />
+                <CriticalityBadge criticality={equipment.criticality} />
               </div>
             </div>
           </div>
         </SheetHeader>
 
         {/* Action bar - More integrated */}
-        <div className="flex flex-wrap items-center gap-2 mt-6 p-1.5 bg-muted/40 rounded-xl border border-border/50">
-          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onEdit(equipment); }}>
-            <Pencil className="w-3.5 h-3.5 mr-1.5 text-blue-500" />Editar
-          </Button>
-          {equipment.status === "ACTIVE" && (
-            <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onMove(equipment); }}>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 mt-6 p-1.5 bg-muted/40 rounded-xl border border-border/50">
+          {canEdit && (
+            <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => { handleClose(); onEdit(equipment); }}>
+              <Pencil className="w-3.5 h-3.5 mr-1.5 text-blue-500" />Editar
+            </Button>
+          )}
+          {canMove && equipment.status === "ACTIVE" && (
+            <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => { handleClose(); onMove(equipment); }}>
               <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5 text-amber-500" />Movimentar
             </Button>
           )}
-          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => { handleClose(); onPrint(equipment); }}>
+          <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => { handleClose(); onPrint(equipment); }}>
             <Printer className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />QR Code
           </Button>
-          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => window.open(equipmentService.getLifeCyclePdfUrl(equipment.id), "_blank")}>
+          <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => window.open(equipmentService.getLifeCyclePdfUrl(equipment.id), "_blank")}>
             <FileText className="w-3.5 h-3.5 mr-1.5 text-violet-500" />Ficha Vida
           </Button>
-          <Button size="sm" variant="ghost" className="h-8 text-xs hover:bg-white hover:shadow-sm transition-all" onClick={() => setManualsOpen(true)}>
-            <BookOpen className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />Manuais
-          </Button>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-[10px] text-muted-foreground font-medium uppercase px-2">Ações rápidas</span>
-          </div>
         </div>
 
         {/* Tabs - Modernized and explicit */}
         <div className="flex border-b border-border bg-white sticky top-0 z-10">
           {[
-            { id: "info", label: "Informações" },
-            { id: "movements", label: "Movimentações", count: movements.length },
-            { id: "attachments", label: "Anexos", count: attachments.length },
-            { id: "history", label: "Histórico", count: equipment.totalServiceOrders },
+            { id: "info", label: "Informações", short: "Info" },
+            { id: "movements", label: "Movimentações", short: "Movim.", count: movements.length },
+            { id: "attachments", label: "Anexos", short: "Anexos", count: attachments.length },
+            { id: "history", label: "Histórico", short: "Histórico", count: equipment.totalServiceOrders },
           ].map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id as any)}
-              className={`flex items-center gap-1.5 px-4 py-3 text-sm border-b-2 transition-all whitespace-nowrap ${tab === t.id
+              className={`flex items-center gap-1 px-2.5 sm:px-4 py-3 text-xs sm:text-sm border-b-2 transition-all whitespace-nowrap flex-1 sm:flex-none justify-center sm:justify-start ${tab === t.id
                 ? "border-primary text-primary font-semibold"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
                 }`}
             >
-              {t.label}
+              <span className="sm:hidden">{t.short}</span>
+              <span className="hidden sm:inline">{t.label}</span>
               {t.count !== undefined && t.count > 0 && (
-                <span className={`text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ${tab === t.id ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                <span className={`text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1 ${tab === t.id ? "bg-primary text-white" : "bg-muted text-muted-foreground"
                   }`}>
                   {t.count}
                 </span>
               )}
             </button>
           ))}
+          <button
+            onClick={() => setManualsOpen(true)}
+            className="flex items-center gap-1 px-2.5 sm:px-4 py-3 text-xs sm:text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all whitespace-nowrap flex-shrink-0"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+            <span className="sm:hidden">Manuais</span>
+            <span className="hidden sm:inline">Manuais</span>
+          </button>
         </div>
 
         {/* ── Info tab ── */}
@@ -1579,6 +1603,8 @@ function QRLabelModal({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EquipamentosPage() {
+  const { canAccess } = usePermissions();
+  const canCreateEquipment = canAccess("equipment", "create");
   const [search, setSearch] = useState("");
   const [ipFilter, setIpFilter] = useState("");
   const [patrimonyFilter, setPatrimonyFilter] = useState("");
@@ -1652,7 +1678,7 @@ export default function EquipamentosPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
             Equipamentos
@@ -1661,10 +1687,12 @@ export default function EquipamentosPage() {
             Gerencie o parque de equipamentos.
           </p>
         </div>
-        <Button onClick={() => setFormSheet({ open: true, target: null })}>
-          <Plus className="w-4 h-4 mr-2" />
-          Novo equipamento
-        </Button>
+        {canCreateEquipment && (
+          <Button className="w-full sm:w-auto" onClick={() => setFormSheet({ open: true, target: null })}>
+            <Plus className="w-4 h-4 mr-2" />
+            Novo equipamento
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -1683,7 +1711,7 @@ export default function EquipamentosPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as EquipmentStatus | "")}
-            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
           >
             <option value="">Todos os status</option>
             {(Object.keys(STATUS_LABEL) as EquipmentStatus[]).map((s) => (
@@ -1693,7 +1721,7 @@ export default function EquipamentosPage() {
           <select
             value={criticalityFilter}
             onChange={(e) => setCriticalityFilter(e.target.value as EquipmentCriticality | "")}
-            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
           >
             <option value="">Todas as criticidades</option>
             {(Object.keys(CRITICALITY_LABEL) as EquipmentCriticality[]).map((c) => (
@@ -1703,7 +1731,7 @@ export default function EquipamentosPage() {
           <button
             type="button"
             onClick={() => setShowAdvanced((v) => !v)}
-            className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors ${showAdvanced || activeFilterCount > 0
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors w-full sm:w-auto ${showAdvanced || activeFilterCount > 0
               ? "border-primary text-primary bg-primary/5"
               : "border-border text-muted-foreground hover:bg-muted/30"
               }`}
@@ -1734,7 +1762,7 @@ export default function EquipamentosPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
             >
               <option value="">Todos os tipos</option>
               {allTypes.filter((t) => t.isActive).map((t) => (
@@ -1744,7 +1772,7 @@ export default function EquipamentosPage() {
             <select
               value={costCenterFilter}
               onChange={(e) => { setCostCenterFilter(e.target.value); setLocationFilter(""); }}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
             >
               <option value="">Todos os CC</option>
               {allCostCenters.map((cc) => (
@@ -1754,7 +1782,7 @@ export default function EquipamentosPage() {
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
             >
               <option value="">Todas as localizações</option>
               {(costCenterFilter
@@ -1799,7 +1827,7 @@ export default function EquipamentosPage() {
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             {search || activeFilterCount > 0 ? "Nenhum equipamento encontrado" : "Nenhum equipamento cadastrado"}
           </p>
-          {!search && activeFilterCount === 0 && (
+          {!search && activeFilterCount === 0 && canCreateEquipment && (
             <Button size="sm" className="mt-4" onClick={() => setFormSheet({ open: true, target: null })}>
               <Plus className="w-4 h-4 mr-2" />Cadastrar equipamento
             </Button>

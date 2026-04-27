@@ -100,6 +100,17 @@ export class ServiceOrdersController {
     return os
   }
 
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  @Permission('service-order:delete')
+  remove(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.serviceOrdersService.remove(id, clientId, cu.companyId!)
+  }
+
   @Patch(':id')
   @Permission('service-order:update')
   update(

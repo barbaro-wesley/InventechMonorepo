@@ -241,12 +241,13 @@ export class ServiceOrdersService {
     ) {
         const {
             search, status, priority, equipmentId,
-            groupId, dateFrom, dateTo, page = 1, limit = 50,
+            clientId, groupId, dateFrom, dateTo, page = 1, limit = 50,
         } = filters
 
         const where: Prisma.ServiceOrderWhereInput = {
             companyId,
             deletedAt: null,
+            ...(clientId && { clientId }),
             ...(status && { status }),
             ...(priority && { priority }),
             ...(equipmentId && { equipmentId }),
@@ -1094,6 +1095,15 @@ export class ServiceOrdersService {
 
         this.logger.log(`OS #${os.number}: ${os.status} → ${finalStatus} | ${currentUser.email}`)
         return updated
+    }
+
+    async remove(id: string, clientId: string | null, companyId: string) {
+        await this.findExisting(id, clientId, companyId)
+        await this.prisma.serviceOrder.update({
+            where: { id },
+            data: { deletedAt: new Date() },
+        })
+        return { message: 'Ordem de serviço excluída com sucesso' }
     }
 
     private async findExisting(id: string, clientId: string | null, companyId: string) {

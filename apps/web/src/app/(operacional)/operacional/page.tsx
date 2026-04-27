@@ -3,6 +3,9 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useCurrentUser } from '@/store/auth.store'
 import { useServiceOrders } from '@/hooks/service-orders/use-service-orders'
+import { useClients } from '@/hooks/clients/use-clients'
+import { useMaintenanceGroups } from '@/hooks/maintenance-groups/use-maintenance-groups'
+import { usePersistedFilters } from '@/hooks/use-persisted-filters'
 import { QuickStatsBar } from './_components/quick-stats-bar'
 import { CommandBar, type ViewMode } from './_components/command-bar'
 import { OsBoard } from './_components/os-board'
@@ -25,34 +28,40 @@ const BOARD_PAGE_SIZE = 100
 export default function OperacionalPage() {
   const user = useCurrentUser()
 
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<ServiceOrderStatus | ''>('')
-  const [priority, setPriority] = useState<ServiceOrderPriority | ''>('')
-  const [view, setView] = useState<ViewMode>('board')
-  const [myOrders, setMyOrders] = useState(false)
-  const [showClosed, setShowClosed] = useState(false)
-  const [page, setPage] = useState(1)
+  const { filters, set, hydrated } = usePersistedFilters(user?.id)
 
-  // Board load more
+  const [page, setPage] = useState(1)
   const [boardPage, setBoardPage] = useState(1)
   const [allBoardOrders, setAllBoardOrders] = useState<ServiceOrder[]>([])
-
-  // Debounce para busca server-side em ambas as views
-  const debouncedSearch = useDebounce(search, 350)
-  const isTyping = search !== debouncedSearch
-
-  // Reseta paginação da lista quando filtros mudam
-  useEffect(() => { setPage(1) }, [debouncedSearch, status, priority])
-
-  // Reseta board quando filtros/busca mudam
-  useEffect(() => { setBoardPage(1) }, [debouncedSearch, status, priority])
-
   const [selectedOs, setSelectedOs] = useState<{ id: string; clientId: string } | null>(null)
 
-  // ── Board: busca + filtros server-side, com suporte a "carregar mais" ────────
+  // Debounce para busca server-side em ambas as views
+  const debouncedSearch = useDebounce(filters.search, 350)
+  const isTyping = filters.search !== debouncedSearch
+
+  // Reseta paginação quando filtros mudam
+  useEffect(() => { setPage(1) }, [debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId])
+  useEffect(() => { setBoardPage(1) }, [debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId])
+
+  // Dados para os dropdowns
+  const { data: clientsData } = useClients({ limit: 100 })
+  const { data: groupsData } = useMaintenanceGroups({ isActive: true })
+  const clients = clientsData?.data ?? []
+  const groups = groupsData ?? []
+
+  // Params base dos filtros (compartilhado entre board e list)
+  const filterParams = hydrated ? {
+    search: debouncedSearch || undefined,
+    status: filters.status || undefined,
+    priority: filters.priority || undefined,
+    clientId: filters.clientId || undefined,
+    groupId: filters.groupId || undefined,
+  } : {}
+
+  // ── Board ────────────────────────────────────────────────────────────────────
   const { data: boardResponse, isLoading: boardLoading, isFetching: boardFetching } = useServiceOrders(
-    view === 'board'
-      ? { search: debouncedSearch || undefined, status: status || undefined, priority: priority || undefined, limit: BOARD_PAGE_SIZE, page: boardPage }
+    filters.view === 'board'
+      ? { ...filterParams, limit: BOARD_PAGE_SIZE, page: boardPage }
       : null
   )
 
@@ -73,10 +82,10 @@ export default function OperacionalPage() {
   const boardTotal = boardResponse?.pagination?.total ?? 0
   const boardHasMore = !isTyping && !boardFetching && allBoardOrders.length < boardTotal
 
-  // ── Lista: tudo server-side com paginação ────────────────────────────────────
+  // ── Lista ─────────────────────────────────────────────────────────────────────
   const { data: listResponse, isLoading: listFirstLoad, isFetching: listFetching } = useServiceOrders(
-    view === 'list'
-      ? { search: debouncedSearch || undefined, status: status || undefined, priority: priority || undefined, limit: LIST_PAGE_SIZE, page }
+    filters.view === 'list'
+      ? { ...filterParams, limit: LIST_PAGE_SIZE, page }
       : null
   )
 
@@ -86,37 +95,48 @@ export default function OperacionalPage() {
 
   // Filtro client-side no board — apenas "Minhas OS" (busca é server-side)
   const filteredBoard = useMemo(() => {
-    if (!myOrders || !user) return allBoardOrders
+    if (!filters.myOrders || !user) return allBoardOrders
     return allBoardOrders.filter((os) =>
       os.technicians.some((t) => t.technician.id === user.id)
     )
-  }, [allBoardOrders, myOrders, user])
+  }, [allBoardOrders, filters.myOrders, user])
 
   const handleCardClick = (os: ServiceOrder) =>
     setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })
+
+  const handleViewChange = (v: ViewMode) => {
+    set('view', v)
+    setPage(1)
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <QuickStatsBar orders={allBoardOrders} isLoading={boardLoading} />
 
       <CommandBar
-        view={view}
-        onViewChange={(v) => { setView(v); setPage(1) }}
-        search={search}
-        onSearchChange={setSearch}
+        view={filters.view}
+        onViewChange={handleViewChange}
+        search={filters.search}
+        onSearchChange={(v) => set('search', v)}
         isTyping={isTyping}
-        status={status}
-        onStatusChange={(v) => { setStatus(v); setPage(1) }}
-        priority={priority}
-        onPriorityChange={(v) => { setPriority(v); setPage(1) }}
-        myOrders={myOrders}
-        onMyOrdersChange={setMyOrders}
-        showClosed={showClosed}
-        onShowClosedChange={setShowClosed}
+        status={filters.status}
+        onStatusChange={(v) => { set('status', v); setPage(1) }}
+        priority={filters.priority}
+        onPriorityChange={(v) => { set('priority', v); setPage(1) }}
+        clientId={filters.clientId}
+        onClientIdChange={(v) => { set('clientId', v); setPage(1) }}
+        groupId={filters.groupId}
+        onGroupIdChange={(v) => { set('groupId', v); setPage(1) }}
+        clients={clients}
+        groups={groups}
+        myOrders={filters.myOrders}
+        onMyOrdersChange={(v) => set('myOrders', v)}
+        showClosed={filters.showClosed}
+        onShowClosedChange={(v) => set('showClosed', v)}
       />
 
       {/* Board */}
-      {view === 'board' && (
+      {filters.view === 'board' && (
         boardLoading
           ? <BoardSkeleton />
           : (
@@ -127,7 +147,7 @@ export default function OperacionalPage() {
                   <div className="h-full w-1/2 bg-[#0d4da5] rounded-full animate-pulse" />
                 </div>
               )}
-              <OsBoard orders={filteredBoard} showClosed={showClosed} onCardClick={handleCardClick} />
+              <OsBoard orders={filteredBoard} showClosed={filters.showClosed} onCardClick={handleCardClick} />
 
               {/* Footer do board: total + carregar mais */}
               {(boardHasMore || boardFetching) ? (
@@ -153,7 +173,7 @@ export default function OperacionalPage() {
       )}
 
       {/* Lista */}
-      {view === 'list' && (
+      {filters.view === 'list' && (
         listFirstLoad
           ? <ListSkeleton />
           : (

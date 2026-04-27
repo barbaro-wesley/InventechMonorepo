@@ -116,7 +116,7 @@ export class DashboardService {
             // Tempo médio de resolução em horas (últimos 30 dias)
             (clientId
               ? this.prisma.$queryRaw<[{ avg_hours: number }]>`
-                  SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1) as avg_hours
+                  SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1)::float8 as avg_hours
                   FROM service_orders
                   WHERE company_id = ${companyId}
                     AND client_id = ${clientId}
@@ -126,7 +126,7 @@ export class DashboardService {
                     AND deleted_at IS NULL
                 `
               : this.prisma.$queryRaw<[{ avg_hours: number }]>`
-                  SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1) as avg_hours
+                  SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) / 3600)::numeric, 1)::float8 as avg_hours
                   FROM service_orders
                   WHERE company_id = ${companyId}
                     AND status IN ('COMPLETED', 'COMPLETED_APPROVED')

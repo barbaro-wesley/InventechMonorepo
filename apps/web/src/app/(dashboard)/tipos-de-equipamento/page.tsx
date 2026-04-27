@@ -49,6 +49,7 @@ import {
   useDeleteEquipmentSubtype,
 } from "@/hooks/equipment/use-equipment-types";
 import { useMaintenanceGroups } from "@/hooks/maintenance-groups/use-maintenance-groups";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import type {
   EquipmentType,
   EquipmentSubtype,
@@ -280,6 +281,7 @@ function TypeRow({
   onAddSubtype,
   onEditSubtype,
   onDeleteSubtype,
+  canManage,
 }: {
   type: EquipmentType;
   onEdit: (t: EquipmentType) => void;
@@ -288,6 +290,7 @@ function TypeRow({
   onAddSubtype: (t: EquipmentType) => void;
   onEditSubtype: (type: EquipmentType, sub: EquipmentSubtype) => void;
   onDeleteSubtype: (sub: EquipmentSubtype) => void;
+  canManage: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const updateType = useUpdateEquipmentType();
@@ -358,39 +361,41 @@ function TypeRow({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            title={type.isActive ? "Desativar" : "Ativar"}
-            disabled={updateType.isPending}
-            onClick={() => onToggle(type)}
-          >
-            {type.isActive
-              ? <ToggleRight className="w-4 h-4 text-green-600" />
-              : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            title="Editar tipo"
-            onClick={() => onEdit(type)}
-          >
-            <Pencil className="w-4 h-4 text-muted-foreground" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            title="Remover tipo"
-            onClick={() => onDelete(type)}
-            disabled={equipmentCount > 0}
-          >
-            <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive transition-colors" />
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title={type.isActive ? "Desativar" : "Ativar"}
+              disabled={updateType.isPending}
+              onClick={() => onToggle(type)}
+            >
+              {type.isActive
+                ? <ToggleRight className="w-4 h-4 text-green-600" />
+                : <ToggleLeft className="w-4 h-4 text-muted-foreground" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Editar tipo"
+              onClick={() => onEdit(type)}
+            >
+              <Pencil className="w-4 h-4 text-muted-foreground" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              title="Remover tipo"
+              onClick={() => onDelete(type)}
+              disabled={equipmentCount > 0}
+            >
+              <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive transition-colors" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Subtypes panel */}
@@ -400,27 +405,31 @@ function TypeRow({
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Subtipos
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => onAddSubtype(type)}
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Novo subtipo
-            </Button>
+            {canManage && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => onAddSubtype(type)}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Novo subtipo
+              </Button>
+            )}
           </div>
 
           {type.subtypes.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2 text-center">
               Nenhum subtipo cadastrado.{" "}
-              <button
-                className="underline hover:no-underline"
-                style={{ color: "var(--primary)" }}
-                onClick={() => onAddSubtype(type)}
-              >
-                Adicionar
-              </button>
+              {canManage && (
+                <button
+                  className="underline hover:no-underline"
+                  style={{ color: "var(--primary)" }}
+                  onClick={() => onAddSubtype(type)}
+                >
+                  Adicionar
+                </button>
+              )}
             </p>
           ) : (
             type.subtypes.map((sub) => (
@@ -445,24 +454,26 @@ function TypeRow({
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => onEditSubtype(type, sub)}
-                  >
-                    <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0"
-                    onClick={() => onDeleteSubtype(sub)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
-                  </Button>
-                </div>
+                {canManage && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => onEditSubtype(type, sub)}
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => onDeleteSubtype(sub)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                    </Button>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -475,6 +486,7 @@ function TypeRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EquipmentTypesPage() {
+  const { canManageEquipment } = usePermissions();
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState<"all" | "active" | "inactive">("all");
 
@@ -529,7 +541,7 @@ export default function EquipmentTypesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
             Tipos de Equipamento
@@ -538,12 +550,14 @@ export default function EquipmentTypesPage() {
             Categorias e subcategorias usadas no cadastro de equipamentos
           </p>
         </div>
-        <Button
-          onClick={() => { setEditType(null); setTypeSheetOpen(true); }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Novo tipo
-        </Button>
+        {canManageEquipment && (
+          <Button
+            onClick={() => { setEditType(null); setTypeSheetOpen(true); }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Novo tipo
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -596,7 +610,7 @@ export default function EquipmentTypesPage() {
               ? "Tente outro termo de busca"
               : "Crie o primeiro tipo de equipamento para começar"}
           </p>
-          {!search && (
+          {!search && canManageEquipment && (
             <Button
               className="mt-4"
               size="sm"
@@ -619,6 +633,7 @@ export default function EquipmentTypesPage() {
               onAddSubtype={openAddSubtype}
               onEditSubtype={openEditSubtype}
               onDeleteSubtype={setDeleteSubtype}
+              canManage={canManageEquipment}
             />
           ))}
           <p className="text-xs text-muted-foreground pt-1">
