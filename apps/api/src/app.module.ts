@@ -6,7 +6,7 @@ import { ScheduleModule } from '@nestjs/schedule'
 
 import {
   appConfig, databaseConfig, redisConfig,
-  minioConfig, mailConfig, telegramConfig,
+  minioConfig, mailConfig, telegramConfig, ghospConfig,
 } from './config'
 
 import { RedisModule } from './common/providers/redis.module'
@@ -31,6 +31,7 @@ import { ESignModule } from './modules/e-sign/e-sign.module'
 import { LaudosModule } from './modules/laudos/laudos.module'
 import { PrintersModule } from './modules/printers/printers.module'
 import { ScansModule } from './modules/scans/scans.module'
+import { GhospModule } from './modules/ghosp/ghosp.module'
 
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
 import { RateLimitGuard } from './common/guards/rate-limit.guard'
@@ -42,7 +43,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, redisConfig, minioConfig, mailConfig, telegramConfig],
+      load: [appConfig, databaseConfig, redisConfig, minioConfig, mailConfig, telegramConfig, ghospConfig],
     }),
 
     ScheduleModule.forRoot(),
@@ -85,6 +86,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     LaudosModule,
     PrintersModule,
     ScansModule,
+    GhospModule,
   ],
   providers: [
     // ─── Ordem dos guards é crítica ──────────────────────────────

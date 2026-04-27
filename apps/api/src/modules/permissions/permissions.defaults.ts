@@ -205,6 +205,9 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'scan:read':                   [SA, CA, CM, TEC],
   'scan:download':               [SA, CA, CM, TEC],
   'scan:delete':                 [SA, CA, CM],
+
+  // ── GHOSP (pacientes internados — banco hospitalar externo) ────────────────
+  'ghosp:list':                  [SA, CA],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -232,6 +235,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'laudo':                ['browse', 'list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
   'printer':              ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'scan':                 ['browse', 'list', 'read', 'download', 'delete'],
+  'ghosp':                ['list'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)
