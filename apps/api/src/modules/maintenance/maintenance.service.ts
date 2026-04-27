@@ -369,7 +369,9 @@ export class MaintenanceService {
                 ...(dto.isActive !== undefined && { isActive: dto.isActive }),
                 ...(nextRunAt && { nextRunAt }),
                 ...(dto.assignedTechnicianId !== undefined && {
-                    assignedTechnicianId: dto.assignedTechnicianId,
+                    assignedTechnician: dto.assignedTechnicianId
+                        ? { connect: { id: dto.assignedTechnicianId } }
+                        : { disconnect: true },
                 }),
                 ...(dto.groupId !== undefined && {
                     group: dto.groupId
