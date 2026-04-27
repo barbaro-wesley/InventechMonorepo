@@ -33,12 +33,29 @@ export class GhospService implements OnModuleInit, OnModuleDestroy {
     await this.pool.end()
   }
 
-  async listarPacientesInternados(): Promise<PacienteInternadoDto[]> {
+  async listarPacientesInternados(
+    page: number,
+    limit: number,
+  ): Promise<{ data: PacienteInternadoDto[]; total: number; page: number; limit: number }> {
+    const offset = (page - 1) * limit
+
     try {
-      const { rows } = await this.pool.query<PacienteInternadoDto>(
-        'SELECT * FROM sigh.v_controle_acesso ORDER BY data_entrada DESC',
-      )
-      return rows
+      const [dataResult, countResult] = await Promise.all([
+        this.pool.query<PacienteInternadoDto>(
+          'SELECT * FROM sigh.v_controle_acesso ORDER BY data_entrada DESC LIMIT $1 OFFSET $2',
+          [limit, offset],
+        ),
+        this.pool.query<{ total: string }>(
+          'SELECT COUNT(*) AS total FROM sigh.v_controle_acesso',
+        ),
+      ])
+
+      return {
+        data: dataResult.rows,
+        total: parseInt(countResult.rows[0].total, 10),
+        page,
+        limit,
+      }
     } catch (err) {
       this.logger.error('Erro ao consultar sigh.v_controle_acesso', err)
       throw new InternalServerErrorException('Falha ao consultar o banco GHOSP')

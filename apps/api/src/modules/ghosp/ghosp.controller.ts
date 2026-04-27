@@ -1,7 +1,7 @@
-import { Controller, Get } from '@nestjs/common'
+import { Controller, Get, Query } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiOkResponse } from '@nestjs/swagger'
 import { GhospService } from './ghosp.service'
-import { PacienteInternadoDto } from './dto/paciente-internado.dto'
+import { ListPacientesDto, PacienteInternadoDto } from './dto/paciente-internado.dto'
 import { Permission } from '../../common/decorators/permission.decorator'
 
 @ApiTags('GHOSP')
@@ -10,15 +10,15 @@ import { Permission } from '../../common/decorators/permission.decorator'
 export class GhospController {
   constructor(private readonly ghospService: GhospService) {}
 
-  // GET /ghosp/pacientes
+  // GET /ghosp/pacientes?page=1&limit=20
   @Get('pacientes')
   @ApiOperation({
     summary: 'Listar pacientes internados',
-    description: 'Retorna todos os registros de sigh.v_controle_acesso do banco GHOSP.',
+    description: 'Retorna registros paginados de sigh.v_controle_acesso do banco GHOSP.',
   })
-  @ApiOkResponse({ type: PacienteInternadoDto, isArray: true })
+  @ApiOkResponse({ description: '{ data: PacienteInternadoDto[], total, page, limit }' })
   @Permission('ghosp:list')
-  listarPacientes(): Promise<PacienteInternadoDto[]> {
-    return this.ghospService.listarPacientesInternados()
+  listarPacientes(@Query() query: ListPacientesDto) {
+    return this.ghospService.listarPacientesInternados(query.page ?? 1, query.limit ?? 20)
   }
 }
