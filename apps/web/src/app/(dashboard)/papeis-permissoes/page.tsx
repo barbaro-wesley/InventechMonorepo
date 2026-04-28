@@ -104,7 +104,8 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
   const [expanded, setExpanded] = useState(false);
   const upsert = useUpsertPermission();
   const remove = useRemovePermission();
-  const { isSuperAdmin } = usePermissions();
+  const { isSuperAdmin, isCompanyAdmin } = usePermissions();
+  const canEdit = isSuperAdmin || isCompanyAdmin;
 
   function toggle(role: string) {
     const has = item.effectiveRoles.includes(role);
@@ -147,7 +148,7 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
           <div className="flex flex-wrap gap-2 mb-3">
             {ALL_SYSTEM_ROLES.map((role) => {
               const active = item.effectiveRoles.includes(role);
-              const isLocked = role === "SUPER_ADMIN" || !isSuperAdmin;
+              const isLocked = role === "SUPER_ADMIN" || !canEdit;
               return (
                 <button
                   key={role}
@@ -168,7 +169,7 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
               );
             })}
           </div>
-          {item.isOverridden && isSuperAdmin && (
+          {item.isOverridden && canEdit && (
             <button
               onClick={resetToDefault}
               disabled={remove.isPending}
@@ -448,7 +449,7 @@ export default function PapeisPermissoesPage() {
             Novo papel
           </Button>
         )}
-        {tab === "system" && totalOverrides > 0 && isSuperAdmin && (
+        {tab === "system" && totalOverrides > 0 && (isSuperAdmin || isCompanyAdmin) && (
           <Button variant="outline" onClick={() => setResetConfirm(true)}>
             <RotateCcw className="w-4 h-4 mr-2" />
             Restaurar todos os padrões
