@@ -287,8 +287,33 @@ export class AuthService {
             return { ...baseUser, customRole: customRoleData, permissions }
         }
 
+        // Busca overrides da empresa e globais em paralelo para construir
+        // as permissões efetivas (mesmo cascade do PermissionGuard).
+        const [companyOverrides, globalOverrides] = await Promise.all([
+            baseUser.companyId
+                ? this.prisma.resourcePermission.findMany({
+                      where: { companyId: baseUser.companyId },
+                      select: { resource: true, action: true, allowedRoles: true },
+                  })
+                : Promise.resolve([]),
+            this.prisma.resourcePermission.findMany({
+                where: { companyId: null },
+                select: { resource: true, action: true, allowedRoles: true },
+            }),
+        ])
+
+        const companyMap = new Map(
+            companyOverrides.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles as string[]]),
+        )
+        const globalMap = new Map(
+            globalOverrides.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles as string[]]),
+        )
+
         const permissions = Object.entries(DEFAULT_PERMISSIONS)
-            .filter(([, roles]) => roles.includes(baseUser.role))
+            .filter(([key, defaultRoles]) => {
+                const roles = companyMap.get(key) ?? globalMap.get(key) ?? (defaultRoles as string[])
+                return roles.includes(baseUser.role)
+            })
             .map(([key]) => key)
 
         return { ...baseUser, permissions }
