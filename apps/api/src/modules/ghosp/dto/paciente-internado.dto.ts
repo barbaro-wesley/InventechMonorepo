@@ -13,61 +13,28 @@ export class ListPacientesDto {
   @IsOptional()
   @Type(() => Number)
   @IsInt() @Min(1) @Max(150)
-  limit?: number = 20
+  limit?: number = 150
 }
 
 export class PacienteInternadoDto {
-  @ApiProperty({ example: 57203 })
-  id_paciente: number
-
   @ApiProperty({ example: 'PALMIRA LOURDES BASSANELLO TRICHES' })
   paciente: string
 
   @ApiPropertyOptional({ example: 57203 })
   prontuario: number | null
 
-  @ApiProperty({ example: '2026-04-24' })
+  @ApiProperty({ example: '28/04/2026' })
   data_entrada: string
-
-  @ApiProperty({ example: 3 })
-  dias_internacao: number
 
   @ApiPropertyOptional({ example: '325 - SUITE INTELIGENTE - A' })
   leito: string | null
 
-  @ApiPropertyOptional({ example: 'Suite' })
-  tipo_leito: string | null
-
   @ApiPropertyOptional({ example: 'POSTO 3' })
   setor: string | null
 
-  @ApiPropertyOptional({ example: 'POSTO 3' })
-  setor_atual: string | null
-
-  @ApiPropertyOptional({ example: '19/02/1941' })
-  data_nasc: string | null
+  @ApiProperty({ example: 3 })
+  dias_internacao: number
 
   @ApiPropertyOptional({ example: 85 })
   idade: number | null
-
-  @ApiPropertyOptional({ example: 'SIM' })
-  permite_visita: string | null
-
-  @ApiPropertyOptional({ example: 'Feminino' })
-  sexo: string | null
-
-  @ApiPropertyOptional({ example: 'HENRIQUE TESSARO' })
-  medico: string | null
-
-  @ApiPropertyOptional({ example: 'NÃO' })
-  isolado: string | null
-
-  @ApiPropertyOptional({ example: 'Marau' })
-  cidade: string | null
-
-  @ApiPropertyOptional({ example: 2 })
-  qtd_visitas: number | null
-
-  @ApiPropertyOptional({ example: 1 })
-  qtd_acompanhantes: number | null
 }
