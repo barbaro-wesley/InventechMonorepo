@@ -9,6 +9,12 @@ import { NOTIFICATION_QUEUE } from './notifications.constants'
 import { buildUniversalEmail } from './channels/templates/universal.template'
 import { evaluateConditions } from '../alert-rules/alert-rules.evaluator'
 import { interpolate, EVENT_VARIABLE_REGISTRY } from '../alert-rules/alert-rules.variables'
+import {
+    RecipientUser,
+    RecipientContext,
+    extractContext,
+    resolveContextualRecipient,
+} from './recipient-resolver'
 
 type Recipient = { id: string; email?: string | null; telegramChatId?: string | null }
 
@@ -44,8 +50,10 @@ export class AlertRuleDispatcher {
 
         if (rules.length === 0) return
 
+        const context = extractContext(event, data, serviceOrderId)
+
         await Promise.all(
-            rules.map((rule) => this.processRule(rule, data, companyId, serviceOrderId)),
+            rules.map((rule) => this.processRule(rule, data, companyId, context, serviceOrderId)),
         )
     }
 
@@ -56,6 +64,7 @@ export class AlertRuleDispatcher {
         rule: Awaited<ReturnType<typeof this.prisma.alertRule.findMany>>[0],
         data: Record<string, any>,
         companyId: string,
+        context: RecipientContext,
         serviceOrderId?: string,
     ): Promise<void> {
         const conditions = rule.conditions as unknown as AlertRuleCondition[]
@@ -65,7 +74,7 @@ export class AlertRuleDispatcher {
             return
         }
 
-        const recipients = await this.resolveRecipients(rule, companyId)
+        const recipients = await this.resolveRecipients(rule, companyId, context)
 
         if (recipients.length === 0) {
             this.logger.debug(`Regra "${rule.name}" sem destinatários resolvidos`)
@@ -86,14 +95,25 @@ export class AlertRuleDispatcher {
     }
 
     // ─────────────────────────────────────────
-    // Resolve destinatários pela regra (roles + grupos + usuários específicos)
+    // Resolve destinatários pela regra
+    // Suporta: roles fixos + grupos + usuários + contextuais + papéis personalizados
     // ─────────────────────────────────────────
     private async resolveRecipients(
-        rule: { recipientRoles: UserRole[]; recipientGroupIds: string[]; recipientUserIds: string[] },
+        rule: {
+            recipientRoles: UserRole[]
+            recipientGroupIds: string[]
+            recipientUserIds: string[]
+            recipientContextual: any[]
+            recipientCustomRoleIds: string[]
+        },
         companyId: string,
+        context: RecipientContext,
     ): Promise<Recipient[]> {
-        const queries: Promise<Recipient[]>[] = []
+        const select = { id: true, email: true, telegramChatId: true } as const
 
+        const queries: Promise<RecipientUser[]>[] = []
+
+        // Por papel fixo (UserRole)
         if (rule.recipientRoles.length > 0) {
             queries.push(
                 this.prisma.user.findMany({
@@ -101,18 +121,26 @@ export class AlertRuleDispatcher {
                         companyId,
                         role: { in: rule.recipientRoles },
                         status: 'ACTIVE',
+                        deletedAt: null,
                     },
-                    select: { id: true, email: true, telegramChatId: true },
+                    select,
                 }),
             )
         }
 
+        // Por destinatários contextuais
+        for (const contextualType of rule.recipientContextual) {
+            queries.push(resolveContextualRecipient(contextualType, companyId, context, this.prisma))
+        }
+
+        // Por grupos específicos configurados na regra
         if (rule.recipientGroupIds.length > 0) {
             queries.push(
                 this.prisma.user.findMany({
                     where: {
                         companyId,
                         status: 'ACTIVE',
+                        deletedAt: null,
                         technicianGroups: {
                             some: {
                                 groupId: { in: rule.recipientGroupIds },
@@ -120,11 +148,12 @@ export class AlertRuleDispatcher {
                             },
                         },
                     },
-                    select: { id: true, email: true, telegramChatId: true },
+                    select,
                 }),
             )
         }
 
+        // Por usuários específicos configurados na regra
         if (rule.recipientUserIds.length > 0) {
             queries.push(
                 this.prisma.user.findMany({
@@ -132,8 +161,24 @@ export class AlertRuleDispatcher {
                         id: { in: rule.recipientUserIds },
                         companyId,
                         status: 'ACTIVE',
+                        deletedAt: null,
                     },
-                    select: { id: true, email: true, telegramChatId: true },
+                    select,
+                }),
+            )
+        }
+
+        // Por papéis personalizados (CustomRole)
+        if (rule.recipientCustomRoleIds.length > 0) {
+            queries.push(
+                this.prisma.user.findMany({
+                    where: {
+                        companyId,
+                        customRoleId: { in: rule.recipientCustomRoleIds },
+                        status: 'ACTIVE',
+                        deletedAt: null,
+                    },
+                    select,
                 }),
             )
         }
@@ -141,7 +186,7 @@ export class AlertRuleDispatcher {
         const results = await Promise.all(queries)
         const all = results.flat()
 
-        // Remove duplicatas por id
+        // Deduplicar por id
         return [...new Map(all.map((u) => [u.id, u])).values()]
     }
 
