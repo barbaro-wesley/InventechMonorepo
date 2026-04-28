@@ -302,16 +302,17 @@ export class AuthService {
             }),
         ])
 
-        const companyMap = new Map(
-            companyOverrides.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles as string[]]),
-        )
-        const globalMap = new Map(
-            globalOverrides.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles as string[]]),
-        )
+        const toMap = (rows: { resource: string; action: string; allowedRoles: unknown }[]) =>
+            new Map<string, string[]>(
+                rows.map((o) => [`${o.resource}:${o.action}`, o.allowedRoles as string[]]),
+            )
+
+        const companyMap = toMap(companyOverrides)
+        const globalMap = toMap(globalOverrides)
 
         const permissions = Object.entries(DEFAULT_PERMISSIONS)
             .filter(([key, defaultRoles]) => {
-                const roles = companyMap.get(key) ?? globalMap.get(key) ?? (defaultRoles as string[])
+                const roles: string[] = companyMap.get(key) ?? globalMap.get(key) ?? (defaultRoles as string[])
                 return roles.includes(baseUser.role)
             })
             .map(([key]) => key)
