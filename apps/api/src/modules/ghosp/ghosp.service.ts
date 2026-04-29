@@ -33,6 +33,28 @@ export class GhospService implements OnModuleInit, OnModuleDestroy {
     await this.pool.end()
   }
 
+  private desambiguarLeitos(pacientes: PacienteInternadoDto[]): PacienteInternadoDto[] {
+    // Conta quantas vezes cada combinação setor+leito já apareceu
+    const contadores = new Map<string, number>()
+
+    return pacientes.map((p) => {
+      if (!p.leito) return p
+
+      const chave = `${p.setor ?? ''}::${p.leito}`
+      const ocorrencia = (contadores.get(chave) ?? 0) + 1
+      contadores.set(chave, ocorrencia)
+
+      if (ocorrencia === 1) return p
+
+      // Tenta incrementar o último número do leito: "1 - 1" → "1 - 2"
+      const leitoIncrementado = p.leito.replace(/(\d+)(\s*)$/, (_, num, esp) => {
+        return String(parseInt(num, 10) + ocorrencia - 1) + esp
+      })
+
+      return { ...p, leito: leitoIncrementado }
+    })
+  }
+
   async listarPacientesInternados(
     page: number,
     limit: number,
@@ -61,7 +83,7 @@ export class GhospService implements OnModuleInit, OnModuleDestroy {
       ])
 
       return {
-        data: dataResult.rows,
+        data: this.desambiguarLeitos(dataResult.rows),
         total: parseInt(countResult.rows[0].total, 10),
         page,
         limit,

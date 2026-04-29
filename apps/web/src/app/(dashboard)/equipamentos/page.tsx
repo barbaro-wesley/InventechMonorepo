@@ -197,29 +197,7 @@ function EquipmentSheet({
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EquipmentForm>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(equipmentSchema) as any,
-    values: editTarget ? {
-      name: editTarget.name,
-      brand: editTarget.brand ?? "",
-      model: editTarget.model ?? "",
-      serialNumber: editTarget.serialNumber ?? "",
-      patrimonyNumber: editTarget.patrimonyNumber ?? "",
-      anvisaNumber: editTarget.anvisaNumber ?? "",
-      invoiceNumber: editTarget.invoiceNumber ?? "",
-      typeId: editTarget.type?.id ?? "",
-      subtypeId: editTarget.subtype?.id ?? "",
-      locationId: editTarget.location?.id ?? "",
-      costCenterId: editTarget.costCenter?.id ?? "",
-      purchaseValue: editTarget.purchaseValue != null ? formatToBRL(editTarget.purchaseValue) : "",
-      purchaseDate: editTarget.purchaseDate ? editTarget.purchaseDate.substring(0, 10) : "",
-      warrantyEnd: editTarget.warrantyEnd ? editTarget.warrantyEnd.substring(0, 10) : "",
-      depreciationRate: editTarget.depreciationRate != null ? String(editTarget.depreciationRate) : "",
-      btus: editTarget.btus?.toString() ?? "",
-      voltage: editTarget.voltage ?? "",
-      ipAddress: editTarget.ipAddress ?? "",
-      operatingSystem: editTarget.operatingSystem ?? "",
-      criticality: editTarget.criticality,
-      observations: editTarget.observations ?? "",
-    } : {
+    defaultValues: {
       name: "", brand: "", model: "", serialNumber: "", patrimonyNumber: "", anvisaNumber: "", invoiceNumber: "",
       typeId: "", subtypeId: "", locationId: "", costCenterId: "",
       purchaseValue: "", purchaseDate: "", warrantyEnd: "", depreciationRate: "",
@@ -227,6 +205,43 @@ function EquipmentSheet({
       criticality: "MEDIUM", observations: "",
     },
   });
+
+  useEffect(() => {
+    if (editTarget) {
+      reset({
+        name: editTarget.name,
+        brand: editTarget.brand ?? "",
+        model: editTarget.model ?? "",
+        serialNumber: editTarget.serialNumber ?? "",
+        patrimonyNumber: editTarget.patrimonyNumber ?? "",
+        anvisaNumber: editTarget.anvisaNumber ?? "",
+        invoiceNumber: editTarget.invoiceNumber ?? "",
+        typeId: editTarget.type?.id ?? "",
+        subtypeId: editTarget.subtype?.id ?? "",
+        locationId: editTarget.location?.id ?? "",
+        costCenterId: editTarget.costCenter?.id ?? "",
+        purchaseValue: editTarget.purchaseValue != null ? formatToBRL(editTarget.purchaseValue) : "",
+        purchaseDate: editTarget.purchaseDate ? editTarget.purchaseDate.substring(0, 10) : "",
+        warrantyEnd: editTarget.warrantyEnd ? editTarget.warrantyEnd.substring(0, 10) : "",
+        depreciationRate: editTarget.depreciationRate != null ? String(editTarget.depreciationRate) : "",
+        btus: editTarget.btus?.toString() ?? "",
+        voltage: editTarget.voltage ?? "",
+        ipAddress: editTarget.ipAddress ?? "",
+        operatingSystem: editTarget.operatingSystem ?? "",
+        criticality: editTarget.criticality,
+        observations: editTarget.observations ?? "",
+      });
+    } else {
+      reset({
+        name: "", brand: "", model: "", serialNumber: "", patrimonyNumber: "", anvisaNumber: "", invoiceNumber: "",
+        typeId: "", subtypeId: "", locationId: "", costCenterId: "",
+        purchaseValue: "", purchaseDate: "", warrantyEnd: "", depreciationRate: "",
+        btus: "", voltage: "", ipAddress: "", operatingSystem: "",
+        criticality: "MEDIUM", observations: "",
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editTarget?.id]);
 
   const watchedVoltage = watch("voltage");
   const voltageOption = ["110V", "220V", "Bivolt", ""].includes(watchedVoltage || "") ? (watchedVoltage || "") : "Outra";
