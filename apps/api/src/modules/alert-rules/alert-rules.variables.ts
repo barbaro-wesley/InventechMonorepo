@@ -1,7 +1,9 @@
 import { EventType } from '@prisma/client'
 import type { VariableDefinition } from '@inventech/shared-types'
+import { CONTEXTUAL_BY_EVENT, CONTEXTUAL_LABELS } from '../notifications/recipient-resolver'
 
 export type { VariableDefinition }
+export { CONTEXTUAL_BY_EVENT, CONTEXTUAL_LABELS }
 
 export const EVENT_VARIABLE_REGISTRY: Record<EventType, VariableDefinition[]> = {
     [EventType.OS_CREATED_NO_TECHNICIAN]: [

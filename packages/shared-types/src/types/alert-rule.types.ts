@@ -15,6 +15,16 @@ export interface VariableDefinition {
   type: 'string' | 'number' | 'boolean' | 'date'
 }
 
+export interface ContextualRecipientDefinition {
+  key: string
+  label: string
+}
+
+export interface EventVariableMeta {
+  variables: VariableDefinition[]
+  contextualRecipients: ContextualRecipientDefinition[]
+}
+
 export interface AlertRule {
   id: string
   companyId: string
@@ -34,6 +44,8 @@ export interface AlertRule {
   recipientRoles: string[]
   recipientGroupIds: string[]
   recipientUserIds: string[]
+  recipientContextual: string[]
+  recipientCustomRoleIds: string[]
   channels: NotificationChannel[]
   fireCount: number
   lastFiredAt?: string | null
@@ -57,6 +69,8 @@ export interface CreateAlertRuleDto {
   recipientRoles?: string[]
   recipientGroupIds?: string[]
   recipientUserIds?: string[]
+  recipientContextual?: string[]
+  recipientCustomRoleIds?: string[]
   channels: NotificationChannel[]
 }
 

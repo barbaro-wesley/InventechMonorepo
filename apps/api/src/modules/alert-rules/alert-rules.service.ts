@@ -5,7 +5,13 @@ import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.in
 import { CreateAlertRuleDto } from './dto/create-alert-rule.dto'
 import { UpdateAlertRuleDto } from './dto/update-alert-rule.dto'
 import { ListAlertRulesDto } from './dto/list-alert-rules.dto'
-import { EVENT_VARIABLE_REGISTRY, VariableDefinition, interpolate } from './alert-rules.variables'
+import {
+    EVENT_VARIABLE_REGISTRY,
+    VariableDefinition,
+    CONTEXTUAL_BY_EVENT,
+    CONTEXTUAL_LABELS,
+    interpolate,
+} from './alert-rules.variables'
 import { buildUniversalEmail } from '../notifications/channels/templates/universal.template'
 
 const ALERT_RULE_SELECT = {
@@ -27,6 +33,8 @@ const ALERT_RULE_SELECT = {
     recipientRoles: true,
     recipientGroupIds: true,
     recipientUserIds: true,
+    recipientContextual: true,
+    recipientCustomRoleIds: true,
     channels: true,
     fireCount: true,
     lastFiredAt: true,
@@ -106,6 +114,8 @@ export class AlertRulesService {
                 recipientRoles: dto.recipientRoles ?? [],
                 recipientGroupIds: dto.recipientGroupIds ?? [],
                 recipientUserIds: dto.recipientUserIds ?? [],
+                recipientContextual: dto.recipientContextual ?? [],
+                recipientCustomRoleIds: dto.recipientCustomRoleIds ?? [],
                 channels: dto.channels,
             },
             select: ALERT_RULE_SELECT,
@@ -133,6 +143,8 @@ export class AlertRulesService {
                 ...(dto.recipientRoles !== undefined && { recipientRoles: dto.recipientRoles }),
                 ...(dto.recipientGroupIds !== undefined && { recipientGroupIds: dto.recipientGroupIds }),
                 ...(dto.recipientUserIds !== undefined && { recipientUserIds: dto.recipientUserIds }),
+                ...(dto.recipientContextual !== undefined && { recipientContextual: dto.recipientContextual }),
+                ...(dto.recipientCustomRoleIds !== undefined && { recipientCustomRoleIds: dto.recipientCustomRoleIds }),
                 ...(dto.channels !== undefined && { channels: dto.channels }),
             },
             select: ALERT_RULE_SELECT,
@@ -179,7 +191,23 @@ export class AlertRulesService {
         })
     }
 
-    getVariableRegistry(): Record<EventType, VariableDefinition[]> {
-        return EVENT_VARIABLE_REGISTRY
+    getVariableRegistry() {
+        // Retorna variáveis de template + destinatários contextuais disponíveis por evento
+        const result: Record<string, {
+            variables: VariableDefinition[]
+            contextualRecipients: { key: string; label: string }[]
+        }> = {}
+
+        for (const event of Object.values(EventType)) {
+            result[event] = {
+                variables: EVENT_VARIABLE_REGISTRY[event] ?? [],
+                contextualRecipients: (CONTEXTUAL_BY_EVENT[event] ?? []).map((key) => ({
+                    key,
+                    label: CONTEXTUAL_LABELS[key],
+                })),
+            }
+        }
+
+        return result
     }
 }

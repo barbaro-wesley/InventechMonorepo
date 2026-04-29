@@ -698,10 +698,12 @@ model AlertRule {
   buttonLabel       String?             @map("button_label")
   buttonUrlTemplate String?             @map("button_url_template")
   footerNote        String?             @map("footer_note")
-  recipientRoles    UserRole[]          @map("recipient_roles")
-  recipientGroupIds String[]            @map("recipient_group_ids")
-  recipientUserIds  String[]            @map("recipient_user_ids")
-  channels          NotificationChannel[]
+  recipientRoles         UserRole[]           @map("recipient_roles")
+  recipientGroupIds      String[]             @map("recipient_group_ids")
+  recipientUserIds       String[]             @map("recipient_user_ids")
+  recipientContextual    ContextualRecipient[] @map("recipient_contextual")
+  recipientCustomRoleIds String[]             @map("recipient_custom_role_ids")
+  channels               NotificationChannel[]
   fireCount         Int                 @default(0) @map("fire_count")
   lastFiredAt       DateTime?           @map("last_fired_at")
   createdAt         DateTime            @default(now()) @map("created_at")

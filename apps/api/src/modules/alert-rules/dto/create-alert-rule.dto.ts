@@ -3,7 +3,7 @@ import {
     IsArray, IsHexColor, ValidateNested, IsUUID,
 } from 'class-validator'
 import { Type } from 'class-transformer'
-import { EventType, NotificationChannel, UserRole } from '@prisma/client'
+import { EventType, NotificationChannel, UserRole, ContextualRecipient } from '@prisma/client'
 import type { ConditionOperator } from '@inventech/shared-types'
 
 const CONDITION_OPERATORS: ConditionOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'contains', 'in']
@@ -80,6 +80,16 @@ export class CreateAlertRuleDto {
     @IsArray()
     @IsUUID(undefined, { each: true })
     recipientUserIds?: string[]
+
+    @IsOptional()
+    @IsArray()
+    @IsEnum(ContextualRecipient, { each: true })
+    recipientContextual?: ContextualRecipient[]
+
+    @IsOptional()
+    @IsArray()
+    @IsUUID(undefined, { each: true })
+    recipientCustomRoleIds?: string[]
 
     @IsArray()
     @IsEnum(NotificationChannel, { each: true })

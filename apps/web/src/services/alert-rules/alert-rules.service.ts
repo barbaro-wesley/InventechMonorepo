@@ -4,7 +4,7 @@ import type {
     CreateAlertRuleDto,
     UpdateAlertRuleDto,
     ListAlertRulesParams,
-    VariableDefinition,
+    EventVariableMeta,
 } from "@inventech/shared-types";
 import type { EventType } from "@inventech/shared-types";
 import type { PaginatedResponse } from "@inventech/shared-types";
@@ -47,7 +47,7 @@ export const alertRulesService = {
         return data;
     },
 
-    async getVariableRegistry(): Promise<Record<EventType, VariableDefinition[]>> {
+    async getVariableRegistry(): Promise<Record<string, EventVariableMeta>> {
         const { data } = await api.get("/alert-rules/meta/variables");
         return data;
     },

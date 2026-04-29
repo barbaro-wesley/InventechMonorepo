@@ -12,6 +12,7 @@ import {
     useAlertRuleVariables,
     usePreviewAlertRuleEmail,
 } from "@/hooks/alert-rules/use-alert-rules";
+import { useCustomRoles } from "@/hooks/permissions/use-permissions";
 import type { AlertRule } from "@inventech/shared-types";
 import { EventType, NotificationChannel } from "@inventech/shared-types";
 
@@ -94,22 +95,24 @@ const conditionSchema = z.object({
 });
 
 const alertRuleSchema = z.object({
-    name:              z.string().min(1, "Nome obrigatório"),
-    description:       z.string().optional(),
-    isActive:          z.boolean(),
-    triggerEvent:      z.string().min(1, "Evento obrigatório"),
-    conditions:        z.array(conditionSchema),
-    headerColor:       z.string(),
-    headerTitle:       z.string().min(1, "Título obrigatório"),
-    bodyTemplate:      z.string().min(1, "Corpo obrigatório"),
-    tableFields:       z.array(z.string()),
-    buttonLabel:       z.string().optional(),
-    buttonUrlTemplate: z.string().optional(),
-    footerNote:        z.string().optional(),
-    recipientRoles:    z.array(z.string()),
-    recipientGroupIds: z.array(z.string()),
-    recipientUserIds:  z.array(z.string()),
-    channels:          z.array(z.string()).min(1, "Selecione ao menos um canal"),
+    name:                   z.string().min(1, "Nome obrigatório"),
+    description:            z.string().optional(),
+    isActive:               z.boolean(),
+    triggerEvent:           z.string().min(1, "Evento obrigatório"),
+    conditions:             z.array(conditionSchema),
+    headerColor:            z.string(),
+    headerTitle:            z.string().min(1, "Título obrigatório"),
+    bodyTemplate:           z.string().min(1, "Corpo obrigatório"),
+    tableFields:            z.array(z.string()),
+    buttonLabel:            z.string().optional(),
+    buttonUrlTemplate:      z.string().optional(),
+    footerNote:             z.string().optional(),
+    recipientRoles:         z.array(z.string()),
+    recipientGroupIds:      z.array(z.string()),
+    recipientUserIds:       z.array(z.string()),
+    recipientContextual:    z.array(z.string()),
+    recipientCustomRoleIds: z.array(z.string()),
+    channels:               z.array(z.string()).min(1, "Selecione ao menos um canal"),
 });
 
 type AlertRuleForm = z.infer<typeof alertRuleSchema>;
@@ -132,6 +135,7 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
     const [previewSubject, setPreviewSubject] = useState("");
 
     const { data: variableRegistry = {} } = useAlertRuleVariables();
+    const { data: customRoles = [] } = useCustomRoles();
     const createMutation = useCreateAlertRule();
     const updateMutation = useUpdateAlertRule(rule?.id ?? "");
     const previewMutation = usePreviewAlertRuleEmail();
@@ -141,22 +145,24 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
     const form = useForm<AlertRuleForm>({
         resolver: zodResolver(alertRuleSchema),
         defaultValues: {
-            name:              "",
-            description:       "",
-            isActive:          true,
-            triggerEvent:      "",
-            conditions:        [],
-            headerColor:       "#1e40af",
-            headerTitle:       "",
-            bodyTemplate:      "",
-            tableFields:       [],
-            buttonLabel:       "",
-            buttonUrlTemplate: "",
-            footerNote:        "",
-            recipientRoles:    [],
-            recipientGroupIds: [],
-            recipientUserIds:  [],
-            channels:          [NotificationChannel.EMAIL],
+            name:                   "",
+            description:            "",
+            isActive:               true,
+            triggerEvent:           "",
+            conditions:             [],
+            headerColor:            "#1e40af",
+            headerTitle:            "",
+            bodyTemplate:           "",
+            tableFields:            [],
+            buttonLabel:            "",
+            buttonUrlTemplate:      "",
+            footerNote:             "",
+            recipientRoles:         [],
+            recipientGroupIds:      [],
+            recipientUserIds:       [],
+            recipientContextual:    [],
+            recipientCustomRoleIds: [],
+            channels:               [NotificationChannel.EMAIL],
         },
     });
 
@@ -167,25 +173,27 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
     useEffect(() => {
         if (rule) {
             form.reset({
-                name:              rule.name,
-                description:       rule.description ?? "",
-                isActive:          rule.isActive,
-                triggerEvent:      rule.triggerEvent,
-                conditions:        (rule.conditions ?? []).map((c) => ({
+                name:                   rule.name,
+                description:            rule.description ?? "",
+                isActive:               rule.isActive,
+                triggerEvent:           rule.triggerEvent,
+                conditions:             (rule.conditions ?? []).map((c) => ({
                     ...c,
                     value: Array.isArray(c.value) ? c.value.join(", ") : String(c.value),
                 })),
-                headerColor:       rule.headerColor,
-                headerTitle:       rule.headerTitle,
-                bodyTemplate:      rule.bodyTemplate,
-                tableFields:       rule.tableFields ?? [],
-                buttonLabel:       rule.buttonLabel ?? "",
-                buttonUrlTemplate: rule.buttonUrlTemplate ?? "",
-                footerNote:        rule.footerNote ?? "",
-                recipientRoles:    rule.recipientRoles ?? [],
-                recipientGroupIds: rule.recipientGroupIds ?? [],
-                recipientUserIds:  rule.recipientUserIds ?? [],
-                channels:          (rule.channels ?? []) as string[],
+                headerColor:            rule.headerColor,
+                headerTitle:            rule.headerTitle,
+                bodyTemplate:           rule.bodyTemplate,
+                tableFields:            rule.tableFields ?? [],
+                buttonLabel:            rule.buttonLabel ?? "",
+                buttonUrlTemplate:      rule.buttonUrlTemplate ?? "",
+                footerNote:             rule.footerNote ?? "",
+                recipientRoles:         rule.recipientRoles ?? [],
+                recipientGroupIds:      rule.recipientGroupIds ?? [],
+                recipientUserIds:       rule.recipientUserIds ?? [],
+                recipientContextual:    rule.recipientContextual ?? [],
+                recipientCustomRoleIds: rule.recipientCustomRoleIds ?? [],
+                channels:               (rule.channels ?? []) as string[],
             });
         } else {
             form.reset({
@@ -194,6 +202,7 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
                 bodyTemplate: "", tableFields: [], buttonLabel: "",
                 buttonUrlTemplate: "", footerNote: "",
                 recipientRoles: [], recipientGroupIds: [], recipientUserIds: [],
+                recipientContextual: [], recipientCustomRoleIds: [],
                 channels: [NotificationChannel.EMAIL],
             });
         }
@@ -202,9 +211,11 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
     }, [rule, open]);
 
     const selectedEvent = form.watch("triggerEvent");
-    const availableVariables = selectedEvent
-        ? (variableRegistry as Record<string, { key: string; label: string }[]>)[selectedEvent] ?? []
-        : [];
+    const eventMeta = selectedEvent
+        ? (variableRegistry as Record<string, { variables: { key: string; label: string }[]; contextualRecipients: { key: string; label: string }[] }>)[selectedEvent]
+        : undefined;
+    const availableVariables     = eventMeta?.variables ?? [];
+    const availableContextuals   = eventMeta?.contextualRecipients ?? [];
 
     function insertVariable(fieldName: "headerTitle" | "bodyTemplate" | "buttonUrlTemplate", variable: string) {
         const current = form.getValues(fieldName) ?? "";
@@ -224,6 +235,22 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
         form.setValue(
             "recipientRoles",
             current.includes(role) ? current.filter((r) => r !== role) : [...current, role],
+        );
+    }
+
+    function toggleContextual(key: string) {
+        const current = form.getValues("recipientContextual");
+        form.setValue(
+            "recipientContextual",
+            current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
+        );
+    }
+
+    function toggleCustomRole(id: string) {
+        const current = form.getValues("recipientCustomRoleIds");
+        form.setValue(
+            "recipientCustomRoleIds",
+            current.includes(id) ? current.filter((rId) => rId !== id) : [...current, id],
         );
     }
 
@@ -267,10 +294,12 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
         }
     }
 
-    const channels = form.watch("channels");
-    const recipientRoles = form.watch("recipientRoles");
-    const tableFields = form.watch("tableFields");
-    const errors = form.formState.errors;
+    const channels             = form.watch("channels");
+    const recipientRoles       = form.watch("recipientRoles");
+    const recipientContextual  = form.watch("recipientContextual");
+    const recipientCustomRoleIds = form.watch("recipientCustomRoleIds");
+    const tableFields          = form.watch("tableFields");
+    const errors               = form.formState.errors;
 
     return (
         <>
@@ -659,6 +688,31 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
                                     </div>
                                 </div>
 
+                                {availableContextuals.length > 0 && (
+                                    <div>
+                                        <p className="text-sm font-medium mb-1">Destinatários contextuais</p>
+                                        <p className="text-xs text-slate-500 mb-3">
+                                            Resolvidos automaticamente a partir do contexto da OS/evento.
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {availableContextuals.map((c) => (
+                                                <button
+                                                    key={c.key}
+                                                    type="button"
+                                                    onClick={() => toggleContextual(c.key)}
+                                                    className={`text-left text-sm px-3 py-2 border rounded-lg transition-colors ${
+                                                        recipientContextual.includes(c.key)
+                                                            ? "bg-violet-600 border-violet-600 text-white"
+                                                            : "hover:border-violet-400 text-slate-600 dark:text-slate-400"
+                                                    }`}
+                                                >
+                                                    {c.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div>
                                     <p className="text-sm font-medium mb-1">Perfis destinatários</p>
                                     <p className="text-xs text-slate-500 mb-3">
@@ -681,6 +735,31 @@ export function AlertRuleSheet({ open, onOpenChange, rule }: AlertRuleSheetProps
                                         ))}
                                     </div>
                                 </div>
+
+                                {customRoles.length > 0 && (
+                                    <div>
+                                        <p className="text-sm font-medium mb-1">Papéis personalizados</p>
+                                        <p className="text-xs text-slate-500 mb-3">
+                                            Usuários que possuem um dos papéis criados pela sua empresa.
+                                        </p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {customRoles.map((cr) => (
+                                                <button
+                                                    key={cr.id}
+                                                    type="button"
+                                                    onClick={() => toggleCustomRole(cr.id)}
+                                                    className={`text-left text-sm px-3 py-2 border rounded-lg transition-colors ${
+                                                        recipientCustomRoleIds.includes(cr.id)
+                                                            ? "bg-blue-600 border-blue-600 text-white"
+                                                            : "hover:border-blue-400 text-slate-600 dark:text-slate-400"
+                                                    }`}
+                                                >
+                                                    {cr.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </TabsContent>
                         </Tabs>
 

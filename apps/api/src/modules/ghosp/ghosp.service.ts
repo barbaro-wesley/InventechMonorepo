@@ -42,7 +42,17 @@ export class GhospService implements OnModuleInit, OnModuleDestroy {
     try {
       const [dataResult, countResult] = await Promise.all([
         this.pool.query<PacienteInternadoDto>(
-          'SELECT * FROM sigh.v_controle_acesso ORDER BY data_entrada DESC LIMIT $1 OFFSET $2',
+          `SELECT
+            paciente,
+            prontuario,
+            TO_CHAR(data_entrada, 'DD/MM/YYYY') AS data_entrada,
+            leito,
+            setor,
+            dias_internacao,
+            idade
+          FROM sigh.v_controle_acesso
+          ORDER BY data_entrada DESC
+          LIMIT $1 OFFSET $2`,
           [limit, offset],
         ),
         this.pool.query<{ total: string }>(
