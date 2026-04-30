@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
 import {
   ExternalLink,
   User,
@@ -16,6 +18,10 @@ import {
   FileText,
   Image as ImageIcon,
   HardDrive,
+  Pencil,
+  X,
+  Loader2,
+  Save,
 } from "lucide-react";
 import {
   Sheet,
@@ -23,14 +29,18 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { scansService } from "@/services/printers/scans.service";
+import { useUpdateScanMetadata } from "@/hooks/printers/use-scans";
 import type { Scan, OcrStatus, ScanStatus } from "@/services/printers/scans.service";
 
 interface ScanViewerSheetProps {
   scan: Scan | null;
   onClose: () => void;
+  onUpdate?: (updated: Scan) => void;
+  canEdit?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -150,12 +160,146 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ─── Edit Form ────────────────────────────────────────────────────────────────
+
+interface EditFormValues {
+  paciente: string;
+  cpf: string;
+  prontuario: string;
+  numeroAtendimento: string;
+}
+
+interface EditPanelProps {
+  scan: Scan;
+  onCancel: () => void;
+  onSaved: (updated: Scan) => void;
+}
+
+function EditPanel({ scan, onCancel, onSaved }: EditPanelProps) {
+  const update = useUpdateScanMetadata();
+  const meta = scan.metadata;
+
+  const { register, handleSubmit } = useForm<EditFormValues>({
+    defaultValues: {
+      paciente: meta?.paciente ?? "",
+      cpf: meta?.cpf ? meta.cpf.replace(/\D/g, "") : "",
+      prontuario: meta?.prontuario ?? "",
+      numeroAtendimento: meta?.numeroAtendimento ?? "",
+    },
+  });
+
+  function onSubmit(values: EditFormValues) {
+    update.mutate(
+      {
+        id: scan.id,
+        payload: {
+          paciente: values.paciente.trim() || null,
+          cpf: values.cpf.trim() || null,
+          prontuario: values.prontuario.trim() || null,
+          numeroAtendimento: values.numeroAtendimento.trim() || null,
+        },
+      },
+      { onSuccess: (updated) => onSaved(updated) }
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <SectionTitle>Editar Paciente</SectionTitle>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <User className="w-3 h-3" /> Nome
+            </Label>
+            <Input
+              {...register("paciente")}
+              placeholder="Nome do paciente"
+              className="h-8 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <CreditCard className="w-3 h-3" /> CPF
+            </Label>
+            <Input
+              {...register("cpf")}
+              placeholder="Somente números"
+              maxLength={11}
+              className="h-8 text-sm font-mono"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <FileDigit className="w-3 h-3" /> Prontuário
+            </Label>
+            <Input
+              {...register("prontuario")}
+              placeholder="Nº do prontuário"
+              className="h-8 text-sm font-mono"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Hash className="w-3 h-3" /> Nº Atendimento
+            </Label>
+            <Input
+              {...register("numeroAtendimento")}
+              placeholder="Nº do atendimento"
+              className="h-8 text-sm font-mono"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="p-3 border-t border-border flex gap-2">
+        <Button
+          type="submit"
+          size="sm"
+          className="flex-1 h-8 text-xs gap-1.5"
+          disabled={update.isPending}
+        >
+          {update.isPending ? (
+            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando...</>
+          ) : (
+            <><Save className="w-3.5 h-3.5" /> Salvar</>
+          )}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 px-3 text-xs"
+          onClick={onCancel}
+          disabled={update.isPending}
+        >
+          <X className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function ScanViewerSheet({ scan, onClose }: ScanViewerSheetProps) {
+export function ScanViewerSheet({ scan, onClose, onUpdate, canEdit = true }: ScanViewerSheetProps) {
+  const [isEditing, setIsEditing] = useState(false);
   const downloadUrl = scan ? scansService.getDownloadUrl(scan.id) : "";
   const meta = scan?.metadata;
-  const ext = scan?.fileName.split(".").pop()?.toLowerCase();
+
+  // Reset edit mode when the sheet closes or scan changes
+  useEffect(() => {
+    setIsEditing(false);
+  }, [scan?.id]);
+
+  function handleSaved(updated: Scan) {
+    setIsEditing(false);
+    onUpdate?.(updated);
+  }
 
   return (
     <Sheet open={!!scan} onOpenChange={(open) => !open && onClose()}>
@@ -183,85 +327,105 @@ export function ScanViewerSheet({ scan, onClose }: ScanViewerSheetProps) {
             </div>
           </div>
 
-          {scan?.status === "PROCESSED" && (
-            <Button
-              variant="default"
-              size="sm"
-              className="h-8 text-xs gap-1.5 flex-shrink-0"
-              onClick={() => window.open(downloadUrl, "_blank")}
-            >
-              <Download className="w-3.5 h-3.5" />
-              Baixar PDF
-            </Button>
-          )}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {canEdit && scan && !isEditing && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => setIsEditing(true)}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Editar campos
+              </Button>
+            )}
+            {scan?.status === "PROCESSED" && !isEditing && (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => window.open(downloadUrl, "_blank")}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Baixar PDF
+              </Button>
+            )}
+          </div>
         </SheetHeader>
 
         <div className="flex flex-1 overflow-hidden">
           {/* ── Sidebar ── */}
-          <aside className="w-64 flex-shrink-0 border-r border-border overflow-y-auto bg-muted/10">
-            <div className="p-4 space-y-5">
+          <aside className="w-64 flex-shrink-0 border-r border-border overflow-hidden bg-muted/10 flex flex-col">
+            {isEditing && scan ? (
+              <EditPanel
+                scan={scan}
+                onCancel={() => setIsEditing(false)}
+                onSaved={handleSaved}
+              />
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 space-y-5">
+                {/* OCR */}
+                <div>
+                  <SectionTitle>OCR</SectionTitle>
+                  <div className="bg-white rounded-lg border border-border p-3">
+                    {meta ? (
+                      <OcrBadge status={meta.ocrStatus} />
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground ring-1 ring-border">
+                        Sem metadados
+                      </span>
+                    )}
+                    {meta?.extractedAt && (
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Extraído em{" "}
+                        {new Date(meta.extractedAt).toLocaleString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-              {/* OCR */}
-              <div>
-                <SectionTitle>OCR</SectionTitle>
-                <div className="bg-white rounded-lg border border-border p-3">
-                  {meta ? (
-                    <OcrBadge status={meta.ocrStatus} />
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground ring-1 ring-border">
-                      Sem metadados
-                    </span>
-                  )}
-                  {meta?.extractedAt && (
-                    <p className="text-[10px] text-muted-foreground mt-2">
-                      Extraído em{" "}
-                      {new Date(meta.extractedAt).toLocaleString("pt-BR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  )}
+                {/* Dados do Paciente */}
+                <div>
+                  <SectionTitle>Paciente</SectionTitle>
+                  <div className="bg-white rounded-lg border border-border divide-y divide-border px-3">
+                    <MetaRow icon={User} label="Nome" value={meta?.paciente} />
+                    <MetaRow icon={CreditCard} label="CPF" value={formatCpf(meta?.cpf ?? null)} mono />
+                    <MetaRow icon={FileDigit} label="Prontuário" value={meta?.prontuario} mono />
+                    <MetaRow icon={Hash} label="Nº Atendimento" value={meta?.numeroAtendimento} mono />
+                  </div>
+                </div>
+
+                {/* Origem */}
+                <div>
+                  <SectionTitle>Origem</SectionTitle>
+                  <div className="bg-white rounded-lg border border-border divide-y divide-border px-3">
+                    <MetaRow icon={Printer} label="Impressora" value={scan?.printer.name} />
+                    <MetaRow icon={Building2} label="Centro de Custo" value={scan?.printer.costCenter?.name} />
+                    <MetaRow
+                      icon={Calendar}
+                      label="Data / Hora"
+                      value={
+                        scan
+                          ? new Date(scan.scannedAt).toLocaleString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : null
+                      }
+                    />
+                  </div>
                 </div>
               </div>
-
-              {/* Dados do Paciente */}
-              <div>
-                <SectionTitle>Paciente</SectionTitle>
-                <div className="bg-white rounded-lg border border-border divide-y divide-border px-3">
-                  <MetaRow icon={User} label="Nome" value={meta?.paciente} />
-                  <MetaRow icon={CreditCard} label="CPF" value={formatCpf(meta?.cpf ?? null)} mono />
-                  <MetaRow icon={FileDigit} label="Prontuário" value={meta?.prontuario} mono />
-                  <MetaRow icon={Hash} label="Nº Atendimento" value={meta?.numeroAtendimento} mono />
-                </div>
-              </div>
-
-              {/* Origem */}
-              <div>
-                <SectionTitle>Origem</SectionTitle>
-                <div className="bg-white rounded-lg border border-border divide-y divide-border px-3">
-                  <MetaRow icon={Printer} label="Impressora" value={scan?.printer.name} />
-                  <MetaRow icon={Building2} label="Centro de Custo" value={scan?.printer.costCenter?.name} />
-                  <MetaRow
-                    icon={Calendar}
-                    label="Data / Hora"
-                    value={
-                      scan
-                        ? new Date(scan.scannedAt).toLocaleString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : null
-                    }
-                  />
-                </div>
-              </div>
-            </div>
+            )}
           </aside>
 
           {/* ── Preview Area ── */}

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Param,
   Query,
@@ -17,7 +18,7 @@ import type { Response } from 'express'
 import { ApiOperation } from '@nestjs/swagger'
 import { ConfigService } from '@nestjs/config'
 import { ScansService } from './scans.service'
-import { ListScansDto, ScanWebhookDto } from './dto/scan.dto'
+import { ListScansDto, ScanWebhookDto, UpdateScanMetadataDto } from './dto/scan.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
 import { Public } from '../../common/decorators/public.decorator'
@@ -64,6 +65,17 @@ export class ScansController {
     res.setHeader('Content-Length', sizeBytes)
     res.setHeader('Cache-Control', 'no-store')
     stream.pipe(res)
+  }
+
+  @Patch(':id/metadata')
+  @Permission('scan:update')
+  @ApiOperation({ summary: 'Atualizar metadados do paciente manualmente' })
+  updateMetadata(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateScanMetadataDto,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.scansService.updateMetadata(id, dto, cu)
   }
 
   @Delete(':id')

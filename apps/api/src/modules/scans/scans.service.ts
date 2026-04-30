@@ -10,7 +10,7 @@ import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsGateway } from '../notifications/notifications.gateway'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
-import { ListScansDto } from './dto/scan.dto'
+import { ListScansDto, UpdateScanMetadataDto } from './dto/scan.dto'
 
 export const SCANS_BUCKET = 'scans'
 
@@ -129,6 +129,25 @@ export class ScansService implements OnModuleInit {
     if (scan.status !== 'PROCESSED') throw new NotFoundException('Arquivo ainda não disponível')
     const stream = await this.minioClient.getObject(scan.bucket, scan.storedKey)
     return { stream, fileName: scan.fileName, mimeType: scan.mimeType, sizeBytes: scan.sizeBytes }
+  }
+
+  async updateMetadata(id: string, dto: UpdateScanMetadataDto, cu: AuthenticatedUser) {
+    const scan = await this.findOne(id, cu)
+
+    const data = {
+      paciente: dto.paciente ?? null,
+      cpf: dto.cpf?.replace(/\D/g, '') ?? null,
+      prontuario: dto.prontuario ?? null,
+      numeroAtendimento: dto.numeroAtendimento ?? null,
+    }
+
+    await this.prisma.scanMetadata.upsert({
+      where: { scanId: scan.id },
+      create: { scanId: scan.id, ocrStatus: 'PENDING', ...data },
+      update: data,
+    })
+
+    return this.findOne(id, cu)
   }
 
   async remove(id: string, cu: AuthenticatedUser) {

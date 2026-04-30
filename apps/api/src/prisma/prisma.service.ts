@@ -231,4 +231,5 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   // ─── Impressoras & Scans ──────────────────────────────────────────────
   get printer() { return this._db.printer }
   get scan() { return this._db.scan }
+  get scanMetadata() { return this._db.scanMetadata }
 }
