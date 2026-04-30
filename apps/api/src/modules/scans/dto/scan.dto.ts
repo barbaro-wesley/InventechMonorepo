@@ -41,6 +41,28 @@ export class ListScansDto {
   limit?: number
 }
 
+export class UpdateScanMetadataDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  paciente?: string | null
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(14)
+  cpf?: string | null
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  prontuario?: string | null
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  numeroAtendimento?: string | null
+}
+
 export class ScanWebhookDto {
   @IsUUID()
   scanId: string

@@ -197,6 +197,7 @@ export default function ScansPage() {
 
   const permissions = usePermissions();
   const canDelete = permissions.canSeeNav(["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"]);
+  const canEdit = permissions.canSeeNav(["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"]);
 
   useScansSocket();
 
@@ -566,6 +567,8 @@ export default function ScansPage() {
       <ScanViewerSheet
         scan={selectedScan}
         onClose={() => setSelectedScan(null)}
+        onUpdate={(updated) => setSelectedScan(updated)}
+        canEdit={canEdit}
       />
 
       {/* ── Delete Confirm ── */}

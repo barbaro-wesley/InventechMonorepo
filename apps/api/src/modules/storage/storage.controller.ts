@@ -20,6 +20,7 @@ import { StorageService } from './storage.service'
 import { UploadFileDto } from './dto/storage.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
+import { Public } from '../../common/decorators/public.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { ALLOWED_MIME_LIST } from './storage.constants'
 import { RateLimit } from '../../common/decorators/rate-limit.decorator'
@@ -58,6 +59,19 @@ export class StorageController {
       currentUser.clientId,
       currentUser,
     )
+  }
+
+  // Serve o avatar via proxy da API — o MinIO não é exposto publicamente em produção
+  @Public()
+  @Get('avatar/:userId')
+  async getAvatar(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Res() res: Response,
+  ) {
+    const { stream, mimeType } = await this.storageService.streamAvatar(userId)
+    res.setHeader('Content-Type', mimeType)
+    res.setHeader('Cache-Control', 'public, max-age=86400, immutable')
+    stream.pipe(res)
   }
 
   // Upload de avatar — qualquer usuário autenticado (sem @Permission = aberto a autenticados)

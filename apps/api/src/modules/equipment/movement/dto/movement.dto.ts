@@ -14,6 +14,10 @@ export class CreateMovementDto {
     type: MovementType  // TRANSFER | LOAN
 
     @IsOptional()
+    @IsUUID()
+    destinationCostCenterId?: string  // Apenas para TRANSFER: atualiza o CC do equipamento
+
+    @IsOptional()
     @IsString()
     reason?: string
 

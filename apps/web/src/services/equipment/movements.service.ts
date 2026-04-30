@@ -25,6 +25,7 @@ export interface CreateMovementDto {
   type: MovementType;
   originLocationId: string;
   destinationLocationId: string;
+  destinationCostCenterId?: string;
   reason?: string;
   expectedReturnAt?: string;
   notes?: string;

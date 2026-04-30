@@ -76,6 +76,19 @@ export class MovementsService {
             throw new BadRequestException('Empréstimos precisam de data de devolução prevista')
         }
 
+        // destinationCostCenterId só se aplica a TRANSFER
+        if (dto.destinationCostCenterId && dto.type === MovementType.LOAN) {
+            throw new BadRequestException('Transferência de centro de custo não é permitida em empréstimos')
+        }
+
+        if (dto.destinationCostCenterId) {
+            const costCenter = await this.prisma.costCenter.findFirst({
+                where: { id: dto.destinationCostCenterId, companyId },
+                select: { id: true },
+            })
+            if (!costCenter) throw new BadRequestException('Centro de custo de destino não encontrado nesta empresa')
+        }
+
         // Transação: cria movimento e atualiza localização atual do equipamento
         return this.prisma.$transaction(async (tx) => {
             const movement = await tx.equipmentMovement.create({
@@ -97,7 +110,7 @@ export class MovementsService {
                 },
             })
 
-            // Atualiza localização atual e status do equipamento
+            // Atualiza localização atual, status e (opcionalmente) centro de custo do equipamento
             await tx.equipment.update({
                 where: { id: equipmentId },
                 data: {
@@ -105,6 +118,9 @@ export class MovementsService {
                     status: dto.type === MovementType.LOAN
                         ? EquipmentStatus.BORROWED
                         : EquipmentStatus.ACTIVE,
+                    ...(dto.type === MovementType.TRANSFER && dto.destinationCostCenterId
+                        ? { costCenterId: dto.destinationCostCenterId }
+                        : {}),
                 },
             })
 

@@ -7,6 +7,11 @@ export default registerAs('minio', () => ({
   accessKey: process.env.MINIO_ROOT_USER,
   secretKey: process.env.MINIO_ROOT_PASSWORD,
 
+  // URL pública da API (usada para gerar URLs de avatar proxy)
+  // Em dev: vazio → usa http://localhost:{APP_PORT}
+  // Em prod: ex. https://api.suaempresa.com
+  publicUrl: process.env.MINIO_PUBLIC_URL ?? '',
+
   // Buckets
   buckets: {
     equipment: process.env.MINIO_BUCKET_EQUIPMENT ?? 'equipment-attachments',

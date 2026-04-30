@@ -5,6 +5,7 @@ import {
   scansService,
   type Scan,
   type ListScansParams,
+  type UpdateScanMetadataPayload,
 } from "@/services/printers/scans.service";
 
 export const scanKeys = {
@@ -28,6 +29,19 @@ export function useScans(params?: Omit<ListScansParams, "cursor">) {
       scans: data.pages.flatMap((p) => p.data) as Scan[],
       hasNextPage: data.pages[data.pages.length - 1]?.hasNextPage ?? false,
     }),
+  });
+}
+
+export function useUpdateScanMetadata() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateScanMetadataPayload }) =>
+      scansService.updateMetadata(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scanKeys.all() });
+      toast.success("Metadados atualizados!");
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
   });
 }
 
