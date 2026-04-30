@@ -220,7 +220,7 @@ function EquipmentSheet({
         subtypeId: editTarget.subtype?.id ?? "",
         locationId: editTarget.location?.id ?? "",
         costCenterId: editTarget.costCenter?.id ?? "",
-        purchaseValue: editTarget.purchaseValue != null ? formatToBRL(editTarget.purchaseValue) : "",
+        purchaseValue: editTarget.purchaseValue != null ? formatToBRL(Math.round(editTarget.purchaseValue * 100)) : "",
         purchaseDate: editTarget.purchaseDate ? editTarget.purchaseDate.substring(0, 10) : "",
         warrantyEnd: editTarget.warrantyEnd ? editTarget.warrantyEnd.substring(0, 10) : "",
         depreciationRate: editTarget.depreciationRate != null ? String(editTarget.depreciationRate) : "",
@@ -1326,7 +1326,7 @@ function MovementSheet({
 }) {
   const { data: costCenters = [] } = useCostCenters({ limit: 100 });
   const allLocations = costCenters.flatMap((cc) =>
-    cc.locations.map((l) => ({ ...l, ccName: cc.name }))
+    cc.locations.map((l) => ({ ...l, ccId: cc.id, ccName: cc.name }))
   );
 
   const create = useCreateMovement(equipment?.id ?? "");
@@ -1346,11 +1346,13 @@ function MovementSheet({
 
   function onSubmit(data: MovementForm) {
     if (!equipment) return;
+    const destLocation = allLocations.find((l) => l.id === data.destinationLocationId);
     create.mutate(
       {
         type: data.type,
         originLocationId: equipment.currentLocation?.id ?? equipment.location?.id ?? "",
         destinationLocationId: data.destinationLocationId,
+        destinationCostCenterId: data.type === "TRANSFER" ? (destLocation?.ccId ?? undefined) : undefined,
         reason: data.reason || undefined,
         expectedReturnAt: data.expectedReturnAt || undefined,
         notes: data.notes || undefined,
