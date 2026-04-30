@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2, Trash2, Settings2 } from 'lucide-react'
+import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2, Trash2, Settings2, GitBranch } from 'lucide-react'
 import { LaudoFillDrawer } from '@/components/laudos/laudo-fill-drawer'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,6 +51,7 @@ import { OsTasksTab } from './tabs/os-tasks-tab'
 import { OsCommentsTab } from './tabs/os-comments-tab'
 import { OsHistoryTab } from './tabs/os-history-tab'
 import { OsCostsTab } from './tabs/os-costs-tab'
+import { OsChildCreateSheet } from './os-child-create-sheet'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from './os-utils'
 import type { ServiceOrderStatus, ServiceOrderPriority, MaintenanceType } from '@/services/service-orders/service-orders.types'
 import { MAINTENANCE_TYPE_LABELS } from './os-utils'
@@ -111,6 +112,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const [editResolution, setEditResolution] = useState('')
   const [editClients, setEditClients] = useState<{ id: string; name: string }[]>([])
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [childCreateOpen, setChildCreateOpen] = useState(false)
 
   const user = useCurrentUser()
   const { data: os, isLoading } = useServiceOrder(clientId, osId ?? '')
@@ -223,6 +225,11 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     (user?.permissions?.includes('service-order:assume') ?? false)
   const canEdit = user?.permissions?.includes('service-order:update') ?? false
   const canDelete = user?.permissions?.includes('service-order:delete') ?? false
+  const canCreateChild =
+    (user?.permissions?.includes('service-order:create-child') ?? false) &&
+    os?.status !== 'CANCELLED' &&
+    os?.status !== 'COMPLETED_APPROVED' &&
+    !os?.parentServiceOrderId
 
   return (
     <>
@@ -278,7 +285,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
 
                 {/* Ações de status */}
                 <div className="flex items-center gap-2">
-                  {(canEdit || canDelete) && (
+                  {(canEdit || canDelete || canCreateChild) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -298,7 +305,13 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                             Editar
                           </DropdownMenuItem>
                         )}
-                        {canEdit && canDelete && <DropdownMenuSeparator />}
+                        {canCreateChild && (
+                          <DropdownMenuItem onClick={() => setChildCreateOpen(true)}>
+                            <GitBranch className="h-3.5 w-3.5 mr-2 text-violet-500" />
+                            Nova OS Vinculada
+                          </DropdownMenuItem>
+                        )}
+                        {(canEdit || canCreateChild) && canDelete && <DropdownMenuSeparator />}
                         {canDelete && (
                           <DropdownMenuItem
                             className="text-red-600 focus:text-red-600"
@@ -728,6 +741,17 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {os && canCreateChild && (
+        <OsChildCreateSheet
+          open={childCreateOpen}
+          onClose={() => setChildCreateOpen(false)}
+          parentId={os.id}
+          parentNumber={os.number}
+          parentMaintenanceType={os.maintenanceType}
+          clientId={clientId}
+        />
+      )}
     </>
   )
 }

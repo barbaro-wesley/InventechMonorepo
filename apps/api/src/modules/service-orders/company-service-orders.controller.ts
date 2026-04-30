@@ -18,6 +18,7 @@ import {
     UpdateServiceOrderDto,
     UpdateServiceOrderStatusDto,
     AssignTechnicianDto,
+    CreateChildServiceOrderDto,
 } from './dto/service-order.dto'
 import { CreateCommentDto } from './comments/dto/comment.dto'
 import { CreateTaskDto, UpdateTaskDto, ReorderTasksDto } from './tasks/dto/task.dto'
@@ -105,6 +106,16 @@ export class CompanyServiceOrdersController {
         @CurrentUser() cu: AuthenticatedUser,
     ) {
         return this.serviceOrdersService.findOne(id, null, cu.companyId!, cu)
+    }
+
+    @Post(':id/children')
+    @Permission('service-order:create-child')
+    createChild(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: CreateChildServiceOrderDto,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.serviceOrdersService.createChild(id, dto, cu.clientId ?? null, cu.companyId!, cu)
     }
 
     @Delete(':id')

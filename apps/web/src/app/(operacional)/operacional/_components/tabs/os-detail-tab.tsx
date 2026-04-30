@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn, FileText, CheckCircle2 } from 'lucide-react'
+import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn, FileText, CheckCircle2, GitBranch, CalendarClock } from 'lucide-react'
 import { storageService } from '@/services/storage/storage.service'
 import type { Attachment } from '@/services/storage/storage.service'
 import { Button } from '@/components/ui/button'
@@ -533,6 +533,76 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* OS Vinculadas */}
+      {(os.parentServiceOrder || os.childServiceOrders?.length > 0 || os.originatedSchedules?.length > 0) && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-3">
+            <GitBranch className="h-3 w-3 text-violet-500" />
+            <p className="text-[11px] text-[#6c7c93] font-medium uppercase tracking-wide">OS Vinculadas</p>
+          </div>
+
+          <div className="space-y-2">
+            {/* OS pai */}
+            {os.parentServiceOrder && (
+              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                <p className="text-[10px] text-violet-500 font-medium mb-1.5 uppercase tracking-wide">Originada de</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-[#6c7c93]">#{os.parentServiceOrder.number}</span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${STATUS_CONFIG[os.parentServiceOrder.status].bg} ${STATUS_CONFIG[os.parentServiceOrder.status].color}`}>
+                    <span className={`h-1 w-1 rounded-full ${STATUS_CONFIG[os.parentServiceOrder.status].dot}`} />
+                    {STATUS_CONFIG[os.parentServiceOrder.status].label}
+                  </span>
+                  <span className="text-xs text-[#6c7c93] truncate">{MAINTENANCE_TYPE_LABELS[os.parentServiceOrder.maintenanceType]}</span>
+                </div>
+                <p className="text-sm text-[#1d2530] mt-1 truncate">{os.parentServiceOrder.title}</p>
+              </div>
+            )}
+
+            {/* OS filhas */}
+            {os.childServiceOrders?.map((child) => (
+              <div key={child.id} className="rounded-lg border border-[#e0e5eb] bg-[#f8f9fb] p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-mono text-[#6c7c93]">#{child.number}</span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${STATUS_CONFIG[child.status].bg} ${STATUS_CONFIG[child.status].color}`}>
+                    <span className={`h-1 w-1 rounded-full ${STATUS_CONFIG[child.status].dot}`} />
+                    {STATUS_CONFIG[child.status].label}
+                  </span>
+                  <span className="text-[10px] text-[#6c7c93] ml-auto shrink-0">
+                    {MAINTENANCE_TYPE_LABELS[child.maintenanceType]}
+                  </span>
+                </div>
+                <p className="text-sm text-[#1d2530] truncate">{child.title}</p>
+                {child.scheduledFor && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <CalendarClock className="h-3 w-3 text-[#6c7c93]" />
+                    <span className="text-[11px] text-[#6c7c93]">
+                      Agendada: {new Date(child.scheduledFor).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Agendamentos recorrentes originados */}
+            {os.originatedSchedules?.map((schedule) => (
+              <div key={schedule.id} className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                <p className="text-[10px] text-indigo-500 font-medium mb-1.5 uppercase tracking-wide">Agendamento recorrente</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${schedule.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                    {schedule.isActive ? 'Ativo' : 'Inativo'}
+                  </span>
+                  <span className="text-[10px] text-[#6c7c93]">{MAINTENANCE_TYPE_LABELS[schedule.maintenanceType]}</span>
+                </div>
+                <p className="text-sm text-[#1d2530] truncate">{schedule.title}</p>
+                <p className="text-[11px] text-[#6c7c93] mt-0.5">
+                  Início: {new Date(schedule.startDate).toLocaleDateString('pt-BR')}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}

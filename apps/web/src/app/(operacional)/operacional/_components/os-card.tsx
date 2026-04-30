@@ -1,6 +1,6 @@
 'use client'
 
-import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip } from 'lucide-react'
+import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip, GitBranch } from 'lucide-react'
 import type { ServiceOrder } from '@/services/service-orders/service-orders.types'
 import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo } from './os-utils'
 
@@ -49,16 +49,22 @@ export function OsCard({ os, onClick }: OsCardProps) {
       <div className="p-3 space-y-2.5">
         {/* Número + prioridade */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-mono text-[#6c7c93]">#{os.number}</span>
             <span
               className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${priority.badge}`}
             >
               {priority.label}
             </span>
+            {os.parentServiceOrderId && (
+              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-violet-50 text-violet-600 border border-violet-200">
+                <GitBranch className="h-2.5 w-2.5" />
+                Vinculada
+              </span>
+            )}
           </div>
           <span
-            className={`text-[10px] font-medium ${status.color}`}
+            className={`text-[10px] font-medium shrink-0 ${status.color}`}
           >
             {MAINTENANCE_TYPE_LABELS[os.maintenanceType]}
           </span>

@@ -7,6 +7,7 @@ import type {
   ListServiceOrdersParams,
   MyOsStats,
   CreateServiceOrderDto,
+  CreateChildServiceOrderDto,
   UpdateServiceOrderStatusDto,
   AssignTechnicianDto,
   CreateCommentDto,
@@ -253,6 +254,15 @@ async function deleteCostItem(
   return data
 }
 
+async function createChild(
+  clientId: string | null,
+  osId: string,
+  dto: CreateChildServiceOrderDto,
+) {
+  const { data } = await api.post(`${osBase(clientId, osId)}/children`, dto)
+  return data
+}
+
 async function deleteServiceOrder(clientId: string | null, id: string) {
   const { data } = await api.delete(osBase(clientId, id))
   return data
@@ -266,6 +276,7 @@ export const serviceOrdersService = {
   getById,
   getByIdCompany,
   create,
+  createChild,
   update,
   updateStatus,
   assume,

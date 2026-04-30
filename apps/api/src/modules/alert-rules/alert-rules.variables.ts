@@ -50,6 +50,11 @@ export const EVENT_VARIABLE_REGISTRY: Record<EventType, VariableDefinition[]> = 
         { key: 'hoursWaiting',  label: 'Horas sem técnico', type: 'number' },
         { key: 'groupName',     label: 'Grupo',            type: 'string' },
     ],
+    [EventType.OS_CHILD_CREATED]: [
+        { key: 'parentOsNumber', label: 'Número da OS pai',   type: 'number' },
+        { key: 'osNumber',       label: 'Número da OS filha', type: 'number' },
+        { key: 'osTitle',        label: 'Título da OS filha', type: 'string' },
+    ],
     [EventType.EQUIPMENT_CREATED]: [
         { key: 'equipmentName', label: 'Equipamento',  type: 'string' },
         { key: 'brand',         label: 'Marca',         type: 'string' },

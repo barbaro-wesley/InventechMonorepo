@@ -110,6 +110,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'service-order:create-without-equipment': [SA, CA, CM, CLA, CLU],
   // Vincular/desvincular equipamento em uma OS existente
   'service-order:link-equipment':           [SA, CA, CM],
+  // Criar OS filha / agendamento vinculado a uma OS pai
+  'service-order:create-child':             [SA, CA, CM],
 
   // ── MAINTENANCE ────────────────────────────────────────────────────────────
   'maintenance:list':            [SA, CA, CM, TEC, CLA, CLV],
@@ -221,7 +223,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'storage':              ['upload', 'download', 'list', 'delete'],
   'user':                 ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'client':               ['browse', 'list', 'read', 'create', 'update', 'delete', 'upload-logo'],
-  'service-order':        ['browse', 'list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own', 'create-without-equipment', 'link-equipment'],
+  'service-order':        ['browse', 'list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own', 'create-without-equipment', 'link-equipment', 'create-child'],
   'maintenance':          ['list', 'read', 'create', 'update', 'delete'],
   'maintenance-schedule': ['browse', 'list', 'read', 'create', 'update', 'delete', 'trigger'],
   'maintenance-group':    ['browse', 'list', 'read', 'create', 'update', 'delete'],

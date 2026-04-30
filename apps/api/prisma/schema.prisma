@@ -408,16 +408,19 @@ model MaintenanceSchedule {
   updatedAt            DateTime          @updatedAt @map("updated_at")
   groupId              String?           @map("group_id")
   clientId             String?           @map("client_id")
+  originServiceOrderId String?           @map("origin_service_order_id")
   assignedTechnician   User?             @relation("ScheduleAssignedTechnician", fields: [assignedTechnicianId], references: [id])
   client               Client?           @relation(fields: [clientId], references: [id])
   equipment            Equipment         @relation(fields: [equipmentId], references: [id])
   group                MaintenanceGroup? @relation(fields: [groupId], references: [id])
   maintenances         Maintenance[]
+  originServiceOrder   ServiceOrder?     @relation("ScheduleFromOS", fields: [originServiceOrderId], references: [id])
 
   @@index([companyId])
   @@index([companyId, clientId])
   @@index([nextRunAt, isActive])
   @@index([equipmentId])
+  @@index([originServiceOrderId])
   @@map("maintenance_schedules")
 }
 
@@ -482,25 +485,29 @@ model ServiceOrder {
   alertAfterHours Int?                        @map("alert_after_hours")
   alertSentAt     DateTime?                   @map("alert_sent_at")
   groupId         String?                     @map("group_id")
-  isAvailable     Boolean                     @default(false) @map("is_available")
-  maintenanceType MaintenanceType             @map("maintenance_type")
-  totalCost       Decimal?                    @map("total_cost") @db.Decimal(12, 2)
-  costItems       ServiceOrderCostItem[]
-  attachments     Attachment[]                @relation("ServiceOrderAttachments")
-  notifications   Notification[]
-  comments        ServiceOrderComment[]
-  statusHistory   ServiceOrderStatusHistory[]
-  tasks           ServiceOrderTask[]
-  technicians     ServiceOrderTechnician[]
-  approvedBy      User?                       @relation("ServiceOrderApprover", fields: [approvedById], references: [id])
-  client          Client?                     @relation(fields: [clientId], references: [id])
-  costCenter      CostCenter?                 @relation(fields: [costCenterId], references: [id])
-  equipment       Equipment?                  @relation(fields: [equipmentId], references: [id])
-  group           MaintenanceGroup?           @relation(fields: [groupId], references: [id])
-  location        Location?                   @relation(fields: [locationId], references: [id])
-  maintenance     Maintenance?                @relation(fields: [maintenanceId], references: [id])
-  requester       User                        @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
-  laudos          Laudo[]
+  isAvailable          Boolean                     @default(false) @map("is_available")
+  maintenanceType      MaintenanceType             @map("maintenance_type")
+  totalCost            Decimal?                    @map("total_cost") @db.Decimal(12, 2)
+  parentServiceOrderId String?                     @map("parent_service_order_id")
+  costItems            ServiceOrderCostItem[]
+  attachments          Attachment[]                @relation("ServiceOrderAttachments")
+  notifications        Notification[]
+  comments             ServiceOrderComment[]
+  statusHistory        ServiceOrderStatusHistory[]
+  tasks                ServiceOrderTask[]
+  technicians          ServiceOrderTechnician[]
+  approvedBy           User?                       @relation("ServiceOrderApprover", fields: [approvedById], references: [id])
+  client               Client?                     @relation(fields: [clientId], references: [id])
+  costCenter           CostCenter?                 @relation(fields: [costCenterId], references: [id])
+  equipment            Equipment?                  @relation(fields: [equipmentId], references: [id])
+  group                MaintenanceGroup?           @relation(fields: [groupId], references: [id])
+  location             Location?                   @relation(fields: [locationId], references: [id])
+  maintenance          Maintenance?                @relation(fields: [maintenanceId], references: [id])
+  requester            User                        @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
+  laudos               Laudo[]
+  parentServiceOrder   ServiceOrder?               @relation("OSChildren", fields: [parentServiceOrderId], references: [id])
+  childServiceOrders   ServiceOrder[]              @relation("OSChildren")
+  originatedSchedules  MaintenanceSchedule[]       @relation("ScheduleFromOS")
 
   @@unique([companyId, number])
   @@index([companyId])
@@ -513,6 +520,7 @@ model ServiceOrder {
   @@index([costCenterId])
   @@index([locationId])
   @@index([createdAt])
+  @@index([parentServiceOrderId])
   @@map("service_orders")
 }
 
@@ -1025,6 +1033,7 @@ enum EventType {
   OS_APPROVED
   OS_REJECTED
   OS_UNASSIGNED_ALERT
+  OS_CHILD_CREATED
   // Equipamentos
   EQUIPMENT_CREATED
   EQUIPMENT_MOVED
