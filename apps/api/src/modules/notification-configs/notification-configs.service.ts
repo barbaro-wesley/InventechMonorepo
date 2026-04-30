@@ -323,8 +323,8 @@ export class NotificationConfigsService {
         switch (type) {
             case ContextualRecipient.OS_REQUESTER: {
                 if (!context.requesterId) return []
-                const user = await this.prisma.user.findUnique({
-                    where: { id: context.requesterId },
+                const user = await this.prisma.user.findFirst({
+                    where: { id: context.requesterId, companyId, deletedAt: null },
                     select,
                 })
                 return user ? [user] : []
@@ -332,8 +332,8 @@ export class NotificationConfigsService {
 
             case ContextualRecipient.OS_ASSIGNED_TECHNICIAN: {
                 if (!context.technicianId) return []
-                const user = await this.prisma.user.findUnique({
-                    where: { id: context.technicianId },
+                const user = await this.prisma.user.findFirst({
+                    where: { id: context.technicianId, companyId, deletedAt: null },
                     select,
                 })
                 return user ? [user] : []
@@ -343,6 +343,8 @@ export class NotificationConfigsService {
                 if (!context.serviceOrderId) return []
                 return this.prisma.user.findMany({
                     where: {
+                        companyId,
+                        deletedAt: null,
                         serviceOrderTechnicians: {
                             some: { serviceOrderId: context.serviceOrderId, releasedAt: null },
                         },
@@ -354,10 +356,7 @@ export class NotificationConfigsService {
             case ContextualRecipient.OS_GROUP_TECHNICIANS: {
                 const ids = context.groupIds ?? (context.groupId ? [context.groupId] : [])
                 if (ids.length === 0) {
-                    return this.prisma.user.findMany({
-                        where: { companyId, role: UserRole.TECHNICIAN, status: 'ACTIVE', deletedAt: null },
-                        select,
-                    })
+                    return []
                 }
                 const lists = await Promise.all(
                     ids.map((gId) =>
@@ -381,6 +380,7 @@ export class NotificationConfigsService {
                 if (!context.clientId) return []
                 return this.prisma.user.findMany({
                     where: {
+                        companyId,
                         clientId: context.clientId,
                         role: UserRole.CLIENT_ADMIN,
                         status: 'ACTIVE',
