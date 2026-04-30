@@ -5,6 +5,7 @@ import {
   BadRequestException,
   NotFoundException,
   ForbiddenException,
+  InternalServerErrorException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import * as Minio from 'minio'
@@ -262,18 +263,26 @@ export class StorageService implements OnModuleInit {
     const ext = ALLOWED_MIME_TYPES[file.mimetype as keyof typeof ALLOWED_MIME_TYPES]?.ext ?? '.jpg'
     const key = `${userId}/avatar${ext}`
 
-    try {
-      await this.client.removeObject(bucket, key)
-    } catch {
-      // Ignora se não existia
-    }
+    // Remove todos os avatares anteriores do usuário (qualquer extensão)
+    await new Promise<void>((resolve) => {
+      const listStream = this.client.listObjects(bucket, `${userId}/avatar`, false)
+      const toRemove: string[] = []
+      listStream.on('data', (obj) => { if (obj.name) toRemove.push(obj.name) })
+      listStream.on('end', async () => {
+        for (const name of toRemove) {
+          try { await this.client.removeObject(bucket, name) } catch { /* ignora */ }
+        }
+        resolve()
+      })
+      listStream.on('error', () => resolve())
+    })
 
     await this.client.putObject(bucket, key, file.buffer, file.size, {
       'Content-Type': file.mimetype,
     })
 
-    // ✅ URL pública direta — bucket avatars é público
-    const url = this.buildPublicUrl(bucket, key)
+    // URL proxy via API — MinIO não é acessível externamente em produção
+    const url = this.buildAvatarProxyUrl(userId)
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -284,7 +293,54 @@ export class StorageService implements OnModuleInit {
   }
 
   // ─────────────────────────────────────────
-  // Monta URL pública para buckets públicos
+  // Serve o avatar diretamente via stream — o MinIO não é
+  // exposto externamente em produção, então o arquivo
+  // passa pela API como proxy.
+  // ─────────────────────────────────────────
+  async streamAvatar(userId: string) {
+    const bucket = 'avatars'
+    const prefix = `${userId}/avatar`
+
+    const key = await new Promise<string | null>((resolve, reject) => {
+      let found: string | null = null
+      const stream = this.client.listObjects(bucket, prefix, false)
+      stream.on('data', (obj) => { if (obj.name && !found) found = obj.name })
+      stream.on('end', () => resolve(found))
+      stream.on('error', reject)
+    })
+
+    if (!key) throw new NotFoundException('Avatar não encontrado')
+
+    const ext = key.substring(key.lastIndexOf('.')).toLowerCase()
+    const mimeTypes: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+    }
+
+    try {
+      const fileStream = await this.client.getObject(bucket, key)
+      return { stream: fileStream, mimeType: mimeTypes[ext] ?? 'image/jpeg' }
+    } catch {
+      throw new InternalServerErrorException('Erro ao carregar avatar')
+    }
+  }
+
+  // ─────────────────────────────────────────
+  // Monta URL proxy da API para avatar
+  // (evita expor o MinIO diretamente)
+  // ─────────────────────────────────────────
+  private buildAvatarProxyUrl(userId: string): string {
+    const publicUrl = this.configService.get<string>('minio.publicUrl', '')
+    const port = this.configService.get<number>('APP_PORT', 3000)
+    const base = publicUrl || `http://localhost:${port}`
+    return `${base}/storage/avatar/${userId}`
+  }
+
+  // ─────────────────────────────────────────
+  // Monta URL pública para buckets públicos (uso interno)
   // ─────────────────────────────────────────
   buildPublicUrl(bucket: string, key: string): string {
     const endpoint = this.configService.get<string>('minio.endpoint', 'localhost')
