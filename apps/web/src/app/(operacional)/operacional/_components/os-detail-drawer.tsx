@@ -204,7 +204,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     { id: 'tasks', label: 'Tarefas', count: os?.tasks?.length },
     { id: 'comments', label: 'Comentários', count: os?.comments?.length },
     { id: 'costs', label: 'Custos' },
-    ...(os?.maintenanceType === 'PREVENTIVE' ? [{ id: 'checklist' as Tab, label: 'Checklist' }] : []),
+    ...(os?.checklist != null ? [{ id: 'checklist' as Tab, label: 'Checklist' }] : []),
     {
       id: 'history',
       label: 'Histórico',
