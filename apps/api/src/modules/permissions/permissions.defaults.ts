@@ -193,6 +193,21 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'laudo:export-pdf':            [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo:sign':                  [SA, CA, CM, TEC, CLA, CLU],
 
+  // ── CHECKLIST TEMPLATE ─────────────────────────────────────────────────────
+  'checklist-template:browse':     [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist-template:list':       [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist-template:read':       [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist-template:create':     [SA, CA, CM],
+  'checklist-template:update':     [SA, CA, CM],
+  'checklist-template:delete':     [SA, CA],
+  'checklist-template:clone':      [SA, CA, CM],
+
+  // ── CHECKLIST (preenchimento nas OS) ───────────────────────────────────────
+  'checklist:read':                [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist:fill':                [SA, CA, CM, TEC],
+  'checklist:complete':            [SA, CA, CM, TEC],
+  'checklist:reopen':              [SA, CA, CM],
+
   // ── PRINTER ────────────────────────────────────────────────────────────────
   'printer:browse':              [SA, CA, CM],
   'printer:list':                [SA, CA, CM],
@@ -235,6 +250,8 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'notification-config':  ['browse', 'list', 'update'],
   'laudo-template':       ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'laudo':                ['browse', 'list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
+  'checklist-template':   ['browse', 'list', 'read', 'create', 'update', 'delete', 'clone'],
+  'checklist':            ['read', 'fill', 'complete', 'reopen'],
   'printer':              ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'scan':                 ['browse', 'list', 'read', 'download', 'delete'],
   'ghosp':                ['list'],

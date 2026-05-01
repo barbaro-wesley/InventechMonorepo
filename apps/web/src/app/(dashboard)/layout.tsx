@@ -124,6 +124,13 @@ const navSections: NavSection[] = [
                 permission: "laudo-template:browse",
             },
             {
+                label: "Templates de Checklist",
+                href: "/checklist-templates",
+                icon: ClipboardCheck,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+                permission: "checklist-template:browse",
+            },
+            {
                 label: "Impressoras",
                 href: "/impressoras",
                 icon: Printer,

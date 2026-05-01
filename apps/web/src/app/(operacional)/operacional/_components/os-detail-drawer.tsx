@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2, Trash2, Settings2, GitBranch } from 'lucide-react'
+import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2, Trash2, Settings2, GitBranch, ClipboardList } from 'lucide-react'
 import { LaudoFillDrawer } from '@/components/laudos/laudo-fill-drawer'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,12 +51,13 @@ import { OsTasksTab } from './tabs/os-tasks-tab'
 import { OsCommentsTab } from './tabs/os-comments-tab'
 import { OsHistoryTab } from './tabs/os-history-tab'
 import { OsCostsTab } from './tabs/os-costs-tab'
+import { OsChecklistTab } from './tabs/os-checklist-tab'
 import { OsChildCreateSheet } from './os-child-create-sheet'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from './os-utils'
 import type { ServiceOrderStatus, ServiceOrderPriority, MaintenanceType } from '@/services/service-orders/service-orders.types'
 import { MAINTENANCE_TYPE_LABELS } from './os-utils'
 
-type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs'
+type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs' | 'checklist'
 
 interface OsDetailDrawerProps {
   osId: string | null
@@ -203,6 +204,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     { id: 'tasks', label: 'Tarefas', count: os?.tasks?.length },
     { id: 'comments', label: 'Comentários', count: os?.comments?.length },
     { id: 'costs', label: 'Custos' },
+    ...(os?.maintenanceType === 'PREVENTIVE' ? [{ id: 'checklist' as Tab, label: 'Checklist' }] : []),
     {
       id: 'history',
       label: 'Histórico',
@@ -377,6 +379,26 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                 </div>
               </SheetHeader>
 
+              {/* Banner: checklist obrigatório pendente */}
+              {os.maintenanceType === 'PREVENTIVE' && os.checklist && !os.checklist.completedAt &&
+                os.status !== 'COMPLETED' && os.status !== 'COMPLETED_APPROVED' &&
+                os.status !== 'COMPLETED_REJECTED' && os.status !== 'CANCELLED' && (
+                <div className="mx-6 mb-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                  <ClipboardList className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>
+                    <span className="font-semibold">Checklist obrigatório pendente.</span>
+                    {' '}Conclua o checklist antes de encerrar esta OS preventiva.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('checklist')}
+                    className="ml-auto shrink-0 text-amber-700 font-medium underline underline-offset-2 hover:text-amber-900"
+                  >
+                    Ir ao checklist →
+                  </button>
+                </div>
+              )}
+
               {/* Tabs */}
               <div className="flex border-b border-[#e0e5eb] bg-white px-6">
                 {tabs.map((tab) => (
@@ -442,6 +464,9 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                       : null
                     }
                   />
+                )}
+                {activeTab === 'checklist' && (
+                  <OsChecklistTab clientId={clientId} osId={osId} />
                 )}
                 {activeTab === 'history' && (
                   <OsHistoryTab os={os} />

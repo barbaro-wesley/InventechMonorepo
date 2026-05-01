@@ -67,6 +67,7 @@ const SCHEDULE_SELECT = {
     group: { select: { id: true, name: true, color: true } },
     client: { select: { id: true, name: true } },
     assignedTechnician: { select: { id: true, name: true } },
+    checklistTemplate: { select: { id: true, title: true } },
     _count: { select: { maintenances: true } },
 } satisfies Prisma.MaintenanceScheduleSelect
 
@@ -320,6 +321,9 @@ export class MaintenanceService {
                 ...(dto.assignedTechnicianId && {
                     assignedTechnicianId: dto.assignedTechnicianId,
                 }),
+                ...(dto.checklistTemplateId && {
+                    checklistTemplateId: dto.checklistTemplateId,
+                }),
             },
             select: SCHEDULE_SELECT,
         })
@@ -376,6 +380,11 @@ export class MaintenanceService {
                 ...(dto.groupId !== undefined && {
                     group: dto.groupId
                         ? { connect: { id: dto.groupId } }
+                        : { disconnect: true },
+                }),
+                ...(dto.checklistTemplateId !== undefined && {
+                    checklistTemplate: dto.checklistTemplateId
+                        ? { connect: { id: dto.checklistTemplateId } }
                         : { disconnect: true },
                 }),
             },
@@ -442,6 +451,7 @@ export class MaintenanceService {
                 assignedTechnicianId: true,
                 groupId: true,
                 equipmentId: true,
+                checklistTemplateId: true,
                 equipment: { select: { name: true } },
             },
         })
@@ -533,6 +543,24 @@ export class MaintenanceService {
                             }),
                         },
                     })
+
+                    // Cria checklist se o agendamento tem template vinculado
+                    if (schedule.checklistTemplateId) {
+                        const tpl = await tx.checklistTemplate.findUnique({
+                            where: { id: schedule.checklistTemplateId },
+                            select: { fields: true },
+                        })
+                        if (tpl) {
+                            await tx.serviceOrderChecklist.create({
+                                data: {
+                                    companyId: schedule.companyId,
+                                    serviceOrderId: os.id,
+                                    templateId: schedule.checklistTemplateId,
+                                    fields: tpl.fields as object[],
+                                },
+                            })
+                        }
+                    }
 
                     // Atualiza nextRunAt e lastRunAt do schedule
                     const nextRunAt = calculateNextRunAt(

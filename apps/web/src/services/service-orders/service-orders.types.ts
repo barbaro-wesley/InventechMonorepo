@@ -98,6 +98,12 @@ export interface ServiceOrder {
   technicians: ServiceOrderTechnician[]
   _count: { comments: number; tasks: number; attachments: number }
   parentServiceOrderId: string | null
+  checklist?: {
+    id: string
+    completedAt: string | null
+    completedBy?: { id: string; name: string } | null
+    template?: { id: string; title: string } | null
+  } | null
 }
 
 import type { Attachment } from '../storage/storage.service'

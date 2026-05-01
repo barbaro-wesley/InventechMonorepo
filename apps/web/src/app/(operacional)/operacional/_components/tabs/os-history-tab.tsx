@@ -10,6 +10,7 @@ import {
   Circle,
   Plus,
   LogIn,
+  ClipboardCheck,
 } from 'lucide-react'
 import type { ServiceOrderDetail, ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
 import { STATUS_CONFIG, timeAgo } from '../os-utils'
@@ -27,6 +28,7 @@ type EventKind =
   | 'technician_assumed'
   | 'attachment'
   | 'created'
+  | 'checklist_completed'
 
 interface ActivityEvent {
   id: string
@@ -132,6 +134,16 @@ function buildTimeline(os: ServiceOrderDetail): ActivityEvent[] {
     })
   }
 
+  // Checklist concluído
+  if (os.checklist?.completedAt) {
+    events.push({
+      id: `checklist-completed-${os.id}`,
+      kind: 'checklist_completed',
+      date: os.checklist.completedAt,
+      actor: os.checklist.completedBy?.name,
+    })
+  }
+
   // Ordena por data decrescente (mais recente primeiro)
   return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
@@ -139,27 +151,29 @@ function buildTimeline(os: ServiceOrderDetail): ActivityEvent[] {
 function EventIcon({ kind }: { kind: EventKind }) {
   const base = 'h-3 w-3'
   switch (kind) {
-    case 'created':       return <Plus className={`${base} text-[#6c7c93]`} />
-    case 'status':        return <Circle className={`${base} text-[#6c7c93]`} />
-    case 'comment':       return <MessageSquare className={`${base} text-blue-500`} />
-    case 'task_created':  return <CheckSquare className={`${base} text-slate-400`} />
-    case 'task_completed':return <CheckSquare className={`${base} text-emerald-500`} />
-    case 'technician_added':  return <UserPlus className={`${base} text-violet-500`} />
-    case 'technician_assumed':return <LogIn className={`${base} text-indigo-500`} />
-    case 'attachment':    return <Paperclip className={`${base} text-amber-500`} />
+    case 'created':              return <Plus className={`${base} text-[#6c7c93]`} />
+    case 'status':               return <Circle className={`${base} text-[#6c7c93]`} />
+    case 'comment':              return <MessageSquare className={`${base} text-blue-500`} />
+    case 'task_created':         return <CheckSquare className={`${base} text-slate-400`} />
+    case 'task_completed':       return <CheckSquare className={`${base} text-emerald-500`} />
+    case 'technician_added':     return <UserPlus className={`${base} text-violet-500`} />
+    case 'technician_assumed':   return <LogIn className={`${base} text-indigo-500`} />
+    case 'attachment':           return <Paperclip className={`${base} text-amber-500`} />
+    case 'checklist_completed':  return <ClipboardCheck className={`${base} text-emerald-600`} />
   }
 }
 
 function dotColor(kind: EventKind): string {
   switch (kind) {
-    case 'created':           return 'bg-[#6c7c93]'
-    case 'status':            return 'bg-[#6c7c93]'
-    case 'comment':           return 'bg-blue-400'
-    case 'task_created':      return 'bg-slate-300'
-    case 'task_completed':    return 'bg-emerald-400'
-    case 'technician_added':  return 'bg-violet-400'
-    case 'technician_assumed':return 'bg-indigo-400'
-    case 'attachment':        return 'bg-amber-400'
+    case 'created':              return 'bg-[#6c7c93]'
+    case 'status':               return 'bg-[#6c7c93]'
+    case 'comment':              return 'bg-blue-400'
+    case 'task_created':         return 'bg-slate-300'
+    case 'task_completed':       return 'bg-emerald-400'
+    case 'technician_added':     return 'bg-violet-400'
+    case 'technician_assumed':   return 'bg-indigo-400'
+    case 'attachment':           return 'bg-amber-400'
+    case 'checklist_completed':  return 'bg-emerald-500'
   }
 }
 
@@ -252,6 +266,13 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
       return (
         <p className="text-xs text-[#1d2530]">
           Anexo adicionado: <span className="font-medium">{ev.attachmentName}</span>
+        </p>
+      )
+
+    case 'checklist_completed':
+      return (
+        <p className="text-xs text-[#1d2530]">
+          Checklist concluído{ev.actor ? ` por ${ev.actor}` : ''}
         </p>
       )
   }

@@ -5,6 +5,8 @@ import { CompanyServiceOrdersController } from './company-service-orders.control
 import { CommentsService } from './comments/comments.service'
 import { TasksService } from './tasks/tasks.service'
 import { CostsService } from './costs/costs.service'
+import { ChecklistsService } from './checklists/checklists.service'
+import { ChecklistsController } from './checklists/checklists.controller'
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { AutoApproveJob } from './jobs/auto-approve.job'
@@ -14,14 +16,19 @@ import { AutoApproveJob } from './jobs/auto-approve.job'
         StorageModule,
         NotificationsModule,
     ],
-    controllers: [ServiceOrdersController, CompanyServiceOrdersController],
+    controllers: [
+        ServiceOrdersController,
+        CompanyServiceOrdersController,
+        ChecklistsController,
+    ],
     providers: [
         ServiceOrdersService,
         CommentsService,
         TasksService,
         CostsService,
+        ChecklistsService,
         AutoApproveJob,
     ],
-    exports: [ServiceOrdersService],
+    exports: [ServiceOrdersService, ChecklistsService],
 })
 export class ServiceOrdersModule { }

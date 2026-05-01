@@ -59,6 +59,8 @@ model Company {
   eSignDocuments        ESignDocument[]
   laudoTemplates        LaudoTemplate[]
   laudos                Laudo[]
+  checklistTemplates    ChecklistTemplate[]
+  serviceOrderChecklists ServiceOrderChecklist[]
   printers              Printer[]
   scans                 Scan[]
 
@@ -91,6 +93,7 @@ model Client {
   users                User[]
   laudos               Laudo[]
   laudoTemplates       LaudoTemplate[]
+  checklistTemplates   ChecklistTemplate[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -136,10 +139,12 @@ model User {
   alertRulesCreated       AlertRule[]
   eSignDocumentsCreated   ESignDocument[]             @relation("ESignDocumentCreatedBy")
   eSignRequestsSigner     ESignRequest[]              @relation("ESignRequestSigner")
-  laudoTemplatesCreated   LaudoTemplate[]             @relation("LaudoTemplateCreatedBy")
-  laudosCreated           Laudo[]                     @relation("LaudoCreatedBy")
+  laudoTemplatesCreated          LaudoTemplate[]             @relation("LaudoTemplateCreatedBy")
+  laudosCreated                  Laudo[]                     @relation("LaudoCreatedBy")
   laudosAsTechnician             Laudo[]                     @relation("LaudoTechnician")
   laudosApproved                 Laudo[]                     @relation("LaudoApprovedBy")
+  checklistTemplatesCreated      ChecklistTemplate[]         @relation("ChecklistTemplateCreatedBy")
+  checklistsCompleted            ServiceOrderChecklist[]     @relation("ChecklistCompletedBy")
   manuaisCreated                 EquipmentManual[]           @relation("ManualCreatedBy")
   assignedMaintenanceSchedules   MaintenanceSchedule[]       @relation("ScheduleAssignedTechnician")
   client                         Client?                     @relation(fields: [clientId], references: [id])
@@ -406,21 +411,24 @@ model MaintenanceSchedule {
   isActive             Boolean           @default(true) @map("is_active")
   createdAt            DateTime          @default(now()) @map("created_at")
   updatedAt            DateTime          @updatedAt @map("updated_at")
-  groupId              String?           @map("group_id")
-  clientId             String?           @map("client_id")
-  originServiceOrderId String?           @map("origin_service_order_id")
-  assignedTechnician   User?             @relation("ScheduleAssignedTechnician", fields: [assignedTechnicianId], references: [id])
-  client               Client?           @relation(fields: [clientId], references: [id])
-  equipment            Equipment         @relation(fields: [equipmentId], references: [id])
-  group                MaintenanceGroup? @relation(fields: [groupId], references: [id])
-  maintenances         Maintenance[]
-  originServiceOrder   ServiceOrder?     @relation("ScheduleFromOS", fields: [originServiceOrderId], references: [id])
+  groupId               String?            @map("group_id")
+  clientId              String?            @map("client_id")
+  originServiceOrderId  String?            @map("origin_service_order_id")
+  checklistTemplateId   String?            @map("checklist_template_id")
+  assignedTechnician    User?              @relation("ScheduleAssignedTechnician", fields: [assignedTechnicianId], references: [id])
+  client                Client?            @relation(fields: [clientId], references: [id])
+  equipment             Equipment          @relation(fields: [equipmentId], references: [id])
+  group                 MaintenanceGroup?  @relation(fields: [groupId], references: [id])
+  maintenances          Maintenance[]
+  originServiceOrder    ServiceOrder?      @relation("ScheduleFromOS", fields: [originServiceOrderId], references: [id])
+  checklistTemplate     ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id])
 
   @@index([companyId])
   @@index([companyId, clientId])
   @@index([nextRunAt, isActive])
   @@index([equipmentId])
   @@index([originServiceOrderId])
+  @@index([checklistTemplateId])
   @@map("maintenance_schedules")
 }
 
@@ -505,6 +513,7 @@ model ServiceOrder {
   maintenance          Maintenance?                @relation(fields: [maintenanceId], references: [id])
   requester            User                        @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
   laudos               Laudo[]
+  checklist            ServiceOrderChecklist?
   parentServiceOrder   ServiceOrder?               @relation("OSChildren", fields: [parentServiceOrderId], references: [id])
   childServiceOrders   ServiceOrder[]              @relation("OSChildren")
   originatedSchedules  MaintenanceSchedule[]       @relation("ScheduleFromOS")
@@ -1326,6 +1335,56 @@ model Laudo {
   @@index([serviceOrderId])
   @@index([maintenanceId])
   @@map("laudos")
+}
+
+// ─── CHECKLIST TEMPLATES ─────────────────────────────────────────────────────
+
+model ChecklistTemplate {
+  id                  String    @id @default(uuid())
+  companyId           String    @map("company_id")
+  clientId            String?   @map("client_id")
+  createdById         String    @map("created_by_id")
+  title               String
+  description         String?
+  fields              Json      // ChecklistFieldDefinition[] — mesmo schema de LaudoFieldDefinition
+  isActive            Boolean   @default(true) @map("is_active")
+  isSharedWithClients Boolean   @default(false) @map("is_shared_with_clients")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  deletedAt           DateTime? @map("deleted_at")
+
+  company    Company               @relation(fields: [companyId], references: [id])
+  client     Client?               @relation(fields: [clientId], references: [id])
+  createdBy  User                  @relation("ChecklistTemplateCreatedBy", fields: [createdById], references: [id])
+  schedules  MaintenanceSchedule[]
+  checklists ServiceOrderChecklist[]
+
+  @@index([companyId])
+  @@index([companyId, clientId])
+  @@index([companyId, isActive])
+  @@map("checklist_templates")
+}
+
+model ServiceOrderChecklist {
+  id             String    @id @default(uuid())
+  companyId      String    @map("company_id")
+  serviceOrderId String    @unique @map("service_order_id")
+  templateId     String?   @map("template_id")
+  fields         Json      // ChecklistFieldDefinition[] com valores preenchidos
+  completedAt    DateTime? @map("completed_at")
+  completedById  String?   @map("completed_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  company      Company            @relation(fields: [companyId], references: [id])
+  serviceOrder ServiceOrder       @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  template     ChecklistTemplate? @relation(fields: [templateId], references: [id])
+  completedBy  User?              @relation("ChecklistCompletedBy", fields: [completedById], references: [id])
+
+  @@index([companyId])
+  @@index([serviceOrderId])
+  @@index([templateId])
+  @@map("service_order_checklists")
 }
 
 // ─── PRINTERS & SCANS ────────────────────────────────────────────────────────

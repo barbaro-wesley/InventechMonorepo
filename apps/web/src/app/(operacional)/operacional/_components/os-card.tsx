@@ -1,6 +1,6 @@
 'use client'
 
-import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip, GitBranch } from 'lucide-react'
+import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip, GitBranch, ClipboardList } from 'lucide-react'
 import type { ServiceOrder } from '@/services/service-orders/service-orders.types'
 import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo } from './os-utils'
 
@@ -32,6 +32,8 @@ export function OsCard({ os, onClick }: OsCardProps) {
   const status = STATUS_CONFIG[os.status]
   const lead = os.technicians.find((t) => t.role === 'LEAD')
   const isUrgent = os.priority === 'URGENT'
+  const hasChecklistPending = os.checklist != null && !os.checklist.completedAt
+  const isActive = os.status !== 'COMPLETED' && os.status !== 'COMPLETED_APPROVED' && os.status !== 'COMPLETED_REJECTED' && os.status !== 'CANCELLED'
 
   return (
     <button
@@ -60,6 +62,12 @@ export function OsCard({ os, onClick }: OsCardProps) {
               <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-violet-50 text-violet-600 border border-violet-200">
                 <GitBranch className="h-2.5 w-2.5" />
                 Vinculada
+              </span>
+            )}
+            {hasChecklistPending && isActive && (
+              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                <ClipboardList className="h-2.5 w-2.5" />
+                Checklist
               </span>
             )}
           </div>

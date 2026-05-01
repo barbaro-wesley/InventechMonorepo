@@ -27,6 +27,7 @@ import {
 } from "@/hooks/maintenance/use-maintenance-schedule";
 import { useCurrentUser } from "@/store/auth.store";
 import { useUsers } from "@/hooks/users/use-users";
+import { useChecklistTemplates } from "@/hooks/checklist-templates/use-checklist-templates";
 import { api } from "@/lib/api";
 import type { MaintenanceSchedule, MaintenanceType, RecurrenceType } from "@/services/maintenance/maintenance-schedule.service";
 
@@ -69,6 +70,7 @@ type FormData = {
   groupId: string;
   startDate: string;
   endDate: string;
+  checklistTemplateId: string;
 };
 
 interface SimpleOption {
@@ -130,6 +132,8 @@ export function ScheduleFormSheet({
   const { data: groups = [] } = useMaintenanceGroups();
   const { data: usersData } = useUsers({ limit: 100 });
   const technicians = usersData?.data ?? [];
+  const { data: checklistTemplatesData } = useChecklistTemplates({ isActive: true, limit: 100 });
+  const checklistTemplates = checklistTemplatesData?.data ?? [];
 
   const form = useForm<FormData>({
     defaultValues: {
@@ -161,6 +165,7 @@ export function ScheduleFormSheet({
         groupId: schedule.group?.id ?? "",
         startDate: schedule.startDate?.split("T")[0] ?? new Date().toISOString().split("T")[0],
         endDate: schedule.endDate?.split("T")[0] ?? "",
+        checklistTemplateId: schedule.checklistTemplate?.id ?? "",
       });
       setSelectedEquipment({ ...schedule.equipment, patrimonyNumber: null });
     } else {
@@ -225,6 +230,7 @@ export function ScheduleFormSheet({
           assignedTechnicianId: values.assignedTechnicianId || undefined,
           startDate: values.startDate,
           endDate: values.endDate || undefined,
+          checklistTemplateId: values.checklistTemplateId || undefined,
         },
         { onSuccess: () => { form.reset(); onClose(); } }
       );
@@ -244,6 +250,7 @@ export function ScheduleFormSheet({
             assignedTechnicianId: values.assignedTechnicianId || null,
             groupId: values.groupId || null,
             endDate: values.endDate || null,
+            checklistTemplateId: values.checklistTemplateId || null,
           },
         },
         { onSuccess: () => { form.reset(); onClose(); } }
@@ -525,6 +532,29 @@ export function ScheduleFormSheet({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Template de checklist */}
+            <div className="space-y-1.5">
+              <FieldLabel>Template de checklist</FieldLabel>
+              <Select
+                key={`checklist-${open}`}
+                defaultValue={form.getValues("checklistTemplateId") || "none"}
+                onValueChange={(v) => form.setValue("checklistTemplateId", v === "none" ? "" : v)}
+              >
+                <SelectTrigger className="h-10 text-sm">
+                  <SelectValue placeholder="Nenhum checklist" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum checklist</SelectItem>
+                  {checklistTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground/60 px-0.5">
+                Será preenchido pelo técnico ao executar a OS preventiva.
+              </p>
             </div>
 
             {/* Descrição */}

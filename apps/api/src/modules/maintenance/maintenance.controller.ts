@@ -108,6 +108,17 @@ export class CompanyScheduleController {
     ) {
         return this.maintenanceService.updateSchedule(id, { isActive: dto.isActive }, cu.companyId!)
     }
+
+    @Patch(':id')
+    @HttpCode(HttpStatus.OK)
+    @Permission('maintenance-schedule:update')
+    update(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: UpdateScheduleDto,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.maintenanceService.updateSchedule(id, dto, cu.companyId!)
+    }
 }
 
 // Agendamentos escopados por cliente

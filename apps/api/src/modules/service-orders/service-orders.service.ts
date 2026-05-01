@@ -4,6 +4,7 @@ import {
     ForbiddenException,
     BadRequestException,
     ConflictException,
+    UnprocessableEntityException,
     Logger,
 } from '@nestjs/common'
 import {
@@ -135,6 +136,14 @@ const OS_SELECT = {
             assignedAt: true,
             assumedAt: true,
             technician: { select: { id: true, name: true, email: true, phone: true } },
+        },
+    },
+    checklist: {
+        select: {
+            id: true,
+            completedAt: true,
+            completedBy: { select: { id: true, name: true } },
+            template: { select: { id: true, title: true } },
         },
     },
     _count: {
@@ -1028,6 +1037,19 @@ export class ServiceOrdersService {
             if (!isLinked) throw new ForbiddenException('Você não está vinculado a esta OS')
             if (dto.status !== ServiceOrderStatus.COMPLETED) {
                 throw new ForbiddenException('Técnicos só podem concluir uma OS')
+            }
+        }
+
+        // Bloqueia conclusão de OS preventiva com checklist pendente
+        if (dto.status === ServiceOrderStatus.COMPLETED && os.maintenanceType === MaintenanceType.PREVENTIVE) {
+            const checklist = await this.prisma.serviceOrderChecklist.findUnique({
+                where: { serviceOrderId: id },
+                select: { completedAt: true },
+            })
+            if (checklist && !checklist.completedAt) {
+                throw new UnprocessableEntityException(
+                    'O checklist desta OS preventiva precisa ser concluído antes de encerrar a OS.',
+                )
             }
         }
 
