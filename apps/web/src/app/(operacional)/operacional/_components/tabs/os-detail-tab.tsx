@@ -31,12 +31,12 @@ function InfoRow({ icon: Icon, label, children }: {
 }) {
   return (
     <div className="flex gap-3">
-      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#f3f4f7]">
-        <Icon className="h-3 w-3 text-[#6c7c93]" />
+      <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#f3f4f7] dark:bg-zinc-800 ">
+        <Icon className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 " />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-[#6c7c93] mb-0.5">{label}</p>
-        <div className="text-sm text-[#1d2530]">{children}</div>
+        <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-0.5">{label}</p>
+        <div className="text-sm text-[#1d2530] dark:text-zinc-100 ">{children}</div>
       </div>
     </div>
   )
@@ -150,7 +150,7 @@ function AttachmentCarousel({ images }: { images: Attachment[] }) {
                 key={i}
                 onClick={() => setCurrent(i)}
                 className={`rounded-full transition-all ${
-                  i === current ? 'bg-white w-4 h-1.5' : 'bg-white/40 w-1.5 h-1.5'
+                  i === current ? 'bg-white dark:bg-zinc-950 w-4 h-1.5' : 'bg-white dark:bg-zinc-950 /40 w-1.5 h-1.5'
                 }`}
               />
             ))}
@@ -175,13 +175,13 @@ function AttachmentCarousel({ images }: { images: Attachment[] }) {
               key={img.id}
               onClick={() => setCurrent(i)}
               className={`shrink-0 h-10 w-10 rounded-md overflow-hidden border-2 transition-all ${
-                i === current ? 'border-[#0d4da5]' : 'border-transparent opacity-60 hover:opacity-100'
+                i === current ? 'border-[#0d4da5] dark:border-blue-500' : 'border-transparent opacity-60 hover:opacity-100'
               }`}
             >
               {urls[img.id] ? (
                 <img src={urls[img.id]} alt={img.fileName} className="h-full w-full object-cover" />
               ) : (
-                <div className="h-full w-full bg-[#f3f4f7]" />
+                <div className="h-full w-full bg-[#f3f4f7] dark:bg-zinc-800 " />
               )}
             </button>
           ))}
@@ -196,7 +196,7 @@ function AttachmentCarousel({ images }: { images: Attachment[] }) {
         >
           <button
             onClick={(e) => { e.stopPropagation(); setLightbox(null) }}
-            className="absolute top-4 right-4 h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            className="absolute top-4 right-4 h-8 w-8 rounded-full bg-white dark:bg-zinc-950 /10 hover:bg-white dark:bg-zinc-950 /20 flex items-center justify-center text-white transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -205,13 +205,13 @@ function AttachmentCarousel({ images }: { images: Attachment[] }) {
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); prev() }}
-                className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white dark:bg-zinc-950 /10 hover:bg-white dark:bg-zinc-950 /20 flex items-center justify-center text-white transition-colors"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); next() }}
-                className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white dark:bg-zinc-950 /10 hover:bg-white dark:bg-zinc-950 /20 flex items-center justify-center text-white transition-colors"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -265,15 +265,15 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
     <div className="space-y-5 py-1">
       {/* Descrição */}
       <div>
-        <p className="text-[11px] text-[#6c7c93] mb-1.5 font-medium uppercase tracking-wide">Descrição</p>
-        <p className="text-sm text-[#1d2530] leading-relaxed bg-[#f8f9fb] rounded-lg p-3 border border-[#e0e5eb]">
+        <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-1.5 font-medium uppercase tracking-wide">Descrição</p>
+        <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-[#f8f9fb] rounded-lg p-3 border border-[#e0e5eb] dark:border-zinc-800 ">
           {os.description}
         </p>
       </div>
 
       {/* Informações principais */}
       <div>
-        <p className="text-[11px] text-[#6c7c93] mb-3 font-medium uppercase tracking-wide">Informações</p>
+        <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-3 font-medium uppercase tracking-wide">Informações</p>
         <div className="space-y-3">
           <InfoRow icon={Tag} label="Status">
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium border ${status.bg} ${status.color}`}>
@@ -300,13 +300,13 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
             <div>
               <p>{os.equipment?.name ?? '—'}</p>
               {os.equipment?.patrimonyNumber && (
-                <p className="text-[11px] text-[#6c7c93]">Patrimônio: {os.equipment.patrimonyNumber}</p>
+                <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 ">Patrimônio: {os.equipment.patrimonyNumber}</p>
               )}
               {os.equipment?.serialNumber && (
-                <p className="text-[11px] text-[#6c7c93]">N/S: {os.equipment.serialNumber}</p>
+                <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 ">N/S: {os.equipment.serialNumber}</p>
               )}
               {(os.equipment?.brand || os.equipment?.model) && (
-                <p className="text-[11px] text-[#6c7c93]">
+                <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 ">
                   {[os.equipment?.brand, os.equipment?.model].filter(Boolean).join(' · ')}
                 </p>
               )}
@@ -340,7 +340,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
               <span>
                 {timeAgo(os.startedAt)}
                 {!os.completedAt && (
-                  <span className="ml-2 text-[#6c7c93] text-xs">
+                  <span className="ml-2 text-[#6c7c93] dark:text-zinc-400 text-xs">
                     ({formatDuration(os.startedAt)} em andamento)
                   </span>
                 )}
@@ -352,7 +352,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
             <InfoRow icon={Clock} label="Concluída">
               <span>
                 {timeAgo(os.completedAt)}
-                <span className="ml-2 text-[#6c7c93] text-xs">
+                <span className="ml-2 text-[#6c7c93] dark:text-zinc-400 text-xs">
                   (duração: {formatDuration(os.startedAt ?? os.createdAt, os.completedAt)})
                 </span>
               </span>
@@ -370,13 +370,13 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
               <div className="flex gap-4">
                 {os.estimatedHours && (
                   <span className="text-xs">
-                    <span className="text-[#6c7c93]">Estimado: </span>
+                    <span className="text-[#6c7c93] dark:text-zinc-400 ">Estimado: </span>
                     {os.estimatedHours}h
                   </span>
                 )}
                 {os.actualHours && (
                   <span className="text-xs">
-                    <span className="text-[#6c7c93]">Real: </span>
+                    <span className="text-[#6c7c93] dark:text-zinc-400 ">Real: </span>
                     {os.actualHours}h
                   </span>
                 )}
@@ -389,19 +389,19 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
       {/* Técnicos */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[11px] text-[#6c7c93] font-medium uppercase tracking-wide">Técnicos</p>
+          <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 font-medium uppercase tracking-wide">Técnicos</p>
         </div>
 
         <div className="space-y-2">
           {os.technicians.length === 0 && (
-            <p className="text-xs text-[#6c7c93] italic">Nenhum técnico vinculado</p>
+            <p className="text-xs text-[#6c7c93] dark:text-zinc-400 italic">Nenhum técnico vinculado</p>
           )}
           {os.technicians.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb]">
+            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb] dark:border-zinc-800 ">
               <TechAvatar name={t.technician.name} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#1d2530]">{t.technician.name}</p>
-                <p className="text-xs text-[#6c7c93]">{t.technician.email}</p>
+                <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100 ">{t.technician.name}</p>
+                <p className="text-xs text-[#6c7c93] dark:text-zinc-400 ">{t.technician.email}</p>
               </div>
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                 t.role === 'LEAD'
@@ -414,7 +414,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 text-[#6c7c93] hover:text-red-500 shrink-0"
+                  className="h-6 w-6 text-[#6c7c93] dark:text-zinc-400 hover:text-red-500 shrink-0"
                   disabled={removeTechnician.isPending}
                   onClick={() => removeTechnician.mutate(t.technician.id)}
                 >
@@ -428,7 +428,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
           {canManage && !isTerminal && availableTechs.length > 0 && (
             <div className="flex items-center gap-2 pt-1">
               <Select value={selectedTechId} onValueChange={setSelectedTechId}>
-                <SelectTrigger className="h-8 text-xs flex-1 bg-[#f3f4f7] border-transparent">
+                <SelectTrigger className="h-8 text-xs flex-1 bg-[#f3f4f7] dark:bg-zinc-800 border-transparent">
                   <SelectValue placeholder="Adicionar técnico auxiliar..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -457,8 +457,8 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
       {/* Resolução */}
       {os.resolution && (
         <div>
-          <p className="text-[11px] text-[#6c7c93] mb-1.5 font-medium uppercase tracking-wide">Resolução</p>
-          <p className="text-sm text-[#1d2530] leading-relaxed bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+          <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-1.5 font-medium uppercase tracking-wide">Resolução</p>
+          <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-emerald-50 rounded-lg p-3 border border-emerald-200">
             {os.resolution}
           </p>
         </div>
@@ -468,8 +468,8 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
       {os.laudos && os.laudos.length > 0 && (
         <div>
           <div className="flex items-center gap-1.5 mb-2">
-            <FileText className="h-3 w-3 text-[#6c7c93]" />
-            <p className="text-[11px] text-[#6c7c93] font-medium uppercase tracking-wide">
+            <FileText className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 " />
+            <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 font-medium uppercase tracking-wide">
               Laudos Vinculados ({os.laudos.length})
             </p>
           </div>
@@ -490,14 +490,14 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
               return (
                 <div
                   key={laudo.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb] hover:border-[#c5cdd8] transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb] dark:border-zinc-800 hover:border-[#c5cdd8] transition-colors"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
                     <FileText className="h-4 w-4 text-blue-600" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-[#1d2530] truncate">
+                      <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100 truncate">
                         #{laudoNum} — {laudo.title}
                       </p>
                     </div>
@@ -506,11 +506,11 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                         {st.label}
                       </span>
                       {laudo.technician && (
-                        <span className="text-[11px] text-[#6c7c93] truncate">
+                        <span className="text-[11px] text-[#6c7c93] dark:text-zinc-400 truncate">
                           Técnico: {laudo.technician.name}
                         </span>
                       )}
-                      <span className="text-[11px] text-[#6c7c93]">
+                      <span className="text-[11px] text-[#6c7c93] dark:text-zinc-400 ">
                         {new Date(laudo.createdAt).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
@@ -542,7 +542,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
         <div>
           <div className="flex items-center gap-1.5 mb-3">
             <GitBranch className="h-3 w-3 text-violet-500" />
-            <p className="text-[11px] text-[#6c7c93] font-medium uppercase tracking-wide">OS Vinculadas</p>
+            <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 font-medium uppercase tracking-wide">OS Vinculadas</p>
           </div>
 
           <div className="space-y-2">
@@ -551,35 +551,35 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
               <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
                 <p className="text-[10px] text-violet-500 font-medium mb-1.5 uppercase tracking-wide">Originada de</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-[#6c7c93]">#{os.parentServiceOrder.number}</span>
+                  <span className="text-xs font-mono text-[#6c7c93] dark:text-zinc-400 ">#{os.parentServiceOrder.number}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${STATUS_CONFIG[os.parentServiceOrder.status].bg} ${STATUS_CONFIG[os.parentServiceOrder.status].color}`}>
                     <span className={`h-1 w-1 rounded-full ${STATUS_CONFIG[os.parentServiceOrder.status].dot}`} />
                     {STATUS_CONFIG[os.parentServiceOrder.status].label}
                   </span>
-                  <span className="text-xs text-[#6c7c93] truncate">{MAINTENANCE_TYPE_LABELS[os.parentServiceOrder.maintenanceType]}</span>
+                  <span className="text-xs text-[#6c7c93] dark:text-zinc-400 truncate">{MAINTENANCE_TYPE_LABELS[os.parentServiceOrder.maintenanceType]}</span>
                 </div>
-                <p className="text-sm text-[#1d2530] mt-1 truncate">{os.parentServiceOrder.title}</p>
+                <p className="text-sm text-[#1d2530] dark:text-zinc-100 mt-1 truncate">{os.parentServiceOrder.title}</p>
               </div>
             )}
 
             {/* OS filhas */}
             {os.childServiceOrders?.map((child) => (
-              <div key={child.id} className="rounded-lg border border-[#e0e5eb] bg-[#f8f9fb] p-3">
+              <div key={child.id} className="rounded-lg border border-[#e0e5eb] dark:border-zinc-800 bg-[#f8f9fb] p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-[#6c7c93]">#{child.number}</span>
+                  <span className="text-xs font-mono text-[#6c7c93] dark:text-zinc-400 ">#{child.number}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${STATUS_CONFIG[child.status].bg} ${STATUS_CONFIG[child.status].color}`}>
                     <span className={`h-1 w-1 rounded-full ${STATUS_CONFIG[child.status].dot}`} />
                     {STATUS_CONFIG[child.status].label}
                   </span>
-                  <span className="text-[10px] text-[#6c7c93] ml-auto shrink-0">
+                  <span className="text-[10px] text-[#6c7c93] dark:text-zinc-400 ml-auto shrink-0">
                     {MAINTENANCE_TYPE_LABELS[child.maintenanceType]}
                   </span>
                 </div>
-                <p className="text-sm text-[#1d2530] truncate">{child.title}</p>
+                <p className="text-sm text-[#1d2530] dark:text-zinc-100 truncate">{child.title}</p>
                 {child.scheduledFor && (
                   <div className="flex items-center gap-1 mt-1">
-                    <CalendarClock className="h-3 w-3 text-[#6c7c93]" />
-                    <span className="text-[11px] text-[#6c7c93]">
+                    <CalendarClock className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 " />
+                    <span className="text-[11px] text-[#6c7c93] dark:text-zinc-400 ">
                       Agendada: {new Date(child.scheduledFor).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
@@ -595,10 +595,10 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${schedule.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
                     {schedule.isActive ? 'Ativo' : 'Inativo'}
                   </span>
-                  <span className="text-[10px] text-[#6c7c93]">{MAINTENANCE_TYPE_LABELS[schedule.maintenanceType]}</span>
+                  <span className="text-[10px] text-[#6c7c93] dark:text-zinc-400 ">{MAINTENANCE_TYPE_LABELS[schedule.maintenanceType]}</span>
                 </div>
-                <p className="text-sm text-[#1d2530] truncate">{schedule.title}</p>
-                <p className="text-[11px] text-[#6c7c93] mt-0.5">
+                <p className="text-sm text-[#1d2530] dark:text-zinc-100 truncate">{schedule.title}</p>
+                <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mt-0.5">
                   Início: {new Date(schedule.startDate).toLocaleDateString('pt-BR')}
                 </p>
               </div>
@@ -610,8 +610,8 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
       {/* Notas internas */}
       {os.internalNotes && (
         <div>
-          <p className="text-[11px] text-[#6c7c93] mb-1.5 font-medium uppercase tracking-wide">Notas Internas</p>
-          <p className="text-sm text-[#1d2530] leading-relaxed bg-amber-50 rounded-lg p-3 border border-amber-200">
+          <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-1.5 font-medium uppercase tracking-wide">Notas Internas</p>
+          <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-amber-50 rounded-lg p-3 border border-amber-200">
             {os.internalNotes}
           </p>
         </div>
@@ -624,8 +624,8 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
         return (
           <div className="space-y-3">
             <div className="flex items-center gap-1.5">
-              <Paperclip className="h-3 w-3 text-[#6c7c93]" />
-              <p className="text-[11px] text-[#6c7c93] font-medium uppercase tracking-wide">
+              <Paperclip className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 " />
+              <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 font-medium uppercase tracking-wide">
                 Anexos ({os.attachments.length})
               </p>
             </div>
@@ -640,11 +640,11 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                     href={storageService.getDownloadUrl(doc.id)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2.5 bg-[#f8f9fb] border border-[#e0e5eb] hover:border-[#c5cdd8] rounded-lg group transition-all"
+                    className="flex items-center gap-2 p-2.5 bg-[#f8f9fb] border border-[#e0e5eb] dark:border-zinc-800 hover:border-[#c5cdd8] rounded-lg group transition-all"
                   >
-                    <FileIcon className="h-4 w-4 text-[#6c7c93] shrink-0" />
-                    <span className="text-xs font-medium text-[#1d2530] truncate flex-1">{doc.fileName}</span>
-                    <Download className="h-3.5 w-3.5 text-[#6c7c93] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    <FileIcon className="h-4 w-4 text-[#6c7c93] dark:text-zinc-400 shrink-0" />
+                    <span className="text-xs font-medium text-[#1d2530] dark:text-zinc-100 truncate flex-1">{doc.fileName}</span>
+                    <Download className="h-3.5 w-3.5 text-[#6c7c93] dark:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   </a>
                 ))}
               </div>

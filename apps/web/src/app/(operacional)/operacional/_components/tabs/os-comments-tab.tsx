@@ -46,7 +46,7 @@ function CommentAttachment({ attachment }: { attachment: Attachment }) {
             <Download className="h-4 w-4 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
           </div>
         </a>
-        <span className="mt-1 text-[9px] text-[#6c7c93] truncate block max-w-[80px]">
+        <span className="mt-1 text-[9px] text-[#6c7c93] dark:text-zinc-400 truncate block max-w-[80px]">
           {attachment.fileName}
         </span>
       </div>
@@ -58,13 +58,13 @@ function CommentAttachment({ attachment }: { attachment: Attachment }) {
       href={storageService.getDownloadUrl(attachment.id)}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 p-2 bg-white/50 border border-black/5 hover:border-black/10 rounded-lg group transition-all"
+      className="flex items-center gap-2 p-2 bg-white dark:bg-zinc-950 /50 border border-black/5 hover:border-black/10 rounded-lg group transition-all"
     >
-      <FileIcon className="h-4 w-4 text-[#6c7c93]" />
+      <FileIcon className="h-4 w-4 text-[#6c7c93] dark:text-zinc-400 " />
       <span className="text-[11px] font-medium truncate max-w-[120px]">
         {attachment.fileName}
       </span>
-      <Download className="h-3 w-3 text-[#6c7c93] opacity-0 group-hover:opacity-100 transition-opacity" />
+      <Download className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
     </a>
   )
 }
@@ -86,8 +86,8 @@ function CommentBubble({ comment }: { comment: ServiceOrderComment }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-medium text-[#1d2530]">{comment.author.name}</span>
-          <span className="text-[10px] text-[#6c7c93]">{timeAgo(comment.createdAt)}</span>
+          <span className="text-xs font-medium text-[#1d2530] dark:text-zinc-100 ">{comment.author.name}</span>
+          <span className="text-[10px] text-[#6c7c93] dark:text-zinc-400 ">{timeAgo(comment.createdAt)}</span>
           {comment.isInternal && (
             <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
               <Lock className="h-2.5 w-2.5" />
@@ -96,10 +96,10 @@ function CommentBubble({ comment }: { comment: ServiceOrderComment }) {
           )}
         </div>
         <div
-          className={`text-sm text-[#1d2530] rounded-xl rounded-tl-none p-3 leading-relaxed ${
+          className={`text-sm text-[#1d2530] dark:text-zinc-100 rounded-xl rounded-tl-none p-3 leading-relaxed ${
             comment.isInternal
               ? 'bg-amber-50 border border-amber-200'
-              : 'bg-[#f3f4f7] border border-[#e0e5eb]'
+              : 'bg-[#f3f4f7] dark:bg-zinc-800 border border-[#e0e5eb] dark:border-zinc-800 '
           }`}
         >
           {comment.content}
@@ -162,8 +162,8 @@ export function OsCommentsTab({ clientId, osId, comments }: OsCommentsTabProps) 
       {/* Lista de comentários */}
       <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
         {comments.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-[#6c7c93]">
-            <div className="h-8 w-8 rounded-full bg-[#f3f4f7] flex items-center justify-center mb-2">
+          <div className="flex flex-col items-center justify-center py-8 text-[#6c7c93] dark:text-zinc-400 ">
+            <div className="h-8 w-8 rounded-full bg-[#f3f4f7] dark:bg-zinc-800 flex items-center justify-center mb-2">
               <Send className="h-3.5 w-3.5 opacity-50" />
             </div>
             <p className="text-sm">Nenhum comentário ainda</p>
@@ -176,16 +176,16 @@ export function OsCommentsTab({ clientId, osId, comments }: OsCommentsTabProps) 
       </div>
 
       {/* Caixa de novo comentário */}
-      <div className="border-t border-[#e0e5eb] pt-4">
+      <div className="border-t border-[#e0e5eb] dark:border-zinc-800 pt-4">
         {/* Preview de arquivos selecionados */}
         {files.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-2">
             {files.map((file, i) => (
               <div 
                 key={i} 
-                className="flex items-center gap-1.5 bg-[#f3f4f7] border border-[#e0e5eb] rounded-lg px-2 py-1 text-[10px] text-[#1d2530]"
+                className="flex items-center gap-1.5 bg-[#f3f4f7] dark:bg-zinc-800 border border-[#e0e5eb] dark:border-zinc-800 rounded-lg px-2 py-1 text-[10px] text-[#1d2530] dark:text-zinc-100 "
               >
-                <FileIcon className="h-3 w-3 text-[#6c7c93]" />
+                <FileIcon className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 " />
                 <span className="truncate max-w-[100px]">{file.name}</span>
                 <button 
                   type="button" 
@@ -205,7 +205,7 @@ export function OsCommentsTab({ clientId, osId, comments }: OsCommentsTabProps) 
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={3}
-            className="text-sm resize-none bg-[#f3f4f7] border-transparent focus:border-[#0d4da5] focus:bg-white transition-all"
+            className="text-sm resize-none bg-[#f3f4f7] dark:bg-zinc-800 border-transparent focus:border-[#0d4da5] dark:border-blue-500 focus:bg-white dark:bg-zinc-950 transition-all"
           />
           <input 
             type="file" 
@@ -223,7 +223,7 @@ export function OsCommentsTab({ clientId, osId, comments }: OsCommentsTabProps) 
                   className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors border ${
                     isInternal
                       ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'text-[#6c7c93] hover:bg-[#f3f4f7] border-transparent'
+                      : 'text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 dark:bg-zinc-800 border-transparent'
                   }`}
                 >
                   {isInternal ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
@@ -234,7 +234,7 @@ export function OsCommentsTab({ clientId, osId, comments }: OsCommentsTabProps) 
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-[#6c7c93] hover:bg-[#f3f4f7] transition-colors"
+                className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 dark:bg-zinc-800 transition-colors"
               >
                 <Paperclip className="h-3.5 w-3.5" />
                 Anexar
@@ -245,7 +245,7 @@ export function OsCommentsTab({ clientId, osId, comments }: OsCommentsTabProps) 
               type="submit"
               size="sm"
               disabled={(!content.trim() && files.length === 0) || addComment.isPending}
-              className="h-8 gap-1.5 bg-[#0d4da5] hover:bg-[#0a3776] text-white text-xs px-4"
+              className="h-8 gap-1.5 bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:bg-blue-600 text-white text-xs px-4"
             >
               {addComment.isPending ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

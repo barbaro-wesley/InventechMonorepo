@@ -186,15 +186,15 @@ export function SectionOs({ filters }: Props) {
               return (
                 <div key={i} className="space-y-1">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-[#6c7c93] font-medium">{bucket.bucket}</span>
+                    <span className="text-xs text-[#6c7c93] dark:text-zinc-400 font-medium">{bucket.bucket}</span>
                     <div className="flex items-center gap-2">
                       {bucket.urgent_count > 0 && (
                         <span className="text-xs text-red-500 font-semibold">{bucket.urgent_count} urgentes</span>
                       )}
-                      <span className="text-xs font-bold text-[#1d2530]">{bucket.count}</span>
+                      <span className="text-xs font-bold text-[#1d2530] dark:text-zinc-100">{bucket.count}</span>
                     </div>
                   </div>
-                  <div className="h-2 bg-[#f3f4f7] rounded-full overflow-hidden">
+                  <div className="h-2 bg-[#f3f4f7] dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{ width: `${pct}%`, backgroundColor: BUCKET_COLORS[i] }}
@@ -207,34 +207,34 @@ export function SectionOs({ filters }: Props) {
         </ChartCard>
 
         {/* Oldest backlog */}
-        <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm overflow-hidden">
           <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7]">
-            <p className="text-sm font-semibold text-[#1d2530]">OS mais antigas</p>
-            <p className="text-xs text-[#6c7c93] mt-0.5">Top 10 em aberto há mais tempo</p>
+            <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">OS mais antigas</p>
+            <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">Top 10 em aberto há mais tempo</p>
           </div>
           <div className="overflow-auto" style={{ maxHeight: 220 }}>
             {loadingBk ? (
               <div className="p-4 space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-8 bg-[#f3f4f7] rounded animate-pulse" />
+                  <div key={i} className="h-8 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />
                 ))}
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white">
+                <thead className="sticky top-0 bg-white dark:bg-zinc-950">
                   <tr className="border-b border-[#f3f4f7]">
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">OS</th>
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Título</th>
-                    <th className="px-4 py-2 text-right text-[#6c7c93] font-medium">Idade</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">OS</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Título</th>
+                    <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">Idade</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(backlog?.oldest ?? []).slice(0, 10).map((os) => (
                     <tr key={os.id} className="border-b border-[#f9fafb] hover:bg-[#f9fafb] transition-colors">
                       <td className="px-4 py-2 font-semibold text-[#0a3776]">#{os.number}</td>
-                      <td className="px-4 py-2 text-[#1d2530] max-w-[180px] truncate">{os.title}</td>
+                      <td className="px-4 py-2 text-[#1d2530] dark:text-zinc-100 max-w-[180px] truncate">{os.title}</td>
                       <td className="px-4 py-2 text-right">
-                        <span className={`font-semibold ${os.days_open > 90 ? 'text-red-500' : os.days_open > 30 ? 'text-amber-500' : 'text-[#6c7c93]'}`}>
+                        <span className={`font-semibold ${os.days_open > 90 ? 'text-red-500' : os.days_open > 30 ? 'text-amber-500' : 'text-[#6c7c93] dark:text-zinc-400'}`}>
                           {os.days_open}d
                         </span>
                       </td>
@@ -249,15 +249,15 @@ export function SectionOs({ filters }: Props) {
 
       {/* Maintenance type breakdown */}
       {typeData.length > 0 && (
-        <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm p-5">
-          <p className="text-sm font-semibold text-[#1d2530] mb-4">OS por Tipo de Manutenção</p>
+        <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm p-5">
+          <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100 mb-4">OS por Tipo de Manutenção</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {typeData.map((item) => (
               <div key={item.name} className="flex items-center gap-3">
                 <div className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: item.fill }} />
                 <div>
-                  <p className="text-xs text-[#6c7c93]">{item.name}</p>
-                  <p className="text-sm font-bold text-[#1d2530]">{item.value}</p>
+                  <p className="text-xs text-[#6c7c93] dark:text-zinc-400">{item.name}</p>
+                  <p className="text-sm font-bold text-[#1d2530] dark:text-zinc-100">{item.value}</p>
                 </div>
               </div>
             ))}

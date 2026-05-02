@@ -52,12 +52,12 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
 
   return (
-    <div className="flex h-screen flex-col bg-[#f3f4f7] overflow-hidden">
-      <header className="h-14 shrink-0 border-b border-[#e0e5eb] bg-white/90 backdrop-blur-md flex items-center px-4 gap-3 z-20">
+    <div className="flex h-screen flex-col bg-[#f3f4f7] dark:bg-zinc-800 overflow-hidden">
+      <header className="h-14 shrink-0 border-b border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950/90 backdrop-blur-md flex items-center px-4 gap-3 z-20">
         <Button
           variant="ghost"
           size="sm"
-          className="gap-1.5 text-[#6c7c93] hover:text-[#0a3776]"
+          className="gap-1.5 text-[#6c7c93] dark:text-zinc-400 hover:text-[#0a3776]"
           onClick={() => router.push('/dashboard')}
         >
           <ArrowLeft className="h-4 w-4" />
@@ -83,8 +83,8 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
               href={href}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 pathname === href
-                  ? 'bg-[#f3f4f7] text-[#0a3776]'
-                  : 'text-[#6c7c93] hover:text-[#1d2530] hover:bg-[#f3f4f7]'
+                  ? 'bg-[#f3f4f7] dark:bg-zinc-800 text-[#0a3776]'
+                  : 'text-[#6c7c93] dark:text-zinc-400 hover:text-[#1d2530] dark:hover:text-zinc-100 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800'
               }`}
             >
               {label}
@@ -93,14 +93,14 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative text-[#6c7c93]">
+          <Button variant="ghost" size="icon" className="relative text-[#6c7c93] dark:text-zinc-400">
             <Bell className="h-4 w-4" />
           </Button>
 
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[#f3f4f7] transition-colors">
+                <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 transition-colors">
                   <div
                     className={`h-7 w-7 rounded-full ${getAvatarColor(user.name)} flex items-center justify-center shrink-0`}
                   >
@@ -109,7 +109,7 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
                     </span>
                   </div>
                   <div className="hidden sm:block text-left">
-                    <p className="text-xs font-medium text-[#1d2530] leading-none">
+                    <p className="text-xs font-medium text-[#1d2530] dark:text-zinc-100 leading-none">
                       {user.name.split(' ')[0]}
                     </p>
                   </div>
@@ -117,8 +117,8 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <div className="px-3 py-2">
-                  <p className="text-sm font-medium text-[#1d2530]">{user.name}</p>
-                  <p className="text-xs text-[#6c7c93]">{user.email}</p>
+                  <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100">{user.name}</p>
+                  <p className="text-xs text-[#6c7c93] dark:text-zinc-400">{user.email}</p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>

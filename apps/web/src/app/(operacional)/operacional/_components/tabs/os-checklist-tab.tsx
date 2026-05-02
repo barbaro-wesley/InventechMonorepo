@@ -117,7 +117,7 @@ function FieldInput({
               className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                 selected.includes(opt)
                   ? 'bg-emerald-600 text-white border-emerald-600'
-                  : 'bg-white text-foreground border-border hover:bg-muted'
+                  : 'bg-white dark:bg-zinc-950 text-foreground border-border hover:bg-muted'
               }`}
             >
               {opt}

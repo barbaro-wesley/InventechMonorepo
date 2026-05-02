@@ -142,47 +142,47 @@ export function SectionTechnicians({ filters }: Props) {
       </div>
 
       {/* Ranking table */}
-      <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm overflow-hidden">
         <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7]">
-          <p className="text-sm font-semibold text-[#1d2530]">Ranking Completo de Técnicos</p>
-          <p className="text-xs text-[#6c7c93] mt-0.5">Performance individual no período</p>
+          <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">Ranking Completo de Técnicos</p>
+          <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">Performance individual no período</p>
         </div>
         <div className="overflow-x-auto">
           {isLoading ? (
             <div className="p-4 space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-9 bg-[#f3f4f7] rounded animate-pulse" />)}
+              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-9 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
             </div>
           ) : (
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-[#f3f4f7]">
                   {['#', 'Técnico', 'Total OS', 'Concluídas', 'Rejeitadas', 'Conclusão', 'T. Resposta', 'T. Resolução', 'Custo M.O.'].map((h) => (
-                    <th key={h} className={`px-4 py-2 text-[#6c7c93] font-medium whitespace-nowrap ${h === '#' || h === 'Técnico' ? 'text-left' : 'text-right'}`}>{h}</th>
+                    <th key={h} className={`px-4 py-2 text-[#6c7c93] dark:text-zinc-400 font-medium whitespace-nowrap ${h === '#' || h === 'Técnico' ? 'text-left' : 'text-right'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {ranking.map((tech, i) => (
                   <tr key={tech.technician_id} className="border-b border-[#f9fafb] hover:bg-[#f9fafb] transition-colors">
-                    <td className="px-4 py-2.5 text-[#6c7c93]">{i + 1}</td>
-                    <td className="px-4 py-2.5 font-medium text-[#1d2530]">{tech.name}</td>
+                    <td className="px-4 py-2.5 text-[#6c7c93] dark:text-zinc-400">{i + 1}</td>
+                    <td className="px-4 py-2.5 font-medium text-[#1d2530] dark:text-zinc-100">{tech.name}</td>
                     <td className="px-4 py-2.5 text-right font-semibold text-[#0a3776]">{fmt(tech.total_os)}</td>
                     <td className="px-4 py-2.5 text-right text-emerald-600 font-semibold">{fmt(tech.completed_os)}</td>
                     <td className="px-4 py-2.5 text-right text-red-500">{fmt(tech.rejected_os)}</td>
                     <td className="px-4 py-2.5 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <div className="w-16 h-1.5 bg-[#f3f4f7] rounded-full overflow-hidden">
+                        <div className="w-16 h-1.5 bg-[#f3f4f7] dark:bg-zinc-800 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-blue-500"
                             style={{ width: `${Math.min(tech.completionRate, 100)}%` }}
                           />
                         </div>
-                        <span className="font-semibold text-[#1d2530] w-10">{fmt(tech.completionRate, 1)}%</span>
+                        <span className="font-semibold text-[#1d2530] dark:text-zinc-100 w-10">{fmt(tech.completionRate, 1)}%</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-right text-[#6c7c93]">{fmtHours(tech.avg_response_hours)}</td>
-                    <td className="px-4 py-2.5 text-right text-[#6c7c93]">{fmtHours(tech.avg_resolution_hours)}</td>
-                    <td className="px-4 py-2.5 text-right text-[#6c7c93]">{fmtCurrency(tech.labor_cost)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#6c7c93] dark:text-zinc-400">{fmtHours(tech.avg_response_hours)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#6c7c93] dark:text-zinc-400">{fmtHours(tech.avg_resolution_hours)}</td>
+                    <td className="px-4 py-2.5 text-right text-[#6c7c93] dark:text-zinc-400">{fmtCurrency(tech.labor_cost)}</td>
                   </tr>
                 ))}
               </tbody>

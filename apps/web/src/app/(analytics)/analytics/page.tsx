@@ -41,7 +41,7 @@ export default function AnalyticsPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Tab bar */}
-      <div className="bg-white border-b border-[#e8ecf1] shrink-0">
+      <div className="bg-white dark:bg-zinc-950 border-b border-[#e8ecf1] dark:border-zinc-800 shrink-0">
         <div className="flex items-end gap-0 px-6 overflow-x-auto scrollbar-none">
           {TABS.map((tab) => {
             const Icon = tab.icon
@@ -54,7 +54,7 @@ export default function AnalyticsPage() {
                   'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors shrink-0',
                   isActive
                     ? 'border-[#1162d4] text-[#0a3776]'
-                    : 'border-transparent text-[#6c7c93] hover:text-[#1d2530] hover:border-[#e0e5eb]',
+                    : 'border-transparent text-[#6c7c93] dark:text-zinc-400 hover:text-[#1d2530] dark:hover:text-zinc-100 hover:border-[#e0e5eb] dark:hover:border-zinc-800',
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -75,10 +75,10 @@ export default function AnalyticsPage() {
             <activeTabMeta.icon className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-[#1d2530] leading-none">{activeTabMeta.label}</h1>
-            <p className="text-xs text-[#6c7c93] mt-0.5">{activeTabMeta.description}</p>
+            <h1 className="text-base font-bold text-[#1d2530] dark:text-zinc-100 leading-none">{activeTabMeta.label}</h1>
+            <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">{activeTabMeta.description}</p>
           </div>
-          <div className="ml-auto text-xs text-[#6c7c93]">
+          <div className="ml-auto text-xs text-[#6c7c93] dark:text-zinc-400">
             {filters.startDate} → {filters.endDate}
           </div>
         </div>

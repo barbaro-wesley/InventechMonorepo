@@ -173,26 +173,26 @@ export function SectionEquipment({ filters }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Top failures */}
-        <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm overflow-hidden">
           <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7]">
-            <p className="text-sm font-semibold text-[#1d2530]">Top Equipamentos com Falhas</p>
-            <p className="text-xs text-[#6c7c93] mt-0.5">
+            <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">Top Equipamentos com Falhas</p>
+            <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">
               {topFailures ? `MTTR global: ${fmtHours(topFailures.globalMttrHours)}` : 'Maior nº de OS no período'}
             </p>
           </div>
           <div className="overflow-auto" style={{ maxHeight: 260 }}>
             {loadingTf ? (
               <div className="p-4 space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] rounded animate-pulse" />)}
+                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white">
+                <thead className="sticky top-0 bg-white dark:bg-zinc-950">
                   <tr className="border-b border-[#f3f4f7]">
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Equipamento</th>
-                    <th className="px-4 py-2 text-right text-[#6c7c93] font-medium">OS</th>
-                    <th className="px-4 py-2 text-right text-[#6c7c93] font-medium">MTTR</th>
-                    <th className="px-4 py-2 text-right text-[#6c7c93] font-medium">Custo</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Equipamento</th>
+                    <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">OS</th>
+                    <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">MTTR</th>
+                    <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">Custo</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -200,13 +200,13 @@ export function SectionEquipment({ filters }: Props) {
                     <tr key={item.id} className="border-b border-[#f9fafb] hover:bg-[#f9fafb] transition-colors">
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-[#6c7c93] w-4 shrink-0">{i + 1}.</span>
-                          <span className="font-medium text-[#1d2530] truncate max-w-[140px]">{item.name}</span>
+                          <span className="text-[#6c7c93] dark:text-zinc-400 w-4 shrink-0">{i + 1}.</span>
+                          <span className="font-medium text-[#1d2530] dark:text-zinc-100 truncate max-w-[140px]">{item.name}</span>
                         </div>
                       </td>
                       <td className="px-4 py-2 text-right font-bold text-[#0a3776]">{item.total_os}</td>
-                      <td className="px-4 py-2 text-right text-[#6c7c93]">{fmtHours(item.mttr_hours)}</td>
-                      <td className="px-4 py-2 text-right text-[#6c7c93]">{fmtCurrency(item.total_cost)}</td>
+                      <td className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400">{fmtHours(item.mttr_hours)}</td>
+                      <td className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400">{fmtCurrency(item.total_cost)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -216,14 +216,14 @@ export function SectionEquipment({ filters }: Props) {
         </div>
 
         {/* Without preventive */}
-        <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm overflow-hidden">
           <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7] flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-[#1d2530]">Sem Manutenção Preventiva</p>
-              <p className="text-xs text-[#6c7c93] mt-0.5">Equipamentos ativos sem agenda ativa</p>
+              <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">Sem Manutenção Preventiva</p>
+              <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">Equipamentos ativos sem agenda ativa</p>
             </div>
             {withoutPrevResult && withoutPrevResult.count > 0 && (
-              <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
                 {withoutPrevResult.count} equipamentos
               </span>
             )}
@@ -231,26 +231,26 @@ export function SectionEquipment({ filters }: Props) {
           <div className="overflow-auto" style={{ maxHeight: 260 }}>
             {loadingWp ? (
               <div className="p-4 space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] rounded animate-pulse" />)}
+                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
               </div>
             ) : !withoutPrev || withoutPrev.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-center gap-2">
                 <TrendingUp className="h-8 w-8 text-emerald-400" />
-                <p className="text-sm text-[#6c7c93]">Todos os equipamentos têm preventiva ativa</p>
+                <p className="text-sm text-[#6c7c93] dark:text-zinc-400">Todos os equipamentos têm preventiva ativa</p>
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white">
+                <thead className="sticky top-0 bg-white dark:bg-zinc-950">
                   <tr className="border-b border-[#f3f4f7]">
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Equipamento</th>
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Criticidade</th>
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Local</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Equipamento</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Criticidade</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Local</th>
                   </tr>
                 </thead>
                 <tbody>
                   {withoutPrev.map((eq) => (
                     <tr key={eq.id} className="border-b border-[#f9fafb] hover:bg-[#f9fafb] transition-colors">
-                      <td className="px-4 py-2 font-medium text-[#1d2530] truncate max-w-[160px]">{eq.name}</td>
+                      <td className="px-4 py-2 font-medium text-[#1d2530] dark:text-zinc-100 truncate max-w-[160px]">{eq.name}</td>
                       <td className="px-4 py-2">
                         <span
                           className="px-1.5 py-0.5 rounded text-xs font-semibold"
@@ -262,7 +262,7 @@ export function SectionEquipment({ filters }: Props) {
                           {CRITICALITY_LABELS[eq.criticality] ?? eq.criticality}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-[#6c7c93] truncate max-w-[120px]">{eq.currentLocation?.name ?? '–'}</td>
+                      <td className="px-4 py-2 text-[#6c7c93] dark:text-zinc-400 truncate max-w-[120px]">{eq.currentLocation?.name ?? '–'}</td>
                     </tr>
                   ))}
                 </tbody>

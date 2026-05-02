@@ -57,8 +57,8 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
   )
 
   return (
-    <div className="flex items-center gap-3 px-6 py-3 bg-white border-b border-[#e8ecf1] flex-wrap">
-      <CalendarDays className="h-4 w-4 text-[#6c7c93] shrink-0" />
+    <div className="flex items-center gap-3 px-6 py-3 bg-white dark:bg-zinc-950 border-b border-[#e8ecf1] dark:border-zinc-800 flex-wrap">
+      <CalendarDays className="h-4 w-4 text-[#6c7c93] dark:text-zinc-400 shrink-0" />
 
       {/* Quick presets */}
       <div className="flex items-center gap-1">
@@ -69,7 +69,7 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
             className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
               activePreset?.days === p.days
                 ? 'bg-[#0a3776] text-white'
-                : 'bg-[#f3f4f7] text-[#6c7c93] hover:bg-[#e8ecf1] hover:text-[#1d2530]'
+                : 'bg-[#f3f4f7] dark:bg-zinc-800 text-[#6c7c93] dark:text-zinc-400 hover:bg-[#e8ecf1] hover:text-[#1d2530] dark:hover:text-zinc-100'
             }`}
           >
             {p.label}
@@ -82,21 +82,21 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
       {/* Custom range */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5">
-          <Label className="text-xs text-[#6c7c93] whitespace-nowrap">De</Label>
+          <Label className="text-xs text-[#6c7c93] dark:text-zinc-400 whitespace-nowrap">De</Label>
           <Input
             type="date"
             value={filters.startDate}
             onChange={(e) => onChange({ ...filters, startDate: e.target.value })}
-            className="h-7 text-xs w-36 border-[#e0e5eb]"
+            className="h-7 text-xs w-36 border-[#e0e5eb] dark:border-zinc-800"
           />
         </div>
         <div className="flex items-center gap-1.5">
-          <Label className="text-xs text-[#6c7c93] whitespace-nowrap">Até</Label>
+          <Label className="text-xs text-[#6c7c93] dark:text-zinc-400 whitespace-nowrap">Até</Label>
           <Input
             type="date"
             value={filters.endDate}
             onChange={(e) => onChange({ ...filters, endDate: e.target.value })}
-            className="h-7 text-xs w-36 border-[#e0e5eb]"
+            className="h-7 text-xs w-36 border-[#e0e5eb] dark:border-zinc-800"
           />
         </div>
       </div>
@@ -106,7 +106,7 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
           variant="ghost"
           size="sm"
           onClick={refresh}
-          className="h-7 gap-1.5 text-[#6c7c93] hover:text-[#0a3776] text-xs"
+          className="h-7 gap-1.5 text-[#6c7c93] dark:text-zinc-400 hover:text-[#0a3776] text-xs"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           Atualizar

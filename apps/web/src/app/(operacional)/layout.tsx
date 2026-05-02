@@ -53,21 +53,21 @@ export default function OperacionalLayout({
   const canSeeOperacional = user?.role !== 'TECHNICIAN'
 
   return (
-    <div className="flex h-screen flex-col bg-[#f3f4f7] overflow-hidden">
+    <div className="flex h-screen flex-col bg-[#f3f4f7] dark:bg-zinc-950 overflow-hidden">
       {/* Header */}
-      <header className="h-14 shrink-0 border-b border-[#e0e5eb] bg-white/80 backdrop-blur-md flex items-center px-4 gap-3 z-20">
+      <header className="h-14 shrink-0 border-b border-[#e0e5eb] dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md flex items-center px-4 gap-3 z-20">
         {/* Voltar */}
         <Button
           variant="ghost"
           size="sm"
-          className="gap-1.5 text-[#6c7c93] hover:text-[#0a3776]"
+          className="gap-1.5 text-[#6c7c93] dark:text-zinc-400 hover:text-[#0a3776] dark:hover:text-white"
           onClick={() => router.push('/dashboard')}
         >
           <ArrowLeft className="h-4 w-4" />
           <span className="hidden sm:inline text-sm">Dashboard</span>
         </Button>
 
-        <div className="w-px h-5 bg-[#e0e5eb]" />
+        <div className="w-px h-5 bg-[#e0e5eb] dark:bg-zinc-800" />
 
         {/* Logo */}
         <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-[#0a3776] to-[#1162d4] flex items-center justify-center shrink-0">
@@ -81,8 +81,8 @@ export default function OperacionalLayout({
             href="/tecnico"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               pathname === '/tecnico'
-                ? 'bg-[#f3f4f7] text-[#0a3776]'
-                : 'text-[#6c7c93] hover:text-[#1d2530] hover:bg-[#f3f4f7]'
+                ? 'bg-[#f3f4f7] dark:bg-zinc-800 text-[#0a3776] dark:text-white'
+                : 'text-[#6c7c93] dark:text-zinc-400 hover:text-[#1d2530] dark:hover:text-white hover:bg-[#f3f4f7] dark:hover:bg-zinc-800'
             }`}
           >
             <Wrench className="h-3.5 w-3.5" />
@@ -97,8 +97,8 @@ export default function OperacionalLayout({
               href="/operacional"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 pathname === '/operacional'
-                  ? 'bg-[#f3f4f7] text-[#0a3776]'
-                  : 'text-[#6c7c93] hover:text-[#1d2530] hover:bg-[#f3f4f7]'
+                  ? 'bg-[#f3f4f7] dark:bg-zinc-800 text-[#0a3776] dark:text-white'
+                  : 'text-[#6c7c93] dark:text-zinc-400 hover:text-[#1d2530] dark:hover:text-white hover:bg-[#f3f4f7] dark:hover:bg-zinc-800'
               }`}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -109,7 +109,7 @@ export default function OperacionalLayout({
 
         <div className="ml-auto flex items-center gap-2">
           {/* Notificações */}
-          <Button variant="ghost" size="icon" className="relative text-[#6c7c93]">
+          <Button variant="ghost" size="icon" className="relative text-[#6c7c93] dark:text-zinc-400">
             <Bell className="h-4 w-4" />
           </Button>
 
@@ -117,7 +117,7 @@ export default function OperacionalLayout({
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[#f3f4f7] transition-colors">
+                <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 transition-colors">
                   <div
                     className={`h-7 w-7 rounded-full ${getAvatarColor(user.name)} flex items-center justify-center shrink-0`}
                   >
@@ -126,7 +126,7 @@ export default function OperacionalLayout({
                     </span>
                   </div>
                   <div className="hidden sm:block text-left">
-                    <p className="text-xs font-medium text-[#1d2530] leading-none">
+                    <p className="text-xs font-medium text-[#1d2530] dark:text-zinc-100 leading-none">
                       {user.name.split(' ')[0]}
                     </p>
                   </div>
@@ -134,8 +134,8 @@ export default function OperacionalLayout({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <div className="px-3 py-2">
-                  <p className="text-sm font-medium text-[#1d2530]">{user.name}</p>
-                  <p className="text-xs text-[#6c7c93]">{user.email}</p>
+                  <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100">{user.name}</p>
+                  <p className="text-xs text-[#6c7c93] dark:text-zinc-400">{user.email}</p>
                 </div>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>

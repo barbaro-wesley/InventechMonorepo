@@ -147,24 +147,24 @@ export function OsChildCreateSheet({
         side="right"
         className="w-full sm:!w-[480px] sm:!max-w-[480px] flex flex-col gap-0 p-0"
       >
-        <SheetHeader className="px-6 pt-5 pb-4 border-b border-[#e0e5eb]">
+        <SheetHeader className="px-6 pt-5 pb-4 border-b border-[#e0e5eb] dark:border-zinc-800 ">
           <div className="flex items-center gap-2 mb-1">
             <GitBranch className="h-4 w-4 text-violet-500" />
-            <span className="text-xs text-[#6c7c93]">OS Vinculada à OS #{parentNumber}</span>
+            <span className="text-xs text-[#6c7c93] dark:text-zinc-400 ">OS Vinculada à OS #{parentNumber}</span>
           </div>
-          <SheetTitle className="text-base text-[#1d2530]">Nova OS Vinculada</SheetTitle>
+          <SheetTitle className="text-base text-[#1d2530] dark:text-zinc-100 ">Nova OS Vinculada</SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {/* Toggle tipo de filho */}
-          <div className="flex rounded-lg border border-[#e0e5eb] overflow-hidden text-sm">
+          <div className="flex rounded-lg border border-[#e0e5eb] dark:border-zinc-800 overflow-hidden text-sm">
             <button
               type="button"
               onClick={() => setChildType('SERVICE_ORDER')}
               className={`flex-1 py-2 text-center transition-colors ${
                 childType === 'SERVICE_ORDER'
-                  ? 'bg-[#0d4da5] text-white font-medium'
-                  : 'bg-white text-[#6c7c93] hover:bg-[#f8f9fc]'
+                  ? 'bg-[#0d4da5] dark:bg-blue-500 text-white font-medium'
+                  : 'bg-white dark:bg-zinc-950 text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f8f9fc] dark:hover:bg-zinc-900/50 dark:bg-zinc-900'
               }`}
             >
               OS Avulsa
@@ -174,8 +174,8 @@ export function OsChildCreateSheet({
               onClick={() => setChildType('MAINTENANCE_SCHEDULE')}
               className={`flex-1 py-2 text-center transition-colors ${
                 childType === 'MAINTENANCE_SCHEDULE'
-                  ? 'bg-[#0d4da5] text-white font-medium'
-                  : 'bg-white text-[#6c7c93] hover:bg-[#f8f9fc]'
+                  ? 'bg-[#0d4da5] dark:bg-blue-500 text-white font-medium'
+                  : 'bg-white dark:bg-zinc-950 text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f8f9fc] dark:hover:bg-zinc-900/50 dark:bg-zinc-900'
               }`}
             >
               Agendamento Recorrente
@@ -360,7 +360,7 @@ export function OsChildCreateSheet({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#e0e5eb] flex gap-3">
+        <div className="px-6 py-4 border-t border-[#e0e5eb] dark:border-zinc-800 flex gap-3">
           <Button
             variant="outline"
             className="flex-1 h-9 text-sm"
@@ -370,7 +370,7 @@ export function OsChildCreateSheet({
             Cancelar
           </Button>
           <Button
-            className="flex-1 h-9 text-sm bg-[#0d4da5] hover:bg-[#0a3776]"
+            className="flex-1 h-9 text-sm bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:bg-blue-600"
             onClick={onSubmit}
             disabled={createChild.isPending}
           >

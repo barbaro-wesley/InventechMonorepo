@@ -53,30 +53,30 @@ export function QuickStatsBar({ orders, isLoading }: QuickStatsBarProps) {
       value: orders.filter(
         (o) => !['COMPLETED_APPROVED', 'CANCELLED'].includes(o.status),
       ).length,
-      color: 'text-[#0a3776]',
-      dot: 'bg-[#0a3776]',
+      color: 'text-[#0a3776] dark:text-blue-400 ',
+      dot: 'bg-[#0a3776] dark:bg-blue-600',
     },
   ]
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-1 px-4 py-2 bg-white border-b border-[#e0e5eb] overflow-x-auto">
+      <div className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-zinc-950 border-b border-[#e0e5eb] dark:border-zinc-800 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-8 w-28 rounded-md bg-[#f3f4f7] animate-pulse shrink-0" />
+          <div key={i} className="h-8 w-28 rounded-md bg-[#f3f4f7] dark:bg-zinc-800 animate-pulse shrink-0" />
         ))}
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-1 px-4 py-2 bg-white border-b border-[#e0e5eb] overflow-x-auto">
+    <div className="flex items-center gap-1 px-4 py-2 bg-white dark:bg-zinc-950 border-b border-[#e0e5eb] dark:border-zinc-800 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#f3f4f7] shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#f3f4f7] dark:bg-zinc-800 shrink-0"
         >
           <span className={`h-2 w-2 rounded-full shrink-0 ${stat.dot}`} />
-          <span className="text-xs text-[#6c7c93]">{stat.label}</span>
+          <span className="text-xs text-[#6c7c93] dark:text-zinc-400 ">{stat.label}</span>
           <span className={`text-sm font-semibold ${stat.color}`}>{stat.value}</span>
         </div>
       ))}

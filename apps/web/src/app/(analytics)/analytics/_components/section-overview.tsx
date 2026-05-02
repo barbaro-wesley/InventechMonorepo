@@ -165,16 +165,16 @@ export function SectionOverview({ filters }: Props) {
               : dlt.absolute >= 0
 
             return (
-              <div key={label} className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm p-4">
-                <p className="text-xs text-[#6c7c93] font-medium mb-2">{label}</p>
-                <p className="text-lg font-bold text-[#1d2530]">
+              <div key={label} className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm p-4">
+                <p className="text-xs text-[#6c7c93] dark:text-zinc-400 font-medium mb-2">{label}</p>
+                <p className="text-lg font-bold text-[#1d2530] dark:text-zinc-100">
                   {'currency' in flags ? fmtCurrency(val as number) : 'hours' in flags ? fmtHours(val as number | null) : 'pct' in flags ? `${fmt(val as number | null, 1)}%` : fmt(val as number)}
                 </p>
                 {dlt && (
                   <div className={`flex items-center gap-1 text-xs mt-1 font-medium ${isGood ? 'text-emerald-600' : 'text-red-500'}`}>
                     {isGood ? <TrendingUp className="h-3 w-3"/> : <TrendingDown className="h-3 w-3"/>}
                     {dlt.percent != null ? `${dlt.percent > 0 ? '+' : ''}${dlt.percent.toFixed(1)}%` : dlt.absolute > 0 ? `+${dlt.absolute}` : String(dlt.absolute)}
-                    <span className="text-[#6c7c93] font-normal ml-0.5">vs ant.</span>
+                    <span className="text-[#6c7c93] dark:text-zinc-400 font-normal ml-0.5">vs ant.</span>
                   </div>
                 )}
               </div>

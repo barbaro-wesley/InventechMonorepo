@@ -64,7 +64,7 @@ export function SectionFinancial({ filters }: Props) {
     if (!delta) return null
     const isPositive = delta.absolute > 0
     const isGood = inverse ? !isPositive : isPositive
-    if (delta.absolute === 0) return <Minus className="h-3 w-3 text-[#6c7c93]" />
+    if (delta.absolute === 0) return <Minus className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400" />
     return isGood
       ? <TrendingUp className="h-3 w-3 text-emerald-600" />
       : <TrendingDown className="h-3 w-3 text-red-500" />
@@ -119,21 +119,21 @@ export function SectionFinancial({ filters }: Props) {
               ? (overview.delta[key as keyof typeof overview.delta] as FinancialDelta | null)
               : null
             return (
-              <div key={key} className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm p-4">
+              <div key={key} className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-[#6c7c93] font-medium">{ITEM_TYPE_LABELS[key]}</p>
+                  <p className="text-xs text-[#6c7c93] dark:text-zinc-400 font-medium">{ITEM_TYPE_LABELS[key]}</p>
                   <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ITEM_TYPE_COLORS[key] }} />
                 </div>
-                <p className="text-xl font-bold text-[#1d2530]">{fmtCurrency(cur, true)}</p>
-                <div className="mt-2 h-1 bg-[#f3f4f7] rounded-full overflow-hidden">
+                <p className="text-xl font-bold text-[#1d2530] dark:text-zinc-100">{fmtCurrency(cur, true)}</p>
+                <div className="mt-2 h-1 bg-[#f3f4f7] dark:bg-zinc-800 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: ITEM_TYPE_COLORS[key] }} />
                 </div>
-                <p className="text-xs text-[#6c7c93] mt-1">{fmt(pct)}% do total</p>
+                <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-1">{fmt(pct)}% do total</p>
                 {dlt && (
-                  <div className={`flex items-center gap-1 text-xs mt-1 font-medium ${dlt.absolute > 0 ? 'text-red-500' : dlt.absolute < 0 ? 'text-emerald-600' : 'text-[#6c7c93]'}`}>
+                  <div className={`flex items-center gap-1 text-xs mt-1 font-medium ${dlt.absolute > 0 ? 'text-red-500' : dlt.absolute < 0 ? 'text-emerald-600' : 'text-[#6c7c93] dark:text-zinc-400'}`}>
                     {deltaIcon(dlt, true)}
                     {dlt.percent !== null ? `${dlt.percent > 0 ? '+' : ''}${fmt(dlt.percent)}%` : '–'}
-                    <span className="text-[#6c7c93] font-normal">vs ant.</span>
+                    <span className="text-[#6c7c93] dark:text-zinc-400 font-normal">vs ant.</span>
                   </div>
                 )}
               </div>
@@ -172,22 +172,22 @@ export function SectionFinancial({ filters }: Props) {
       </ChartCard>
 
       {/* TCO table */}
-      <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm overflow-hidden">
         <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7]">
-          <p className="text-sm font-semibold text-[#1d2530]">TCO por Equipamento</p>
-          <p className="text-xs text-[#6c7c93] mt-0.5">Custo Total de Propriedade — valor de compra + custo de manutenção acumulado</p>
+          <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">TCO por Equipamento</p>
+          <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">Custo Total de Propriedade — valor de compra + custo de manutenção acumulado</p>
         </div>
         <div className="overflow-x-auto">
           {loadingTco ? (
             <div className="p-4 space-y-2">
-              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-9 bg-[#f3f4f7] rounded animate-pulse" />)}
+              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-9 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
             </div>
           ) : (
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-[#f3f4f7]">
                   {['#', 'Equipamento', 'Tipo', 'Valor Compra', 'Custo Manutenção', 'TCO Total', 'Índice Custo'].map((h) => (
-                    <th key={h} className={`px-4 py-2 text-[#6c7c93] font-medium whitespace-nowrap ${h === '#' || h === 'Equipamento' || h === 'Tipo' ? 'text-left' : 'text-right'}`}>{h}</th>
+                    <th key={h} className={`px-4 py-2 text-[#6c7c93] dark:text-zinc-400 font-medium whitespace-nowrap ${h === '#' || h === 'Equipamento' || h === 'Tipo' ? 'text-left' : 'text-right'}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -196,18 +196,18 @@ export function SectionFinancial({ filters }: Props) {
                   const highCost = item.cost_ratio != null && item.cost_ratio > 50
                   return (
                     <tr key={item.id} className="border-b border-[#f9fafb] hover:bg-[#f9fafb] transition-colors">
-                      <td className="px-4 py-2.5 text-[#6c7c93]">{i + 1}</td>
+                      <td className="px-4 py-2.5 text-[#6c7c93] dark:text-zinc-400">{i + 1}</td>
                       <td className="px-4 py-2.5">
-                        <p className="font-medium text-[#1d2530] truncate max-w-[180px]">{item.name}</p>
-                        {item.serial_number && <p className="text-[#6c7c93]">{item.serial_number}</p>}
+                        <p className="font-medium text-[#1d2530] dark:text-zinc-100 truncate max-w-[180px]">{item.name}</p>
+                        {item.serial_number && <p className="text-[#6c7c93] dark:text-zinc-400">{item.serial_number}</p>}
                       </td>
-                      <td className="px-4 py-2.5 text-[#6c7c93] truncate max-w-[120px]">{item.type_name ?? '–'}</td>
-                      <td className="px-4 py-2.5 text-right text-[#6c7c93]">{fmtCurrency(item.purchase_value)}</td>
-                      <td className="px-4 py-2.5 text-right font-semibold text-[#1d2530]">{fmtCurrency(item.maintenance_cost)}</td>
+                      <td className="px-4 py-2.5 text-[#6c7c93] dark:text-zinc-400 truncate max-w-[120px]">{item.type_name ?? '–'}</td>
+                      <td className="px-4 py-2.5 text-right text-[#6c7c93] dark:text-zinc-400">{fmtCurrency(item.purchase_value)}</td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-[#1d2530] dark:text-zinc-100">{fmtCurrency(item.maintenance_cost)}</td>
                       <td className="px-4 py-2.5 text-right font-bold text-[#0a3776]">{fmtCurrency(item.tco)}</td>
                       <td className="px-4 py-2.5 text-right">
                         {item.cost_ratio != null ? (
-                          <span className={`font-semibold px-1.5 py-0.5 rounded ${highCost ? 'text-red-600 bg-red-50' : 'text-emerald-600 bg-emerald-50'}`}>
+                          <span className={`font-semibold px-1.5 py-0.5 rounded ${highCost ? 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400' : 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400'}`}>
                             {fmt(item.cost_ratio)}%
                           </span>
                         ) : '–'}

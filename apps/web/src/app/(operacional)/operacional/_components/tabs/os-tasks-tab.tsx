@@ -111,10 +111,10 @@ function TaskCard({
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       className={`
-        group relative rounded-xl border bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]
+        group relative rounded-xl border bg-white dark:bg-zinc-950 shadow-[0_1px_3px_rgba(0,0,0,0.04)]
         hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all duration-200 cursor-grab active:cursor-grabbing
         ${isDragging ? 'opacity-40 scale-[0.97] ring-2 ring-indigo-300' : ''}
-        ${task.status === 'DONE' ? 'border-emerald-100 bg-emerald-50/30' : 'border-[#e0e5eb]'}
+        ${task.status === 'DONE' ? 'border-emerald-100 bg-emerald-50/30' : 'border-[#e0e5eb] dark:border-zinc-800 '}
       `}
     >
       {/* Grip handle */}
@@ -128,7 +128,7 @@ function TaskCard({
           className={`text-[13px] font-medium leading-snug ${
             task.status === 'DONE'
               ? 'line-through text-slate-400'
-              : 'text-[#1d2530]'
+              : 'text-[#1d2530] dark:text-zinc-100 '
           }`}
         >
           {task.title}
@@ -136,7 +136,7 @@ function TaskCard({
 
         {/* Description */}
         {task.description && (
-          <p className="text-[11px] text-[#6c7c93] mt-1 line-clamp-2 leading-relaxed">
+          <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
             {task.description}
           </p>
         )}
@@ -356,14 +356,14 @@ export function OsTasksTab({ clientId, osId, tasks }: OsTasksTabProps) {
       {tasks.length > 0 && (
         <div>
           <div className="flex justify-between items-center mb-1.5">
-            <span className="text-xs text-[#6c7c93]">
+            <span className="text-xs text-[#6c7c93] dark:text-zinc-400 ">
               {done.length} de {tasks.length} concluídas
             </span>
-            <span className="text-xs font-medium text-[#1d2530]">
+            <span className="text-xs font-medium text-[#1d2530] dark:text-zinc-100 ">
               {progress}%
             </span>
           </div>
-          <div className="h-1.5 bg-[#f3f4f7] rounded-full overflow-hidden">
+          <div className="h-1.5 bg-[#f3f4f7] dark:bg-zinc-800 rounded-full overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500 ease-out"
               style={{
@@ -384,13 +384,13 @@ export function OsTasksTab({ clientId, osId, tasks }: OsTasksTabProps) {
           placeholder="Nova tarefa..."
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
-          className="h-9 text-sm bg-[#f3f4f7] border-transparent focus:border-[#0d4da5] focus:bg-white rounded-lg"
+          className="h-9 text-sm bg-[#f3f4f7] dark:bg-zinc-800 border-transparent focus:border-[#0d4da5] dark:border-blue-500 focus:bg-white dark:bg-zinc-950 rounded-lg"
         />
         <Button
           type="submit"
           size="sm"
           disabled={!newTitle.trim() || createTask.isPending}
-          className="h-9 shrink-0 bg-[#0d4da5] hover:bg-[#0a3776] text-white rounded-lg px-3.5"
+          className="h-9 shrink-0 bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:bg-blue-600 text-white rounded-lg px-3.5"
         >
           {createTask.isPending ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -402,7 +402,7 @@ export function OsTasksTab({ clientId, osId, tasks }: OsTasksTabProps) {
 
       {/* Kanban board */}
       {tasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-[#6c7c93]">
+        <div className="flex flex-col items-center justify-center py-12 text-[#6c7c93] dark:text-zinc-400 ">
           <div className="h-14 w-14 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center mb-3">
             <CheckCircle2 className="h-6 w-6 opacity-30" />
           </div>

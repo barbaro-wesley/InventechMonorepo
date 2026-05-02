@@ -131,8 +131,8 @@ export function SectionPreventive({ filters }: Props) {
               </RadialBarChart>
             </ResponsiveContainer>
             <div className="text-center -mt-6">
-              <p className="text-3xl font-bold text-[#1d2530]">{adherence ? `${fmt(adherenceRate, 1)}%` : '–'}</p>
-              <p className="text-xs text-[#6c7c93] mt-1">{adherence ? `${fmt(adherence.summary.onTime)} de ${fmt(adherence.summary.total)} no prazo` : ''}</p>
+              <p className="text-3xl font-bold text-[#1d2530] dark:text-zinc-100">{adherence ? `${fmt(adherenceRate, 1)}%` : '–'}</p>
+              <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-1">{adherence ? `${fmt(adherence.summary.onTime)} de ${fmt(adherence.summary.total)} no prazo` : ''}</p>
             </div>
           </div>
         </ChartCard>
@@ -156,14 +156,14 @@ export function SectionPreventive({ filters }: Props) {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Upcoming */}
-        <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm overflow-hidden">
           <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7] flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-[#1d2530]">Próximas Preventivas</p>
-              <p className="text-xs text-[#6c7c93] mt-0.5">Próximos 30 dias</p>
+              <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">Próximas Preventivas</p>
+              <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">Próximos 30 dias</p>
             </div>
             {upcomingResult && upcomingResult.count > 0 && (
-              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
                 {upcomingResult.count} agendadas
               </span>
             )}
@@ -171,28 +171,28 @@ export function SectionPreventive({ filters }: Props) {
           <div className="overflow-auto" style={{ maxHeight: 260 }}>
             {loadingUp ? (
               <div className="p-4 space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] rounded animate-pulse" />)}
+                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white">
+                <thead className="sticky top-0 bg-white dark:bg-zinc-950">
                   <tr className="border-b border-[#f3f4f7]">
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Equipamento</th>
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Próxima Exec.</th>
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Técnico</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Equipamento</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Próxima Exec.</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Técnico</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(upcoming ?? []).map((item) => (
                     <tr key={item.id} className="border-b border-[#f9fafb] hover:bg-[#f9fafb] transition-colors">
                       <td className="px-4 py-2">
-                        <p className="font-medium text-[#1d2530] truncate max-w-[140px]">{item.equipment_name}</p>
-                        <p className="text-[#6c7c93] truncate">{item.title}</p>
+                        <p className="font-medium text-[#1d2530] dark:text-zinc-100 truncate max-w-[140px]">{item.equipment_name}</p>
+                        <p className="text-[#6c7c93] dark:text-zinc-400 truncate">{item.title}</p>
                       </td>
-                      <td className="px-4 py-2 text-[#1d2530] whitespace-nowrap">
+                      <td className="px-4 py-2 text-[#1d2530] dark:text-zinc-100 whitespace-nowrap">
                         {new Date(item.next_run_at).toLocaleDateString('pt-BR')}
                       </td>
-                      <td className="px-4 py-2 text-[#6c7c93] truncate max-w-[100px]">
+                      <td className="px-4 py-2 text-[#6c7c93] dark:text-zinc-400 truncate max-w-[100px]">
                         {item.technician_name ?? '–'}
                       </td>
                     </tr>
@@ -204,14 +204,14 @@ export function SectionPreventive({ filters }: Props) {
         </div>
 
         {/* Overdue */}
-        <div className="bg-white rounded-xl border border-[#e8ecf1] shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-zinc-950 rounded-xl border border-[#e8ecf1] dark:border-zinc-800 shadow-sm overflow-hidden">
           <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7] flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-[#1d2530]">Preventivas Atrasadas</p>
-              <p className="text-xs text-[#6c7c93] mt-0.5">Por criticidade do equipamento</p>
+              <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">Preventivas Atrasadas</p>
+              <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">Por criticidade do equipamento</p>
             </div>
             {overdue && overdue.count > 0 && (
-              <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+              <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
                 {overdue.count} em atraso
               </span>
             )}
@@ -229,26 +229,26 @@ export function SectionPreventive({ filters }: Props) {
           <div className="overflow-auto" style={{ maxHeight: 220 }}>
             {loadingOd ? (
               <div className="p-4 space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] rounded animate-pulse" />)}
+                {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
               </div>
             ) : overdue?.count === 0 ? (
               <div className="flex flex-col items-center justify-center h-28 text-center gap-2">
                 <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-                <p className="text-sm text-[#6c7c93]">Nenhuma preventiva atrasada</p>
+                <p className="text-sm text-[#6c7c93] dark:text-zinc-400">Nenhuma preventiva atrasada</p>
               </div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-white">
+                <thead className="sticky top-0 bg-white dark:bg-zinc-950">
                   <tr className="border-b border-[#f3f4f7]">
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Equipamento</th>
-                    <th className="px-4 py-2 text-left text-[#6c7c93] font-medium">Crit.</th>
-                    <th className="px-4 py-2 text-right text-[#6c7c93] font-medium">Atraso</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Equipamento</th>
+                    <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Crit.</th>
+                    <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">Atraso</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(overdue?.items ?? []).map((item) => (
                     <tr key={item.id} className="border-b border-[#f9fafb] hover:bg-[#f9fafb] transition-colors">
-                      <td className="px-4 py-2 font-medium text-[#1d2530] truncate max-w-[160px]">{item.equipment_name}</td>
+                      <td className="px-4 py-2 font-medium text-[#1d2530] dark:text-zinc-100 truncate max-w-[160px]">{item.equipment_name}</td>
                       <td className="px-4 py-2">
                         <span className="px-1.5 py-0.5 rounded text-xs font-semibold"
                           style={{ backgroundColor: (CRITICALITY_COLORS[item.criticality] ?? '#94a3b8') + '20', color: CRITICALITY_COLORS[item.criticality] ?? '#94a3b8' }}>
