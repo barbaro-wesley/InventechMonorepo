@@ -260,7 +260,7 @@ function SubEmbeddedLocationRow({
 
   return (
     <div style={{ marginLeft: depth * 16 }}>
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/60 bg-white/80 hover:bg-muted/20 transition-colors group">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/60 bg-white/80 dark:bg-zinc-950/50 hover:bg-muted/20 transition-colors group">
         {/* Expand toggle */}
         <button
           className="flex-shrink-0 w-4 h-4 flex items-center justify-center text-muted-foreground"
@@ -356,7 +356,7 @@ function CostCenterCard({
     <div className="rounded-xl border border-border overflow-hidden shadow-sm">
       {/* ── CC Header ── */}
       <div
-        className="flex items-center gap-3 px-4 py-3.5 bg-white cursor-pointer select-none"
+        className="flex items-center gap-3 px-4 py-3.5 bg-white dark:bg-zinc-950/50 cursor-pointer select-none"
         onClick={() => setExpanded((v) => !v)}
       >
         <span className="flex-shrink-0 text-muted-foreground">
@@ -421,7 +421,7 @@ function CostCenterCard({
 
       {/* ── Locations Panel ── */}
       {expanded && (
-        <div className="border-t border-border bg-slate-50/60 px-4 py-4">
+        <div className="border-t border-border bg-slate-50/60 dark:bg-zinc-900/50 px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Localizações
@@ -438,7 +438,7 @@ function CostCenterCard({
           </div>
 
           {rootLocations.length === 0 ? (
-            <div className="text-center py-6 border border-dashed border-border rounded-lg bg-white">
+            <div className="text-center py-6 border border-dashed border-border rounded-lg bg-white dark:bg-zinc-950/50">
               <MapPin className="w-7 h-7 text-muted-foreground/40 mx-auto mb-2" />
               <p className="text-xs text-muted-foreground">Nenhuma localização ainda.</p>
               {canManage && (
@@ -516,11 +516,11 @@ export default function CostCentersPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 rounded-xl border border-border bg-white animate-pulse" />
+            <div key={i} className="h-16 rounded-xl border border-border bg-white dark:bg-zinc-900 animate-pulse" />
           ))}
         </div>
       ) : costCenters.length === 0 ? (
-        <div className="bg-white rounded-xl border border-dashed border-border py-14 text-center">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-dashed border-border py-14 text-center">
           <Building2 className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             Nenhum centro de custo cadastrado

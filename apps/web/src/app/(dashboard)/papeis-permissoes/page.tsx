@@ -124,7 +124,7 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <button
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-muted/40 transition-colors text-left"
+        className="w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-zinc-950/50 hover:bg-muted/40 transition-colors text-left"
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-center gap-3">
@@ -157,7 +157,7 @@ function PermissionRow({ item }: { item: PermissionMatrixItem }) {
                   className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border font-medium transition-all
                     ${active
                       ? `${ROLE_COLOR[role]} opacity-100`
-                      : "bg-white border-border text-muted-foreground opacity-60 hover:opacity-90"
+                      : "bg-white dark:bg-zinc-950/50 border-border text-muted-foreground opacity-60 hover:opacity-90"
                     }
                     ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}
                   `}
@@ -192,7 +192,7 @@ function ResourceSection({ resource, items }: { resource: string; items: Permiss
   const overrideCount = items.filter((i) => i.isOverridden).length;
 
   return (
-    <div className="bg-white rounded-xl border border-border overflow-hidden">
+    <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border overflow-hidden">
       <button
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors text-left"
         onClick={() => setOpen((v) => !v)}
@@ -354,7 +354,7 @@ function CustomRoleSheet({
                       onClick={() => toggleResource(resource, actions)}
                     >
                       <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                        ${allChecked ? "bg-primary border-primary" : someChecked ? "bg-primary/30 border-primary" : "border-border bg-white"}`}
+                        ${allChecked ? "bg-primary border-primary" : someChecked ? "bg-primary/30 border-primary" : "border-border bg-white dark:bg-zinc-950/50"}`}
                       >
                         {(allChecked || someChecked) && <Check className="w-2.5 h-2.5 text-white" />}
                       </div>
@@ -371,7 +371,7 @@ function CustomRoleSheet({
                             type="button"
                             onClick={() => togglePerm(key)}
                             className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all
-                              ${on ? "bg-primary text-primary-foreground border-primary" : "bg-white border-border text-muted-foreground hover:border-primary/50"}`}
+                              ${on ? "bg-primary text-primary-foreground border-primary" : "bg-white dark:bg-zinc-950/50 border-border text-muted-foreground hover:border-primary/50"}`}
                           >
                             {ACTION_LABEL[action] ?? action}
                           </button>
@@ -467,7 +467,7 @@ export default function PapeisPermissoesPage() {
             key={key}
             onClick={() => setTab(key as any)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
-              ${tab === key ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              ${tab === key ? "bg-white dark:bg-zinc-800 shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             <Icon className="w-4 h-4" />
             {label}
@@ -480,7 +480,7 @@ export default function PapeisPermissoesPage() {
         <>
           {/* Company selector for SUPER_ADMIN without their own company */}
           {needsCompanySelector && (
-            <div className="bg-white rounded-xl border border-border px-5 py-4 flex flex-wrap items-center gap-4">
+            <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border px-5 py-4 flex flex-wrap items-center gap-4">
               <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0" />
               <div className="flex-1 min-w-[200px]">
                 <p className="text-sm font-medium mb-1">Selecione a empresa</p>
@@ -489,7 +489,7 @@ export default function PapeisPermissoesPage() {
               <select
                 value={selectedCompanyId}
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="border border-border rounded-lg px-3 py-2 text-sm bg-white w-full sm:w-auto sm:min-w-[220px] focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="border border-border rounded-lg px-3 py-2 text-sm bg-white dark:bg-zinc-900/50 w-full sm:w-auto sm:min-w-[220px] focus:outline-none focus:ring-2 focus:ring-primary/30"
               >
                 <option value="">Selecione uma empresa...</option>
                 {companies.map((c) => (
@@ -501,17 +501,17 @@ export default function PapeisPermissoesPage() {
 
           {/* Prompt to select company before showing roles */}
           {needsCompanySelector && !selectedCompanyId ? (
-            <div className="bg-white rounded-xl border border-border py-16 text-center">
+            <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border py-16 text-center">
               <Building2 className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground font-medium">Selecione uma empresa acima</p>
               <p className="text-xs text-muted-foreground mt-1">Os papéis personalizados são criados por empresa.</p>
             </div>
           ) : rolesLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-white border border-border animate-pulse" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-white dark:bg-zinc-900 border border-border animate-pulse" />)}
             </div>
           ) : customRoles.length === 0 ? (
-            <div className="bg-white rounded-xl border border-border py-16 text-center">
+            <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border py-16 text-center">
               <Shield className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
               <p className="text-sm text-muted-foreground font-medium">Nenhum papel personalizado criado</p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -527,7 +527,7 @@ export default function PapeisPermissoesPage() {
           ) : (
             <div className="space-y-3">
               {customRoles.map((role) => (
-                <div key={role.id} className="bg-white rounded-xl border border-border px-5 py-4 flex items-start justify-between gap-4">
+                <div key={role.id} className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border px-5 py-4 flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-semibold text-sm">{role.name}</span>
@@ -612,7 +612,7 @@ export default function PapeisPermissoesPage() {
 
           {matrixLoading ? (
             <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => <div key={i} className="h-14 rounded-xl bg-white border border-border animate-pulse" />)}
+              {[1, 2, 3, 4].map((i) => <div key={i} className="h-14 rounded-xl bg-white dark:bg-zinc-900 border border-border animate-pulse" />)}
             </div>
           ) : (
             <div className="space-y-3">

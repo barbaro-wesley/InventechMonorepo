@@ -1,3 +1,5 @@
+import { ThemeToggle } from "@/components/theme-toggle";
+
 export default function AuthLayout({
   children,
 }: {
@@ -7,64 +9,59 @@ export default function AuthLayout({
     <div className="min-h-screen grid lg:grid-cols-2">
 
       {/* ── Painel Esquerdo — Branding ── */}
-      <div className="hidden lg:flex flex-col items-center justify-center relative overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #0a3776 0%, #1162d4 55%, #f97a1f 100%)",
-        }}
-      >
+      <div className="hidden lg:flex flex-col items-center justify-center relative overflow-hidden bg-zinc-950">
+        
         {/* Glow effects */}
-        <div className="absolute top-[-15%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-400/20 blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-orange-400/15 blur-[100px] pointer-events-none" />
+        <div className="absolute top-[-15%] left-[-10%] w-[500px] h-[500px] rounded-full bg-zinc-800/20 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full bg-zinc-800/10 blur-[100px] pointer-events-none" />
 
         {/* Grid pattern sutil */}
         <div
-          className="absolute inset-0 opacity-[0.07] pointer-events-none"
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
           style={{
             backgroundImage: `
               linear-gradient(rgba(255,255,255,1) 1px, transparent 1px),
               linear-gradient(90deg, rgba(255,255,255,1) 1px, transparent 1px)
             `,
-            backgroundSize: "50px 50px",
+            backgroundSize: "40px 40px",
           }}
         />
 
         {/* Conteúdo */}
         <div className="relative z-10 text-center max-w-md px-8">
           {/* Logo card */}
-          <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl px-6 py-3.5 mb-10 shadow-lg"
-            style={{ boxShadow: "var(--shadow-brand)" }}
-          >
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shadow-md"
-              style={{ background: "linear-gradient(135deg, #f97a1f, #e05a00)" }}
-            >
+          <div className="inline-flex items-center gap-3 bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl px-6 py-3.5 mb-10 shadow-sm">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white shadow-sm">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path
                   d="M9 2L15.5 5.5V12.5L9 16L2.5 12.5V5.5L9 2Z"
-                  stroke="white"
+                  stroke="currentColor"
+                  className="text-zinc-950"
                   strokeWidth="1.5"
                   strokeLinejoin="round"
                 />
                 <path
                   d="M9 2V16M2.5 5.5L15.5 12.5M15.5 5.5L2.5 12.5"
-                  stroke="white"
+                  stroke="currentColor"
+                  className="text-zinc-950"
                   strokeWidth="1"
-                  strokeOpacity="0.6"
+                  strokeOpacity="0.3"
                 />
               </svg>
             </div>
             <span className="text-white font-bold text-xl tracking-tight">
-              Inven<span style={{ color: "#f97a1f" }}>Tech</span>
+              InvenTech
             </span>
           </div>
 
           {/* Heading principal */}
-          <h1 className="text-5xl font-extrabold text-white leading-tight mb-2">
+          <h1 className="text-4xl font-semibold text-white leading-tight mb-2 tracking-tight">
             Controle Total
           </h1>
-          <p className="text-xl font-medium text-blue-200/90 mb-6">
+          <p className="text-xl font-medium text-zinc-400 mb-6">
             sobre seus equipamentos
           </p>
-          <p className="text-sm text-blue-200/60 leading-relaxed max-w-sm mx-auto mb-10">
+          <p className="text-sm text-zinc-500 leading-relaxed max-w-sm mx-auto mb-10">
             Gerencie computadores, impressoras, equipamentos médicos e manutenções em uma plataforma moderna e intuitiva.
           </p>
 
@@ -77,7 +74,7 @@ export default function AuthLayout({
             ].map((cat) => (
               <div
                 key={cat.label}
-                className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 text-sm text-white/80 font-medium"
+                className="inline-flex items-center gap-2 bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-full px-4 py-2 text-sm text-zinc-300 font-medium transition-colors hover:bg-zinc-800/50"
               >
                 <span className="text-xs">{cat.icon}</span>
                 {cat.label}
@@ -88,7 +85,10 @@ export default function AuthLayout({
       </div>
 
       {/* ── Painel Direito — Formulário ── */}
-      <div className="flex items-center justify-center p-6 sm:p-8 bg-background">
+      <div className="relative flex items-center justify-center p-6 sm:p-8 bg-white dark:bg-zinc-950">
+        <div className="absolute top-6 right-6">
+          <ThemeToggle />
+        </div>
         <div className="w-full max-w-md">{children}</div>
       </div>
     </div>
