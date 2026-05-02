@@ -225,6 +225,14 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
 
   // ── GHOSP (pacientes internados — banco hospitalar externo) ────────────────
   'ghosp:list':                  [SA, CA],
+
+  // ── ANALYTICS ──────────────────────────────────────────────────────────────
+  // Acesso por módulo — cada tipo de análise pode ser liberado independentemente
+  'analytics:equipment':         [SA, CA, CM, CLA],
+  'analytics:service-orders':    [SA, CA, CM, CLA],
+  'analytics:technicians':       [SA, CA, CM],
+  'analytics:preventive':        [SA, CA, CM, CLA],
+  'analytics:financial':         [SA, CA],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -255,6 +263,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'printer':              ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'scan':                 ['browse', 'list', 'read', 'download', 'delete'],
   'ghosp':                ['list'],
+  'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)

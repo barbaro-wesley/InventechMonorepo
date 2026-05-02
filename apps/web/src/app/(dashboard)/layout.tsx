@@ -77,6 +77,18 @@ const navSections: NavSection[] = [
         ],
     },
     {
+        sectionKey: "analitico",
+        items: [
+            {
+                label: "Painel Analítico",
+                href: "/analytics",
+                icon: BarChart3,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"],
+                permission: "analytics:equipment",
+            },
+        ],
+    },
+    {
         sectionLabel: "Operações",
         sectionKey: "operacoes",
         collapsible: true,
