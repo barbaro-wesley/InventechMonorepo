@@ -56,21 +56,21 @@ export default function AuthLayout({
 
           {/* Heading principal */}
           <h1 className="text-4xl font-semibold text-white leading-tight mb-2 tracking-tight">
-            Controle Total
+            Gestão Inteligente
           </h1>
           <p className="text-xl font-medium text-zinc-400 mb-6">
-            sobre seus equipamentos
+            de Ativos e Manutenções
           </p>
           <p className="text-sm text-zinc-500 leading-relaxed max-w-sm mx-auto mb-10">
-            Gerencie computadores, impressoras, equipamentos médicos e manutenções em uma plataforma moderna e intuitiva.
+            Otimize o ciclo de vida dos seus equipamentos. Controle preventivas, corretivas e ordens de serviço em uma plataforma centralizada e eficiente.
           </p>
 
           {/* Category badges */}
           <div className="flex items-center justify-center gap-3 flex-wrap">
             {[
-              { icon: "🖥", label: "Gestão de TI" },
-              { icon: "🏥", label: "Equipamentos Médicos" },
-              { icon: "🔧", label: "Manutenções" },
+              { icon: "⚙️", label: "Preventivas e Corretivas" },
+              { icon: "📋", label: "Ordens de Serviço" },
+              { icon: "📊", label: "Gestão de Ativos" },
             ].map((cat) => (
               <div
                 key={cat.label}

@@ -266,7 +266,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
       {/* Descrição */}
       <div>
         <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-1.5 font-medium uppercase tracking-wide">Descrição</p>
-        <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-[#f8f9fb] rounded-lg p-3 border border-[#e0e5eb] dark:border-zinc-800 ">
+        <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-[#f8f9fb] dark:bg-zinc-900/50 rounded-lg p-3 border border-[#e0e5eb] dark:border-zinc-800 ">
           {os.description}
         </p>
       </div>
@@ -397,7 +397,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
             <p className="text-xs text-[#6c7c93] dark:text-zinc-400 italic">Nenhum técnico vinculado</p>
           )}
           {os.technicians.map((t) => (
-            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb] dark:border-zinc-800 ">
+            <div key={t.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-[#f8f9fb] dark:bg-zinc-900/50 border border-[#e0e5eb] dark:border-zinc-800 ">
               <TechAvatar name={t.technician.name} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100 ">{t.technician.name}</p>
@@ -405,8 +405,8 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
               </div>
               <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                 t.role === 'LEAD'
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                  : 'bg-slate-50 text-slate-600 border border-slate-200'
+                  ? 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900'
+                  : 'bg-slate-50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
               }`}>
                 {t.role === 'LEAD' ? 'Responsável' : 'Auxiliar'}
               </span>
@@ -458,7 +458,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
       {os.resolution && (
         <div>
           <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-1.5 font-medium uppercase tracking-wide">Resolução</p>
-          <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+          <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-emerald-50 dark:bg-emerald-950/30 rounded-lg p-3 border border-emerald-200 dark:border-emerald-900">
             {os.resolution}
           </p>
         </div>
@@ -476,23 +476,23 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
           <div className="space-y-2">
             {os.laudos.map((laudo) => {
               const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
-                DRAFT: { label: 'Rascunho', bg: 'bg-slate-50 border-slate-200', text: 'text-slate-600' },
-                PENDING_REVIEW: { label: 'Em Revisão', bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700' },
-                PENDING_SIGNATURE: { label: 'Aguard. Assinatura', bg: 'bg-orange-50 border-orange-200', text: 'text-orange-700' },
-                SIGNED: { label: 'Assinado', bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700' },
-                APPROVED: { label: 'Aprovado', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700' },
-                CANCELLED: { label: 'Cancelado', bg: 'bg-red-50 border-red-200', text: 'text-red-600' },
+                DRAFT: { label: 'Rascunho', bg: 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800', text: 'text-slate-600 dark:text-slate-400' },
+                PENDING_REVIEW: { label: 'Em Revisão', bg: 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900', text: 'text-amber-700 dark:text-amber-400' },
+                PENDING_SIGNATURE: { label: 'Aguard. Assinatura', bg: 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900', text: 'text-orange-700 dark:text-orange-400' },
+                SIGNED: { label: 'Assinado', bg: 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900', text: 'text-blue-700 dark:text-blue-400' },
+                APPROVED: { label: 'Aprovado', bg: 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900', text: 'text-emerald-700 dark:text-emerald-400' },
+                CANCELLED: { label: 'Cancelado', bg: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-900', text: 'text-red-600 dark:text-red-400' },
               }
-              const st = statusConfig[laudo.status] ?? { label: laudo.status, bg: 'bg-slate-50 border-slate-200', text: 'text-slate-600' }
+              const st = statusConfig[laudo.status] ?? { label: laudo.status, bg: 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800', text: 'text-slate-600 dark:text-slate-400' }
               const laudoNum = String(laudo.number).padStart(4, '0')
               const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1'
 
               return (
                 <div
                   key={laudo.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-[#f8f9fb] border border-[#e0e5eb] dark:border-zinc-800 hover:border-[#c5cdd8] transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-lg bg-[#f8f9fb] dark:bg-zinc-900/50 border border-[#e0e5eb] dark:border-zinc-800 hover:border-[#c5cdd8] dark:hover:border-zinc-700 transition-colors"
                 >
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
                     <FileText className="h-4 w-4 text-blue-600" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -521,8 +521,8 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                     rel="noopener noreferrer"
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
                       laudo.status === 'SIGNED'
-                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'
-                        : 'bg-blue-50 hover:bg-blue-100 text-blue-600'
+                        ? 'bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400'
                     }`}
                     title={laudo.status === 'SIGNED' ? 'Baixar PDF assinado' : 'Baixar PDF'}
                   >
@@ -548,7 +548,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
           <div className="space-y-2">
             {/* OS pai */}
             {os.parentServiceOrder && (
-              <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+              <div className="rounded-lg border border-violet-200 dark:border-violet-900 bg-violet-50 dark:bg-violet-950/30 p-3">
                 <p className="text-[10px] text-violet-500 font-medium mb-1.5 uppercase tracking-wide">Originada de</p>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono text-[#6c7c93] dark:text-zinc-400 ">#{os.parentServiceOrder.number}</span>
@@ -564,7 +564,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
 
             {/* OS filhas */}
             {os.childServiceOrders?.map((child) => (
-              <div key={child.id} className="rounded-lg border border-[#e0e5eb] dark:border-zinc-800 bg-[#f8f9fb] p-3">
+              <div key={child.id} className="rounded-lg border border-[#e0e5eb] dark:border-zinc-800 bg-[#f8f9fb] dark:bg-zinc-900/50 p-3">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-mono text-[#6c7c93] dark:text-zinc-400 ">#{child.number}</span>
                   <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${STATUS_CONFIG[child.status].bg} ${STATUS_CONFIG[child.status].color}`}>
@@ -589,10 +589,10 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
 
             {/* Agendamentos recorrentes originados */}
             {os.originatedSchedules?.map((schedule) => (
-              <div key={schedule.id} className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+              <div key={schedule.id} className="rounded-lg border border-indigo-200 dark:border-indigo-900 bg-indigo-50 dark:bg-indigo-950/30 p-3">
                 <p className="text-[10px] text-indigo-500 font-medium mb-1.5 uppercase tracking-wide">Agendamento recorrente</p>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${schedule.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${schedule.isActive ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900' : 'bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-800'}`}>
                     {schedule.isActive ? 'Ativo' : 'Inativo'}
                   </span>
                   <span className="text-[10px] text-[#6c7c93] dark:text-zinc-400 ">{MAINTENANCE_TYPE_LABELS[schedule.maintenanceType]}</span>
@@ -611,7 +611,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
       {os.internalNotes && (
         <div>
           <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mb-1.5 font-medium uppercase tracking-wide">Notas Internas</p>
-          <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-amber-50 rounded-lg p-3 border border-amber-200">
+          <p className="text-sm text-[#1d2530] dark:text-zinc-100 leading-relaxed bg-amber-50 dark:bg-amber-950/30 rounded-lg p-3 border border-amber-200 dark:border-amber-900">
             {os.internalNotes}
           </p>
         </div>
@@ -640,7 +640,7 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
                     href={storageService.getDownloadUrl(doc.id)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2.5 bg-[#f8f9fb] border border-[#e0e5eb] dark:border-zinc-800 hover:border-[#c5cdd8] rounded-lg group transition-all"
+                    className="flex items-center gap-2 p-2.5 bg-[#f8f9fb] dark:bg-zinc-900/50 border border-[#e0e5eb] dark:border-zinc-800 hover:border-[#c5cdd8] dark:hover:border-zinc-700 rounded-lg group transition-all"
                   >
                     <FileIcon className="h-4 w-4 text-[#6c7c93] dark:text-zinc-400 shrink-0" />
                     <span className="text-xs font-medium text-[#1d2530] dark:text-zinc-100 truncate flex-1">{doc.fileName}</span>

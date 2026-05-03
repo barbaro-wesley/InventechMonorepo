@@ -34,7 +34,7 @@ import {
 import { useAuth } from "@/hooks/auth/use-auth";
 import { useCurrentUser } from "@/store/auth.store";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { ThemeToggle, ThemeToggleMenuItem } from "@/components/theme-toggle";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/auth";
@@ -533,7 +533,6 @@ export default function DashboardLayout({
                     </div>
 
                     <div className="flex items-center gap-3">
-                        <ThemeToggle />
                         <NotificationBell />
 
                         <DropdownMenu>
@@ -570,6 +569,8 @@ export default function DashboardLayout({
                                         Meu Perfil
                                     </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <ThemeToggleMenuItem />
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => logout()} disabled={isLoggingOut} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
                                     <LogOut className="w-4 h-4 mr-2" />

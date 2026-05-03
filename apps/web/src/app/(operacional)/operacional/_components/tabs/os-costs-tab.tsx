@@ -32,30 +32,30 @@ const COST_TYPE_CONFIG: Record<
   LABOR: {
     label: 'Mão de obra',
     icon: <Wrench className="h-3 w-3" />,
-    color: 'text-indigo-700',
-    bg: 'bg-indigo-50',
-    border: 'border-indigo-200',
+    color: 'text-indigo-700 dark:text-indigo-400',
+    bg: 'bg-indigo-50 dark:bg-indigo-950/30',
+    border: 'border-indigo-200 dark:border-indigo-900',
   },
   MATERIAL: {
     label: 'Material / Peça',
     icon: <Package className="h-3 w-3" />,
-    color: 'text-amber-700',
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
+    color: 'text-amber-700 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-950/30',
+    border: 'border-amber-200 dark:border-amber-900',
   },
   EXTERNAL: {
     label: 'Serviço externo',
     icon: <ExternalLink className="h-3 w-3" />,
-    color: 'text-violet-700',
-    bg: 'bg-violet-50',
-    border: 'border-violet-200',
+    color: 'text-violet-700 dark:text-violet-400',
+    bg: 'bg-violet-50 dark:bg-violet-950/30',
+    border: 'border-violet-200 dark:border-violet-900',
   },
   TRAVEL: {
     label: 'Deslocamento',
     icon: <Car className="h-3 w-3" />,
-    color: 'text-teal-700',
-    bg: 'bg-teal-50',
-    border: 'border-teal-200',
+    color: 'text-teal-700 dark:text-teal-400',
+    bg: 'bg-teal-50 dark:bg-teal-950/30',
+    border: 'border-teal-200 dark:border-teal-900',
   },
   OTHER: {
     label: 'Outros',
@@ -139,7 +139,7 @@ function CostItemRow({
 
   if (editing) {
     return (
-      <div className="rounded-xl border border-[#0d4da5] dark:border-blue-500/30 bg-[#f0f5ff] p-3 space-y-3">
+      <div className="rounded-xl border border-[#0d4da5] dark:border-blue-500/30 bg-[#f0f5ff] dark:bg-blue-950/20 p-3 space-y-3">
         {/* Tipo + Descrição */}
         <div className="flex gap-2">
           <Select
@@ -238,7 +238,7 @@ function CostItemRow({
   }
 
   return (
-    <div className="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-[#f8f9fb] group transition-colors">
+    <div className="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-[#f8f9fb] dark:hover:bg-zinc-900/50 group transition-colors">
       {/* Tipo badge */}
       <div className="mt-0.5 shrink-0">
         <TypeBadge type={item.type} />
@@ -332,7 +332,7 @@ function NewCostItemForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-[#0d4da5] dark:border-blue-500/30 bg-[#f0f5ff] p-4 space-y-3"
+      className="rounded-xl border border-[#0d4da5] dark:border-blue-500/30 bg-[#f0f5ff] dark:bg-blue-950/20 p-4 space-y-3"
     >
       <p className="text-xs font-semibold text-[#0d4da5] dark:text-blue-400 ">Novo item de custo</p>
 
@@ -397,7 +397,7 @@ function NewCostItemForm({
         {previewTotal !== null && (
           <div className="flex-1">
             <label className="text-[10px] text-[#6c7c93] dark:text-zinc-400 mb-1 block">Total</label>
-            <div className="h-8 flex items-center text-xs font-bold text-emerald-700 px-3 rounded-lg bg-emerald-50 border border-emerald-200">
+            <div className="h-8 flex items-center text-xs font-bold text-emerald-700 dark:text-emerald-400 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
               {formatBRL(previewTotal)}
             </div>
           </div>
@@ -510,7 +510,7 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
 
           {/* Breakdown por tipo */}
           {groups.length > 1 && (
-            <div className="border-t border-[#f3f4f7] px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+            <div className="border-t border-[#f3f4f7] dark:border-zinc-800/50 px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
               {groups.map((g) => (
                 <div key={g.type} className="flex items-center gap-1.5">
                   <TypeBadge type={g.type} />
@@ -525,15 +525,15 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
             <div
               className={`border-t px-4 py-3 flex items-start gap-2.5 ${
                 overThreshold
-                  ? 'border-amber-200 bg-amber-50'
-                  : 'border-[#f3f4f7] bg-[#f8f9fb]'
+                  ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20'
+                  : 'border-[#f3f4f7] dark:border-zinc-800/50 bg-[#f8f9fb] dark:bg-zinc-900/30'
               }`}
             >
               {overThreshold && (
                 <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className={`text-xs font-medium ${overThreshold ? 'text-amber-800' : 'text-[#1d2530] dark:text-zinc-100 '}`}>
+                <p className={`text-xs font-medium ${overThreshold ? 'text-amber-800 dark:text-amber-400' : 'text-[#1d2530] dark:text-zinc-100 '}`}>
                   {overThreshold
                     ? 'Custo de manutenção elevado — avalie a substituição'
                     : 'Custo vs. equipamento'
@@ -578,7 +578,7 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
       ) : (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-[#e0e5eb] dark:border-zinc-800 text-xs text-[#6c7c93] dark:text-zinc-400 hover:border-[#0d4da5] dark:border-blue-500 hover:text-[#0d4da5] dark:hover:text-blue-400 dark:text-blue-400 hover:bg-[#f0f5ff] transition-all"
+          className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-[#e0e5eb] dark:border-zinc-800 text-xs text-[#6c7c93] dark:text-zinc-400 hover:border-[#0d4da5] dark:border-blue-500 hover:text-[#0d4da5] dark:hover:text-blue-400 dark:text-blue-400 hover:bg-[#f0f5ff] dark:hover:bg-blue-950/20 transition-all"
         >
           <Plus className="h-3.5 w-3.5" />
           Adicionar item de custo

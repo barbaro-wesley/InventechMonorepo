@@ -383,7 +383,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
               {os.maintenanceType === 'PREVENTIVE' && os.checklist && !os.checklist.completedAt &&
                 os.status !== 'COMPLETED' && os.status !== 'COMPLETED_APPROVED' &&
                 os.status !== 'COMPLETED_REJECTED' && os.status !== 'CANCELLED' && (
-                <div className="mx-4 sm:mx-6 mb-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                <div className="mx-4 sm:mx-6 mb-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-400 text-xs">
                   <ClipboardList className="h-3.5 w-3.5 flex-shrink-0" />
                   <span>
                     <span className="font-semibold">Checklist obrigatório pendente.</span>
@@ -392,7 +392,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                   <button
                     type="button"
                     onClick={() => setActiveTab('checklist')}
-                    className="ml-auto shrink-0 text-amber-700 font-medium underline underline-offset-2 hover:text-amber-900"
+                    className="ml-auto shrink-0 text-amber-700 dark:text-amber-400 font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300"
                   >
                     Ir ao checklist →
                   </button>

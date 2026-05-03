@@ -220,7 +220,7 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
               {ev.actor ? `${ev.actor} adicionou um comentário` : 'Comentário adicionado'}
             </p>
             {ev.isInternal && (
-              <span className="text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5">
+              <span className="text-[9px] font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 rounded-full px-1.5 py-0.5">
                 Interno
               </span>
             )}

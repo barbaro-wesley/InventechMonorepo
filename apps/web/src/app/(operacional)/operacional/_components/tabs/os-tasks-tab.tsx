@@ -35,28 +35,28 @@ const COLUMNS: { status: TaskStatus; label: string; color: string; bgHeader: str
   {
     status: 'TODO',
     label: 'A Fazer',
-    color: 'text-slate-600',
-    bgHeader: 'bg-slate-50',
-    dotColor: 'bg-slate-400',
-    borderColor: 'border-slate-200',
+    color: 'text-slate-600 dark:text-slate-400',
+    bgHeader: 'bg-slate-50 dark:bg-slate-900/50',
+    dotColor: 'bg-slate-400 dark:bg-slate-600',
+    borderColor: 'border-slate-200 dark:border-slate-800',
     iconColor: 'text-slate-400',
   },
   {
     status: 'IN_PROGRESS',
     label: 'Em Andamento',
-    color: 'text-indigo-600',
-    bgHeader: 'bg-indigo-50',
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bgHeader: 'bg-indigo-50 dark:bg-indigo-950/30',
     dotColor: 'bg-indigo-500',
-    borderColor: 'border-indigo-200',
+    borderColor: 'border-indigo-200 dark:border-indigo-900',
     iconColor: 'text-indigo-500',
   },
   {
     status: 'DONE',
     label: 'Concluída',
-    color: 'text-emerald-600',
-    bgHeader: 'bg-emerald-50',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bgHeader: 'bg-emerald-50 dark:bg-emerald-950/30',
     dotColor: 'bg-emerald-500',
-    borderColor: 'border-emerald-200',
+    borderColor: 'border-emerald-200 dark:border-emerald-900',
     iconColor: 'text-emerald-500',
   },
 ]
@@ -114,7 +114,7 @@ function TaskCard({
         group relative rounded-xl border bg-white dark:bg-zinc-950 shadow-[0_1px_3px_rgba(0,0,0,0.04)]
         hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-all duration-200 cursor-grab active:cursor-grabbing
         ${isDragging ? 'opacity-40 scale-[0.97] ring-2 ring-indigo-300' : ''}
-        ${task.status === 'DONE' ? 'border-emerald-100 bg-emerald-50/30' : 'border-[#e0e5eb] dark:border-zinc-800 '}
+        ${task.status === 'DONE' ? 'border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-emerald-950/10' : 'border-[#e0e5eb] dark:border-zinc-800 '}
       `}
     >
       {/* Grip handle */}
@@ -147,8 +147,8 @@ function TaskCard({
             <span
               className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
                 isOverdue
-                  ? 'bg-red-50 text-red-600 border border-red-200'
-                  : 'bg-slate-50 text-slate-500 border border-slate-200'
+                  ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900'
+                  : 'bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
               }`}
             >
               <CalendarDays className="h-3 w-3" />
@@ -159,7 +159,7 @@ function TaskCard({
             </span>
           )}
           {task.assignedTo && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-50 text-slate-500 border border-slate-200">
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800">
               <User className="h-3 w-3" />
               {task.assignedTo.name.split(' ')[0]}
             </span>
@@ -175,10 +175,10 @@ function TaskCard({
               inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg
               transition-colors
               ${task.status === 'TODO'
-                ? 'text-indigo-600 hover:bg-indigo-50'
+                ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30'
                 : task.status === 'IN_PROGRESS'
-                  ? 'text-emerald-600 hover:bg-emerald-50'
-                  : 'text-slate-500 hover:bg-slate-50'
+                  ? 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50'
               }
             `}
           >
@@ -195,7 +195,7 @@ function TaskCard({
           <button
             onClick={() => deleteTask.mutate(task.id)}
             disabled={deleteTask.isPending}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50"
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30"
           >
             {deleteTask.isPending ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -233,7 +233,7 @@ function KanbanColumn({
     <div
       className={`
         flex flex-col rounded-xl border transition-all duration-200 min-h-[200px]
-        ${dragOver ? `${column.borderColor} bg-opacity-60 ring-2 ring-offset-1 ring-indigo-200` : 'border-[#e8eaef] bg-[#fafbfc]'}
+        ${dragOver ? `${column.borderColor} bg-opacity-60 ring-2 ring-offset-1 ring-indigo-200 dark:ring-indigo-900` : 'border-[#e8eaef] dark:border-zinc-800 bg-[#fafbfc] dark:bg-zinc-900/30'}
       `}
       onDragOver={(e) => {
         e.preventDefault()
@@ -403,7 +403,7 @@ export function OsTasksTab({ clientId, osId, tasks }: OsTasksTabProps) {
       {/* Kanban board */}
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-[#6c7c93] dark:text-zinc-400 ">
-          <div className="h-14 w-14 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center mb-3">
+          <div className="h-14 w-14 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border-2 border-dashed border-slate-200 dark:border-slate-800 flex items-center justify-center mb-3">
             <CheckCircle2 className="h-6 w-6 opacity-30" />
           </div>
           <p className="text-sm font-medium text-slate-400">Nenhuma tarefa ainda</p>
