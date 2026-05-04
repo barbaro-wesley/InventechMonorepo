@@ -118,11 +118,23 @@ export class MaintenanceCronJobs {
             'failed',
         )
 
-        // Garante que o job do dia vai rodar
+        // Verifica se o job já está na fila antes de adicionar
+        const activeJobs = await this.maintenanceQueue.getActive()
+        const waitingJobs = await this.maintenanceQueue.getWaiting()
+
+        const alreadyQueued = [...activeJobs, ...waitingJobs].some(
+            (job) => job.name === MAINTENANCE_JOBS.GENERATE_PREVENTIVE,
+        )
+
+        if (alreadyQueued) {
+            this.logger.warn('Job de geração já está em execução — pulando (daily-check)')
+            return
+        }
+
         await this.maintenanceQueue.add(
             MAINTENANCE_JOBS.GENERATE_PREVENTIVE,
             { trigger: 'daily-check' },
-            { priority: 2 },
+            { priority: 2, attempts: 3, backoff: { type: 'exponential', delay: 10000 } },
         )
     }
 }

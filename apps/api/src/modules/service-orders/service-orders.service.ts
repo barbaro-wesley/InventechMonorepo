@@ -626,12 +626,16 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const os = await this.prisma.$transaction(async (tx) => {
-            const last = await tx.serviceOrder.findFirst({
-                where: { companyId },
-                orderBy: { number: 'desc' },
-                select: { number: true },
-            })
-            const number = (last?.number ?? 0) + 1
+            // Advisory lock por empresa para evitar race condition na geração do número sequencial
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
+
+            // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
+            const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
+                SELECT COALESCE(MAX(number), 0) AS max_number
+                FROM service_orders
+                WHERE company_id = ${companyId}
+            `
+            const number = Number(max_number) + 1
 
             const created = await tx.serviceOrder.create({
                 data: {
@@ -1348,12 +1352,16 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const os = await this.prisma.$transaction(async (tx) => {
-            const last = await tx.serviceOrder.findFirst({
-                where: { companyId },
-                orderBy: { number: 'desc' },
-                select: { number: true },
-            })
-            const number = (last?.number ?? 0) + 1
+            // Advisory lock por empresa para evitar race condition na geração do número sequencial
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
+
+            // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
+            const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
+                SELECT COALESCE(MAX(number), 0) AS max_number
+                FROM service_orders
+                WHERE company_id = ${companyId}
+            `
+            const number = Number(max_number) + 1
 
             const created = await tx.serviceOrder.create({
                 data: {

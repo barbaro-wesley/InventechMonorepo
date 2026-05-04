@@ -468,13 +468,16 @@ export class MaintenanceService {
         for (const schedule of dueSchedules) {
             try {
                 const txResult = await this.prisma.$transaction(async (tx) => {
-                    // Número sequencial da OS
-                    const last = await tx.serviceOrder.findFirst({
-                        where: { companyId: schedule.companyId },
-                        orderBy: { number: 'desc' },
-                        select: { number: true },
-                    })
-                    const number = (last?.number ?? 0) + 1
+                    // Advisory lock por empresa para evitar race condition na geração do número sequencial
+                    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${schedule.companyId})::bigint)`
+
+                    // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
+                    const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
+                        SELECT COALESCE(MAX(number), 0) AS max_number
+                        FROM service_orders
+                        WHERE company_id = ${schedule.companyId}
+                    `
+                    const number = Number(max_number) + 1
 
                     const isAvailable = !schedule.assignedTechnicianId
                     const status = isAvailable
