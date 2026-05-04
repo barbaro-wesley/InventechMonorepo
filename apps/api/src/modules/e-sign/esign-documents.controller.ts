@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common'
 import { Response } from 'express'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { Permission } from '../../common/decorators/permission.decorator'
 import { AddESignRequestDto, CreateESignDocumentDto, ListESignDocumentsDto } from './dto/esign.dto'
 import { ESignDocumentsService } from './services/esign-documents.service'
 import { ESignPdfService } from './services/esign-pdf.service'
@@ -19,6 +20,7 @@ export class ESignDocumentsController {
   ) {}
 
   @Post()
+  @Permission('laudo:create')
   async create(@Body() dto: CreateESignDocumentDto, @Req() req: any) {
     const { companyId, id: userId } = req.user
     // fileUrl and fileBuffer would normally come from a multipart upload
@@ -29,36 +31,43 @@ export class ESignDocumentsController {
   }
 
   @Get()
+  @Permission('laudo:list')
   async findAll(@Query() filters: ListESignDocumentsDto, @Req() req: any) {
     return this.service.findAll(req.user.companyId, filters)
   }
 
   @Get(':id')
+  @Permission('laudo:read')
   async findOne(@Param('id') id: string, @Req() req: any) {
     return this.service.findOne(id, req.user.companyId)
   }
 
   @Post(':id/signers')
+  @Permission('laudo:sign')
   async addSigner(@Param('id') id: string, @Body() dto: AddESignRequestDto, @Req() req: any) {
     return this.service.addSigner(id, dto, req.user.companyId)
   }
 
   @Post(':id/send')
+  @Permission('laudo:sign')
   async send(@Param('id') id: string, @Req() req: any) {
     return this.service.send(id, req.user.companyId, req.user.id)
   }
 
   @Delete(':id')
+  @Permission('laudo:delete')
   async cancel(@Param('id') id: string, @Req() req: any) {
     return this.service.cancel(id, req.user.companyId, req.user.id)
   }
 
   @Post(':id/reminder')
+  @Permission('laudo:sign')
   async sendReminder(@Param('id') id: string, @Body() body: { requestId: string }, @Req() req: any) {
     return this.reminderService.sendManualReminder(id, body.requestId, req.user.companyId)
   }
 
   @Get(':id/pdf')
+  @Permission('laudo:export-pdf')
   async downloadPdf(@Param('id') id: string, @Req() req: any, @Res() res: Response) {
     const doc = await this.service.findOne(id, req.user.companyId)
     if (!doc.signedFileUrl) throw new NotFoundException('PDF assinado ainda não disponível')

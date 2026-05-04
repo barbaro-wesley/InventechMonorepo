@@ -1029,10 +1029,10 @@ export default function LaudoTemplatesPage() {
     return t.title.toLowerCase().includes(search.toLowerCase());
   });
 
-  const canCreate = permissions.isManager || permissions.isTechnician || permissions.canAccess('laudo-template', 'create');
-  const canEdit = permissions.isManager || permissions.canAccess('laudo-template', 'update');
+  const canCreate = permissions.canAccess('laudo-template', 'create');
+  const canEdit = permissions.canAccess('laudo-template', 'update');
 
-  const canAccesPage = permissions.isCompanyLevel || permissions.canAccess('laudo-template', 'list');
+  const canAccesPage = permissions.canAccess('laudo-template', 'list');
 
   if (!canAccesPage) {
     return (

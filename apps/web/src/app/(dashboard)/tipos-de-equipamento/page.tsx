@@ -282,6 +282,7 @@ function TypeRow({
   onEditSubtype,
   onDeleteSubtype,
   canManage,
+  canManageSubtypes,
 }: {
   type: EquipmentType;
   onEdit: (t: EquipmentType) => void;
@@ -291,6 +292,7 @@ function TypeRow({
   onEditSubtype: (type: EquipmentType, sub: EquipmentSubtype) => void;
   onDeleteSubtype: (sub: EquipmentSubtype) => void;
   canManage: boolean;
+  canManageSubtypes: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const updateType = useUpdateEquipmentType();
@@ -405,7 +407,7 @@ function TypeRow({
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Subtipos
             </span>
-            {canManage && (
+            {canManageSubtypes && (
               <Button
                 variant="outline"
                 size="sm"
@@ -421,7 +423,7 @@ function TypeRow({
           {type.subtypes.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2 text-center">
               Nenhum subtipo cadastrado.{" "}
-              {canManage && (
+              {canManageSubtypes && (
                 <button
                   className="underline hover:no-underline"
                   style={{ color: "var(--primary)" }}
@@ -454,7 +456,7 @@ function TypeRow({
                     </Badge>
                   )}
                 </div>
-                {canManage && (
+                {canManageSubtypes && (
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <Button
                       variant="ghost"
@@ -486,7 +488,7 @@ function TypeRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EquipmentTypesPage() {
-  const { canManageEquipment } = usePermissions();
+  const { canManageEquipment, canManageEquipmentSubtypes } = usePermissions();
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState<"all" | "active" | "inactive">("all");
 
@@ -634,6 +636,7 @@ export default function EquipmentTypesPage() {
               onEditSubtype={openEditSubtype}
               onDeleteSubtype={setDeleteSubtype}
               canManage={canManageEquipment}
+              canManageSubtypes={canManageEquipmentSubtypes}
             />
           ))}
           <p className="text-xs text-muted-foreground pt-1">

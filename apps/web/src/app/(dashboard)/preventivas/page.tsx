@@ -135,7 +135,7 @@ function StatCard({ label, value, icon: Icon, color, active, onClick }: StatCard
 export default function PreventivasPage() {
   const currentUser = useCurrentUser();
   const isCompanyLevel = !currentUser?.clientId;
-  const { isManager } = usePermissions();
+  const { canAccess } = usePermissions();
 
   const [search, setSearch] = useState("");
   const [recurrenceType, setRecurrenceType] = useState<string>("");
@@ -216,7 +216,7 @@ export default function PreventivasPage() {
             <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
-          {isManager && (
+          {canAccess('maintenance-schedule', 'create') && (
             <Button size="sm" onClick={() => setCreateOpen(true)} className="h-9 text-xs gap-1.5 bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 border-0">
               <Plus className="w-3.5 h-3.5" />
               Nova Preventiva
@@ -473,7 +473,6 @@ export default function PreventivasPage() {
         schedule={selectedSchedule}
         onClose={() => setSelectedSchedule(null)}
         onEdit={(s) => { setSelectedSchedule(null); setEditSchedule(s); }}
-        isManager={isManager}
       />
 
       {/* ── Edit Sheet ── */}

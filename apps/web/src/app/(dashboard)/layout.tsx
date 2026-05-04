@@ -73,7 +73,7 @@ const navSections: NavSection[] = [
                 href: "/dashboard",
                 icon: LayoutDashboard,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"],
-                permission: "dashboard:company",
+                permission: "dashboard:client",
             },
         ],
     },
@@ -293,18 +293,15 @@ export default function DashboardLayout({
             if (pathname !== "/dashboard") router.replace("/dashboard");
         };
 
-        // Papel personalizado: verifica permissão específica do item
-        if (user.customRoleId && matched.permission) {
-            const [resource, action] = matched.permission.split(":");
-            const hasAccess =
-                user.role === "SUPER_ADMIN" ||
-                (user.permissions?.includes(`${resource}:${action}`) ?? false);
-            if (!hasAccess) redirectToDashboard();
-            return;
-        }
-        if (!matched.roles.includes(user.role as Role)) {
-            redirectToDashboard();
-        }
+        // Mesma lógica do canSeeNav: role no array OU permissão explícita em user.permissions.
+        // Isso garante que mudanças de permissão via matriz refletem no guard tanto para
+        // papéis personalizados quanto para papéis de sistema (ex: CLIENT_ADMIN com equipment-type:browse).
+        const hasAccess =
+            user.role === "SUPER_ADMIN" ||
+            matched.roles.includes(user.role as Role) ||
+            (matched.permission != null && (user.permissions?.includes(matched.permission) ?? false));
+
+        if (!hasAccess) redirectToDashboard();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname, user, router]);
     const [collapsed, setCollapsed] = useState(false);

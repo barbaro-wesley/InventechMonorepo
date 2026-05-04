@@ -89,6 +89,7 @@ export class ReportsController {
 
   @Get('service-orders/assignees')
   @ApiOperation({ summary: 'Listar usuários que já foram atribuídos a alguma OS da empresa' })
+  @Permission('report:service-orders')
   async getOsAssignees(@CurrentUser() cu: AuthenticatedUser) {
     return this.reportsService.getServiceOrderAssignees(cu.companyId!)
   }

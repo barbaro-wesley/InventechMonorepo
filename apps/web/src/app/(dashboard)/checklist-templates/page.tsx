@@ -782,9 +782,9 @@ export default function ChecklistTemplatesPage() {
     !search || t.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const canCreate = permissions.canAccess("checklist-template", "create") || permissions.isManager;
-  const canEdit = permissions.canAccess("checklist-template", "update") || permissions.isManager;
-  const canAccessPage = permissions.canAccess("checklist-template", "list") || permissions.isCompanyLevel;
+  const canCreate = permissions.canAccess("checklist-template", "create");
+  const canEdit = permissions.canAccess("checklist-template", "update");
+  const canAccessPage = permissions.canAccess("checklist-template", "list");
 
   if (!canAccessPage) {
     return (

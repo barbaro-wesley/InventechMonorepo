@@ -296,7 +296,7 @@ export class MaintenanceService {
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
 
-        const startDate = new Date(dto.startDate)
+        const startDate = new Date(`${String(dto.startDate).split('T')[0]}T03:00:00.000Z`)
 
         // Se startDate é no passado, usa startDate diretamente como nextRunAt
         // para que o trigger dispare a geração imediatamente.

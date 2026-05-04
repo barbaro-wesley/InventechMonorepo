@@ -76,9 +76,9 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'storage:delete':              [SA, CA, CM, TEC, CLA, CLU],
 
   // ── USER ───────────────────────────────────────────────────────────────────
-  'user:browse':                 [SA, CA, CM],
-  'user:list':                   [SA, CA, CM],
-  'user:read':                   [SA, CA, CM],
+  'user:browse':                 [SA, CA, CM, CLA],
+  'user:list':                   [SA, CA, CM, CLA],
+  'user:read':                   [SA, CA, CM, CLA],
   'user:create':                 [SA, CA, CM],
   'user:update':                 [SA, CA, CM],
   'user:delete':                 [SA, CA],
@@ -221,6 +221,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'scan:list':                   [SA, CA, CM, TEC],
   'scan:read':                   [SA, CA, CM, TEC],
   'scan:download':               [SA, CA, CM, TEC],
+  'scan:update':                 [SA, CA, CM, TEC],
   'scan:delete':                 [SA, CA, CM],
 
   // ── GHOSP (pacientes internados — banco hospitalar externo) ────────────────
@@ -261,7 +262,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'checklist-template':   ['browse', 'list', 'read', 'create', 'update', 'delete', 'clone'],
   'checklist':            ['read', 'fill', 'complete', 'reopen'],
   'printer':              ['browse', 'list', 'read', 'create', 'update', 'delete'],
-  'scan':                 ['browse', 'list', 'read', 'download', 'delete'],
+  'scan':                 ['browse', 'list', 'read', 'download', 'update', 'delete'],
   'ghosp':                ['list'],
   'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial'],
 }

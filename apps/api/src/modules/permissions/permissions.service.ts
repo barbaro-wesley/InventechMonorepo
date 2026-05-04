@@ -61,12 +61,16 @@ export class PermissionsService {
     const applyProtected = (roles: UserRole[]) =>
       [...new Set([...roles, ...protected_])]
 
+    // Retorna os roles do override ou null se não há override.
+    // Sempre cacheia o resultado (inclusive null → JSON 'null') para evitar
+    // consultas repetidas ao banco quando não há override configurado.
     const fetchOverride = async (cid: string | null) => {
       const redisKey = `perm:sys:${cid ?? '__global__'}:${permKey}`
 
       try {
         const cached = await this.redis.get(redisKey)
-        if (cached) return JSON.parse(cached) as UserRole[]
+        // cached !== null → chave existe no Redis (pode ser 'null' = sem override)
+        if (cached !== null) return JSON.parse(cached) as UserRole[] | null
       } catch {
         // Redis indisponível — busca no banco
       }
@@ -85,12 +89,11 @@ export class PermissionsService {
         ? applyProtected(override.allowedRoles as UserRole[])
         : null
 
-      if (value) {
-        try {
-          await this.redis.setex(redisKey, PERM_TTL, JSON.stringify(value))
-        } catch {
-          // Falha ao gravar cache não é crítica
-        }
+      // Cacheia sempre: array de roles ou 'null' (sentinel "sem override")
+      try {
+        await this.redis.setex(redisKey, PERM_TTL, JSON.stringify(value))
+      } catch {
+        // Falha ao gravar cache não é crítica
       }
       return value
     }
@@ -106,9 +109,10 @@ export class PermissionsService {
       if (globalOverride) return globalOverride
     }
 
-    // Default em código — persiste no Redis para evitar query na próxima vez
+    // Default em código — cacheia sempre sob __global__ (não sob o companyId do usuário)
+    // para que invalidateCompanyCache(null) limpe corretamente ao criar um override global.
     const defaultRoles = DEFAULT_PERMISSIONS[permKey] ?? []
-    const redisKey = `perm:sys:${companyId ?? '__global__'}:${permKey}`
+    const redisKey = `perm:sys:__global__:${permKey}`
     try {
       await this.redis.setex(redisKey, PERM_TTL, JSON.stringify(defaultRoles))
     } catch {

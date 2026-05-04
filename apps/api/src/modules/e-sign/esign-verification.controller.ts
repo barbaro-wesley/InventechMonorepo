@@ -2,6 +2,7 @@ import { Controller, Get, Param, NotFoundException } from '@nestjs/common'
 import { ESignCertificateService } from './services/esign-certificate.service'
 import { ESignAuditService } from './services/esign-audit.service'
 import { ESignEventType } from '@prisma/client'
+import { Public } from '../../common/decorators/public.decorator'
 
 // Public endpoint — verifies authenticity by certificate hash (via QR code)
 @Controller('e-sign/verify')
@@ -12,6 +13,7 @@ export class ESignVerificationController {
   ) {}
 
   @Get(':hash')
+  @Public()
   async verify(@Param('hash') hash: string) {
     const cert = await this.certificate.verify(hash)
     if (!cert) throw new NotFoundException('Certificado não encontrado ou hash inválido')

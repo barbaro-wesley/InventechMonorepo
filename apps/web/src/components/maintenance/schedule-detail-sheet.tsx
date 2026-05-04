@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToggleSchedule, useTriggerSchedule, useDeleteMaintenanceSchedule } from "@/hooks/maintenance/use-maintenance-schedule";
+import { usePermissions } from "@/hooks/auth/use-permissions";
 import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-schedule.service";
 
 // ─── Types & helpers ──────────────────────────────────────────────────────────
@@ -213,7 +214,6 @@ interface ScheduleDetailSheetProps {
   onClose: () => void;
   onEdit: (schedule: MaintenanceSchedule) => void;
   onDeleted?: () => void;
-  isManager: boolean;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -223,8 +223,12 @@ export function ScheduleDetailSheet({
   onClose,
   onEdit,
   onDeleted,
-  isManager,
 }: ScheduleDetailSheetProps) {
+  const { canAccess } = usePermissions();
+  const canEdit    = canAccess("maintenance-schedule", "update");
+  const canDelete  = canAccess("maintenance-schedule", "delete");
+  const canTrigger = canAccess("maintenance-schedule", "trigger");
+
   const [confirmTrigger, setConfirmTrigger] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -409,54 +413,56 @@ export function ScheduleDetailSheet({
             )}
           </div>
 
-          {/* Footer actions */}
-          {isManager && (
+          {/* Footer actions — visível apenas quando o usuário tem ao menos uma permissão de escrita */}
+          {(canEdit || canDelete || canTrigger) && (
             <div className="border-t border-border p-4 bg-muted/10 flex-shrink-0 space-y-2">
-              {/* Row 1: Edit + Toggle */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 gap-1.5 text-xs h-9"
-                  onClick={() => onEdit(schedule)}
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  Editar
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`flex-1 gap-1.5 text-xs h-9 ${
-                    schedule.isActive
-                      ? "text-muted-foreground hover:text-destructive hover:border-destructive"
-                      : "text-emerald-600 hover:border-emerald-500"
-                  }`}
-                  disabled={toggle.isPending}
-                  onClick={handleToggle}
-                >
-                  {toggle.isPending ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : schedule.isActive ? (
-                    <PowerOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Power className="w-3.5 h-3.5" />
-                  )}
-                  {schedule.isActive ? "Desativar" : "Ativar"}
-                </Button>
-                {schedule.clientId && (
+              {/* Row 1: Edit + Toggle + Delete */}
+              {canEdit && (
+                <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 w-9 p-0 flex-shrink-0 text-muted-foreground hover:text-destructive hover:border-destructive"
-                    title="Excluir agendamento"
-                    onClick={() => setConfirmDelete(true)}
+                    className="flex-1 gap-1.5 text-xs h-9"
+                    onClick={() => onEdit(schedule)}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Pencil className="w-3.5 h-3.5" />
+                    Editar
                   </Button>
-                )}
-              </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`flex-1 gap-1.5 text-xs h-9 ${
+                      schedule.isActive
+                        ? "text-muted-foreground hover:text-destructive hover:border-destructive"
+                        : "text-emerald-600 hover:border-emerald-500"
+                    }`}
+                    disabled={toggle.isPending}
+                    onClick={handleToggle}
+                  >
+                    {toggle.isPending ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : schedule.isActive ? (
+                      <PowerOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Power className="w-3.5 h-3.5" />
+                    )}
+                    {schedule.isActive ? "Desativar" : "Ativar"}
+                  </Button>
+                  {canDelete && schedule.clientId && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0 flex-shrink-0 text-muted-foreground hover:text-destructive hover:border-destructive"
+                      title="Excluir agendamento"
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
               {/* Row 2: Force OS */}
-              {schedule.isActive && schedule.clientId && (
+              {canTrigger && schedule.isActive && schedule.clientId && (
                 <Button
                   variant="default"
                   size="sm"

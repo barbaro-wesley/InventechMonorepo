@@ -51,8 +51,8 @@ export function calculateNextRunAt(
             throw new Error(`Tipo de recorrência desconhecido: ${recurrenceType}`)
     }
 
-    // Normaliza para início do dia
-    next.setHours(8, 0, 0, 0)
+    // Normaliza para 08:00 BRT (11:00 UTC) — Brasil não tem horário de verão desde 2019
+    next.setUTCHours(11, 0, 0, 0)
 
     return next
 }

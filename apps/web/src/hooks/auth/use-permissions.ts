@@ -66,12 +66,15 @@ export function usePermissions() {
         isClientLevel: isRole("CLIENT_ADMIN", "CLIENT_USER", "CLIENT_VIEWER"),
         isManager: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"),
 
-        // Permissões por tela (system roles)
+        // Permissões por tela — usam canSeeNav para respeitar tanto roles fixos quanto a matriz de permissões
         canManageCompanies: isRole("SUPER_ADMIN"),
         canManageLicenses: isRole("SUPER_ADMIN"),
-        canManageUsers: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "CLIENT_ADMIN"),
-        canManageClients: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER"),
-        canManageEquipment: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"),
+        // user:create = [SA, CA, CM] — CLIENT_ADMIN incluído via canSeeNav se tiver a permissão no override
+        canManageUsers: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "user:create"),
+        canManageClients: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "client:create"),
+        // equipment:create = [SA, CA, CM, CLA, CLU] — TECHNICIAN não tem permissão de escrita por padrão
+        canManageEquipment: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"], "equipment:create"),
+        canManageEquipmentSubtypes: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "equipment-type:create-sub"),
         canManageServiceOrders: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"),
         canViewReports: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"),
         canViewDashboard: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"),
