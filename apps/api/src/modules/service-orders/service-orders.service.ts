@@ -627,7 +627,7 @@ export class ServiceOrdersService {
 
         const os = await this.prisma.$transaction(async (tx) => {
             // Advisory lock por empresa para evitar race condition na geração do número sequencial
-            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
 
             // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
             const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
@@ -1353,7 +1353,7 @@ export class ServiceOrdersService {
 
         const os = await this.prisma.$transaction(async (tx) => {
             // Advisory lock por empresa para evitar race condition na geração do número sequencial
-            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
 
             // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
             const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`

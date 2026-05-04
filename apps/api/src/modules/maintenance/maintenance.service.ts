@@ -469,7 +469,7 @@ export class MaintenanceService {
             try {
                 const txResult = await this.prisma.$transaction(async (tx) => {
                     // Advisory lock por empresa para evitar race condition na geração do número sequencial
-                    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${schedule.companyId})::bigint)`
+                    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${schedule.companyId})::bigint)`
 
                     // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
                     const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
