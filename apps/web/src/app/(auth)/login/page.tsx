@@ -14,7 +14,6 @@ import {
   Lock,
   ArrowRight,
   ShieldCheck,
-  Settings,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -79,12 +78,11 @@ export default function LoginPage() {
   if (requires2FA) {
     return (
       <div className="flex flex-col items-center">
-        {/* Container */}
         <div className="w-full mx-auto">
           {/* Icon */}
           <div className="flex justify-center mb-6">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-              <KeyRound className="w-6 h-6 text-zinc-900 dark:text-white" strokeWidth={1.5} />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20">
+              <KeyRound className="w-6 h-6 text-indigo-600 dark:text-indigo-400" strokeWidth={1.5} />
             </div>
           </div>
 
@@ -103,7 +101,7 @@ export default function LoginPage() {
           >
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                <ShieldCheck className="w-4 h-4 text-zinc-500" />
+                <ShieldCheck className="w-4 h-4 text-zinc-400" />
                 Código de verificação
               </label>
               <input
@@ -113,13 +111,13 @@ export default function LoginPage() {
                 placeholder="000000"
                 autoFocus
                 className={cn(
-                  "w-full h-12 rounded-lg border bg-zinc-50 dark:bg-zinc-900 px-4 text-center",
+                  "w-full h-12 rounded-lg border bg-white dark:bg-zinc-900 px-4 text-center",
                   "font-mono text-2xl tracking-[0.5em]",
                   "text-zinc-900 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-700",
                   "outline-none transition-all duration-200",
                   twoFAForm.formState.errors.code
-                    ? "border-red-500 focus:ring-1 focus:ring-red-500"
-                    : "border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white focus:ring-1 focus:ring-zinc-900 dark:focus:ring-white"
+                    ? "border-red-400 focus:ring-2 focus:ring-red-500/20"
+                    : "border-zinc-200 dark:border-zinc-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 )}
                 {...twoFAForm.register("code")}
               />
@@ -133,7 +131,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isVerifying2FA}
-              className="w-full h-11 rounded-lg text-sm font-medium text-white dark:text-zinc-900 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-11 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-500/20"
             >
               {isVerifying2FA && <Loader2 className="w-4 h-4 animate-spin" />}
               {isVerifying2FA ? "Verificando..." : "Confirmar Código"}
@@ -144,7 +142,7 @@ export default function LoginPage() {
             Não recebeu o código?{" "}
             <button
               type="button"
-              className="font-medium text-zinc-900 dark:text-white hover:underline transition-all"
+              className="font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
               onClick={() => window.location.reload()}
             >
               Voltar ao login
@@ -159,15 +157,14 @@ export default function LoginPage() {
   // Tela de Login
   // ---------------------------------------------------------------------------
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col">
       {/* Logo mobile */}
       <div className="mb-8 flex items-center gap-3 lg:hidden">
-        <div className="w-8 h-8 rounded flex items-center justify-center bg-zinc-900 dark:bg-white">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-indigo-500 to-blue-600 shadow-md shadow-indigo-500/25">
           <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
             <path
               d="M9 2L15.5 5.5V12.5L9 16L2.5 12.5V5.5L9 2Z"
-              stroke="currentColor"
-              className="text-white dark:text-zinc-900"
+              stroke="white"
               strokeWidth="1.5"
               strokeLinejoin="round"
             />
@@ -211,12 +208,12 @@ export default function LoginPage() {
                 autoComplete="email"
                 placeholder="nome@empresa.com.br"
                 className={cn(
-                  "w-full h-11 rounded-lg border bg-zinc-50 dark:bg-zinc-900 pl-10 pr-4",
-                  "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
+                  "w-full h-11 rounded-lg border bg-white dark:bg-zinc-900 pl-10 pr-4",
+                  "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600",
                   "outline-none transition-all duration-200",
                   loginForm.formState.errors.email
-                    ? "border-red-500 focus:ring-1 focus:ring-red-500"
-                    : "border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white focus:ring-1 focus:ring-zinc-900 dark:focus:ring-white"
+                    ? "border-red-400 focus:ring-2 focus:ring-red-500/20"
+                    : "border-zinc-200 dark:border-zinc-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 )}
                 {...loginForm.register("email")}
               />
@@ -236,7 +233,7 @@ export default function LoginPage() {
               </label>
               <Link
                 href="/forgot-password"
-                className="text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
               >
                 Esqueceu a senha?
               </Link>
@@ -250,12 +247,12 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 placeholder="••••••••••"
                 className={cn(
-                  "w-full h-11 rounded-lg border bg-zinc-50 dark:bg-zinc-900 pl-10 pr-11",
-                  "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
+                  "w-full h-11 rounded-lg border bg-white dark:bg-zinc-900 pl-10 pr-11",
+                  "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600",
                   "outline-none transition-all duration-200",
                   loginForm.formState.errors.password
-                    ? "border-red-500 focus:ring-1 focus:ring-red-500"
-                    : "border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white focus:ring-1 focus:ring-zinc-900 dark:focus:ring-white"
+                    ? "border-red-400 focus:ring-2 focus:ring-red-500/20"
+                    : "border-zinc-200 dark:border-zinc-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                 )}
                 {...loginForm.register("password")}
               />
@@ -283,7 +280,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoggingIn}
-            className="w-full h-11 mt-2 rounded-lg text-sm font-medium text-white dark:text-zinc-900 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
+            className="w-full h-11 mt-2 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed group shadow-md shadow-indigo-500/20"
           >
             {isLoggingIn ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -300,24 +297,23 @@ export default function LoginPage() {
 
       {/* Footer */}
       <div className="mt-8 text-center">
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+        <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-2">
           © {new Date().getFullYear()} InvenTech. Todos os direitos reservados.
         </p>
         <div className="flex items-center justify-center gap-3 text-xs text-zinc-400 dark:text-zinc-500 font-medium">
-          <Link href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
+          <Link href="#" className="hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
             Privacidade
           </Link>
           <span>·</span>
-          <Link href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
+          <Link href="#" className="hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
             Termos
           </Link>
           <span>·</span>
-          <Link href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
+          <Link href="#" className="hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
             Suporte
           </Link>
         </div>
       </div>
-
     </div>
   );
 }
