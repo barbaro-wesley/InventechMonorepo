@@ -4,15 +4,18 @@ import {
     ForbiddenException,
     BadRequestException,
     ConflictException,
+    UnprocessableEntityException,
     Logger,
 } from '@nestjs/common'
 import {
     Prisma,
     ServiceOrderStatus,
     ServiceOrderTechnicianRole,
+    ServiceOrderPriority,
     UserRole,
     EquipmentStatus,
     MaintenanceType,
+    RecurrenceType,
 } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -23,6 +26,7 @@ import {
     AssignTechnicianDto,
     ListServiceOrdersDto,
     ListAvailableServiceOrdersDto,
+    CreateChildServiceOrderDto,
 } from './dto/service-order.dto'
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
@@ -57,6 +61,40 @@ const APPROVER_ROLES: UserRole[] = [
     UserRole.CLIENT_ADMIN,
 ]
 
+// Tipos de OS filha permitidos por tipo de OS pai
+const CHILD_ALLOWED_TYPES: Record<MaintenanceType, MaintenanceType[]> = {
+    [MaintenanceType.CORRECTIVE]: [
+        MaintenanceType.PREVENTIVE,
+        MaintenanceType.CORRECTIVE,
+        MaintenanceType.DEACTIVATION,
+    ],
+    [MaintenanceType.INITIAL_ACCEPTANCE]: [
+        MaintenanceType.PREVENTIVE,
+        MaintenanceType.CORRECTIVE,
+    ],
+    [MaintenanceType.PREVENTIVE]: [
+        MaintenanceType.CORRECTIVE,
+        MaintenanceType.DEACTIVATION,
+    ],
+    [MaintenanceType.EXTERNAL_SERVICE]: [
+        MaintenanceType.CORRECTIVE,
+    ],
+    [MaintenanceType.TECHNOVIGILANCE]: [
+        MaintenanceType.CORRECTIVE,
+    ],
+    [MaintenanceType.IMPROPER_USE]: [
+        MaintenanceType.CORRECTIVE,
+        MaintenanceType.DEACTIVATION,
+    ],
+    [MaintenanceType.DEACTIVATION]: [],
+    [MaintenanceType.TRAINING]: [],
+}
+
+const TERMINAL_STATUSES: ServiceOrderStatus[] = [
+    ServiceOrderStatus.COMPLETED_APPROVED,
+    ServiceOrderStatus.CANCELLED,
+]
+
 const OS_SELECT = {
     id: true,
     companyId: true,
@@ -83,6 +121,7 @@ const OS_SELECT = {
     equipmentId: true,
     costCenterId: true,
     locationId: true,
+    parentServiceOrderId: true,
     equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true, serialNumber: true, currentValue: true, purchaseValue: true } },
     costCenter: { select: { id: true, name: true, code: true } },
     location: { select: { id: true, name: true } },
@@ -97,6 +136,14 @@ const OS_SELECT = {
             assignedAt: true,
             assumedAt: true,
             technician: { select: { id: true, name: true, email: true, phone: true } },
+        },
+    },
+    checklist: {
+        select: {
+            id: true,
+            completedAt: true,
+            completedBy: { select: { id: true, name: true } },
+            template: { select: { id: true, title: true } },
         },
     },
     _count: {
@@ -432,6 +479,39 @@ export class ServiceOrdersService {
                     },
                     orderBy: { createdAt: 'desc' },
                 },
+                parentServiceOrder: {
+                    select: {
+                        id: true,
+                        number: true,
+                        title: true,
+                        maintenanceType: true,
+                        status: true,
+                    },
+                },
+                childServiceOrders: {
+                    where: { deletedAt: null },
+                    select: {
+                        id: true,
+                        number: true,
+                        title: true,
+                        maintenanceType: true,
+                        status: true,
+                        priority: true,
+                        scheduledFor: true,
+                        createdAt: true,
+                    },
+                    orderBy: { createdAt: 'asc' },
+                },
+                originatedSchedules: {
+                    select: {
+                        id: true,
+                        title: true,
+                        maintenanceType: true,
+                        recurrenceType: true,
+                        startDate: true,
+                        isActive: true,
+                    },
+                },
             },
         })
 
@@ -546,12 +626,16 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const os = await this.prisma.$transaction(async (tx) => {
-            const last = await tx.serviceOrder.findFirst({
-                where: { companyId },
-                orderBy: { number: 'desc' },
-                select: { number: true },
-            })
-            const number = (last?.number ?? 0) + 1
+            // Advisory lock por empresa para evitar race condition na geração do número sequencial
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
+
+            // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
+            const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
+                SELECT COALESCE(MAX(number), 0) AS max_number
+                FROM service_orders
+                WHERE company_id = ${companyId}
+            `
+            const number = Number(max_number) + 1
 
             const created = await tx.serviceOrder.create({
                 data: {
@@ -960,6 +1044,19 @@ export class ServiceOrdersService {
             }
         }
 
+        // Bloqueia conclusão de OS preventiva com checklist pendente
+        if (dto.status === ServiceOrderStatus.COMPLETED && os.maintenanceType === MaintenanceType.PREVENTIVE) {
+            const checklist = await this.prisma.serviceOrderChecklist.findUnique({
+                where: { serviceOrderId: id },
+                select: { completedAt: true },
+            })
+            if (checklist && !checklist.completedAt) {
+                throw new UnprocessableEntityException(
+                    'O checklist desta OS preventiva precisa ser concluído antes de encerrar a OS.',
+                )
+            }
+        }
+
         const statusData: Record<string, any> = {}
         if (dto.status === ServiceOrderStatus.IN_PROGRESS) statusData.startedAt = new Date()
         if (dto.status === ServiceOrderStatus.COMPLETED) {
@@ -1016,6 +1113,34 @@ export class ServiceOrdersService {
                     reason: dto.reason,
                 },
             })
+
+            // Cascade cancel: cancela filhas não-terminais quando pai é cancelada
+            if (finalStatus === ServiceOrderStatus.CANCELLED) {
+                const children = await tx.serviceOrder.findMany({
+                    where: {
+                        parentServiceOrderId: id,
+                        deletedAt: null,
+                        status: { notIn: TERMINAL_STATUSES },
+                    },
+                    select: { id: true, number: true, status: true },
+                })
+
+                for (const child of children) {
+                    await tx.serviceOrder.update({
+                        where: { id: child.id },
+                        data: { status: ServiceOrderStatus.CANCELLED },
+                    })
+                    await tx.serviceOrderStatusHistory.create({
+                        data: {
+                            serviceOrderId: child.id,
+                            fromStatus: child.status,
+                            toStatus: ServiceOrderStatus.CANCELLED,
+                            changedById: currentUser.sub,
+                            reason: `OS pai #${os.number} foi cancelada`,
+                        },
+                    })
+                }
+            }
 
             if (dto.laudoId && dto.status === ServiceOrderStatus.COMPLETED) {
                 await tx.laudo.updateMany({
@@ -1095,6 +1220,219 @@ export class ServiceOrdersService {
 
         this.logger.log(`OS #${os.number}: ${os.status} → ${finalStatus} | ${currentUser.email}`)
         return updated
+    }
+
+    // ─────────────────────────────────────────
+    // Criar OS filha ou agendamento recorrente
+    // ─────────────────────────────────────────
+    async createChild(
+        parentId: string,
+        dto: CreateChildServiceOrderDto,
+        clientId: string | null,
+        companyId: string,
+        currentUser: AuthenticatedUser,
+    ) {
+        const parent = await this.prisma.serviceOrder.findFirst({
+            where: {
+                id: parentId,
+                companyId,
+                deletedAt: null,
+                ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
+            },
+            select: {
+                id: true,
+                number: true,
+                status: true,
+                maintenanceType: true,
+                parentServiceOrderId: true,
+                equipmentId: true,
+                costCenterId: true,
+                locationId: true,
+                clientId: true,
+                groupId: true,
+                equipment: {
+                    select: {
+                        id: true,
+                        name: true,
+                        type: { select: { id: true, name: true, groupId: true } },
+                    },
+                },
+            },
+        })
+
+        if (!parent) throw new NotFoundException('OS pai não encontrada')
+
+        if (parent.parentServiceOrderId !== null) {
+            throw new BadRequestException('Uma OS filha não pode gerar novas OS filhas')
+        }
+
+        if (parent.status === ServiceOrderStatus.CANCELLED) {
+            throw new BadRequestException('Não é possível criar OS filha para uma OS cancelada')
+        }
+
+        const allowedChildTypes = CHILD_ALLOWED_TYPES[parent.maintenanceType]
+        if (!allowedChildTypes.includes(dto.maintenanceType)) {
+            throw new BadRequestException(
+                `Tipo "${dto.maintenanceType}" não é permitido como filha de "${parent.maintenanceType}". ` +
+                `Tipos permitidos: ${allowedChildTypes.join(', ') || 'nenhum'}`,
+            )
+        }
+
+        const effectiveGroupId = dto.groupId ?? parent.groupId ?? undefined
+
+        // ── Agendamento recorrente (MaintenanceSchedule) ──────────
+        if (dto.childType === 'MAINTENANCE_SCHEDULE') {
+            if (!parent.equipmentId) {
+                throw new BadRequestException(
+                    'A OS pai não possui equipamento vinculado — necessário para criar agendamento recorrente',
+                )
+            }
+            if (!dto.recurrenceType) {
+                throw new BadRequestException('Tipo de recorrência é obrigatório para agendamento recorrente')
+            }
+            if (!dto.startDate) {
+                throw new BadRequestException('Data de início é obrigatória para agendamento recorrente')
+            }
+            if (dto.recurrenceType === RecurrenceType.CUSTOM && !dto.customIntervalDays) {
+                throw new BadRequestException('Intervalo em dias é obrigatório para recorrência customizada')
+            }
+
+            const schedule = await this.prisma.maintenanceSchedule.create({
+                data: {
+                    companyId,
+                    clientId: parent.clientId,
+                    equipmentId: parent.equipmentId,
+                    title: dto.title,
+                    description: dto.description,
+                    maintenanceType: dto.maintenanceType,
+                    recurrenceType: dto.recurrenceType,
+                    customIntervalDays: dto.customIntervalDays,
+                    startDate: new Date(dto.startDate),
+                    endDate: dto.endDate ? new Date(dto.endDate) : null,
+                    nextRunAt: new Date(dto.startDate),
+                    groupId: effectiveGroupId,
+                    assignedTechnicianId: dto.technicianId,
+                    originServiceOrderId: parentId,
+                },
+            })
+
+            this.logger.log(`Agendamento criado a partir da OS #${parent.number} | Schedule: ${schedule.id}`)
+            return { childType: 'MAINTENANCE_SCHEDULE' as const, schedule }
+        }
+
+        // ── OS filha avulsa (ServiceOrder) ────────────────────────
+        const assumeRoles = [
+            UserRole.SUPER_ADMIN,
+            UserRole.COMPANY_ADMIN,
+            UserRole.COMPANY_MANAGER,
+            UserRole.TECHNICIAN,
+        ]
+        if (dto.technicianId) {
+            const technician = await this.prisma.user.findFirst({
+                where: {
+                    id: dto.technicianId,
+                    companyId,
+                    deletedAt: null,
+                    OR: [
+                        { customRoleId: null, role: { in: assumeRoles } },
+                        {
+                            customRoleId: { not: null },
+                            customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } },
+                        },
+                    ],
+                },
+                select: { id: true },
+            })
+            if (!technician) throw new BadRequestException('Técnico não encontrado nesta empresa')
+        }
+
+        const isAvailable = !dto.technicianId
+        const initialStatus = isAvailable
+            ? ServiceOrderStatus.AWAITING_PICKUP
+            : ServiceOrderStatus.OPEN
+
+        const os = await this.prisma.$transaction(async (tx) => {
+            // Advisory lock por empresa para evitar race condition na geração do número sequencial
+            await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
+
+            // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
+            const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
+                SELECT COALESCE(MAX(number), 0) AS max_number
+                FROM service_orders
+                WHERE company_id = ${companyId}
+            `
+            const number = Number(max_number) + 1
+
+            const created = await tx.serviceOrder.create({
+                data: {
+                    companyId,
+                    clientId: parent.clientId,
+                    number,
+                    title: dto.title,
+                    description: dto.description,
+                    maintenanceType: dto.maintenanceType,
+                    priority: dto.priority ?? ServiceOrderPriority.MEDIUM,
+                    status: initialStatus,
+                    isAvailable,
+                    alertAfterHours: 2,
+                    scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : null,
+                    ...(parent.equipmentId && { equipmentId: parent.equipmentId }),
+                    ...(parent.costCenterId && { costCenterId: parent.costCenterId }),
+                    ...(parent.locationId && { locationId: parent.locationId }),
+                    requesterId: currentUser.sub,
+                    ...(effectiveGroupId && { groupId: effectiveGroupId }),
+                    parentServiceOrderId: parentId,
+                },
+                select: OS_SELECT,
+            })
+
+            if (dto.technicianId) {
+                await tx.serviceOrderTechnician.create({
+                    data: {
+                        serviceOrderId: created.id,
+                        technicianId: dto.technicianId,
+                        role: ServiceOrderTechnicianRole.LEAD,
+                    },
+                })
+            }
+
+            await tx.serviceOrderStatusHistory.create({
+                data: {
+                    serviceOrderId: created.id,
+                    toStatus: initialStatus,
+                    changedById: currentUser.sub,
+                    reason: `Criada como OS filha da OS #${parent.number}`,
+                },
+            })
+
+            if (parent.equipmentId) {
+                await tx.equipment.update({
+                    where: { id: parent.equipmentId },
+                    data: { totalServiceOrders: { increment: 1 } },
+                })
+                await tx.equipment.updateMany({
+                    where: { id: parent.equipmentId, status: EquipmentStatus.ACTIVE },
+                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                })
+            }
+
+            return created
+        })
+
+        await this.notificationsService.notify({
+            event: EventType.OS_CHILD_CREATED,
+            companyId,
+            serviceOrderId: os.id,
+            data: {
+                parentOsNumber: parent.number,
+                osNumber: os.number,
+                osTitle: os.title,
+                ...(dto.technicianId && { technicianId: dto.technicianId }),
+            },
+        })
+
+        this.logger.log(`OS filha #${os.number} criada a partir da OS #${parent.number}`)
+        return { childType: 'SERVICE_ORDER' as const, serviceOrder: os }
     }
 
     async remove(id: string, clientId: string | null, companyId: string) {

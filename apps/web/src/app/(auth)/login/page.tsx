@@ -79,36 +79,31 @@ export default function LoginPage() {
   if (requires2FA) {
     return (
       <div className="flex flex-col items-center">
-        {/* Card */}
-        <div className="w-full rounded-3xl bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/60 dark:shadow-black/20 border border-slate-100 dark:border-slate-800 px-8 py-10 sm:px-10">
+        {/* Container */}
+        <div className="w-full mx-auto">
           {/* Icon */}
           <div className="flex justify-center mb-6">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
-              style={{
-                background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-              }}
-            >
-              <KeyRound className="w-8 h-8 text-white" strokeWidth={1.5} />
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <KeyRound className="w-6 h-6 text-zinc-900 dark:text-white" strokeWidth={1.5} />
             </div>
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-              Verificação em duas etapas.
+            <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2 tracking-tight">
+              Verificação em duas etapas
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
               Insira o código de 6 dígitos enviado para seu e-mail
             </p>
           </div>
 
           <form
             onSubmit={twoFAForm.handleSubmit(handle2FA)}
-            className="space-y-5"
+            className="space-y-6"
           >
-            <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                <ShieldCheck className="w-4 h-4 text-indigo-500" />
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <ShieldCheck className="w-4 h-4 text-zinc-500" />
                 Código de verificação
               </label>
               <input
@@ -118,18 +113,18 @@ export default function LoginPage() {
                 placeholder="000000"
                 autoFocus
                 className={cn(
-                  "w-full h-12 rounded-xl border bg-slate-50 dark:bg-slate-800/50 px-4 text-center",
+                  "w-full h-12 rounded-lg border bg-zinc-50 dark:bg-zinc-900 px-4 text-center",
                   "font-mono text-2xl tracking-[0.5em]",
-                  "text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600",
+                  "text-zinc-900 dark:text-white placeholder:text-zinc-300 dark:placeholder:text-zinc-700",
                   "outline-none transition-all duration-200",
                   twoFAForm.formState.errors.code
-                    ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                    : "border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    ? "border-red-500 focus:ring-1 focus:ring-red-500"
+                    : "border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white focus:ring-1 focus:ring-zinc-900 dark:focus:ring-white"
                 )}
                 {...twoFAForm.register("code")}
               />
               {twoFAForm.formState.errors.code && (
-                <p className="mt-1.5 text-xs text-red-500">
+                <p className="text-xs text-red-500 font-medium">
                   {twoFAForm.formState.errors.code.message}
                 </p>
               )}
@@ -138,21 +133,18 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isVerifying2FA}
-              className="w-full h-12 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30"
-              style={{
-                background: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
-              }}
+              className="w-full h-11 rounded-lg text-sm font-medium text-white dark:text-zinc-900 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isVerifying2FA && <Loader2 className="w-4 h-4 animate-spin" />}
               {isVerifying2FA ? "Verificando..." : "Confirmar Código"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
+          <p className="mt-6 text-center text-sm text-zinc-500">
             Não recebeu o código?{" "}
             <button
               type="button"
-              className="font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 hover:underline transition-colors"
+              className="font-medium text-zinc-900 dark:text-white hover:underline transition-all"
               onClick={() => window.location.reload()}
             >
               Voltar ao login
@@ -169,48 +161,33 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col items-center">
       {/* Logo mobile */}
-      <div className="mb-6 flex items-center gap-2.5 lg:hidden">
-        <div
-          className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{
-            background: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
-          }}
-        >
+      <div className="mb-8 flex items-center gap-3 lg:hidden">
+        <div className="w-8 h-8 rounded flex items-center justify-center bg-zinc-900 dark:bg-white">
           <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
             <path
               d="M9 2L15.5 5.5V12.5L9 16L2.5 12.5V5.5L9 2Z"
-              stroke="white"
+              stroke="currentColor"
+              className="text-white dark:text-zinc-900"
               strokeWidth="1.5"
               strokeLinejoin="round"
             />
           </svg>
         </div>
-        <span className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-          Inven<span className="text-indigo-600 dark:text-indigo-400">Tech</span>
+        <span className="text-xl font-bold text-zinc-900 dark:text-white tracking-tight">
+          InvenTech
         </span>
       </div>
 
-      {/* Card */}
-      <div className="w-full rounded-3xl bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/60 dark:shadow-black/20 border border-slate-100 dark:border-slate-800 px-8 py-10 sm:px-10">
-        {/* Icon */}
-        <div className="flex justify-center mb-6">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
-            style={{
-              background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-            }}
-          >
-            <Settings className="w-8 h-8 text-white" strokeWidth={1.5} />
-          </div>
-        </div>
+      {/* Container */}
+      <div className="w-full mx-auto">
 
         {/* Heading */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+        <div className="mb-8">
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2 tracking-tight">
             Bem-vindo de volta
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Entre com suas credenciais para continuar
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Insira suas credenciais corporativas
           </p>
         </div>
 
@@ -221,64 +198,70 @@ export default function LoginPage() {
           noValidate
         >
           {/* Email */}
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              <Mail className="w-4 h-4 text-indigo-500" />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Email
             </label>
-            <input
-              type="email"
-              autoComplete="email"
-              placeholder="nome@empresa.com.br"
-              className={cn(
-                "w-full h-12 rounded-xl border bg-slate-50 dark:bg-slate-800/50 px-4",
-                "text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                "outline-none transition-all duration-200",
-                loginForm.formState.errors.email
-                  ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                  : "border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-              )}
-              {...loginForm.register("email")}
-            />
+            <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                <Mail className="w-4 h-4" />
+              </div>
+              <input
+                type="email"
+                autoComplete="email"
+                placeholder="nome@empresa.com.br"
+                className={cn(
+                  "w-full h-11 rounded-lg border bg-zinc-50 dark:bg-zinc-900 pl-10 pr-4",
+                  "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
+                  "outline-none transition-all duration-200",
+                  loginForm.formState.errors.email
+                    ? "border-red-500 focus:ring-1 focus:ring-red-500"
+                    : "border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white focus:ring-1 focus:ring-zinc-900 dark:focus:ring-white"
+                )}
+                {...loginForm.register("email")}
+              />
+            </div>
             {loginForm.formState.errors.email && (
-              <p className="mt-1.5 text-xs text-red-500">
+              <p className="text-xs text-red-500 font-medium">
                 {loginForm.formState.errors.email.message}
               </p>
             )}
           </div>
 
           {/* Senha */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                <Lock className="w-4 h-4 text-amber-500" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Senha
               </label>
               <Link
                 href="/forgot-password"
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 hover:underline transition-colors"
+                className="text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
               >
-                Esqueceu a sua senha ?? senha?
+                Esqueceu a senha?
               </Link>
             </div>
             <div className="relative">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
+                <Lock className="w-4 h-4" />
+              </div>
               <input
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
                 placeholder="••••••••••"
                 className={cn(
-                  "w-full h-12 rounded-xl border bg-slate-50 dark:bg-slate-800/50 px-4 pr-11",
-                  "text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                  "w-full h-11 rounded-lg border bg-zinc-50 dark:bg-zinc-900 pl-10 pr-11",
+                  "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500",
                   "outline-none transition-all duration-200",
                   loginForm.formState.errors.password
-                    ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
-                    : "border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    ? "border-red-500 focus:ring-1 focus:ring-red-500"
+                    : "border-zinc-200 dark:border-zinc-800 focus:border-zinc-900 dark:focus:border-white focus:ring-1 focus:ring-zinc-900 dark:focus:ring-white"
                 )}
                 {...loginForm.register("password")}
               />
               <button
                 type="button"
-                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                 onClick={() => setShowPassword((v) => !v)}
                 tabIndex={-1}
               >
@@ -290,7 +273,7 @@ export default function LoginPage() {
               </button>
             </div>
             {loginForm.formState.errors.password && (
-              <p className="mt-1.5 text-xs text-red-500">
+              <p className="text-xs text-red-500 font-medium">
                 {loginForm.formState.errors.password.message}
               </p>
             )}
@@ -300,16 +283,13 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoggingIn}
-            className="w-full h-12 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2 transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 group"
-            style={{
-              background: "linear-gradient(135deg, #6366f1 0%, #4338ca 100%)",
-            }}
+            className="w-full h-11 mt-2 rounded-lg text-sm font-medium text-white dark:text-zinc-900 bg-zinc-900 dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
           >
             {isLoggingIn ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : null}
             <span>
-              {isLoggingIn ? "Entrando..." : "Entrar no Sistema"}
+              {isLoggingIn ? "Entrando..." : "Entrar"}
             </span>
             {!isLoggingIn && (
               <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-1 transition-transform duration-200" />
@@ -320,19 +300,19 @@ export default function LoginPage() {
 
       {/* Footer */}
       <div className="mt-8 text-center">
-        <p className="text-xs text-slate-400 dark:text-slate-500">
-          © 2026 InvenTech. Todos os direitos reservados.
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+          © {new Date().getFullYear()} InvenTech. Todos os direitos reservados.
         </p>
-        <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
-          <Link href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+        <div className="flex items-center justify-center gap-3 text-xs text-zinc-400 dark:text-zinc-500 font-medium">
+          <Link href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
             Privacidade
           </Link>
           <span>·</span>
-          <Link href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+          <Link href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
             Termos
           </Link>
           <span>·</span>
-          <Link href="#" className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+          <Link href="#" className="hover:text-zinc-900 dark:hover:text-white transition-colors">
             Suporte
           </Link>
         </div>

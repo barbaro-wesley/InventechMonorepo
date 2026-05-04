@@ -25,7 +25,7 @@ export function OsBoard({ orders, onCardClick, showClosed = false, columns = KAN
   )
 
   return (
-    <div className="flex gap-4 h-full overflow-x-auto px-4 py-4">
+    <div className="flex gap-4 h-full overflow-x-auto px-4 py-4 snap-x snap-mandatory scroll-smooth">
       {visibleColumns.map((col) => (
         <OsColumn
           key={col.status}
@@ -40,8 +40,8 @@ export function OsBoard({ orders, onCardClick, showClosed = false, columns = KAN
 
       {/* Coluna colapsada para reprovadas/canceladas */}
       {showClosed && closedOrders.length > 0 && (
-        <div className="flex flex-col w-64 shrink-0 opacity-60">
-          <div className="flex items-center justify-between px-3 py-2.5 bg-white rounded-xl border border-[#e0e5eb] border-t-2 border-t-slate-300 mb-3 shadow-sm">
+        <div className="flex flex-col w-[85vw] sm:w-64 shrink-0 opacity-60 snap-center">
+          <div className="flex items-center justify-between px-3 py-2.5 bg-white dark:bg-zinc-950 rounded-xl border border-[#e0e5eb] dark:border-zinc-800 border-t-2 border-t-slate-300 dark:border-t-slate-700 mb-3 shadow-sm">
             <span className="text-sm font-semibold text-slate-500">Encerradas c/ Problema</span>
             <span className="min-w-[22px] h-[22px] flex items-center justify-center rounded-full text-xs font-bold bg-slate-100 text-slate-500">
               {closedOrders.length}

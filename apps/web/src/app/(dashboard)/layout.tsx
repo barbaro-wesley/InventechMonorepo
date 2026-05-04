@@ -34,6 +34,7 @@ import {
 import { useAuth } from "@/hooks/auth/use-auth";
 import { useCurrentUser } from "@/store/auth.store";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { ThemeToggle, ThemeToggleMenuItem } from "@/components/theme-toggle";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/types/auth";
@@ -73,6 +74,18 @@ const navSections: NavSection[] = [
                 icon: LayoutDashboard,
                 roles: ["SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"],
                 permission: "dashboard:company",
+            },
+        ],
+    },
+    {
+        sectionKey: "analitico",
+        items: [
+            {
+                label: "Painel Analítico",
+                href: "/analytics",
+                icon: BarChart3,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"],
+                permission: "analytics:equipment",
             },
         ],
     },
@@ -122,6 +135,13 @@ const navSections: NavSection[] = [
                 icon: FileText,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
                 permission: "laudo-template:browse",
+            },
+            {
+                label: "Templates de Checklist",
+                href: "/checklist-templates",
+                icon: ClipboardCheck,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+                permission: "checklist-template:browse",
             },
             {
                 label: "Impressoras",
@@ -307,10 +327,6 @@ export default function DashboardLayout({
     }
 
     const sidebarStyle: React.CSSProperties = {
-        background: "rgba(255, 255, 255, 0.6)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
-        borderRight: "0.8px solid rgb(224, 229, 235)",
         width: collapsed ? SIDEBAR_COLLAPSED_W : SIDEBAR_EXPANDED_W,
         transition: "width 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
         overflow: "hidden",
@@ -318,7 +334,7 @@ export default function DashboardLayout({
 
     const Sidebar = ({ isMobile = false }: { isMobile?: boolean }) => (
         <aside
-            className="flex flex-col h-full"
+            className="flex flex-col h-full bg-white/60 dark:bg-zinc-950/80 backdrop-blur-md border-r border-border"
             style={isMobile ? { ...sidebarStyle, width: SIDEBAR_EXPANDED_W } : sidebarStyle}
         >
             {/* ── Logo + toggle ── */}
@@ -501,13 +517,7 @@ export default function DashboardLayout({
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Header */}
                 <header
-                    className="flex items-center justify-between px-4 h-14 sticky top-0 z-30 flex-shrink-0"
-                    style={{
-                        background: "rgba(255, 255, 255, 0.6)",
-                        backdropFilter: "blur(8px)",
-                        WebkitBackdropFilter: "blur(8px)",
-                        borderBottom: "1px solid var(--border)",
-                    }}
+                    className="flex items-center justify-between px-4 h-14 sticky top-0 z-30 flex-shrink-0 bg-white/60 dark:bg-zinc-950/80 backdrop-blur-md border-b border-border"
                 >
                     <div className="flex items-center gap-2">
                         <button
@@ -559,6 +569,8 @@ export default function DashboardLayout({
                                         Meu Perfil
                                     </Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <ThemeToggleMenuItem />
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={() => logout()} disabled={isLoggingOut} className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer">
                                     <LogOut className="w-4 h-4 mr-2" />

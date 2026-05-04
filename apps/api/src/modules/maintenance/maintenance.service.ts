@@ -67,6 +67,7 @@ const SCHEDULE_SELECT = {
     group: { select: { id: true, name: true, color: true } },
     client: { select: { id: true, name: true } },
     assignedTechnician: { select: { id: true, name: true } },
+    checklistTemplate: { select: { id: true, title: true } },
     _count: { select: { maintenances: true } },
 } satisfies Prisma.MaintenanceScheduleSelect
 
@@ -320,6 +321,9 @@ export class MaintenanceService {
                 ...(dto.assignedTechnicianId && {
                     assignedTechnicianId: dto.assignedTechnicianId,
                 }),
+                ...(dto.checklistTemplateId && {
+                    checklistTemplateId: dto.checklistTemplateId,
+                }),
             },
             select: SCHEDULE_SELECT,
         })
@@ -376,6 +380,11 @@ export class MaintenanceService {
                 ...(dto.groupId !== undefined && {
                     group: dto.groupId
                         ? { connect: { id: dto.groupId } }
+                        : { disconnect: true },
+                }),
+                ...(dto.checklistTemplateId !== undefined && {
+                    checklistTemplate: dto.checklistTemplateId
+                        ? { connect: { id: dto.checklistTemplateId } }
                         : { disconnect: true },
                 }),
             },
@@ -442,6 +451,7 @@ export class MaintenanceService {
                 assignedTechnicianId: true,
                 groupId: true,
                 equipmentId: true,
+                checklistTemplateId: true,
                 equipment: { select: { name: true } },
             },
         })
@@ -458,13 +468,16 @@ export class MaintenanceService {
         for (const schedule of dueSchedules) {
             try {
                 const txResult = await this.prisma.$transaction(async (tx) => {
-                    // Número sequencial da OS
-                    const last = await tx.serviceOrder.findFirst({
-                        where: { companyId: schedule.companyId },
-                        orderBy: { number: 'desc' },
-                        select: { number: true },
-                    })
-                    const number = (last?.number ?? 0) + 1
+                    // Advisory lock por empresa para evitar race condition na geração do número sequencial
+                    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${schedule.companyId})::bigint)`
+
+                    // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
+                    const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
+                        SELECT COALESCE(MAX(number), 0) AS max_number
+                        FROM service_orders
+                        WHERE company_id = ${schedule.companyId}
+                    `
+                    const number = Number(max_number) + 1
 
                     const isAvailable = !schedule.assignedTechnicianId
                     const status = isAvailable
@@ -533,6 +546,24 @@ export class MaintenanceService {
                             }),
                         },
                     })
+
+                    // Cria checklist se o agendamento tem template vinculado
+                    if (schedule.checklistTemplateId) {
+                        const tpl = await tx.checklistTemplate.findUnique({
+                            where: { id: schedule.checklistTemplateId },
+                            select: { fields: true },
+                        })
+                        if (tpl) {
+                            await tx.serviceOrderChecklist.create({
+                                data: {
+                                    companyId: schedule.companyId,
+                                    serviceOrderId: os.id,
+                                    templateId: schedule.checklistTemplateId,
+                                    fields: tpl.fields as object[],
+                                },
+                            })
+                        }
+                    }
 
                     // Atualiza nextRunAt e lastRunAt do schedule
                     const nextRunAt = calculateNextRunAt(

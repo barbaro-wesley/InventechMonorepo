@@ -12,6 +12,7 @@ import type {
   CreateTaskDto,
   UpdateTaskDto,
   CreateServiceOrderDto,
+  CreateChildServiceOrderDto,
   CreateCostItemDto,
   UpdateCostItemDto,
 } from '@/services/service-orders/service-orders.types'
@@ -298,6 +299,27 @@ export function useDeleteCostItem(clientId: string | null, osId: string) {
       qc.invalidateQueries({ queryKey: serviceOrderKeys.costs(clientId, osId) })
       qc.invalidateQueries({ queryKey: serviceOrderKeys.detail(clientId, osId) })
       toast.success('Item removido')
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+// ─────────────────────────────────────────
+// Criar OS filha ou agendamento vinculado
+// ─────────────────────────────────────────
+export function useCreateChildServiceOrder(clientId: string | null, parentId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dto: CreateChildServiceOrderDto) =>
+      serviceOrdersService.createChild(clientId, parentId, dto),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.detail(clientId, parentId) })
+      if (res.childType === 'SERVICE_ORDER') {
+        toast.success(`OS filha #${res.serviceOrder.number} criada com sucesso`)
+      } else {
+        toast.success('Agendamento preventivo criado com sucesso')
+      }
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   })

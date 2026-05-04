@@ -82,11 +82,14 @@ api.interceptors.response.use(
 
 export function getErrorMessage(error: unknown): string {
     if (error instanceof AxiosError) {
-        return (
-            error.response?.data?.message ??
-            error.response?.data?.error ??
-            error.message
-        );
+        const data = error.response?.data
+        if (data) {
+            const raw = data.message ?? data.error
+            // class-validator retorna array de strings — join com ponto-e-vírgula
+            if (Array.isArray(raw)) return raw.join('; ')
+            if (typeof raw === 'string' && raw.length > 0) return raw
+        }
+        return error.message
     }
     if (error instanceof Error) return error.message;
     return "Ocorreu um erro inesperado";

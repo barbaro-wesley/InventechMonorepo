@@ -21,6 +21,7 @@ export type MaintenanceType =
 export type TechnicianRole = 'LEAD' | 'ASSISTANT'
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
 export type CostItemType = 'LABOR' | 'MATERIAL' | 'EXTERNAL' | 'TRAVEL' | 'OTHER'
+export type RecurrenceType = 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'CUSTOM'
 
 export interface ServiceOrderCostItem {
   id: string
@@ -96,6 +97,13 @@ export interface ServiceOrder {
   group: { id: string; name: string; color: string | null } | null
   technicians: ServiceOrderTechnician[]
   _count: { comments: number; tasks: number; attachments: number }
+  parentServiceOrderId: string | null
+  checklist?: {
+    id: string
+    completedAt: string | null
+    completedBy?: { id: string; name: string } | null
+    template?: { id: string; title: string } | null
+  } | null
 }
 
 import type { Attachment } from '../storage/storage.service'
@@ -142,12 +150,50 @@ export interface ServiceOrderLaudo {
   technician: { id: string; name: string } | null
 }
 
+export interface ServiceOrderChildSummary {
+  id: string
+  number: number
+  title: string
+  maintenanceType: MaintenanceType
+  status: ServiceOrderStatus
+  priority: ServiceOrderPriority
+  scheduledFor: string | null
+  createdAt: string
+}
+
+export interface OriginatedScheduleSummary {
+  id: string
+  title: string
+  maintenanceType: MaintenanceType
+  recurrenceType: RecurrenceType
+  startDate: string
+  isActive: boolean
+}
+
 export interface ServiceOrderDetail extends ServiceOrder {
   comments: ServiceOrderComment[]
   tasks: ServiceOrderTask[]
   statusHistory: ServiceOrderStatusHistory[]
   attachments: Attachment[]
   laudos?: ServiceOrderLaudo[]
+  parentServiceOrder: { id: string; number: number; title: string; maintenanceType: MaintenanceType; status: ServiceOrderStatus } | null
+  childServiceOrders: ServiceOrderChildSummary[]
+  originatedSchedules: OriginatedScheduleSummary[]
+}
+
+export interface CreateChildServiceOrderDto {
+  childType: 'SERVICE_ORDER' | 'MAINTENANCE_SCHEDULE'
+  title: string
+  description: string
+  maintenanceType: MaintenanceType
+  groupId?: string
+  priority?: ServiceOrderPriority
+  scheduledFor?: string
+  technicianId?: string
+  recurrenceType?: RecurrenceType
+  customIntervalDays?: number
+  startDate?: string
+  endDate?: string
 }
 
 export interface PaginatedResponse<T> {

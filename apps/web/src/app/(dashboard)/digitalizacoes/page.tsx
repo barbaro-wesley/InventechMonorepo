@@ -147,7 +147,7 @@ function StatCard({ label, value, icon: Icon, color, active, onClick }: StatCard
       className={`w-full text-left rounded-xl border p-4 transition-all duration-200 group
         ${active
           ? `${c.bg} ${c.border} ring-2 ${c.ring} shadow-sm`
-          : "bg-white border-border hover:border-gray-300 hover:shadow-sm"
+          : "bg-white dark:bg-zinc-950/50 border-border hover:border-gray-300 dark:hover:border-zinc-700 hover:shadow-sm"
         }`}
     >
       <div className="flex items-center justify-between mb-3">
@@ -303,7 +303,7 @@ export default function ScansPage() {
       </div>
 
       {/* ── Search + Filters ── */}
-      <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+      <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border p-4 space-y-3">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
@@ -364,7 +364,7 @@ export default function ScansPage() {
 
       {/* ── Table Area ── */}
       {isLoading ? (
-        <div className="bg-white rounded-xl border border-border overflow-hidden">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/30">
@@ -381,7 +381,7 @@ export default function ScansPage() {
           </table>
         </div>
       ) : scans.length === 0 ? (
-        <div className="bg-white rounded-xl border border-dashed border-border py-20 text-center">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-dashed border-border py-20 text-center">
           <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
             <ScanLine className="w-7 h-7 text-muted-foreground/40" />
           </div>
@@ -405,7 +405,7 @@ export default function ScansPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

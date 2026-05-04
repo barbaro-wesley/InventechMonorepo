@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2, Trash2, Settings2 } from 'lucide-react'
+import { X, ExternalLink, Loader2, ChevronDown, Paperclip, File as FileIcon, Pencil, FileText, CheckCircle2, Trash2, Settings2, GitBranch, ClipboardList } from 'lucide-react'
 import { LaudoFillDrawer } from '@/components/laudos/laudo-fill-drawer'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,11 +51,13 @@ import { OsTasksTab } from './tabs/os-tasks-tab'
 import { OsCommentsTab } from './tabs/os-comments-tab'
 import { OsHistoryTab } from './tabs/os-history-tab'
 import { OsCostsTab } from './tabs/os-costs-tab'
+import { OsChecklistTab } from './tabs/os-checklist-tab'
+import { OsChildCreateSheet } from './os-child-create-sheet'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from './os-utils'
 import type { ServiceOrderStatus, ServiceOrderPriority, MaintenanceType } from '@/services/service-orders/service-orders.types'
 import { MAINTENANCE_TYPE_LABELS } from './os-utils'
 
-type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs'
+type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs' | 'checklist'
 
 interface OsDetailDrawerProps {
   osId: string | null
@@ -111,6 +113,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
   const [editResolution, setEditResolution] = useState('')
   const [editClients, setEditClients] = useState<{ id: string; name: string }[]>([])
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [childCreateOpen, setChildCreateOpen] = useState(false)
 
   const user = useCurrentUser()
   const { data: os, isLoading } = useServiceOrder(clientId, osId ?? '')
@@ -201,6 +204,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     { id: 'tasks', label: 'Tarefas', count: os?.tasks?.length },
     { id: 'comments', label: 'Comentários', count: os?.comments?.length },
     { id: 'costs', label: 'Custos' },
+    ...(os?.checklist != null ? [{ id: 'checklist' as Tab, label: 'Checklist' }] : []),
     {
       id: 'history',
       label: 'Histórico',
@@ -223,6 +227,11 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     (user?.permissions?.includes('service-order:assume') ?? false)
   const canEdit = user?.permissions?.includes('service-order:update') ?? false
   const canDelete = user?.permissions?.includes('service-order:delete') ?? false
+  const canCreateChild =
+    (user?.permissions?.includes('service-order:create-child') ?? false) &&
+    os?.status !== 'CANCELLED' &&
+    os?.status !== 'COMPLETED_APPROVED' &&
+    !os?.parentServiceOrderId
 
   return (
     <>
@@ -236,17 +245,17 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           </SheetTitle>
           {isLoading || !os ? (
             <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-[#6c7c93]" />
+              <Loader2 className="h-6 w-6 animate-spin text-[#6c7c93] dark:text-zinc-400 " />
             </div>
           ) : (
             <>
               {/* Header */}
-              <SheetHeader className="px-6 pt-5 pb-4 border-b border-[#e0e5eb] space-y-3">
+              <SheetHeader className="px-4 sm:px-6 pt-5 pb-4 border-b border-[#e0e5eb] dark:border-zinc-800 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     {/* Número + badges */}
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-sm font-mono text-[#6c7c93]">#{os.number}</span>
+                      <span className="text-sm font-mono text-[#6c7c93] dark:text-zinc-400 ">#{os.number}</span>
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${STATUS_CONFIG[os.status].bg} ${STATUS_CONFIG[os.status].color}`}
                       >
@@ -259,10 +268,10 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                         {PRIORITY_CONFIG[os.priority].label}
                       </span>
                     </div>
-                    <h2 className="font-semibold text-[#1d2530] text-base leading-snug line-clamp-2">
+                    <h2 className="font-semibold text-[#1d2530] dark:text-zinc-100 text-base leading-snug line-clamp-2">
                       {os.title}
                     </h2>
-                    <p className="text-xs text-[#6c7c93] mt-1">
+                    <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-1">
                       {os.client?.name ?? 'Interno'}{os.equipment ? ` · ${os.equipment.name}` : ''}
                     </p>
                   </div>
@@ -270,7 +279,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                     variant="ghost"
                     size="icon"
                     onClick={onClose}
-                    className="shrink-0 text-[#6c7c93]"
+                    className="shrink-0 text-[#6c7c93] dark:text-zinc-400 "
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -278,7 +287,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
 
                 {/* Ações de status */}
                 <div className="flex items-center gap-2">
-                  {(canEdit || canDelete) && (
+                  {(canEdit || canDelete || canCreateChild) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -298,7 +307,13 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                             Editar
                           </DropdownMenuItem>
                         )}
-                        {canEdit && canDelete && <DropdownMenuSeparator />}
+                        {canCreateChild && (
+                          <DropdownMenuItem onClick={() => setChildCreateOpen(true)}>
+                            <GitBranch className="h-3.5 w-3.5 mr-2 text-violet-500" />
+                            Nova OS Vinculada
+                          </DropdownMenuItem>
+                        )}
+                        {(canEdit || canCreateChild) && canDelete && <DropdownMenuSeparator />}
                         {canDelete && (
                           <DropdownMenuItem
                             className="text-red-600 focus:text-red-600"
@@ -364,16 +379,36 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                 </div>
               </SheetHeader>
 
+              {/* Banner: checklist obrigatório pendente */}
+              {os.maintenanceType === 'PREVENTIVE' && os.checklist && !os.checklist.completedAt &&
+                os.status !== 'COMPLETED' && os.status !== 'COMPLETED_APPROVED' &&
+                os.status !== 'COMPLETED_REJECTED' && os.status !== 'CANCELLED' && (
+                <div className="mx-4 sm:mx-6 mb-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-400 text-xs">
+                  <ClipboardList className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>
+                    <span className="font-semibold">Checklist obrigatório pendente.</span>
+                    {' '}Conclua o checklist antes de encerrar esta OS preventiva.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('checklist')}
+                    className="ml-auto shrink-0 text-amber-700 dark:text-amber-400 font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300"
+                  >
+                    Ir ao checklist →
+                  </button>
+                </div>
+              )}
+
               {/* Tabs */}
-              <div className="flex border-b border-[#e0e5eb] bg-white px-6">
+              <div className="flex border-b border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 px-1 py-3 mr-5 text-sm border-b-2 transition-colors ${
+                    className={`flex shrink-0 items-center gap-1.5 px-1 py-3 mr-5 text-sm border-b-2 transition-colors ${
                       activeTab === tab.id
-                        ? 'border-[#0d4da5] text-[#0d4da5] font-medium'
-                        : 'border-transparent text-[#6c7c93] hover:text-[#1d2530]'
+                        ? 'border-[#0d4da5] dark:border-blue-500 text-[#0d4da5] dark:text-blue-400 font-medium'
+                        : 'border-transparent text-[#6c7c93] dark:text-zinc-400 hover:text-[#1d2530] dark:hover:text-zinc-100 dark:text-zinc-100 '
                     }`}
                   >
                     {tab.label}
@@ -381,8 +416,8 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                       <span
                         className={`text-[10px] font-semibold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 ${
                           activeTab === tab.id
-                            ? 'bg-[#0d4da5] text-white'
-                            : 'bg-[#f3f4f7] text-[#6c7c93]'
+                            ? 'bg-[#0d4da5] dark:bg-blue-500 text-white'
+                            : 'bg-[#f3f4f7] dark:bg-zinc-800 text-[#6c7c93] dark:text-zinc-400 '
                         }`}
                       >
                         {tab.count}
@@ -393,7 +428,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
               </div>
 
               {/* Tab content */}
-              <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
                 {activeTab === 'details' && (
                   <OsDetailTab
                     os={os}
@@ -429,6 +464,9 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                       : null
                     }
                   />
+                )}
+                {activeTab === 'checklist' && (
+                  <OsChecklistTab clientId={clientId} osId={osId} />
                 )}
                 {activeTab === 'history' && (
                   <OsHistoryTab os={os} />
@@ -482,7 +520,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
               <button
                 type="button"
                 onClick={() => setLaudoFillOpen(true)}
-                className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-dashed border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-sm text-blue-600 dark:text-blue-400"
+                className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl border border-dashed border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-sm text-blue-600 dark:text-blue-400 "
               >
                 <FileText className="h-4 w-4 flex-shrink-0" />
                 <span>Criar laudo técnico <span className="text-xs text-blue-400">(opcional)</span></span>
@@ -512,9 +550,9 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                 {completionFiles.map((file, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-1.5 bg-[#f3f4f7] border border-[#e0e5eb] rounded-lg px-2 py-1 text-[10px] text-[#1d2530]"
+                    className="flex items-center gap-1.5 bg-[#f3f4f7] dark:bg-zinc-800 border border-[#e0e5eb] dark:border-zinc-800 rounded-lg px-2 py-1 text-[10px] text-[#1d2530] dark:text-zinc-100 "
                   >
-                    <FileIcon className="h-3 w-3 text-[#6c7c93]" />
+                    <FileIcon className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 " />
                     <span className="truncate max-w-[120px]">{file.name}</span>
                     <button
                       type="button"
@@ -530,7 +568,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
             <button
               type="button"
               onClick={() => completionFileInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-[#6c7c93] hover:bg-[#f3f4f7] border border-dashed border-[#e0e5eb] transition-colors w-full justify-center"
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 dark:bg-zinc-800 border border-dashed border-[#e0e5eb] dark:border-zinc-800 transition-colors w-full justify-center"
             >
               <Paperclip className="h-3.5 w-3.5" />
               Anexar arquivos (opcional)
@@ -590,7 +628,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                 rows={3}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="edit-priority">Prioridade</Label>
                 <Select
@@ -728,6 +766,17 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {os && canCreateChild && (
+        <OsChildCreateSheet
+          open={childCreateOpen}
+          onClose={() => setChildCreateOpen(false)}
+          parentId={os.id}
+          parentNumber={os.number}
+          parentMaintenanceType={os.maintenanceType}
+          clientId={clientId}
+        />
+      )}
     </>
   )
 }

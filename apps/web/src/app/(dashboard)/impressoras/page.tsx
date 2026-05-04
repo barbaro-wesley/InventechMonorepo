@@ -101,7 +101,7 @@ function CopyInline({ value }: { value: string }) {
     <button
       onClick={handleCopy}
       title={copied ? "Copiado!" : "Copiar diretório"}
-      className="flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-white hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors"
+      className="flex-shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-white dark:bg-zinc-950/50 hover:bg-muted text-xs text-muted-foreground hover:text-foreground transition-colors"
     >
       {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
       <span>{copied ? "Copiado!" : "Copiar"}</span>
@@ -124,7 +124,7 @@ function SftpCard({ sftpConfig }: { sftpConfig: PrinterType["sftpConfig"] }) {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-slate-50 p-4 space-y-2">
+    <div className="rounded-lg border border-border bg-slate-50 dark:bg-zinc-900/50 p-4 space-y-2">
       <div className="flex items-center justify-between mb-1">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Configuração SFTP
@@ -192,7 +192,7 @@ function SftpSuccessModal({
           Configure o seguinte no painel da impressora:
         </p>
 
-        <div className="rounded-lg border border-border bg-slate-50 p-4 font-mono text-xs space-y-1.5">
+        <div className="rounded-lg border border-border bg-slate-50 dark:bg-zinc-900/50 p-4 font-mono text-xs space-y-1.5">
           <div className="flex gap-2"><span className="text-muted-foreground w-28">Protocolo:</span><span>SFTP</span></div>
           <div className="flex gap-2"><span className="text-muted-foreground w-28">Host:</span><span>{sftpConfig.host}</span></div>
           <div className="flex gap-2"><span className="text-muted-foreground w-28">Porta:</span><span>{sftpConfig.port}</span></div>
@@ -510,7 +510,7 @@ function PrinterDetailSheet({
                 {scans.map((scan) => (
                   <div
                     key={scan.id}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-white text-sm"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-white dark:bg-zinc-950/50 text-sm"
                   >
                     <span className="flex-1 truncate font-mono text-xs">{scan.fileName}</span>
                     <span className="text-xs text-muted-foreground flex-shrink-0">
@@ -630,11 +630,11 @@ export default function PrintersPage() {
       {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-14 rounded-lg border border-border bg-white animate-pulse" />
+            <div key={i} className="h-14 rounded-lg border border-border bg-white dark:bg-zinc-900 animate-pulse" />
           ))}
         </div>
       ) : printers.length === 0 ? (
-        <div className="bg-white rounded-xl border border-dashed border-border py-14 text-center">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-dashed border-border py-14 text-center">
           <Printer className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             Nenhuma impressora encontrada
@@ -650,7 +650,7 @@ export default function PrintersPage() {
           )}
         </div>
       ) : (
-        <div className="rounded-xl border border-border overflow-hidden bg-white">
+        <div className="rounded-xl border border-border overflow-hidden bg-white dark:bg-zinc-950/50">
           <Table>
             <TableHeader>
               <TableRow>

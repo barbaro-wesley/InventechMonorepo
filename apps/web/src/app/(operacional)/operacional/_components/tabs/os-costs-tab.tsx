@@ -32,37 +32,37 @@ const COST_TYPE_CONFIG: Record<
   LABOR: {
     label: 'Mão de obra',
     icon: <Wrench className="h-3 w-3" />,
-    color: 'text-indigo-700',
-    bg: 'bg-indigo-50',
-    border: 'border-indigo-200',
+    color: 'text-indigo-700 dark:text-indigo-400',
+    bg: 'bg-indigo-50 dark:bg-indigo-950/30',
+    border: 'border-indigo-200 dark:border-indigo-900',
   },
   MATERIAL: {
     label: 'Material / Peça',
     icon: <Package className="h-3 w-3" />,
-    color: 'text-amber-700',
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
+    color: 'text-amber-700 dark:text-amber-400',
+    bg: 'bg-amber-50 dark:bg-amber-950/30',
+    border: 'border-amber-200 dark:border-amber-900',
   },
   EXTERNAL: {
     label: 'Serviço externo',
     icon: <ExternalLink className="h-3 w-3" />,
-    color: 'text-violet-700',
-    bg: 'bg-violet-50',
-    border: 'border-violet-200',
+    color: 'text-violet-700 dark:text-violet-400',
+    bg: 'bg-violet-50 dark:bg-violet-950/30',
+    border: 'border-violet-200 dark:border-violet-900',
   },
   TRAVEL: {
     label: 'Deslocamento',
     icon: <Car className="h-3 w-3" />,
-    color: 'text-teal-700',
-    bg: 'bg-teal-50',
-    border: 'border-teal-200',
+    color: 'text-teal-700 dark:text-teal-400',
+    bg: 'bg-teal-50 dark:bg-teal-950/30',
+    border: 'border-teal-200 dark:border-teal-900',
   },
   OTHER: {
     label: 'Outros',
     icon: <HelpCircle className="h-3 w-3" />,
-    color: 'text-[#6c7c93]',
-    bg: 'bg-[#f3f4f7]',
-    border: 'border-[#e0e5eb]',
+    color: 'text-[#6c7c93] dark:text-zinc-400 ',
+    bg: 'bg-[#f3f4f7] dark:bg-zinc-800 ',
+    border: 'border-[#e0e5eb] dark:border-zinc-800 ',
   },
 }
 
@@ -139,14 +139,14 @@ function CostItemRow({
 
   if (editing) {
     return (
-      <div className="rounded-xl border border-[#0d4da5]/30 bg-[#f0f5ff] p-3 space-y-3">
+      <div className="rounded-xl border border-[#0d4da5] dark:border-blue-500/30 bg-[#f0f5ff] dark:bg-blue-950/20 p-3 space-y-3">
         {/* Tipo + Descrição */}
         <div className="flex gap-2">
           <Select
             value={form.type}
             onValueChange={(v) => setForm((p) => ({ ...p, type: v as CostItemType }))}
           >
-            <SelectTrigger className="h-8 text-xs w-40 shrink-0 bg-white">
+            <SelectTrigger className="h-8 text-xs w-40 shrink-0 bg-white dark:bg-zinc-950 ">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -164,38 +164,38 @@ function CostItemRow({
             value={form.description}
             onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
             placeholder="Descrição"
-            className="h-8 text-xs bg-white flex-1"
+            className="h-8 text-xs bg-white dark:bg-zinc-950 flex-1"
           />
         </div>
 
         {/* Qtd × Valor unit */}
         <div className="flex gap-2 items-center">
           <div className="flex-1">
-            <label className="text-[10px] text-[#6c7c93] mb-1 block">Quantidade</label>
+            <label className="text-[10px] text-[#6c7c93] dark:text-zinc-400 mb-1 block">Quantidade</label>
             <Input
               type="number"
               min="0.001"
               step="0.001"
               value={form.quantity}
               onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))}
-              className="h-8 text-xs bg-white"
+              className="h-8 text-xs bg-white dark:bg-zinc-950 "
             />
           </div>
-          <span className="text-[#6c7c93] text-sm mt-4">×</span>
+          <span className="text-[#6c7c93] dark:text-zinc-400 text-sm mt-4">×</span>
           <div className="flex-1">
-            <label className="text-[10px] text-[#6c7c93] mb-1 block">Valor unitário (R$)</label>
+            <label className="text-[10px] text-[#6c7c93] dark:text-zinc-400 mb-1 block">Valor unitário (R$)</label>
             <Input
               type="number"
               min="0.01"
               step="0.01"
               value={form.unitPrice}
               onChange={(e) => setForm((p) => ({ ...p, unitPrice: e.target.value }))}
-              className="h-8 text-xs bg-white"
+              className="h-8 text-xs bg-white dark:bg-zinc-950 "
             />
           </div>
           <div className="flex-1">
-            <label className="text-[10px] text-[#6c7c93] mb-1 block">Total</label>
-            <div className="h-8 flex items-center text-xs font-semibold text-[#1d2530] px-3 rounded-lg bg-white border border-[#e0e5eb]">
+            <label className="text-[10px] text-[#6c7c93] dark:text-zinc-400 mb-1 block">Total</label>
+            <div className="h-8 flex items-center text-xs font-semibold text-[#1d2530] dark:text-zinc-100 px-3 rounded-lg bg-white dark:bg-zinc-950 border border-[#e0e5eb] dark:border-zinc-800 ">
               {formatBRL(Number(form.quantity) * Number(form.unitPrice))}
             </div>
           </div>
@@ -207,7 +207,7 @@ function CostItemRow({
           onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
           placeholder="Observação (opcional)"
           rows={2}
-          className="text-xs bg-white resize-none"
+          className="text-xs bg-white dark:bg-zinc-950 resize-none"
         />
 
         {/* Ações */}
@@ -216,7 +216,7 @@ function CostItemRow({
             variant="ghost"
             size="sm"
             onClick={handleCancel}
-            className="h-7 text-xs text-[#6c7c93]"
+            className="h-7 text-xs text-[#6c7c93] dark:text-zinc-400 "
           >
             <X className="h-3.5 w-3.5 mr-1" />
             Cancelar
@@ -225,7 +225,7 @@ function CostItemRow({
             size="sm"
             onClick={handleSave}
             disabled={!form.description.trim() || !form.quantity || !form.unitPrice || updateItem.isPending}
-            className="h-7 text-xs bg-[#0d4da5] hover:bg-[#0a3776] text-white"
+            className="h-7 text-xs bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:bg-blue-600 text-white"
           >
             {updateItem.isPending
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -238,7 +238,7 @@ function CostItemRow({
   }
 
   return (
-    <div className="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-[#f8f9fb] group transition-colors">
+    <div className="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-[#f8f9fb] dark:hover:bg-zinc-900/50 group transition-colors">
       {/* Tipo badge */}
       <div className="mt-0.5 shrink-0">
         <TypeBadge type={item.type} />
@@ -246,27 +246,27 @@ function CostItemRow({
 
       {/* Conteúdo */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-[#1d2530] font-medium truncate">{item.description}</p>
-        <p className="text-[11px] text-[#6c7c93] mt-0.5">
+        <p className="text-sm text-[#1d2530] dark:text-zinc-100 font-medium truncate">{item.description}</p>
+        <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mt-0.5">
           {Number(item.quantity) % 1 === 0
             ? Number(item.quantity).toFixed(0)
             : Number(item.quantity).toString()}{' '}
           × {formatBRL(item.unitPrice)}
         </p>
         {item.notes && (
-          <p className="text-[11px] text-[#6c7c93] mt-0.5 italic truncate">{item.notes}</p>
+          <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 mt-0.5 italic truncate">{item.notes}</p>
         )}
       </div>
 
       {/* Total + ações */}
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-sm font-semibold text-[#1d2530]">
+        <span className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100 ">
           {formatBRL(item.totalPrice)}
         </span>
         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => setEditing(true)}
-            className="text-[#6c7c93] hover:text-[#0d4da5] transition-colors"
+            className="text-[#6c7c93] dark:text-zinc-400 hover:text-[#0d4da5] dark:hover:text-blue-400 dark:text-blue-400 transition-colors"
             title="Editar"
           >
             <Pencil className="h-3.5 w-3.5" />
@@ -274,7 +274,7 @@ function CostItemRow({
           <button
             onClick={() => deleteItem.mutate(item.id)}
             disabled={deleteItem.isPending}
-            className="text-[#6c7c93] hover:text-red-500 transition-colors"
+            className="text-[#6c7c93] dark:text-zinc-400 hover:text-red-500 transition-colors"
             title="Remover"
           >
             {deleteItem.isPending
@@ -332,9 +332,9 @@ function NewCostItemForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-xl border border-[#0d4da5]/30 bg-[#f0f5ff] p-4 space-y-3"
+      className="rounded-xl border border-[#0d4da5] dark:border-blue-500/30 bg-[#f0f5ff] dark:bg-blue-950/20 p-4 space-y-3"
     >
-      <p className="text-xs font-semibold text-[#0d4da5]">Novo item de custo</p>
+      <p className="text-xs font-semibold text-[#0d4da5] dark:text-blue-400 ">Novo item de custo</p>
 
       {/* Tipo + Descrição */}
       <div className="flex gap-2">
@@ -342,7 +342,7 @@ function NewCostItemForm({
           value={form.type}
           onValueChange={(v) => setForm((p) => ({ ...p, type: v as CostItemType }))}
         >
-          <SelectTrigger className="h-8 text-xs w-40 shrink-0 bg-white">
+          <SelectTrigger className="h-8 text-xs w-40 shrink-0 bg-white dark:bg-zinc-950 ">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -360,7 +360,7 @@ function NewCostItemForm({
           value={form.description}
           onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
           placeholder="Descrição do item"
-          className="h-8 text-xs bg-white flex-1"
+          className="h-8 text-xs bg-white dark:bg-zinc-950 flex-1"
           required
         />
       </div>
@@ -368,7 +368,7 @@ function NewCostItemForm({
       {/* Quantidade × Valor */}
       <div className="flex gap-2 items-end">
         <div className="flex-1">
-          <label className="text-[10px] text-[#6c7c93] mb-1 block">Quantidade</label>
+          <label className="text-[10px] text-[#6c7c93] dark:text-zinc-400 mb-1 block">Quantidade</label>
           <Input
             type="number"
             min="0.001"
@@ -376,13 +376,13 @@ function NewCostItemForm({
             value={form.quantity}
             onChange={(e) => setForm((p) => ({ ...p, quantity: e.target.value }))}
             placeholder="1"
-            className="h-8 text-xs bg-white"
+            className="h-8 text-xs bg-white dark:bg-zinc-950 "
             required
           />
         </div>
-        <span className="text-[#6c7c93] text-sm pb-1.5">×</span>
+        <span className="text-[#6c7c93] dark:text-zinc-400 text-sm pb-1.5">×</span>
         <div className="flex-1">
-          <label className="text-[10px] text-[#6c7c93] mb-1 block">Valor unitário (R$)</label>
+          <label className="text-[10px] text-[#6c7c93] dark:text-zinc-400 mb-1 block">Valor unitário (R$)</label>
           <Input
             type="number"
             min="0.01"
@@ -390,14 +390,14 @@ function NewCostItemForm({
             value={form.unitPrice}
             onChange={(e) => setForm((p) => ({ ...p, unitPrice: e.target.value }))}
             placeholder="0,00"
-            className="h-8 text-xs bg-white"
+            className="h-8 text-xs bg-white dark:bg-zinc-950 "
             required
           />
         </div>
         {previewTotal !== null && (
           <div className="flex-1">
-            <label className="text-[10px] text-[#6c7c93] mb-1 block">Total</label>
-            <div className="h-8 flex items-center text-xs font-bold text-emerald-700 px-3 rounded-lg bg-emerald-50 border border-emerald-200">
+            <label className="text-[10px] text-[#6c7c93] dark:text-zinc-400 mb-1 block">Total</label>
+            <div className="h-8 flex items-center text-xs font-bold text-emerald-700 dark:text-emerald-400 px-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
               {formatBRL(previewTotal)}
             </div>
           </div>
@@ -410,7 +410,7 @@ function NewCostItemForm({
         onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
         placeholder="Observação (opcional)"
         rows={2}
-        className="text-xs bg-white resize-none"
+        className="text-xs bg-white dark:bg-zinc-950 resize-none"
       />
 
       {/* Ações */}
@@ -420,7 +420,7 @@ function NewCostItemForm({
           variant="ghost"
           size="sm"
           onClick={onCancel}
-          className="h-7 text-xs text-[#6c7c93]"
+          className="h-7 text-xs text-[#6c7c93] dark:text-zinc-400 "
         >
           Cancelar
         </Button>
@@ -433,7 +433,7 @@ function NewCostItemForm({
             !form.unitPrice ||
             create.isPending
           }
-          className="h-7 text-xs bg-[#0d4da5] hover:bg-[#0a3776] text-white"
+          className="h-7 text-xs bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:bg-blue-600 text-white"
         >
           {create.isPending
             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -488,7 +488,7 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-5 w-5 animate-spin text-[#6c7c93]" />
+        <Loader2 className="h-5 w-5 animate-spin text-[#6c7c93] dark:text-zinc-400 " />
       </div>
     )
   }
@@ -498,23 +498,23 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
 
       {/* Card de total */}
       {items.length > 0 && (
-        <div className="rounded-xl border border-[#e0e5eb] bg-white overflow-hidden">
+        <div className="rounded-xl border border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden">
           {/* Total principal */}
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-[#0d4da5]" />
-              <span className="text-sm font-medium text-[#1d2530]">Total desta OS</span>
+              <TrendingUp className="h-4 w-4 text-[#0d4da5] dark:text-blue-400 " />
+              <span className="text-sm font-medium text-[#1d2530] dark:text-zinc-100 ">Total desta OS</span>
             </div>
-            <span className="text-lg font-bold text-[#1d2530]">{formatBRL(total)}</span>
+            <span className="text-lg font-bold text-[#1d2530] dark:text-zinc-100 ">{formatBRL(total)}</span>
           </div>
 
           {/* Breakdown por tipo */}
           {groups.length > 1 && (
-            <div className="border-t border-[#f3f4f7] px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
+            <div className="border-t border-[#f3f4f7] dark:border-zinc-800/50 px-4 py-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
               {groups.map((g) => (
                 <div key={g.type} className="flex items-center gap-1.5">
                   <TypeBadge type={g.type} />
-                  <span className="text-xs text-[#6c7c93]">{formatBRL(g.subtotal)}</span>
+                  <span className="text-xs text-[#6c7c93] dark:text-zinc-400 ">{formatBRL(g.subtotal)}</span>
                 </div>
               ))}
             </div>
@@ -525,39 +525,39 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
             <div
               className={`border-t px-4 py-3 flex items-start gap-2.5 ${
                 overThreshold
-                  ? 'border-amber-200 bg-amber-50'
-                  : 'border-[#f3f4f7] bg-[#f8f9fb]'
+                  ? 'border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20'
+                  : 'border-[#f3f4f7] dark:border-zinc-800/50 bg-[#f8f9fb] dark:bg-zinc-900/30'
               }`}
             >
               {overThreshold && (
                 <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className={`text-xs font-medium ${overThreshold ? 'text-amber-800' : 'text-[#1d2530]'}`}>
+                <p className={`text-xs font-medium ${overThreshold ? 'text-amber-800 dark:text-amber-400' : 'text-[#1d2530] dark:text-zinc-100 '}`}>
                   {overThreshold
                     ? 'Custo de manutenção elevado — avalie a substituição'
                     : 'Custo vs. equipamento'
                   }
                 </p>
                 <div className="flex items-center gap-3 mt-1.5">
-                  <div className="flex-1 h-2 bg-[#e0e5eb] rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-[#e0e5eb] dark:bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        overThreshold ? 'bg-amber-500' : 'bg-[#0d4da5]'
+                        overThreshold ? 'bg-amber-500' : 'bg-[#0d4da5] dark:bg-blue-500'
                       }`}
                       style={{ width: `${Math.min(costRatio ?? 0, 100)}%` }}
                     />
                   </div>
-                  <span className={`text-[11px] font-semibold shrink-0 ${overThreshold ? 'text-amber-700' : 'text-[#6c7c93]'}`}>
+                  <span className={`text-[11px] font-semibold shrink-0 ${overThreshold ? 'text-amber-700' : 'text-[#6c7c93] dark:text-zinc-400 '}`}>
                     {costRatio?.toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex gap-4 mt-1">
-                  <span className="text-[10px] text-[#6c7c93]">
+                  <span className="text-[10px] text-[#6c7c93] dark:text-zinc-400 ">
                     Valor atual: <strong>{formatBRL(currentValue)}</strong>
                   </span>
                   {purchaseValue && (
-                    <span className="text-[10px] text-[#6c7c93]">
+                    <span className="text-[10px] text-[#6c7c93] dark:text-zinc-400 ">
                       Compra: <strong>{formatBRL(purchaseValue)}</strong>
                     </span>
                   )}
@@ -578,7 +578,7 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
       ) : (
         <button
           onClick={() => setShowForm(true)}
-          className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-[#e0e5eb] text-xs text-[#6c7c93] hover:border-[#0d4da5] hover:text-[#0d4da5] hover:bg-[#f0f5ff] transition-all"
+          className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-dashed border-[#e0e5eb] dark:border-zinc-800 text-xs text-[#6c7c93] dark:text-zinc-400 hover:border-[#0d4da5] dark:border-blue-500 hover:text-[#0d4da5] dark:hover:text-blue-400 dark:text-blue-400 hover:bg-[#f0f5ff] dark:hover:bg-blue-950/20 transition-all"
         >
           <Plus className="h-3.5 w-3.5" />
           Adicionar item de custo
@@ -587,9 +587,9 @@ export function OsCostsTab({ clientId, osId, equipment }: OsCostsTabProps) {
 
       {/* Lista de itens */}
       {items.length === 0 && !showForm ? (
-        <div className="flex flex-col items-center justify-center py-10 text-[#6c7c93]">
+        <div className="flex flex-col items-center justify-center py-10 text-[#6c7c93] dark:text-zinc-400 ">
           <TrendingUp className="h-8 w-8 mb-2.5 opacity-20" />
-          <p className="text-sm font-medium text-[#1d2530]">Nenhum custo registrado</p>
+          <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100 ">Nenhum custo registrado</p>
           <p className="text-xs mt-1 text-center max-w-[200px]">
             Adicione peças, mão de obra e serviços externos para análise de custo
           </p>

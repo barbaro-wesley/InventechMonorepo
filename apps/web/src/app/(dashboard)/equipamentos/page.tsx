@@ -1713,7 +1713,7 @@ export default function EquipamentosPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+      <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border p-4 space-y-3">
         {/* Row 1: search + toggle */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[180px]">
@@ -1728,7 +1728,7 @@ export default function EquipamentosPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as EquipmentStatus | "")}
-            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
+            className="text-sm border border-border rounded-md px-3 py-2 bg-white dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
           >
             <option value="">Todos os status</option>
             {(Object.keys(STATUS_LABEL) as EquipmentStatus[]).map((s) => (
@@ -1738,7 +1738,7 @@ export default function EquipamentosPage() {
           <select
             value={criticalityFilter}
             onChange={(e) => setCriticalityFilter(e.target.value as EquipmentCriticality | "")}
-            className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
+            className="text-sm border border-border rounded-md px-3 py-2 bg-white dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
           >
             <option value="">Todas as criticidades</option>
             {(Object.keys(CRITICALITY_LABEL) as EquipmentCriticality[]).map((c) => (
@@ -1779,7 +1779,7 @@ export default function EquipamentosPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
             >
               <option value="">Todos os tipos</option>
               {allTypes.filter((t) => t.isActive).map((t) => (
@@ -1789,7 +1789,7 @@ export default function EquipamentosPage() {
             <select
               value={costCenterFilter}
               onChange={(e) => { setCostCenterFilter(e.target.value); setLocationFilter(""); }}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
             >
               <option value="">Todos os CC</option>
               {allCostCenters.map((cc) => (
@@ -1799,7 +1799,7 @@ export default function EquipamentosPage() {
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
+              className="text-sm border border-border rounded-md px-3 py-2 bg-white dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
             >
               <option value="">Todas as localizações</option>
               {(costCenterFilter
@@ -1835,11 +1835,11 @@ export default function EquipamentosPage() {
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-52 rounded-2xl border border-border bg-white animate-pulse" />
+            <div key={i} className="h-52 rounded-2xl border border-border bg-white dark:bg-zinc-900 animate-pulse" />
           ))}
         </div>
       ) : equipments.length === 0 ? (
-        <div className="bg-white rounded-xl border border-dashed border-border py-14 text-center">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-dashed border-border py-14 text-center">
           <Wrench className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             {search || activeFilterCount > 0 ? "Nenhum equipamento encontrado" : "Nenhum equipamento cadastrado"}

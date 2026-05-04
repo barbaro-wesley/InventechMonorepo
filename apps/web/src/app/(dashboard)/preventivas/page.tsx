@@ -116,7 +116,7 @@ function StatCard({ label, value, icon: Icon, color, active, onClick }: StatCard
     <button
       onClick={onClick}
       className={`w-full text-left rounded-xl border p-4 transition-all duration-200
-        ${active ? `${c.bg} ${c.border} ring-2 ${c.ring} shadow-sm` : "bg-white border-border hover:border-gray-300 hover:shadow-sm"}`}
+        ${active ? `${c.bg} ${c.border} ring-2 ${c.ring} shadow-sm` : "bg-white dark:bg-zinc-950/50 border-border hover:border-gray-300 dark:hover:border-zinc-700 hover:shadow-sm"}`}
     >
       <div className="flex items-center justify-between mb-3">
         <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${c.icon}`}>
@@ -238,7 +238,7 @@ export default function PreventivasPage() {
       </div>
 
       {/* ── Filters ── */}
-      <div className="bg-white rounded-xl border border-border p-4 space-y-3">
+      <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border p-4 space-y-3">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -304,7 +304,7 @@ export default function PreventivasPage() {
 
       {/* ── Table ── */}
       {isLoading ? (
-        <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border overflow-hidden shadow-sm">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border bg-muted/30">
@@ -317,7 +317,7 @@ export default function PreventivasPage() {
           </table>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl border border-dashed border-border py-20 text-center">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-dashed border-border py-20 text-center">
           <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
             <CalendarClock className="w-7 h-7 text-muted-foreground/40" />
           </div>
@@ -330,7 +330,7 @@ export default function PreventivasPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-border overflow-hidden shadow-sm">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

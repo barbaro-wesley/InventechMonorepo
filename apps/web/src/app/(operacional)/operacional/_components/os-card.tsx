@@ -1,6 +1,6 @@
 'use client'
 
-import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip } from 'lucide-react'
+import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip, GitBranch, ClipboardList } from 'lucide-react'
 import type { ServiceOrder } from '@/services/service-orders/service-orders.types'
 import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo } from './os-utils'
 
@@ -32,13 +32,15 @@ export function OsCard({ os, onClick }: OsCardProps) {
   const status = STATUS_CONFIG[os.status]
   const lead = os.technicians.find((t) => t.role === 'LEAD')
   const isUrgent = os.priority === 'URGENT'
+  const hasChecklistPending = os.checklist != null && !os.checklist.completedAt
+  const isActive = os.status !== 'COMPLETED' && os.status !== 'COMPLETED_APPROVED' && os.status !== 'COMPLETED_REJECTED' && os.status !== 'CANCELLED'
 
   return (
     <button
       onClick={onClick}
       className={`
-        w-full text-left bg-white rounded-xl border border-[#e0e5eb] shadow-sm
-        hover:shadow-md hover:border-[#0d4da5]/30 transition-all duration-150
+        w-full text-left bg-white dark:bg-zinc-950 rounded-xl border border-[#e0e5eb] dark:border-zinc-800 shadow-sm
+        hover:shadow-md hover:border-[#0d4da5] dark:border-blue-500/30 transition-all duration-150
         overflow-hidden group
         ${isUrgent ? 'ring-1 ring-red-200' : ''}
       `}
@@ -49,36 +51,48 @@ export function OsCard({ os, onClick }: OsCardProps) {
       <div className="p-3 space-y-2.5">
         {/* Número + prioridade */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono text-[#6c7c93]">#{os.number}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-mono text-[#6c7c93] dark:text-zinc-400 ">#{os.number}</span>
             <span
               className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium border ${priority.badge}`}
             >
               {priority.label}
             </span>
+            {os.parentServiceOrderId && (
+              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-violet-50 text-violet-600 border border-violet-200">
+                <GitBranch className="h-2.5 w-2.5" />
+                Vinculada
+              </span>
+            )}
+            {hasChecklistPending && isActive && (
+              <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                <ClipboardList className="h-2.5 w-2.5" />
+                Checklist
+              </span>
+            )}
           </div>
           <span
-            className={`text-[10px] font-medium ${status.color}`}
+            className={`text-[10px] font-medium shrink-0 ${status.color}`}
           >
             {MAINTENANCE_TYPE_LABELS[os.maintenanceType]}
           </span>
         </div>
 
         {/* Título */}
-        <p className="text-sm font-medium text-[#1d2530] leading-snug line-clamp-2 group-hover:text-[#0a3776]">
+        <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100 leading-snug line-clamp-2 group-hover:text-[#0a3776] dark:hover:text-blue-400 dark:text-blue-400 ">
           {os.title}
         </p>
 
         {/* Cliente + equipamento */}
         <div className="space-y-1">
           {os.client && (
-            <div className="flex items-center gap-1 text-[#6c7c93]">
+            <div className="flex items-center gap-1 text-[#6c7c93] dark:text-zinc-400 ">
               <User className="h-3 w-3 shrink-0" />
               <span className="text-[11px] truncate">{os.client.name}</span>
             </div>
           )}
           {os.equipment && (
-            <div className="flex items-center gap-1 text-[#6c7c93]">
+            <div className="flex items-center gap-1 text-[#6c7c93] dark:text-zinc-400 ">
               <Wrench className="h-3 w-3 shrink-0" />
               <span className="text-[11px] truncate">{os.equipment.name}</span>
             </div>
@@ -92,18 +106,18 @@ export function OsCard({ os, onClick }: OsCardProps) {
               className="h-2 w-2 rounded-full shrink-0"
               style={{ background: os.group.color ?? '#94a3b8' }}
             />
-            <span className="text-[11px] text-[#6c7c93]">{os.group.name}</span>
+            <span className="text-[11px] text-[#6c7c93] dark:text-zinc-400 ">{os.group.name}</span>
           </div>
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-0.5 border-t border-[#f0f0f0]">
+        <div className="flex items-center justify-between pt-0.5 border-t border-[#f0f0f0] dark:border-zinc-800 ">
           {/* Técnico lead */}
           <div className="flex items-center gap-1">
             {lead?.technician ? (
               <>
                 <TechAvatar name={lead.technician.name} />
-                <span className="text-[11px] text-[#6c7c93] truncate max-w-[80px]">
+                <span className="text-[11px] text-[#6c7c93] dark:text-zinc-400 truncate max-w-[80px]">
                   {lead.technician.name?.split(' ')[0]}
                 </span>
               </>
@@ -113,7 +127,7 @@ export function OsCard({ os, onClick }: OsCardProps) {
           </div>
 
           {/* Contadores + tempo */}
-          <div className="flex items-center gap-2 text-[#6c7c93]">
+          <div className="flex items-center gap-2 text-[#6c7c93] dark:text-zinc-400 ">
             {os._count.comments > 0 && (
               <span className="flex items-center gap-0.5 text-[10px]">
                 <MessageSquare className="h-3 w-3" />

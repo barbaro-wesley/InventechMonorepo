@@ -203,7 +203,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-[#6c7c93]">
+              <p className="text-xs text-[#6c7c93] dark:text-zinc-400 ">
                 Opcional — se não definido, a OS ficará aguardando assumção no painel
               </p>
             </div>
@@ -286,7 +286,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-[#6c7c93]">
+              <p className="text-xs text-[#6c7c93] dark:text-zinc-400 ">
                 Se sem técnico, só membros do grupo poderão assumir no painel
               </p>
             </div>
@@ -307,7 +307,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
           {/* Anexos */}
           <div className="space-y-2 pt-1">
             <Label>
-              Anexos <span className="text-xs font-normal text-[#6c7c93]">(opcional)</span>
+              Anexos <span className="text-xs font-normal text-[#6c7c93] dark:text-zinc-400 ">(opcional)</span>
             </Label>
 
             <input
@@ -322,7 +322,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[#e0e5eb] hover:border-[#0d4da5]/50 hover:bg-[#0d4da5]/5 transition-colors text-sm text-[#6c7c93] hover:text-[#0d4da5]"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed border-[#e0e5eb] dark:border-zinc-800 hover:border-[#0d4da5] dark:border-blue-500/50 hover:bg-[#0d4da5] dark:bg-blue-500/5 transition-colors text-sm text-[#6c7c93] dark:text-zinc-400 hover:text-[#0d4da5] dark:hover:text-blue-400 dark:text-blue-400 "
             >
               <Upload className="w-4 h-4" />
               Clique para selecionar arquivos
@@ -332,16 +332,16 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
             {files.length > 0 && (
               <div className="space-y-1.5">
                 {files.map((file, i) => (
-                  <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f3f4f7] border border-[#e0e5eb]">
-                    <Paperclip className="w-3.5 h-3.5 text-[#6c7c93] shrink-0" />
-                    <span className="flex-1 text-xs truncate text-[#1d2530]">{file.name}</span>
-                    <span className="text-xs text-[#6c7c93] shrink-0">
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f3f4f7] dark:bg-zinc-800 border border-[#e0e5eb] dark:border-zinc-800 ">
+                    <Paperclip className="w-3.5 h-3.5 text-[#6c7c93] dark:text-zinc-400 shrink-0" />
+                    <span className="flex-1 text-xs truncate text-[#1d2530] dark:text-zinc-100 ">{file.name}</span>
+                    <span className="text-xs text-[#6c7c93] dark:text-zinc-400 shrink-0">
                       {(file.size / 1024 / 1024).toFixed(1)} MB
                     </span>
                     <button
                       type="button"
                       onClick={() => removeFile(i)}
-                      className="shrink-0 text-[#6c7c93] hover:text-red-500 transition-colors"
+                      className="shrink-0 text-[#6c7c93] dark:text-zinc-400 hover:text-red-500 transition-colors"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -352,7 +352,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
           </div>
 
           {/* Botões */}
-          <div className="flex gap-2 pt-4 border-t border-[#e0e5eb]">
+          <div className="flex gap-2 pt-4 border-t border-[#e0e5eb] dark:border-zinc-800 ">
             <Button
               type="button"
               variant="outline"
@@ -364,7 +364,7 @@ export function OsCreateSheet({ open, onClose }: OsCreateSheetProps) {
             <Button
               type="submit"
               disabled={createOs.isPending}
-              className="flex-1 bg-[#0d4da5] hover:bg-[#0a3776] text-white"
+              className="flex-1 bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:bg-blue-600 text-white"
             >
               {createOs.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />

@@ -7,6 +7,7 @@ export const EventType = {
   OS_APPROVED:                 'OS_APPROVED',
   OS_REJECTED:                 'OS_REJECTED',
   OS_UNASSIGNED_ALERT:         'OS_UNASSIGNED_ALERT',
+  OS_CHILD_CREATED:            'OS_CHILD_CREATED',
   // Equipamentos
   EQUIPMENT_CREATED:           'EQUIPMENT_CREATED',
   EQUIPMENT_MOVED:             'EQUIPMENT_MOVED',

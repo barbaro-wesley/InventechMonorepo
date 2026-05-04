@@ -1,10 +1,11 @@
 import {
     IsEnum, IsInt, IsOptional, IsString,
-    IsUUID, Max, Min,
+    IsUUID, Max, Min, IsDateString, IsIn,
 } from 'class-validator'
 import { Type } from 'class-transformer'
 import {
     MaintenanceType,
+    RecurrenceType,
     ServiceOrderPriority,
     ServiceOrderStatus,
     ServiceOrderTechnicianRole,
@@ -168,6 +169,56 @@ export class ListServiceOrdersDto {
     @Type(() => Number)
     @IsInt() @Min(1) @Max(100)
     limit?: number = 20
+}
+
+export class CreateChildServiceOrderDto {
+    @IsIn(['SERVICE_ORDER', 'MAINTENANCE_SCHEDULE'])
+    childType: 'SERVICE_ORDER' | 'MAINTENANCE_SCHEDULE'
+
+    @IsString()
+    title: string
+
+    @IsString()
+    description: string
+
+    @IsEnum(MaintenanceType)
+    maintenanceType: MaintenanceType
+
+    // Herda do pai por padrão — permite substituir
+    @IsOptional()
+    @IsUUID()
+    groupId?: string
+
+    // ── SERVICE_ORDER ────────────────────────────────────
+    @IsOptional()
+    @IsEnum(ServiceOrderPriority)
+    priority?: ServiceOrderPriority
+
+    @IsOptional()
+    @IsString()
+    scheduledFor?: string
+
+    @IsOptional()
+    @IsUUID()
+    technicianId?: string
+
+    // ── MAINTENANCE_SCHEDULE ─────────────────────────────
+    @IsOptional()
+    @IsEnum(RecurrenceType)
+    recurrenceType?: RecurrenceType
+
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    customIntervalDays?: number
+
+    @IsOptional()
+    @IsDateString()
+    startDate?: string
+
+    @IsOptional()
+    @IsDateString()
+    endDate?: string
 }
 
 // Filtros para o painel de OS disponíveis

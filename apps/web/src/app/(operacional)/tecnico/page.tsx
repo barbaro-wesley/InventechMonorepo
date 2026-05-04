@@ -95,12 +95,12 @@ export default function TecnicoPage() {
 
 function EmptyState({ isTechnician }: { isTechnician: boolean }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-[#6c7c93]">
-      <div className="h-16 w-16 rounded-2xl bg-[#f3f4f7] flex items-center justify-center">
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-[#6c7c93] dark:text-zinc-400 ">
+      <div className="h-16 w-16 rounded-2xl bg-[#f3f4f7] dark:bg-zinc-800 flex items-center justify-center">
         <span className="text-3xl">✓</span>
       </div>
       <div className="text-center">
-        <p className="text-sm font-medium text-[#1d2530]">Nenhuma OS pendente</p>
+        <p className="text-sm font-medium text-[#1d2530] dark:text-zinc-100 ">Nenhuma OS pendente</p>
         <p className="text-xs mt-1">
           {isTechnician
             ? 'Você não tem ordens de serviço abertas no momento.'
@@ -116,9 +116,9 @@ function TecnicoBoardSkeleton() {
     <div className="flex gap-4 px-4 py-4 h-full overflow-x-auto">
       {Array.from({ length: 4 }).map((_, colIdx) => (
         <div key={colIdx} className="w-72 shrink-0 space-y-3">
-          <div className="h-10 rounded-xl bg-white border border-[#e0e5eb] animate-pulse" />
+          <div className="h-10 rounded-xl bg-white dark:bg-zinc-950 border border-[#e0e5eb] dark:border-zinc-800 animate-pulse" />
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="h-32 rounded-xl bg-white border border-[#e0e5eb] animate-pulse" />
+            <div key={i} className="h-32 rounded-xl bg-white dark:bg-zinc-950 border border-[#e0e5eb] dark:border-zinc-800 animate-pulse" />
           ))}
         </div>
       ))}

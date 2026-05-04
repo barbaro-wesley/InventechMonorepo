@@ -62,6 +62,11 @@ const DEFAULT_CONFIGS: Record<EventType, Pick<NotificationConfig, 'recipientRole
         recipientContextual: [ContextualRecipient.OS_GROUP_TECHNICIANS],
         channels: [NotificationChannel.EMAIL, NotificationChannel.TELEGRAM, NotificationChannel.WEBSOCKET],
     },
+    [EventType.OS_CHILD_CREATED]: {
+        recipientRoles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER],
+        recipientContextual: [ContextualRecipient.OS_ASSIGNED_TECHNICIANS],
+        channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
+    },
     [EventType.PREVENTIVE_GENERATED]: {
         recipientRoles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER],
         recipientContextual: [ContextualRecipient.OS_GROUP_TECHNICIANS],
@@ -95,6 +100,7 @@ export const CONFIGURABLE_EVENTS: EventType[] = [
     EventType.OS_APPROVED,
     EventType.OS_REJECTED,
     EventType.OS_UNASSIGNED_ALERT,
+    EventType.OS_CHILD_CREATED,
     EventType.PREVENTIVE_GENERATED,
     EventType.PREVENTIVE_UPCOMING,
     EventType.DAILY_SUMMARY,
@@ -108,6 +114,7 @@ export const EVENT_LABELS: Record<string, string> = {
     [EventType.OS_APPROVED]: 'OS aprovada',
     [EventType.OS_REJECTED]: 'OS reprovada',
     [EventType.OS_UNASSIGNED_ALERT]: 'OS sem técnico (alerta)',
+    [EventType.OS_CHILD_CREATED]: 'OS vinculada criada',
     [EventType.PREVENTIVE_GENERATED]: 'Preventiva gerada',
     [EventType.PREVENTIVE_UPCOMING]: 'Preventivas próximas (30 dias)',
     [EventType.DAILY_SUMMARY]: 'Resumo diário',

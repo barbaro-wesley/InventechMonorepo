@@ -110,6 +110,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'service-order:create-without-equipment': [SA, CA, CM, CLA, CLU],
   // Vincular/desvincular equipamento em uma OS existente
   'service-order:link-equipment':           [SA, CA, CM],
+  // Criar OS filha / agendamento vinculado a uma OS pai
+  'service-order:create-child':             [SA, CA, CM],
 
   // ── MAINTENANCE ────────────────────────────────────────────────────────────
   'maintenance:list':            [SA, CA, CM, TEC, CLA, CLV],
@@ -191,6 +193,21 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'laudo:export-pdf':            [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo:sign':                  [SA, CA, CM, TEC, CLA, CLU],
 
+  // ── CHECKLIST TEMPLATE ─────────────────────────────────────────────────────
+  'checklist-template:browse':     [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist-template:list':       [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist-template:read':       [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist-template:create':     [SA, CA, CM],
+  'checklist-template:update':     [SA, CA, CM],
+  'checklist-template:delete':     [SA, CA],
+  'checklist-template:clone':      [SA, CA, CM],
+
+  // ── CHECKLIST (preenchimento nas OS) ───────────────────────────────────────
+  'checklist:read':                [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'checklist:fill':                [SA, CA, CM, TEC],
+  'checklist:complete':            [SA, CA, CM, TEC],
+  'checklist:reopen':              [SA, CA, CM],
+
   // ── PRINTER ────────────────────────────────────────────────────────────────
   'printer:browse':              [SA, CA, CM],
   'printer:list':                [SA, CA, CM],
@@ -208,6 +225,14 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
 
   // ── GHOSP (pacientes internados — banco hospitalar externo) ────────────────
   'ghosp:list':                  [SA, CA],
+
+  // ── ANALYTICS ──────────────────────────────────────────────────────────────
+  // Acesso por módulo — cada tipo de análise pode ser liberado independentemente
+  'analytics:equipment':         [SA, CA, CM, CLA],
+  'analytics:service-orders':    [SA, CA, CM, CLA],
+  'analytics:technicians':       [SA, CA, CM],
+  'analytics:preventive':        [SA, CA, CM, CLA],
+  'analytics:financial':         [SA, CA],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -221,7 +246,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'storage':              ['upload', 'download', 'list', 'delete'],
   'user':                 ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'client':               ['browse', 'list', 'read', 'create', 'update', 'delete', 'upload-logo'],
-  'service-order':        ['browse', 'list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own', 'create-without-equipment', 'link-equipment'],
+  'service-order':        ['browse', 'list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own', 'create-without-equipment', 'link-equipment', 'create-child'],
   'maintenance':          ['list', 'read', 'create', 'update', 'delete'],
   'maintenance-schedule': ['browse', 'list', 'read', 'create', 'update', 'delete', 'trigger'],
   'maintenance-group':    ['browse', 'list', 'read', 'create', 'update', 'delete'],
@@ -233,9 +258,12 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'notification-config':  ['browse', 'list', 'update'],
   'laudo-template':       ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'laudo':                ['browse', 'list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
+  'checklist-template':   ['browse', 'list', 'read', 'create', 'update', 'delete', 'clone'],
+  'checklist':            ['read', 'fill', 'complete', 'reopen'],
   'printer':              ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'scan':                 ['browse', 'list', 'read', 'download', 'delete'],
   'ghosp':                ['list'],
+  'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)

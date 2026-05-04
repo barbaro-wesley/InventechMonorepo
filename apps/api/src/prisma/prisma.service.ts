@@ -228,6 +228,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get laudoTemplate() { return this._db.laudoTemplate }
   get laudo() { return this._db.laudo }
 
+  // ─── Checklist Templates ──────────────────────────────────────────────
+  get checklistTemplate() { return this._db.checklistTemplate }
+  get serviceOrderChecklist() { return this._db.serviceOrderChecklist }
+
   // ─── Impressoras & Scans ──────────────────────────────────────────────
   get printer() { return this._db.printer }
   get scan() { return this._db.scan }

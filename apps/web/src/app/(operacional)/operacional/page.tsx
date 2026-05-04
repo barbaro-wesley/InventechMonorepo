@@ -143,29 +143,29 @@ export default function OperacionalPage() {
             <div className="flex flex-col flex-1 overflow-hidden">
               {/* Barra de loading sutil ao refetching */}
               {boardFetching && !boardLoading && (
-                <div className="shrink-0 h-0.5 w-full bg-[#e0e5eb] overflow-hidden">
-                  <div className="h-full w-1/2 bg-[#0d4da5] rounded-full animate-pulse" />
+                <div className="shrink-0 h-0.5 w-full bg-[#e0e5eb] dark:bg-zinc-800 overflow-hidden">
+                  <div className="h-full w-1/2 bg-[#0d4da5] dark:bg-blue-500 rounded-full animate-pulse" />
                 </div>
               )}
               <OsBoard orders={filteredBoard} showClosed={filters.showClosed} onCardClick={handleCardClick} />
 
               {/* Footer do board: total + carregar mais */}
               {(boardHasMore || boardFetching) ? (
-                <div className="shrink-0 flex items-center justify-center gap-3 py-2 border-t border-[#e0e5eb] bg-white">
-                  <span className="text-xs text-[#6c7c93]">
+                <div className="shrink-0 flex items-center justify-center gap-3 py-2 border-t border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                  <span className="text-xs text-[#6c7c93] dark:text-zinc-400">
                     Exibindo {allBoardOrders.length} de {boardTotal} OS
                   </span>
                   <button
                     onClick={() => setBoardPage(p => p + 1)}
                     disabled={boardFetching}
-                    className="h-7 px-4 rounded text-xs font-medium text-[#0d4da5] border border-[#0d4da5] hover:bg-[#f0f4ff] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="h-7 px-4 rounded text-xs font-medium text-[#0d4da5] dark:text-blue-400 border border-[#0d4da5] dark:border-blue-500 hover:bg-[#f0f4ff] dark:hover:bg-blue-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {boardFetching ? 'Carregando...' : 'Carregar mais'}
                   </button>
                 </div>
               ) : boardTotal > 0 && (
-                <div className="shrink-0 flex items-center justify-center py-1.5 border-t border-[#e0e5eb] bg-[#fafafa]">
-                  <span className="text-xs text-[#6c7c93]">{boardTotal} OS no total</span>
+                <div className="shrink-0 flex items-center justify-center py-1.5 border-t border-[#e0e5eb] dark:border-zinc-800 bg-[#fafafa] dark:bg-zinc-900/50">
+                  <span className="text-xs text-[#6c7c93] dark:text-zinc-400">{boardTotal} OS no total</span>
                 </div>
               )}
             </div>
@@ -177,18 +177,18 @@ export default function OperacionalPage() {
         listFirstLoad
           ? <ListSkeleton />
           : (
-            <div className="flex-1 overflow-hidden bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] shadow-sm flex flex-col">
+            <div className="flex-1 overflow-hidden bg-white dark:bg-zinc-950 mx-4 my-4 rounded-xl border border-[#e0e5eb] dark:border-zinc-800 shadow-sm flex flex-col">
               {/* Barra de info + loading sutil */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
-                <span className="text-xs text-[#6c7c93]">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-[#f0f0f0] dark:border-zinc-800 bg-[#fafafa] dark:bg-zinc-900/50 shrink-0">
+                <span className="text-xs text-[#6c7c93] dark:text-zinc-400">
                   {listFetching && !listFirstLoad
                     ? 'Buscando...'
                     : `${listTotal} ordem${listTotal !== 1 ? 's' : ''} encontrada${listTotal !== 1 ? 's' : ''}`
                   }
                 </span>
                 {listFetching && !listFirstLoad && (
-                  <span className="h-1 w-24 rounded-full bg-[#e0e5eb] overflow-hidden">
-                    <span className="block h-full w-1/2 bg-[#0d4da5] rounded-full animate-pulse" />
+                  <span className="h-1 w-24 rounded-full bg-[#e0e5eb] dark:bg-zinc-800 overflow-hidden">
+                    <span className="block h-full w-1/2 bg-[#0d4da5] dark:bg-blue-500 rounded-full animate-pulse" />
                   </span>
                 )}
               </div>
@@ -200,15 +200,15 @@ export default function OperacionalPage() {
 
               {/* Paginação */}
               {listTotalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#e0e5eb] bg-white shrink-0">
-                  <span className="text-xs text-[#6c7c93]">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2.5 border-t border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
+                  <span className="text-xs text-[#6c7c93] dark:text-zinc-400">
                     Página {page} de {listTotalPages}
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-hide">
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="h-7 px-3 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#e0e5eb]"
+                      className="h-7 px-3 rounded text-xs text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#e0e5eb] dark:border-zinc-800"
                     >
                       ‹ Anterior
                     </button>
@@ -223,8 +223,8 @@ export default function OperacionalPage() {
                           onClick={() => setPage(p)}
                           className={`h-7 w-7 rounded text-xs font-medium transition-colors ${
                             p === page
-                              ? 'bg-[#0d4da5] text-white'
-                              : 'text-[#6c7c93] hover:bg-[#f3f4f7] border border-[#e0e5eb]'
+                              ? 'bg-[#0d4da5] dark:bg-blue-600 text-white'
+                              : 'text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 border border-[#e0e5eb] dark:border-zinc-800'
                           }`}
                         >
                           {p}
@@ -235,7 +235,7 @@ export default function OperacionalPage() {
                     <button
                       onClick={() => setPage((p) => Math.min(listTotalPages, p + 1))}
                       disabled={page >= listTotalPages}
-                      className="h-7 px-3 rounded text-xs text-[#6c7c93] hover:bg-[#f3f4f7] disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#e0e5eb]"
+                      className="h-7 px-3 rounded text-xs text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f3f4f7] dark:hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors border border-[#e0e5eb] dark:border-zinc-800"
                     >
                       Próxima ›
                     </button>
@@ -258,12 +258,12 @@ export default function OperacionalPage() {
 
 function BoardSkeleton() {
   return (
-    <div className="flex gap-4 px-4 py-4 h-full overflow-x-auto">
+    <div className="flex gap-4 px-4 py-4 h-full overflow-x-auto snap-x snap-mandatory">
       {Array.from({ length: 5 }).map((_, colIdx) => (
-        <div key={colIdx} className="w-72 shrink-0 space-y-3">
-          <div className="h-10 rounded-xl bg-white border border-[#e0e5eb] animate-pulse" />
+        <div key={colIdx} className="w-[85vw] sm:w-72 shrink-0 space-y-3 snap-center">
+          <div className="h-10 rounded-xl bg-white dark:bg-zinc-900 border border-[#e0e5eb] dark:border-zinc-800 animate-pulse" />
           {Array.from({ length: 3 - (colIdx % 2) }).map((_, i) => (
-            <div key={i} className="h-32 rounded-xl bg-white border border-[#e0e5eb] animate-pulse" />
+            <div key={i} className="h-32 rounded-xl bg-white dark:bg-zinc-900 border border-[#e0e5eb] dark:border-zinc-800 animate-pulse" />
           ))}
         </div>
       ))}
@@ -273,9 +273,9 @@ function BoardSkeleton() {
 
 function ListSkeleton() {
   return (
-    <div className="flex-1 bg-white mx-4 my-4 rounded-xl border border-[#e0e5eb] p-4 space-y-3">
+    <div className="flex-1 bg-white dark:bg-zinc-950 mx-4 my-4 rounded-xl border border-[#e0e5eb] dark:border-zinc-800 p-4 space-y-3">
       {Array.from({ length: 10 }).map((_, i) => (
-        <div key={i} className="h-12 rounded-lg bg-[#f3f4f7] animate-pulse" />
+        <div key={i} className="h-12 rounded-lg bg-[#f3f4f7] dark:bg-zinc-800 animate-pulse" />
       ))}
     </div>
   )

@@ -41,6 +41,7 @@ export interface MaintenanceSchedule {
   group: { id: string; name: string; color: string | null } | null
   client: { id: string; name: string } | null
   assignedTechnician: { id: string; name: string } | null
+  checklistTemplate: { id: string; title: string } | null
   _count: { maintenances: number }
 }
 
@@ -57,6 +58,7 @@ export interface CreateMaintenanceScheduleDto {
   groupId?: string
   startDate: string
   endDate?: string
+  checklistTemplateId?: string
 }
 
 export interface UpdateMaintenanceScheduleDto {
@@ -69,6 +71,7 @@ export interface UpdateMaintenanceScheduleDto {
   groupId?: string | null
   endDate?: string | null
   isActive?: boolean
+  checklistTemplateId?: string | null
 }
 
 export interface ListSchedulesParams {
@@ -144,7 +147,10 @@ async function update(
   id: string,
   dto: UpdateMaintenanceScheduleDto,
 ): Promise<MaintenanceSchedule> {
-  const { data } = await api.patch(`/clients/${clientId}/maintenance-schedules/${id}`, dto)
+  const url = clientId
+    ? `/clients/${clientId}/maintenance-schedules/${id}`
+    : `/maintenance-schedules/${id}`
+  const { data } = await api.patch(url, dto)
   return data.data ?? data
 }
 

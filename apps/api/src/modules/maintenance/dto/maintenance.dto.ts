@@ -144,6 +144,10 @@ export class CreateScheduleDto {
     @IsOptional()
     @IsDateString()
     endDate?: string
+
+    @IsOptional()
+    @IsUUID()
+    checklistTemplateId?: string
 }
 
 export class UpdateScheduleDto {
@@ -184,6 +188,10 @@ export class UpdateScheduleDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean
+
+    @IsOptional()
+    @IsUUID()
+    checklistTemplateId?: string | null
 }
 
 export class ToggleScheduleDto {

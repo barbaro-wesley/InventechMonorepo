@@ -304,7 +304,7 @@ function TypeRow({
       style={{ opacity: type.isActive ? 1 : 0.6 }}
     >
       {/* Type header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white hover:bg-muted/20 transition-colors">
+      <div className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-zinc-950/50 hover:bg-muted/20 transition-colors">
         {/* Expand toggle */}
         <button
           onClick={() => setExpanded((v) => !v)}
@@ -435,7 +435,7 @@ function TypeRow({
             type.subtypes.map((sub) => (
               <div
                 key={sub.id}
-                className="flex items-center gap-3 px-3 py-2 bg-white rounded-lg border border-border"
+                className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-zinc-950/50 rounded-lg border border-border"
                 style={{ opacity: sub.isActive ? 1 : 0.55 }}
               >
                 <Tag className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
@@ -595,12 +595,12 @@ export default function EquipmentTypesPage() {
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-16 rounded-xl border border-border bg-white animate-pulse"
+              className="h-16 rounded-xl border border-border bg-white dark:bg-zinc-900 animate-pulse"
             />
           ))}
         </div>
       ) : types.length === 0 ? (
-        <div className="bg-white rounded-xl border border-border py-16 text-center">
+        <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border py-16 text-center">
           <Layers className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
             {search ? "Nenhum tipo encontrado" : "Nenhum tipo cadastrado"}

@@ -10,6 +10,7 @@ import {
   Circle,
   Plus,
   LogIn,
+  ClipboardCheck,
 } from 'lucide-react'
 import type { ServiceOrderDetail, ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
 import { STATUS_CONFIG, timeAgo } from '../os-utils'
@@ -27,6 +28,7 @@ type EventKind =
   | 'technician_assumed'
   | 'attachment'
   | 'created'
+  | 'checklist_completed'
 
 interface ActivityEvent {
   id: string
@@ -132,6 +134,16 @@ function buildTimeline(os: ServiceOrderDetail): ActivityEvent[] {
     })
   }
 
+  // Checklist concluído
+  if (os.checklist?.completedAt) {
+    events.push({
+      id: `checklist-completed-${os.id}`,
+      kind: 'checklist_completed',
+      date: os.checklist.completedAt,
+      actor: os.checklist.completedBy?.name,
+    })
+  }
+
   // Ordena por data decrescente (mais recente primeiro)
   return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 }
@@ -139,27 +151,29 @@ function buildTimeline(os: ServiceOrderDetail): ActivityEvent[] {
 function EventIcon({ kind }: { kind: EventKind }) {
   const base = 'h-3 w-3'
   switch (kind) {
-    case 'created':       return <Plus className={`${base} text-[#6c7c93]`} />
-    case 'status':        return <Circle className={`${base} text-[#6c7c93]`} />
-    case 'comment':       return <MessageSquare className={`${base} text-blue-500`} />
-    case 'task_created':  return <CheckSquare className={`${base} text-slate-400`} />
-    case 'task_completed':return <CheckSquare className={`${base} text-emerald-500`} />
-    case 'technician_added':  return <UserPlus className={`${base} text-violet-500`} />
-    case 'technician_assumed':return <LogIn className={`${base} text-indigo-500`} />
-    case 'attachment':    return <Paperclip className={`${base} text-amber-500`} />
+    case 'created':              return <Plus className={`${base} text-[#6c7c93] dark:text-zinc-400 `} />
+    case 'status':               return <Circle className={`${base} text-[#6c7c93] dark:text-zinc-400 `} />
+    case 'comment':              return <MessageSquare className={`${base} text-blue-500`} />
+    case 'task_created':         return <CheckSquare className={`${base} text-slate-400`} />
+    case 'task_completed':       return <CheckSquare className={`${base} text-emerald-500`} />
+    case 'technician_added':     return <UserPlus className={`${base} text-violet-500`} />
+    case 'technician_assumed':   return <LogIn className={`${base} text-indigo-500`} />
+    case 'attachment':           return <Paperclip className={`${base} text-amber-500`} />
+    case 'checklist_completed':  return <ClipboardCheck className={`${base} text-emerald-600`} />
   }
 }
 
 function dotColor(kind: EventKind): string {
   switch (kind) {
-    case 'created':           return 'bg-[#6c7c93]'
-    case 'status':            return 'bg-[#6c7c93]'
-    case 'comment':           return 'bg-blue-400'
-    case 'task_created':      return 'bg-slate-300'
-    case 'task_completed':    return 'bg-emerald-400'
-    case 'technician_added':  return 'bg-violet-400'
-    case 'technician_assumed':return 'bg-indigo-400'
-    case 'attachment':        return 'bg-amber-400'
+    case 'created':              return 'bg-[#6c7c93]'
+    case 'status':               return 'bg-[#6c7c93]'
+    case 'comment':              return 'bg-blue-400'
+    case 'task_created':         return 'bg-slate-300'
+    case 'task_completed':       return 'bg-emerald-400'
+    case 'technician_added':     return 'bg-violet-400'
+    case 'technician_assumed':   return 'bg-indigo-400'
+    case 'attachment':           return 'bg-amber-400'
+    case 'checklist_completed':  return 'bg-emerald-500'
   }
 }
 
@@ -167,7 +181,7 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
   switch (ev.kind) {
     case 'created':
       return (
-        <p className="text-xs text-[#1d2530]">
+        <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
           OS criada{ev.actor ? ` por ${ev.actor}` : ''}
         </p>
       )
@@ -183,7 +197,7 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${fromStatus.bg} ${fromStatus.color}`}>
                   {fromStatus.label}
                 </span>
-                <ArrowRight className="h-3 w-3 text-[#6c7c93] shrink-0" />
+                <ArrowRight className="h-3 w-3 text-[#6c7c93] dark:text-zinc-400 shrink-0" />
               </>
             )}
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border ${toStatus.bg} ${toStatus.color}`}>
@@ -192,7 +206,7 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
             </span>
           </div>
           {ev.reason && (
-            <p className="text-xs text-[#6c7c93] mt-1 leading-relaxed">"{ev.reason}"</p>
+            <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-1 leading-relaxed">"{ev.reason}"</p>
           )}
         </div>
       )
@@ -202,17 +216,17 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
       return (
         <div>
           <div className="flex items-center gap-1.5">
-            <p className="text-xs text-[#1d2530]">
+            <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
               {ev.actor ? `${ev.actor} adicionou um comentário` : 'Comentário adicionado'}
             </p>
             {ev.isInternal && (
-              <span className="text-[9px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5">
+              <span className="text-[9px] font-medium bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900 rounded-full px-1.5 py-0.5">
                 Interno
               </span>
             )}
           </div>
           {ev.commentContent && (
-            <p className="text-xs text-[#6c7c93] mt-0.5 line-clamp-2 leading-relaxed">
+            <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5 line-clamp-2 leading-relaxed">
               "{ev.commentContent}"
             </p>
           )}
@@ -221,14 +235,14 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
 
     case 'task_created':
       return (
-        <p className="text-xs text-[#1d2530]">
+        <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
           Tarefa criada: <span className="font-medium">{ev.taskTitle}</span>
         </p>
       )
 
     case 'task_completed':
       return (
-        <p className="text-xs text-[#1d2530]">
+        <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
           Tarefa concluída: <span className="font-medium">{ev.taskTitle}</span>
           {ev.actor ? ` por ${ev.actor}` : ''}
         </p>
@@ -236,22 +250,29 @@ function EventBody({ ev }: { ev: ActivityEvent }) {
 
     case 'technician_added':
       return (
-        <p className="text-xs text-[#1d2530]">
+        <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
           Técnico adicionado: <span className="font-medium">{ev.technicianName}</span>
         </p>
       )
 
     case 'technician_assumed':
       return (
-        <p className="text-xs text-[#1d2530]">
+        <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
           <span className="font-medium">{ev.technicianName}</span> assumiu a OS
         </p>
       )
 
     case 'attachment':
       return (
-        <p className="text-xs text-[#1d2530]">
+        <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
           Anexo adicionado: <span className="font-medium">{ev.attachmentName}</span>
+        </p>
+      )
+
+    case 'checklist_completed':
+      return (
+        <p className="text-xs text-[#1d2530] dark:text-zinc-100 ">
+          Checklist concluído{ev.actor ? ` por ${ev.actor}` : ''}
         </p>
       )
   }
@@ -262,7 +283,7 @@ export function OsHistoryTab({ os }: OsHistoryTabProps) {
 
   if (events.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-[#6c7c93]">
+      <div className="flex flex-col items-center justify-center py-8 text-[#6c7c93] dark:text-zinc-400 ">
         <p className="text-sm">Nenhuma atividade registrada</p>
       </div>
     )
@@ -272,7 +293,7 @@ export function OsHistoryTab({ os }: OsHistoryTabProps) {
     <div className="py-1">
       <div className="relative">
         {/* Linha vertical */}
-        <div className="absolute left-3.5 top-3 bottom-3 w-px bg-[#e0e5eb]" />
+        <div className="absolute left-3.5 top-3 bottom-3 w-px bg-[#e0e5eb] dark:bg-zinc-800 " />
 
         <div className="space-y-1">
           {events.map((ev) => (
@@ -282,16 +303,16 @@ export function OsHistoryTab({ os }: OsHistoryTabProps) {
 
               {/* Conteúdo */}
               <div className="flex-1 pb-3">
-                <div className="bg-white rounded-lg border border-[#e0e5eb] p-3">
+                <div className="bg-white dark:bg-zinc-950 rounded-lg border border-[#e0e5eb] dark:border-zinc-800 p-3">
                   <div className="flex items-start gap-2">
                     <EventIcon kind={ev.kind} />
                     <div className="flex-1 min-w-0">
                       <EventBody ev={ev} />
                       <div className="flex items-center gap-2 mt-1.5">
                         {ev.actor && ev.kind !== 'comment' && ev.kind !== 'technician_assumed' && ev.kind !== 'task_completed' && (
-                          <span className="text-[11px] font-medium text-[#1d2530]">{ev.actor}</span>
+                          <span className="text-[11px] font-medium text-[#1d2530] dark:text-zinc-100 ">{ev.actor}</span>
                         )}
-                        <span className="text-[10px] text-[#6c7c93]">{timeAgo(ev.date)}</span>
+                        <span className="text-[10px] text-[#6c7c93] dark:text-zinc-400 ">{timeAgo(ev.date)}</span>
                       </div>
                     </div>
                   </div>
