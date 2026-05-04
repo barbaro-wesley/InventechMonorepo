@@ -63,7 +63,7 @@ const SCHEDULE_SELECT = {
     isActive: true,
     createdAt: true,
     updatedAt: true,
-    equipment: { select: { id: true, name: true, brand: true, model: true } },
+    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true } },
     group: { select: { id: true, name: true, color: true } },
     client: { select: { id: true, name: true } },
     assignedTechnician: { select: { id: true, name: true } },
@@ -204,7 +204,7 @@ export class MaintenanceService {
         filters: ListSchedulesDto,
         clientId?: string,
     ) {
-        const { search, equipmentId, maintenanceType, recurrenceType, isActive, page = 1, limit = 20 } = filters
+        const { search, equipmentId, maintenanceType, recurrenceType, groupId, isActive, page = 1, limit = 20 } = filters
 
         // Restrição por grupo: mesma lógica do equipment service
         // Usuário cliente só vê agendamentos dos grupos vinculados ao seu cliente
@@ -216,6 +216,7 @@ export class MaintenanceService {
             // Se allowedGroupIds for um array vazio, o cliente não tem grupos → retorna nada
             // Se for null, usuário de empresa → sem restrição de grupo
             ...(allowedGroupIds !== null && { groupId: { in: allowedGroupIds } }),
+            ...(groupId && { groupId }),
             ...(equipmentId && { equipmentId }),
             ...(maintenanceType && { maintenanceType }),
             ...(recurrenceType && { recurrenceType }),

@@ -18,7 +18,7 @@ import { useCurrentUser } from "@/store/auth.store";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { ScheduleDetailSheet, getScheduleStatus } from "@/components/maintenance/schedule-detail-sheet";
 import { ScheduleFormSheet } from "@/components/maintenance/schedule-form-sheet";
-import type { MaintenanceSchedule, MaintenanceType, RecurrenceType } from "@/services/maintenance/maintenance-schedule.service";
+import type { MaintenanceSchedule, RecurrenceType } from "@/services/maintenance/maintenance-schedule.service";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -139,7 +139,6 @@ export default function PreventivasPage() {
 
   const [search, setSearch] = useState("");
   const [recurrenceType, setRecurrenceType] = useState<string>("");
-  const [maintenanceType, setMaintenanceType] = useState<string>("");
   const [groupId, setGroupId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -157,7 +156,6 @@ export default function PreventivasPage() {
   const { data, isLoading, refetch, isFetching } = useMaintenanceSchedules({
     search: search || undefined,
     recurrenceType: recurrenceType as RecurrenceType || undefined,
-    maintenanceType: maintenanceType as MaintenanceType || undefined,
     groupId: groupId || undefined,
     isActive: isActiveFilter,
     page,
@@ -183,10 +181,10 @@ export default function PreventivasPage() {
   const cntDueSoon  = statsAll.filter((s) => getScheduleStatus(s) === "due_soon").length;
   const cntInactive = statsAll.filter((s) => !s.isActive).length;
 
-  const hasFilters = !!(search || recurrenceType || maintenanceType || groupId || statusFilter);
+  const hasFilters = !!(search || recurrenceType || groupId || statusFilter);
 
   function clearFilters() {
-    setSearch(""); setRecurrenceType(""); setMaintenanceType("");
+    setSearch(""); setRecurrenceType("");
     setGroupId(""); setStatusFilter(""); setPage(1);
   }
 
@@ -262,18 +260,6 @@ export default function PreventivasPage() {
               <SelectContent>
                 <SelectItem value="all">Toda recorrência</SelectItem>
                 {Object.entries(RECURRENCE_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={maintenanceType || "all"} onValueChange={(v) => { setMaintenanceType(v === "all" ? "" : v); setPage(1); }}>
-              <SelectTrigger className="h-10 text-sm w-44">
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todo tipo</SelectItem>
-                {Object.entries(MAINTENANCE_TYPE_LABELS).map(([k, v]) => (
                   <SelectItem key={k} value={k}>{v}</SelectItem>
                 ))}
               </SelectContent>
@@ -362,6 +348,11 @@ export default function PreventivasPage() {
                         <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[220px]">
                           {s.equipment.name}{s.equipment.brand ? ` · ${s.equipment.brand}` : ""}
                         </p>
+                        {s.equipment.patrimonyNumber && (
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5 font-mono">
+                            Pat. {s.equipment.patrimonyNumber}
+                          </p>
+                        )}
                         {isCompanyLevel && s.client && (
                           <p className="text-[10px] text-muted-foreground/60 mt-0.5">{s.client.name}</p>
                         )}

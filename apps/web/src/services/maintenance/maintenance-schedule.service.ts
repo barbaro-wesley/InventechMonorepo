@@ -37,7 +37,7 @@ export interface MaintenanceSchedule {
   isActive: boolean
   createdAt: string
   updatedAt: string
-  equipment: { id: string; name: string; brand: string | null; model: string | null }
+  equipment: { id: string; name: string; brand: string | null; model: string | null; patrimonyNumber: string | null }
   group: { id: string; name: string; color: string | null } | null
   client: { id: string; name: string } | null
   assignedTechnician: { id: string; name: string } | null

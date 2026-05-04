@@ -217,6 +217,10 @@ export class ListSchedulesDto {
     recurrenceType?: RecurrenceType
 
     @IsOptional()
+    @IsUUID()
+    groupId?: string
+
+    @IsOptional()
     @IsBoolean()
     @Type(() => Boolean)
     isActive?: boolean
