@@ -22,7 +22,8 @@ export class PacienteInternadoDto {
 
   @ApiPropertyOptional({ example: 57203 })
   prontuario: number | null
-
+   @ApiPropertyOptional({ example: 400055 })
+  ra: number | null
   @ApiProperty({ example: '28/04/2026' })
   data_entrada: string
 

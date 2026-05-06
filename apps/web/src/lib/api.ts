@@ -7,6 +7,18 @@ export const api = axios.create({
     headers: {
         "Content-Type": "application/json",
     },
+    paramsSerializer: (params) => {
+        const parts: string[] = []
+        for (const [key, value] of Object.entries(params)) {
+            if (value === undefined || value === null) continue
+            if (Array.isArray(value)) {
+                value.forEach((v) => parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`))
+            } else {
+                parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value as string)}`)
+            }
+        }
+        return parts.join('&')
+    },
 });
 
 // When sending FormData, remove the Content-Type default so the browser sets it

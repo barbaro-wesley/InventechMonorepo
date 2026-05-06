@@ -206,6 +206,7 @@ export interface PaginatedResponse<T> {
 export interface ListServiceOrdersParams {
   search?: string
   status?: ServiceOrderStatus
+  statuses?: ServiceOrderStatus[]
   priority?: ServiceOrderPriority
   clientId?: string
   groupId?: string

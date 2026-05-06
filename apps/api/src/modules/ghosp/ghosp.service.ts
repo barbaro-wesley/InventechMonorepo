@@ -67,6 +67,7 @@ export class GhospService implements OnModuleInit, OnModuleDestroy {
           `SELECT
             paciente,
             prontuario,
+            ra,
             TO_CHAR(data_entrada, 'DD/MM/YYYY') AS data_entrada,
             leito,
             setor,
