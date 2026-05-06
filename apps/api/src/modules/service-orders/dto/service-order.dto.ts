@@ -1,8 +1,8 @@
 import {
-    IsEnum, IsInt, IsOptional, IsString,
+    IsArray, IsEnum, IsInt, IsOptional, IsString,
     IsUUID, Max, Min, IsDateString, IsIn,
 } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
 import {
     MaintenanceType,
     RecurrenceType,
@@ -135,6 +135,12 @@ export class ListServiceOrdersDto {
     @IsOptional()
     @IsEnum(ServiceOrderStatus)
     status?: ServiceOrderStatus
+
+    @IsOptional()
+    @IsArray()
+    @IsEnum(ServiceOrderStatus, { each: true })
+    @Transform(({ value }) => Array.isArray(value) ? value : value ? [value] : undefined)
+    statuses?: ServiceOrderStatus[]
 
     @IsOptional()
     @IsEnum(ServiceOrderPriority)

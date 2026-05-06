@@ -287,7 +287,7 @@ export class ServiceOrdersService {
         currentUser: AuthenticatedUser,
     ) {
         const {
-            search, status, priority, equipmentId,
+            search, status, statuses, priority, equipmentId,
             clientId, groupId, dateFrom, dateTo, page = 1, limit = 50,
         } = filters
 
@@ -295,7 +295,7 @@ export class ServiceOrdersService {
             companyId,
             deletedAt: null,
             ...(clientId && { clientId }),
-            ...(status && { status }),
+            ...(statuses?.length ? { status: { in: statuses } } : status ? { status } : {}),
             ...(priority && { priority }),
             ...(equipmentId && { equipmentId }),
             ...(groupId && { groupId }),

@@ -24,7 +24,9 @@
       "Bash(grep -E \"\\\\.\\(ts|js\\)$\")",
       "Bash(grep -n \"keys\\\\|{s,\" \"C:\\\\Users\\\\Wesley Barbaro\\\\Documents\\\\inventech-monorepo\\\\node_modules\\\\next\\\\dist\\\\compiled\\\\react\\\\jsx-dev-runtime.js\")",
       "Bash(grep -E \"\\\\.\\(ts|prisma\\)$\")",
-      "Bash(grep -E \"\\\\.ts$\")"
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(Get-ChildItem -Path 'c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo' -Recurse)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

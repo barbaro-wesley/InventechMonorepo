@@ -13,6 +13,8 @@ import { OsList } from './_components/os-list'
 import { OsDetailDrawer } from './_components/os-detail-drawer'
 import type { ServiceOrder, ServiceOrderStatus, ServiceOrderPriority } from '@/services/service-orders/service-orders.types'
 
+const ACTIVE_STATUSES: ServiceOrderStatus[] = ['AWAITING_PICKUP', 'OPEN', 'IN_PROGRESS', 'COMPLETED']
+
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -59,9 +61,14 @@ export default function OperacionalPage() {
   } : {}
 
   // ── Board ────────────────────────────────────────────────────────────────────
+  // Limita aos status ativos por padrão para não desperdiçar slots com encerradas.
+  // Remove o filtro quando: usuário busca algo (pesquisa cruza todos os status),
+  // showClosed está ligado, ou um status específico foi selecionado.
+  const boardStatuses = !filters.status && !filters.showClosed && !debouncedSearch ? ACTIVE_STATUSES : undefined
+
   const { data: boardResponse, isLoading: boardLoading, isFetching: boardFetching } = useServiceOrders(
-    filters.view === 'board'
-      ? { ...filterParams, limit: BOARD_PAGE_SIZE, page: boardPage }
+    filters.view === 'board' && hydrated
+      ? { ...filterParams, statuses: boardStatuses, limit: BOARD_PAGE_SIZE, page: boardPage }
       : null
   )
 
@@ -147,7 +154,7 @@ export default function OperacionalPage() {
                   <div className="h-full w-1/2 bg-[#0d4da5] dark:bg-blue-500 rounded-full animate-pulse" />
                 </div>
               )}
-              <OsBoard orders={filteredBoard} showClosed={filters.showClosed} onCardClick={handleCardClick} />
+              <OsBoard orders={filteredBoard} showClosed={filters.showClosed || !!debouncedSearch} onCardClick={handleCardClick} />
 
               {/* Footer do board: total + carregar mais */}
               {(boardHasMore || boardFetching) ? (

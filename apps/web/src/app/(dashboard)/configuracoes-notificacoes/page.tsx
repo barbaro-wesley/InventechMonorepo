@@ -175,7 +175,7 @@ function EditConfigSheet({
 
     const upsertMutation = useUpsertNotificationConfig();
     const { data: groups } = useMaintenanceGroups({ isActive: true });
-    const { data: usersResponse } = useUsers({ limit: 200 });
+    const { data: usersResponse } = useUsers({ limit: 100 });
     const { data: customRoles } = useQuery({
         queryKey: ["custom-roles", "for-notification-config"],
         queryFn: () => customRolesService.list(),
