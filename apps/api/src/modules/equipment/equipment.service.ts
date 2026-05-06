@@ -310,6 +310,15 @@ export class EquipmentService {
             if (conflict) throw new ConflictException('Número de série já em uso nesta empresa')
         }
 
+        // Valida número de patrimônio único se mudando
+        if (dto.patrimonyNumber && dto.patrimonyNumber !== existing.patrimonyNumber) {
+            const conflict = await this.prisma.equipment.findFirst({
+                where: { patrimonyNumber: dto.patrimonyNumber, companyId, deletedAt: null, id: { not: id } },
+                select: { id: true },
+            })
+            if (conflict) throw new ConflictException('Número de patrimônio já em uso nesta empresa')
+        }
+
         const updated = await this.prisma.equipment.update({
             where: { id },
             data: {
