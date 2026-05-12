@@ -1,9 +1,10 @@
 import {
-    IsDateString, IsDecimal, IsEnum, IsInt, IsOptional,
-    IsString, IsUUID, Max, Min,
+    IsArray, IsDateString, IsDecimal, IsEnum, IsInt, IsOptional,
+    IsString, IsUUID, Max, Min, ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
 import { EquipmentCriticality, EquipmentStatus, MaintenanceType, ServiceOrderStatus } from '@prisma/client'
+import { CustomFieldValueDto } from '../custom-fields/dto/custom-field.dto'
 
 export class CreateEquipmentDto {
     @IsString()
@@ -99,6 +100,12 @@ export class CreateEquipmentDto {
     @IsOptional()
     @IsString()
     observations?: string
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CustomFieldValueDto)
+    customFields?: CustomFieldValueDto[]
 }
 
 export class UpdateEquipmentDto {
@@ -126,6 +133,12 @@ export class UpdateEquipmentDto {
     @IsOptional() @IsEnum(EquipmentCriticality) criticality?: EquipmentCriticality
     @IsOptional() @IsEnum(EquipmentStatus) status?: EquipmentStatus
     @IsOptional() @IsString() observations?: string
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CustomFieldValueDto)
+    customFields?: CustomFieldValueDto[]
 }
 
 export class ListEquipmentsDto {

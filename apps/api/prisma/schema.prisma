@@ -302,6 +302,46 @@ model EquipmentSubtype {
   @@map("equipment_subtypes")
 }
 
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
+model EquipmentCustomFieldDefinition {
+  id          String          @id @default(uuid())
+  companyId   String          @map("company_id")
+  name        String
+  fieldType   CustomFieldType @map("field_type")
+  required    Boolean         @default(false)
+  order       Int             @default(0)
+  options     Json?           // string[] for SELECT type
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  values      EquipmentCustomFieldValue[]
+
+  @@index([companyId, isActive])
+  @@map("equipment_custom_field_definitions")
+}
+
+model EquipmentCustomFieldValue {
+  id           String                         @id @default(uuid())
+  equipmentId  String                         @map("equipment_id")
+  definitionId String                         @map("definition_id")
+  value        String?
+  createdAt    DateTime                       @default(now()) @map("created_at")
+  updatedAt    DateTime                       @updatedAt @map("updated_at")
+  equipment    Equipment                      @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  definition   EquipmentCustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, definitionId])
+  @@index([equipmentId])
+  @@map("equipment_custom_field_values")
+}
+
 model Equipment {
   id                   String                @id @default(uuid())
   companyId            String                @map("company_id")
@@ -348,6 +388,7 @@ model Equipment {
   schedules            MaintenanceSchedule[]
   maintenances         Maintenance[]
   serviceOrders        ServiceOrder[]
+  customFieldValues    EquipmentCustomFieldValue[]
 
   @@index([companyId])
   @@index([companyId, status])

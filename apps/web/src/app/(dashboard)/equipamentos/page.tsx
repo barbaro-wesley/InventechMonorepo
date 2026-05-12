@@ -73,6 +73,7 @@ import {
   useEquipmentServiceOrders,
 } from "@/hooks/equipment/use-equipment";
 import { useMovements, useCreateMovement, useReturnEquipment } from "@/hooks/equipment/use-movements";
+import { useCustomFieldDefinitions } from "@/hooks/equipment/use-custom-fields";
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
@@ -195,6 +196,10 @@ function EquipmentSheet({
 
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+
+  const { data: customFieldDefs = [] } = useCustomFieldDefinitions();
+  const activeCustomFields = customFieldDefs.filter((d) => d.isActive);
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EquipmentForm>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -233,6 +238,11 @@ function EquipmentSheet({
         criticality: editTarget.criticality,
         observations: editTarget.observations ?? "",
       });
+      const vals: Record<string, string> = {};
+      (editTarget.customFieldValues ?? []).forEach((v) => {
+        vals[v.definitionId] = v.value ?? "";
+      });
+      setCustomFieldValues(vals);
     } else {
       reset({
         name: "", brand: "", model: "", serialNumber: "", patrimonyNumber: "", anvisaNumber: "", invoiceNumber: "",
@@ -241,6 +251,7 @@ function EquipmentSheet({
         btus: "", voltage: "", ipAddress: "", operatingSystem: "",
         criticality: "MEDIUM", observations: "",
       });
+      setCustomFieldValues({});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editTarget?.id]);
@@ -271,6 +282,7 @@ function EquipmentSheet({
   function handleClose() {
     reset();
     setFiles([]);
+    setCustomFieldValues({});
     onClose();
   }
 
@@ -297,6 +309,8 @@ function EquipmentSheet({
       operatingSystem: data.operatingSystem || undefined,
       criticality: data.criticality,
       observations: data.observations || undefined,
+      customFields: Object.entries(customFieldValues)
+        .map(([definitionId, value]) => ({ definitionId, value: value || undefined })),
     };
 
     if (editTarget) {
@@ -551,6 +565,67 @@ function EquipmentSheet({
               {...register("observations")}
             />
           </div>
+
+          {/* ── Campos Personalizados ── */}
+          {activeCustomFields.length > 0 && (
+            <fieldset className="space-y-4">
+              <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Campos Personalizados
+              </legend>
+              {activeCustomFields.map((def) => {
+                const value = customFieldValues[def.id] ?? "";
+                const onChange = (v: string) =>
+                  setCustomFieldValues((prev) => ({ ...prev, [def.id]: v }));
+
+                return (
+                  <div key={def.id} className="space-y-2">
+                    <Label>
+                      {def.name}
+                      {def.required && <span className="text-destructive ml-1">*</span>}
+                    </Label>
+
+                    {def.fieldType === "TEXT" && (
+                      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+                    )}
+
+                    {def.fieldType === "NUMBER" && (
+                      <Input type="number" value={value} onChange={(e) => onChange(e.target.value)} />
+                    )}
+
+                    {def.fieldType === "DATE" && (
+                      <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} />
+                    )}
+
+                    {def.fieldType === "BOOLEAN" && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`cf-${def.id}`}
+                          checked={value === "true"}
+                          onChange={(e) => onChange(e.target.checked ? "true" : "false")}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <label htmlFor={`cf-${def.id}`} className="text-sm">Sim</label>
+                      </div>
+                    )}
+
+                    {def.fieldType === "SELECT" && (
+                      <select
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Selecione...</option>
+                        {(def.options as string[])?.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
+            </fieldset>
+          )}
 
           {/* ── Anexos (somente criação) ── */}
           {!editTarget && (

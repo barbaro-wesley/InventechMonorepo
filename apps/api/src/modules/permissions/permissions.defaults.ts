@@ -31,6 +31,15 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'equipment:delete':            [SA, CA, CM, CLA],
   'equipment:depreciation':      [SA, CA, CM, CLA],
 
+  // ── EQUIPMENT CUSTOM FIELD ────────────────────────────────────────────────
+  'equipment-custom-field:browse':       [SA, CA, CM],
+  'equipment-custom-field:list':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'equipment-custom-field:read':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'equipment-custom-field:create':       [SA, CA, CM],
+  'equipment-custom-field:update':       [SA, CA, CM],
+  'equipment-custom-field:delete':       [SA, CA],
+  'equipment-custom-field:write-values': [SA, CA, CM, CLA, CLU],
+
   // ── EQUIPMENT MANUAL ───────────────────────────────────────────────────────
   'equipment-manual:list':           [SA, CA, CM, TEC, CLA, CLU, CLV],
   'equipment-manual:read':           [SA, CA, CM, TEC, CLA, CLU, CLV],
@@ -238,8 +247,9 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
 export const RESOURCE_ACTIONS: Record<string, string[]> = {
-  'equipment':            ['browse', 'list', 'read', 'create', 'update', 'delete', 'depreciation'],
-  'equipment-manual':     ['list', 'read', 'create', 'update', 'delete'],
+  'equipment':              ['browse', 'list', 'read', 'create', 'update', 'delete', 'depreciation'],
+  'equipment-custom-field': ['browse', 'list', 'read', 'create', 'update', 'delete', 'write-values'],
+  'equipment-manual':       ['list', 'read', 'create', 'update', 'delete'],
   'cost-center':          ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'location':             ['list', 'read', 'create', 'update', 'delete'],
   'equipment-type':       ['browse', 'list', 'read', 'create', 'update', 'delete', 'create-sub', 'update-sub', 'delete-sub'],

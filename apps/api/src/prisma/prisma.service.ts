@@ -184,6 +184,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get equipment() { return this._db.equipment }
   get equipmentMovement() { return this._db.equipmentMovement }
   get equipmentManual() { return this._db.equipmentManual }
+  get equipmentCustomFieldDefinition() { return this._db.equipmentCustomFieldDefinition }
+  get equipmentCustomFieldValue() { return this._db.equipmentCustomFieldValue }
 
   // ─── Manutenção ────────────────────────────────────────────────────────────
 
