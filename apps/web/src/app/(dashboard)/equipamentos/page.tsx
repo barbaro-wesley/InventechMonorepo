@@ -76,6 +76,8 @@ import { useMovements, useCreateMovement, useReturnEquipment } from "@/hooks/equ
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
+import { useMaintenanceSchedules, useToggleSchedule } from "@/hooks/maintenance/use-maintenance-schedule";
+import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-schedule.service";
 import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-create-sheet";
 import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
 import { EquipmentManualsSheet } from "@/components/equipment/equipment-manuals-sheet";
@@ -952,9 +954,10 @@ function DetailSheet({
   onMove: (e: Equipment) => void;
   onPrint: (e: Equipment) => void;
 }) {
-  const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history">("info");
+  const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history" | "schedules">("info");
   const [selectedHistoryOs, setSelectedHistoryOs] = React.useState<{ id: string; clientId: string | null } | null>(null);
   const [manualsOpen, setManualsOpen] = React.useState(false);
+  const [scheduleCreateOpen, setScheduleCreateOpen] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: movements = [], isLoading: movementsLoading } = useMovements(equipment?.id ?? "");
@@ -963,6 +966,11 @@ function DetailSheet({
   const deleteAttachment = useDeleteAttachment("EQUIPMENT", equipment?.id ?? "");
   const uploadAttachment = useUploadAttachment("EQUIPMENT", equipment?.id ?? "");
   const recalcDepreciation = useRecalculateDepreciation();
+  const { data: schedulesData, isLoading: schedulesLoading } = useMaintenanceSchedules(
+    equipment?.id ? { equipmentId: equipment.id } : undefined
+  );
+  const schedules = schedulesData?.data ?? [];
+  const toggleSchedule = useToggleSchedule();
   const {
     data: historyData,
     isLoading: historyLoading,
@@ -1047,6 +1055,7 @@ function DetailSheet({
             { id: "movements", label: "Movimentações", short: "Movim.", count: movements.length },
             { id: "attachments", label: "Anexos", short: "Anexos", count: attachments.length },
             { id: "history", label: "Histórico", short: "Histórico", count: equipment.totalServiceOrders },
+            { id: "schedules", label: "Preventivas", short: "Prev.", count: schedules.length },
           ].map((t) => (
             <button
               key={t.id}
@@ -1233,6 +1242,52 @@ function DetailSheet({
           onClose={() => setSelectedHistoryOs(null)}
         />
 
+        {/* ── Schedules tab ── */}
+        {tab === "schedules" && (
+          <div className="mt-4 space-y-3 pb-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {schedules.length === 0 ? "Nenhum agendamento cadastrado" : `${schedules.length} agendamento${schedules.length > 1 ? "s" : ""}`}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setScheduleCreateOpen(true)}
+              >
+                <Plus className="w-3 h-3" />
+                Novo agendamento
+              </Button>
+            </div>
+
+            {schedulesLoading ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => <div key={i} className="h-20 rounded-lg border border-border bg-muted/30 animate-pulse" />)}
+              </div>
+            ) : schedules.length === 0 ? (
+              <div className="py-10 text-center">
+                <CalendarClock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Nenhum agendamento de manutenção preventiva</p>
+                <Button size="sm" variant="ghost" className="mt-3 text-xs" onClick={() => setScheduleCreateOpen(true)}>
+                  <Plus className="w-3 h-3 mr-1.5" />
+                  Criar primeiro agendamento
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {schedules.map((sch: MaintenanceSchedule) => (
+                  <ScheduleCard
+                    key={sch.id}
+                    schedule={sch}
+                    onToggle={(id, isActive) => toggleSchedule.mutate({ id, isActive })}
+                    isToggling={toggleSchedule.isPending}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Attachments tab ── */}
         {tab === "attachments" && (
           <div className="mt-4 space-y-3 pb-6">
@@ -1300,7 +1355,86 @@ function DetailSheet({
         onClose={() => setManualsOpen(false)}
       />
     )}
+
+    <EquipmentScheduleCreateSheet
+      equipment={equipment}
+      open={scheduleCreateOpen}
+      onClose={() => setScheduleCreateOpen(false)}
+    />
     </>
+  );
+}
+
+const RECURRENCE_LABELS: Record<string, string> = {
+  DAILY: "Diária", WEEKLY: "Semanal", BIWEEKLY: "Quinzenal",
+  MONTHLY: "Mensal", QUARTERLY: "Trimestral", SEMIANNUAL: "Semestral",
+  ANNUAL: "Anual", CUSTOM: "Personalizada",
+};
+
+const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
+  PREVENTIVE: "Preventiva", CORRECTIVE: "Corretiva", INITIAL_ACCEPTANCE: "Aceite Inicial",
+  EXTERNAL_SERVICE: "Serviço Externo", TECHNOVIGILANCE: "Tecnovigilância",
+  TRAINING: "Treinamento", IMPROPER_USE: "Uso Indevido", DEACTIVATION: "Desativação",
+};
+
+function ScheduleCard({
+  schedule,
+  onToggle,
+  isToggling,
+}: {
+  schedule: MaintenanceSchedule;
+  onToggle: (id: string, isActive: boolean) => void;
+  isToggling: boolean;
+}) {
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 space-y-1.5 transition-colors ${schedule.isActive ? "border-border bg-white" : "border-border/50 bg-muted/20"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <CalendarClock className={`w-3.5 h-3.5 flex-shrink-0 ${schedule.isActive ? "text-primary" : "text-muted-foreground/40"}`} />
+          <span className="text-xs font-semibold truncate">{schedule.title}</span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${schedule.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+            {schedule.isActive ? "Ativo" : "Inativo"}
+          </span>
+          <button
+            type="button"
+            disabled={isToggling}
+            onClick={() => onToggle(schedule.id, !schedule.isActive)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors disabled:opacity-50"
+          >
+            {schedule.isActive ? "Desativar" : "Ativar"}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+        <span>{MAINTENANCE_TYPE_LABELS[schedule.maintenanceType] ?? schedule.maintenanceType} · {RECURRENCE_LABELS[schedule.recurrenceType] ?? schedule.recurrenceType}</span>
+        {schedule.group && <span>Grupo: {schedule.group.name}</span>}
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 text-[11px]">
+        <span className="text-muted-foreground">
+          Última: <span className="text-foreground font-medium">{fmtDate(schedule.lastRunAt)}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Próxima: <span className={`font-medium ${schedule.isActive ? "text-foreground" : "text-muted-foreground"}`}>{fmtDate(schedule.nextRunAt)}</span>
+        </span>
+        {schedule.assignedTechnician && (
+          <span className="text-muted-foreground col-span-2">
+            Técnico: <span className="text-foreground font-medium">{schedule.assignedTechnician.name}</span>
+          </span>
+        )}
+        {schedule._count.maintenances > 0 && (
+          <span className="text-muted-foreground col-span-2">
+            {schedule._count.maintenances} execução{schedule._count.maintenances > 1 ? "ões" : ""} realizada{schedule._count.maintenances > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
