@@ -11,6 +11,7 @@ import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto, ListEquipmen
 import { StorageService } from '../storage/storage.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
+import { CustomFieldsService } from './custom-fields/custom-fields.service'
 
 const EQUIPMENT_SELECT = {
     id: true,
@@ -49,6 +50,14 @@ const EQUIPMENT_SELECT = {
     _count: {
         select: { serviceOrders: true, maintenances: true, attachments: true },
     },
+    customFieldValues: {
+        select: {
+            definitionId: true,
+            value: true,
+            definition: { select: { id: true, name: true, fieldType: true, order: true } },
+        },
+        orderBy: { definition: { order: 'asc' } },
+    },
 } satisfies Prisma.EquipmentSelect
 
 type EquipmentRaw = Prisma.EquipmentGetPayload<{ select: typeof EQUIPMENT_SELECT }>
@@ -69,6 +78,7 @@ export class EquipmentService {
         private prisma: PrismaService,
         private storageService: StorageService,
         private notificationsService: NotificationsService,
+        private customFieldsService: CustomFieldsService,
     ) { }
 
     /**
@@ -259,6 +269,11 @@ export class EquipmentService {
             select: EQUIPMENT_SELECT,
         })
 
+        // Salva valores dos campos personalizados
+        if (dto.customFields && dto.customFields.length > 0) {
+            await this.customFieldsService.upsertValues(companyId, equipment.id, { values: dto.customFields })
+        }
+
         // Faz upload dos arquivos se enviados junto com o cadastro
         if (files && files.length > 0) {
             await Promise.all(
@@ -357,6 +372,11 @@ export class EquipmentService {
             },
             select: EQUIPMENT_SELECT,
         })
+
+        if (dto.customFields && dto.customFields.length > 0) {
+            await this.customFieldsService.upsertValues(companyId, id, { values: dto.customFields })
+        }
+
         return normalizeEquipment(updated)
     }
 

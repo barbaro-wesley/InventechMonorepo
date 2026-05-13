@@ -73,9 +73,12 @@ import {
   useEquipmentServiceOrders,
 } from "@/hooks/equipment/use-equipment";
 import { useMovements, useCreateMovement, useReturnEquipment } from "@/hooks/equipment/use-movements";
+import { useCustomFieldDefinitions } from "@/hooks/equipment/use-custom-fields";
 import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
 import { useCostCenters } from "@/hooks/equipment/use-cost-centers";
 import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hooks/storage/use-attachments";
+import { useMaintenanceSchedules, useToggleSchedule } from "@/hooks/maintenance/use-maintenance-schedule";
+import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-schedule.service";
 import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-create-sheet";
 import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
 import { EquipmentManualsSheet } from "@/components/equipment/equipment-manuals-sheet";
@@ -193,6 +196,10 @@ function EquipmentSheet({
 
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+
+  const { data: customFieldDefs = [] } = useCustomFieldDefinitions();
+  const activeCustomFields = customFieldDefs.filter((d) => d.isActive);
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EquipmentForm>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -231,6 +238,11 @@ function EquipmentSheet({
         criticality: editTarget.criticality,
         observations: editTarget.observations ?? "",
       });
+      const vals: Record<string, string> = {};
+      (editTarget.customFieldValues ?? []).forEach((v) => {
+        vals[v.definitionId] = v.value ?? "";
+      });
+      setCustomFieldValues(vals);
     } else {
       reset({
         name: "", brand: "", model: "", serialNumber: "", patrimonyNumber: "", anvisaNumber: "", invoiceNumber: "",
@@ -239,6 +251,7 @@ function EquipmentSheet({
         btus: "", voltage: "", ipAddress: "", operatingSystem: "",
         criticality: "MEDIUM", observations: "",
       });
+      setCustomFieldValues({});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editTarget?.id]);
@@ -269,6 +282,7 @@ function EquipmentSheet({
   function handleClose() {
     reset();
     setFiles([]);
+    setCustomFieldValues({});
     onClose();
   }
 
@@ -295,6 +309,8 @@ function EquipmentSheet({
       operatingSystem: data.operatingSystem || undefined,
       criticality: data.criticality,
       observations: data.observations || undefined,
+      customFields: Object.entries(customFieldValues)
+        .map(([definitionId, value]) => ({ definitionId, value: value || undefined })),
     };
 
     if (editTarget) {
@@ -549,6 +565,67 @@ function EquipmentSheet({
               {...register("observations")}
             />
           </div>
+
+          {/* ── Campos Personalizados ── */}
+          {activeCustomFields.length > 0 && (
+            <fieldset className="space-y-4">
+              <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Campos Personalizados
+              </legend>
+              {activeCustomFields.map((def) => {
+                const value = customFieldValues[def.id] ?? "";
+                const onChange = (v: string) =>
+                  setCustomFieldValues((prev) => ({ ...prev, [def.id]: v }));
+
+                return (
+                  <div key={def.id} className="space-y-2">
+                    <Label>
+                      {def.name}
+                      {def.required && <span className="text-destructive ml-1">*</span>}
+                    </Label>
+
+                    {def.fieldType === "TEXT" && (
+                      <Input value={value} onChange={(e) => onChange(e.target.value)} />
+                    )}
+
+                    {def.fieldType === "NUMBER" && (
+                      <Input type="number" value={value} onChange={(e) => onChange(e.target.value)} />
+                    )}
+
+                    {def.fieldType === "DATE" && (
+                      <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} />
+                    )}
+
+                    {def.fieldType === "BOOLEAN" && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`cf-${def.id}`}
+                          checked={value === "true"}
+                          onChange={(e) => onChange(e.target.checked ? "true" : "false")}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <label htmlFor={`cf-${def.id}`} className="text-sm">Sim</label>
+                      </div>
+                    )}
+
+                    {def.fieldType === "SELECT" && (
+                      <select
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Selecione...</option>
+                        {(def.options as string[])?.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                );
+              })}
+            </fieldset>
+          )}
 
           {/* ── Anexos (somente criação) ── */}
           {!editTarget && (
@@ -952,9 +1029,10 @@ function DetailSheet({
   onMove: (e: Equipment) => void;
   onPrint: (e: Equipment) => void;
 }) {
-  const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history">("info");
+  const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history" | "schedules">("info");
   const [selectedHistoryOs, setSelectedHistoryOs] = React.useState<{ id: string; clientId: string | null } | null>(null);
   const [manualsOpen, setManualsOpen] = React.useState(false);
+  const [scheduleCreateOpen, setScheduleCreateOpen] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: movements = [], isLoading: movementsLoading } = useMovements(equipment?.id ?? "");
@@ -963,6 +1041,11 @@ function DetailSheet({
   const deleteAttachment = useDeleteAttachment("EQUIPMENT", equipment?.id ?? "");
   const uploadAttachment = useUploadAttachment("EQUIPMENT", equipment?.id ?? "");
   const recalcDepreciation = useRecalculateDepreciation();
+  const { data: schedulesData, isLoading: schedulesLoading } = useMaintenanceSchedules(
+    equipment?.id ? { equipmentId: equipment.id } : undefined
+  );
+  const schedules = schedulesData?.data ?? [];
+  const toggleSchedule = useToggleSchedule();
   const {
     data: historyData,
     isLoading: historyLoading,
@@ -1047,6 +1130,7 @@ function DetailSheet({
             { id: "movements", label: "Movimentações", short: "Movim.", count: movements.length },
             { id: "attachments", label: "Anexos", short: "Anexos", count: attachments.length },
             { id: "history", label: "Histórico", short: "Histórico", count: equipment.totalServiceOrders },
+            { id: "schedules", label: "Preventivas", short: "Prev.", count: schedules.length },
           ].map((t) => (
             <button
               key={t.id}
@@ -1233,6 +1317,52 @@ function DetailSheet({
           onClose={() => setSelectedHistoryOs(null)}
         />
 
+        {/* ── Schedules tab ── */}
+        {tab === "schedules" && (
+          <div className="mt-4 space-y-3 pb-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {schedules.length === 0 ? "Nenhum agendamento cadastrado" : `${schedules.length} agendamento${schedules.length > 1 ? "s" : ""}`}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setScheduleCreateOpen(true)}
+              >
+                <Plus className="w-3 h-3" />
+                Novo agendamento
+              </Button>
+            </div>
+
+            {schedulesLoading ? (
+              <div className="space-y-2">
+                {[1, 2].map((i) => <div key={i} className="h-20 rounded-lg border border-border bg-muted/30 animate-pulse" />)}
+              </div>
+            ) : schedules.length === 0 ? (
+              <div className="py-10 text-center">
+                <CalendarClock className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">Nenhum agendamento de manutenção preventiva</p>
+                <Button size="sm" variant="ghost" className="mt-3 text-xs" onClick={() => setScheduleCreateOpen(true)}>
+                  <Plus className="w-3 h-3 mr-1.5" />
+                  Criar primeiro agendamento
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {schedules.map((sch: MaintenanceSchedule) => (
+                  <ScheduleCard
+                    key={sch.id}
+                    schedule={sch}
+                    onToggle={(id, isActive) => toggleSchedule.mutate({ id, isActive })}
+                    isToggling={toggleSchedule.isPending}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Attachments tab ── */}
         {tab === "attachments" && (
           <div className="mt-4 space-y-3 pb-6">
@@ -1300,7 +1430,86 @@ function DetailSheet({
         onClose={() => setManualsOpen(false)}
       />
     )}
+
+    <EquipmentScheduleCreateSheet
+      equipment={equipment}
+      open={scheduleCreateOpen}
+      onClose={() => setScheduleCreateOpen(false)}
+    />
     </>
+  );
+}
+
+const RECURRENCE_LABELS: Record<string, string> = {
+  DAILY: "Diária", WEEKLY: "Semanal", BIWEEKLY: "Quinzenal",
+  MONTHLY: "Mensal", QUARTERLY: "Trimestral", SEMIANNUAL: "Semestral",
+  ANNUAL: "Anual", CUSTOM: "Personalizada",
+};
+
+const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
+  PREVENTIVE: "Preventiva", CORRECTIVE: "Corretiva", INITIAL_ACCEPTANCE: "Aceite Inicial",
+  EXTERNAL_SERVICE: "Serviço Externo", TECHNOVIGILANCE: "Tecnovigilância",
+  TRAINING: "Treinamento", IMPROPER_USE: "Uso Indevido", DEACTIVATION: "Desativação",
+};
+
+function ScheduleCard({
+  schedule,
+  onToggle,
+  isToggling,
+}: {
+  schedule: MaintenanceSchedule;
+  onToggle: (id: string, isActive: boolean) => void;
+  isToggling: boolean;
+}) {
+  const fmtDate = (d: string | null | undefined) =>
+    d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 space-y-1.5 transition-colors ${schedule.isActive ? "border-border bg-white" : "border-border/50 bg-muted/20"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <CalendarClock className={`w-3.5 h-3.5 flex-shrink-0 ${schedule.isActive ? "text-primary" : "text-muted-foreground/40"}`} />
+          <span className="text-xs font-semibold truncate">{schedule.title}</span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${schedule.isActive ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
+            {schedule.isActive ? "Ativo" : "Inativo"}
+          </span>
+          <button
+            type="button"
+            disabled={isToggling}
+            onClick={() => onToggle(schedule.id, !schedule.isActive)}
+            className="text-[10px] text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors disabled:opacity-50"
+          >
+            {schedule.isActive ? "Desativar" : "Ativar"}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+        <span>{MAINTENANCE_TYPE_LABELS[schedule.maintenanceType] ?? schedule.maintenanceType} · {RECURRENCE_LABELS[schedule.recurrenceType] ?? schedule.recurrenceType}</span>
+        {schedule.group && <span>Grupo: {schedule.group.name}</span>}
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 text-[11px]">
+        <span className="text-muted-foreground">
+          Última: <span className="text-foreground font-medium">{fmtDate(schedule.lastRunAt)}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Próxima: <span className={`font-medium ${schedule.isActive ? "text-foreground" : "text-muted-foreground"}`}>{fmtDate(schedule.nextRunAt)}</span>
+        </span>
+        {schedule.assignedTechnician && (
+          <span className="text-muted-foreground col-span-2">
+            Técnico: <span className="text-foreground font-medium">{schedule.assignedTechnician.name}</span>
+          </span>
+        )}
+        {schedule._count.maintenances > 0 && (
+          <span className="text-muted-foreground col-span-2">
+            {schedule._count.maintenances} execução{schedule._count.maintenances > 1 ? "ões" : ""} realizada{schedule._count.maintenances > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

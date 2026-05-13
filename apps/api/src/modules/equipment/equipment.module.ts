@@ -24,6 +24,10 @@ import { MovementsController } from './movement/movements.controller'
 import { ManualsService } from './manuals/manuals.service'
 import { ManualsController } from './manuals/manuals.controller'
 
+// Custom Fields
+import { CustomFieldsService } from './custom-fields/custom-fields.service'
+import { CustomFieldsController } from './custom-fields/custom-fields.controller'
+
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { ReportsModule } from '../reports/reports.module'
@@ -37,6 +41,7 @@ import { ReportsModule } from '../reports/reports.module'
         EquipmentTypesController,
         MovementsController,
         ManualsController,
+        CustomFieldsController,
     ],
     providers: [
         EquipmentService,
@@ -45,6 +50,7 @@ import { ReportsModule } from '../reports/reports.module'
         EquipmentTypesService,
         MovementsService,
         ManualsService,
+        CustomFieldsService,
     ],
     exports: [EquipmentService],
 })

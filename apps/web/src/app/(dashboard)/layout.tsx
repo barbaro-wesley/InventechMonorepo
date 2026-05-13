@@ -193,6 +193,13 @@ const navSections: NavSection[] = [
                 permission: "equipment-type:browse",
             },
             {
+                label: "Campos de Equipamento",
+                href: "/campos-equipamento",
+                icon: SlidersHorizontal,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER"],
+                permission: "equipment-custom-field:browse",
+            },
+            {
                 label: "Centros de Custo",
                 href: "/centros-de-custo",
                 icon: Landmark,

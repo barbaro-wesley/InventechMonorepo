@@ -38,6 +38,11 @@ export interface Equipment {
   totalServiceOrders: number;
   lastMaintenanceAt: string | null;
   _count: { serviceOrders: number; maintenances: number; attachments: number };
+  customFieldValues?: Array<{
+    definitionId: string;
+    value: string | null;
+    definition: { id: string; name: string; fieldType: string; order: number };
+  }>;
 }
 
 export type ServiceOrderStatus =

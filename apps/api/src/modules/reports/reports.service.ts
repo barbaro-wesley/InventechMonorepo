@@ -1387,12 +1387,19 @@ export class ReportsService {
           orderBy: { createdAt: 'desc' },
           select: {
             number: true,
+            title: true,
             maintenanceType: true,
+            priority: true,
             status: true,
             description: true,
             resolution: true,
+            actualHours: true,
+            totalCost: true,
             completedAt: true,
             createdAt: true,
+            technicians: {
+              select: { technician: { select: { name: true } } },
+            },
           },
         },
         movements: {
@@ -1406,9 +1413,21 @@ export class ReportsService {
             destination: { select: { name: true } },
           },
         },
+        schedules: {
+          orderBy: { nextRunAt: 'asc' },
+          select: {
+            title: true,
+            maintenanceType: true,
+            recurrenceType: true,
+            nextRunAt: true,
+            lastRunAt: true,
+            isActive: true,
+            assignedTechnician: { select: { name: true } },
+          },
+        },
       },
     })
-    
+
     if (!equipment) {
       throw new Error('Equipment not found')
     }
@@ -1464,14 +1483,17 @@ export class ReportsService {
       { label: 'Equipamento:', value: equipment.name },
       { label: 'Patrimônio:', value: equipment.patrimonyNumber ?? '-' },
       { label: 'Nº Série:', value: equipment.serialNumber ?? '-' },
+      { label: 'Nº ANVISA:', value: equipment.anvisaNumber ?? '-' },
       { label: 'Marca / Modelo:', value: [equipment.brand, equipment.model].filter(Boolean).join(' / ') || '-' },
-      { label: 'Tipo:', value: equipment.type?.name ?? '-' },
+      { label: 'Tipo / Subtipo:', value: [equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(' › ') || '-' },
       { label: 'Localização:', value: equipment.location?.name ?? 'Não definido' },
       { label: 'Centro de Custo:', value: equipment.costCenter?.name ?? 'Não definido' },
       { label: 'Status:', value: EQUIPMENT_STATUS_LABEL[equipment.status] || equipment.status },
       { label: 'Criticidade:', value: EQUIPMENT_CRITICALITY_LABEL[equipment.criticality] || equipment.criticality },
       { label: 'Aquis. (Data/Vlr):', value: `${fmtDate(equipment.purchaseDate)} / ${fmtM(equipment.purchaseValue)}` },
+      { label: 'Nº Nota Fiscal:', value: equipment.invoiceNumber ?? '-' },
       { label: 'Garantia:', value: `Desde ${fmtDate(equipment.warrantyStart)} até ${fmtDate(equipment.warrantyEnd)}` },
+      { label: 'Últ. Manutenção:', value: fmtDate(equipment.lastMaintenanceAt) },
     ]
 
     let col = 0
@@ -1499,6 +1521,49 @@ export class ReportsService {
       y += 12 + doc.heightOfString(equipment.observations, { width: W }) + 10
     }
 
+    // ── Bloco financeiro / depreciação (condicional) ──
+    if (equipment.currentValue || equipment.depreciationRate) {
+      doc.fillColor(blue).fontSize(10).font('Helvetica-Bold').text('Dados Financeiros / Depreciação', 40, y + 8)
+      doc.rect(40, y + 21, W, 1).fill(secondaryBlue)
+      y += 28
+      const finFields = [
+        { label: 'Valor Atual (Depreciado):', value: fmtM(equipment.currentValue) },
+        { label: 'Taxa de Depreciação:', value: equipment.depreciationRate ? `${Number(equipment.depreciationRate).toLocaleString('pt-BR')}% a.a.` : '-' },
+      ]
+      let finCol = 0
+      doc.fontSize(8.5)
+      finFields.forEach((f) => {
+        const cx = 40 + (finCol * colW)
+        doc.fillColor('#6B7280').font('Helvetica-Bold').text(f.label, cx, y, { width: 115 })
+        doc.fillColor('#1F2937').font('Helvetica').text(f.value, cx + 115, y, { width: colW - 115, ellipsis: true })
+        finCol++
+        if (finCol > 1) { finCol = 0; y += 16 }
+      })
+      y += (finCol === 0 ? 0 : 16) + 8
+    }
+
+    // ── Bloco técnico elétrico (condicional) ──
+    if (equipment.voltage || equipment.power || equipment.btus) {
+      doc.fillColor(blue).fontSize(10).font('Helvetica-Bold').text('Dados Técnicos', 40, y + 8)
+      doc.rect(40, y + 21, W, 1).fill(secondaryBlue)
+      y += 28
+      const techFields = [
+        { label: 'Tensão:', value: equipment.voltage ?? '-' },
+        { label: 'Potência:', value: equipment.power ?? '-' },
+        { label: 'BTUs:', value: equipment.btus ? String(equipment.btus) : '-' },
+      ]
+      let techCol = 0
+      doc.fontSize(8.5)
+      techFields.forEach((f) => {
+        const cx = 40 + (techCol * colW)
+        doc.fillColor('#6B7280').font('Helvetica-Bold').text(f.label, cx, y, { width: 90 })
+        doc.fillColor('#1F2937').font('Helvetica').text(f.value, cx + 90, y, { width: colW - 90, ellipsis: true })
+        techCol++
+        if (techCol > 1) { techCol = 0; y += 16 }
+      })
+      y += (techCol === 0 ? 0 : 16) + 8
+    }
+
     // Função auxiliar genérica para cabeçalho de tabela
     // columns = { w, label }
     const drawTableHeader = (title: string, tableCols: any, localY: number) => {
@@ -1518,67 +1583,107 @@ export class ReportsService {
     if (y > doc.page.height - 150) { doc.addPage(); y = 40 }
     else { y += 20 }
 
-    const osCols = [
-      { label: 'Nº OS', w: 45 },
-      { label: 'Data', w: 60 },
-      { label: 'Tipo', w: 65 },
-      { label: 'Status', w: 70 },
-      { label: 'Descrição / Resolução (Resumo)', w: W - 240 },
-    ]
-
-    y = drawTableHeader(`Histórico de Manutenções (${equipment.serviceOrders.length})`, osCols, y)
-
     const OS_STATUS_LABEL: Record<string, string> = {
       OPEN: "Aberta", AWAITING_PICKUP: "Aguardando", IN_PROGRESS: "Em andamento",
       COMPLETED: "Concluída", COMPLETED_APPROVED: "Aprovada", COMPLETED_REJECTED: "Reprovada", CANCELLED: "Cancelada",
     }
-    
+
     const OS_TYPE_LABEL: Record<string, string> = {
       PREVENTIVE: "Preventiva", CORRECTIVE: "Corretiva", INITIAL_ACCEPTANCE: "Aceite Inicial",
       EXTERNAL_SERVICE: "Serviço Externo", TECHNOVIGILANCE: "Tecnovigilância",
       TRAINING: "Treinamento", IMPROPER_USE: "Uso Indevido", DEACTIVATION: "Desativação",
     }
 
+    const OS_PRIORITY_LABEL: Record<string, string> = {
+      LOW: "Baixa", MEDIUM: "Média", HIGH: "Alta", URGENT: "Urgente",
+    }
+
+    // Colunas da linha de cabeçalho por OS (total = W = 515)
+    const osCols = [
+      { label: 'Nº OS',      w: 40 },
+      { label: 'Tipo',       w: 75 },
+      { label: 'Prioridade', w: 60 },
+      { label: 'Status',     w: 70 },
+      { label: 'Aberta em',  w: 65 },
+      { label: 'Concluída',  w: 65 },
+      { label: 'Técnico(s)', w: 85 },
+      { label: 'Custo',      w: 55 },
+    ]
+
+    y = drawTableHeader(`Histórico de Manutenções (${equipment.serviceOrders.length})`, osCols, y)
+
     let rowIdx = 0
+    let totalOsCost = 0
+    const HEADER_H = 18
+    const DETAIL_PAD = 5
+
     if (equipment.serviceOrders.length === 0) {
       doc.fillColor('#6B7280').font('Helvetica-Oblique').fontSize(8.5)
         .text('Nenhuma ordem de serviço registrada.', 45, y + 10)
       y += 30
     } else {
       equipment.serviceOrders.forEach((os) => {
-        doc.fontSize(7.5)
-        const textH = doc.heightOfString(os.description || '-', { width: osCols[4].w - 6 })
-        const rowH = Math.max(18, textH + 8)
+        if (os.totalCost) totalOsCost += Number(os.totalCost)
 
-        if (y + rowH > doc.page.height - 80) { 
-          doc.addPage(); 
-          y = drawTableHeader(`Histórico de Manutenções (cont.)`, osCols, 40); 
-          rowIdx = 0; 
+        const titleLine = os.title ? os.title.trim() : ''
+        const hoursLine = os.actualHours ? `${Number(os.actualHours).toLocaleString('pt-BR')}h` : ''
+        const descLine  = os.description ? os.description.replace(/\n/g, ' ') : ''
+        const resLine   = os.resolution  ? os.resolution.replace(/\n/g, ' ')  : ''
+        const line1 = [titleLine && `Título: ${titleLine}`, hoursLine && `Horas efetivas: ${hoursLine}`].filter(Boolean).join('  ·  ')
+        const line2 = [descLine && `Desc.: ${descLine}`, resLine && `Resolução: ${resLine}`].filter(Boolean).join('  |  ')
+        const detailText = [line1, line2].filter(Boolean).join('\n') || '-'
+
+        doc.fontSize(7)
+        const detailH = doc.heightOfString(detailText, { width: W - 12 }) + DETAIL_PAD * 2
+        const totalH = HEADER_H + detailH
+
+        if (y + totalH > doc.page.height - 80) {
+          doc.addPage()
+          y = drawTableHeader(`Histórico de Manutenções (cont.)`, osCols, 40)
+          rowIdx = 0
         }
 
-        doc.rect(40, y, W, rowH).fill(rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC').stroke('#E2E8F0')
-        
-        let cx = 40
-        const dateStr = fmtDate(os.createdAt)
-        const descText = (os.description || '').replace(/\n/g, ' ')
-        
-        const rowData = [
-          { text: String(os.number), font: 'Helvetica' },
-          { text: dateStr, font: 'Helvetica' },
-          { text: OS_TYPE_LABEL[os.maintenanceType] || os.maintenanceType, font: 'Helvetica' },
-          { text: OS_STATUS_LABEL[os.status] || os.status, font: 'Helvetica' },
-          { text: descText, font: 'Helvetica' },
-        ]
+        const bgColor = rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
 
-        rowData.forEach((cell, i) => {
-          doc.fillColor('#1F2937').fontSize(7.5).font(cell.font)
-          doc.text(cell.text, cx + 3, y + 4, { width: osCols[i].w - 6, height: rowH - 8, lineBreak: true, ellipsis: true })
+        // Linha de cabeçalho da OS
+        doc.rect(40, y, W, HEADER_H).fill(bgColor).stroke('#E2E8F0')
+        const techNames = (os.technicians as { technician: { name: string } }[]).map(t => t.technician.name).join(', ') || '-'
+        const headerCells = [
+          String(os.number),
+          OS_TYPE_LABEL[os.maintenanceType] || os.maintenanceType,
+          OS_PRIORITY_LABEL[os.priority] || os.priority,
+          OS_STATUS_LABEL[os.status] || os.status,
+          fmtDate(os.createdAt),
+          fmtDate(os.completedAt),
+          techNames,
+          os.totalCost ? fmtM(os.totalCost) : '-',
+        ]
+        let cx = 40
+        doc.fontSize(7.5).font('Helvetica').fillColor('#1F2937')
+        headerCells.forEach((text, i) => {
+          doc.text(text, cx + 3, y + 4, { width: osCols[i].w - 6, height: HEADER_H - 8, lineBreak: false, ellipsis: true })
           cx += osCols[i].w
         })
 
-        y += rowH
+        // Linha de detalhe: descrição e resolução
+        const detailY = y + HEADER_H
+        doc.rect(40, detailY, W, detailH).fill(bgColor).stroke('#E2E8F0')
+        doc.fontSize(7).font('Helvetica').fillColor('#374151')
+        doc.text(detailText, 46, detailY + DETAIL_PAD, { width: W - 12, lineBreak: true })
+
+        y += totalH
         rowIdx++
       })
+
+      // Totalizador de custo
+      if (totalOsCost > 0) {
+        if (y + 18 > doc.page.height - 80) { doc.addPage(); y = 40 }
+        doc.rect(40, y, W, 18).fill(secondaryBlue).stroke('#E2E8F0')
+        doc.fontSize(8).font('Helvetica-Bold').fillColor(this.getContrastColor(secondaryBlue))
+        doc.text('Custo Total de Manutenções:', 43, y + 5, { width: W - 100 })
+        doc.text(fmtM(totalOsCost), 40, y + 5, { width: W - 5, align: 'right' })
+        y += 18
+      }
     }
 
     // ── 3. Histórico de Transferências ──
@@ -1586,14 +1691,19 @@ export class ReportsService {
     else { y += 20 }
 
     const movCols = [
-      { label: 'Modificado Em', w: 85 },
-      { label: 'Origem', w: 100 },
-      { label: 'Destino', w: 100 },
-      { label: 'Motivo', w: W - 360 },
-      { label: 'Status', w: 75 },
+      { label: 'Tipo',         w: 65 },
+      { label: 'Data',         w: 70 },
+      { label: 'Origem',       w: 90 },
+      { label: 'Destino',      w: 90 },
+      { label: 'Motivo',       w: W - 370 },
+      { label: 'Status',       w: 55 },
     ]
 
     y = drawTableHeader(`Histórico de Transferências (${equipment.movements.length})`, movCols, y)
+
+    const MOVEMENT_TYPE_LABEL: Record<string, string> = {
+      TRANSFER: 'Transferência', LOAN: 'Empréstimo',
+    }
 
     const MOVEMENT_STATUS_LABEL: Record<string, string> = {
       ACTIVE: 'Ativo', CANCELLED: 'Cancelado', RETURNED: 'Devolvido'
@@ -1607,19 +1717,20 @@ export class ReportsService {
     } else {
       equipment.movements.forEach((mov) => {
         doc.fontSize(7.5)
-        const textH = doc.heightOfString(mov.reason || '-', { width: movCols[3].w - 6 })
+        const textH = doc.heightOfString(mov.reason || '-', { width: movCols[4].w - 6 })
         const rowH = Math.max(18, textH + 8)
 
-        if (y + rowH > doc.page.height - 80) { 
-          doc.addPage(); 
-          y = drawTableHeader(`Histórico de Transferências (cont.)`, movCols, 40); 
-          rowIdx = 0; 
+        if (y + rowH > doc.page.height - 80) {
+          doc.addPage()
+          y = drawTableHeader(`Histórico de Transferências (cont.)`, movCols, 40)
+          rowIdx = 0
         }
 
         doc.rect(40, y, W, rowH).fill(rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC').stroke('#E2E8F0')
-        
+
         let cx = 40
         const rowData = [
+          { text: MOVEMENT_TYPE_LABEL[mov.type] || mov.type, font: 'Helvetica' },
           { text: fmtDateTime(mov.createdAt), font: 'Helvetica' },
           { text: mov.origin?.name || '-', font: 'Helvetica' },
           { text: mov.destination?.name || '-', font: 'Helvetica' },
@@ -1631,6 +1742,67 @@ export class ReportsService {
           doc.fillColor('#1F2937').fontSize(7.5).font(cell.font)
           doc.text(cell.text, cx + 3, y + 4, { width: movCols[i].w - 6, height: rowH - 8, lineBreak: true, ellipsis: true })
           cx += movCols[i].w
+        })
+
+        y += rowH
+        rowIdx++
+      })
+    }
+
+    // ── 4. Agendamentos de Manutenção Preventiva ──
+    if (y > doc.page.height - 150) { doc.addPage(); y = 40 }
+    else { y += 20 }
+
+    const RECURRENCE_LABEL: Record<string, string> = {
+      DAILY: 'Diária', WEEKLY: 'Semanal', BIWEEKLY: 'Quinzenal',
+      MONTHLY: 'Mensal', QUARTERLY: 'Trimestral', SEMIANNUAL: 'Semestral',
+      ANNUAL: 'Anual', CUSTOM: 'Personalizada',
+    }
+
+    const schCols = [
+      { label: 'Título',        w: 105 },
+      { label: 'Tipo',          w: 75 },
+      { label: 'Recorrência',   w: 70 },
+      { label: 'Última exec.',  w: 65 },
+      { label: 'Próxima exec.', w: 65 },
+      { label: 'Técnico',       w: 80 },
+      { label: 'Status',        w: 55 },
+    ]
+
+    y = drawTableHeader(`Agendamentos de Manutenção Preventiva (${equipment.schedules.length})`, schCols, y)
+
+    rowIdx = 0
+    if (equipment.schedules.length === 0) {
+      doc.fillColor('#6B7280').font('Helvetica-Oblique').fontSize(8.5)
+        .text('Nenhum agendamento de manutenção preventiva registrado.', 45, y + 10)
+      y += 30
+    } else {
+      equipment.schedules.forEach((sch) => {
+        const rowH = 18
+        if (y + rowH > doc.page.height - 80) {
+          doc.addPage()
+          y = drawTableHeader(`Agendamentos de Manutenção Preventiva (cont.)`, schCols, 40)
+          rowIdx = 0
+        }
+
+        const bgColor = rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+        doc.rect(40, y, W, rowH).fill(bgColor).stroke('#E2E8F0')
+
+        const schCells = [
+          sch.title,
+          OS_TYPE_LABEL[sch.maintenanceType] || sch.maintenanceType,
+          RECURRENCE_LABEL[sch.recurrenceType] || sch.recurrenceType,
+          fmtDate(sch.lastRunAt),
+          fmtDate(sch.nextRunAt),
+          (sch.assignedTechnician as { name: string } | null)?.name || '-',
+          sch.isActive ? 'Ativo' : 'Inativo',
+        ]
+
+        let cx = 40
+        doc.fontSize(7.5).font('Helvetica').fillColor('#1F2937')
+        schCells.forEach((text, i) => {
+          doc.text(text, cx + 3, y + 4, { width: schCols[i].w - 6, height: rowH - 8, lineBreak: false, ellipsis: true })
+          cx += schCols[i].w
         })
 
         y += rowH
