@@ -331,7 +331,7 @@ export class ServiceOrdersController {
     @Body() dto: CreateCostItemDto,
     @CurrentUser() cu: AuthenticatedUser,
   ) {
-    return this.costsService.create(serviceOrderId, dto, clientId, cu.companyId!)
+    return this.costsService.create(serviceOrderId, dto, clientId, cu.companyId!, cu.sub)
   }
 
   @Patch(':osId/costs/:costId')

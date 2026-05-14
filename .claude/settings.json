@@ -26,7 +26,18 @@
       "Bash(grep -E \"\\\\.\\(ts|prisma\\)$\")",
       "Bash(grep -E \"\\\\.ts$\")",
       "Bash(Get-ChildItem -Path 'c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo' -Recurse)",
-      "Bash(Select-Object -ExpandProperty FullName)"
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\\\\apps\\\\api\\\\src\\\\modules\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(dir /s /b \"alert-rule.enum.d.ts\")",
+      "Bash(node -e \"const p = require.resolve\\('@inventech/shared-types'\\); console.log\\(p\\)\")",
+      "Bash(node -e \"const {Prisma} = require\\('@prisma/client'\\); console.log\\(Object.keys\\(Prisma\\).filter\\(k => k.includes\\('Stock'\\) || k.includes\\('Movement'\\)\\)\\)\")",
+      "Bash(node -e \"const c = require\\('@prisma/client'\\); console.log\\(c.StockMovementType\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\\\\apps\" -Directory)",
+      "Bash(cd \"/c/Users/User/Documents/inventech/InventechMonorepo/apps/web/src/app\" && find . -name \"equipamentos\" -type d)",
+      "Read(//c/c/Users/User/Documents/inventech/InventechMonorepo/apps/web/src/**)",
+      "Bash(cd \"/c/Users/User/Documents/inventech/InventechMonorepo/apps/api/src\" && find . -type d -maxdepth 2 | head -50)",
+      "Read(//c/c/Users/User/Documents/inventech/InventechMonorepo/apps/api/**)"
     ]
   }
 }

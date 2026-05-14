@@ -10,11 +10,13 @@ import { ChecklistsController } from './checklists/checklists.controller'
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { AutoApproveJob } from './jobs/auto-approve.job'
+import { InventoryModule } from '../inventory/inventory.module'
 
 @Module({
     imports: [
         StorageModule,
         NotificationsModule,
+        InventoryModule,
     ],
     controllers: [
         ServiceOrdersController,

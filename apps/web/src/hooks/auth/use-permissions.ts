@@ -76,6 +76,7 @@ export function usePermissions() {
         canManageEquipment: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"], "equipment:create"),
         canManageEquipmentSubtypes: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "equipment-type:create-sub"),
         canManageServiceOrders: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"),
+        canManageInventory: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"], "inventory:create"),
         canViewReports: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"),
         canViewDashboard: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"),
 

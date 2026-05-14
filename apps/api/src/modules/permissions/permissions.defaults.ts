@@ -236,6 +236,19 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   // ── GHOSP (pacientes internados — banco hospitalar externo) ────────────────
   'ghosp:list':                  [SA, CA],
 
+  // ── INVENTORY ──────────────────────────────────────────────────────────────
+  'inventory:browse':              [SA, CA, CM, TEC],
+  'inventory:list':                [SA, CA, CM, TEC],
+  'inventory:read':                [SA, CA, CM, TEC],
+  'inventory:create':              [SA, CA, CM],
+  'inventory:update':              [SA, CA, CM],
+  'inventory:delete':              [SA, CA, CM],
+  'inventory-category:browse':     [SA, CA, CM, TEC],
+  'inventory-category:list':       [SA, CA, CM, TEC],
+  'inventory-category:create':     [SA, CA, CM],
+  'inventory-category:update':     [SA, CA, CM],
+  'inventory-category:delete':     [SA, CA],
+
   // ── ANALYTICS ──────────────────────────────────────────────────────────────
   // Acesso por módulo — cada tipo de análise pode ser liberado independentemente
   'analytics:equipment':         [SA, CA, CM, CLA],
@@ -275,6 +288,8 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'scan':                 ['browse', 'list', 'read', 'download', 'update', 'delete'],
   'ghosp':                ['list'],
   'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial'],
+  'inventory':            ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'inventory-category':   ['browse', 'list', 'create', 'update', 'delete'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)

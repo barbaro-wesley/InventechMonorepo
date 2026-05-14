@@ -263,7 +263,7 @@ export class CompanyServiceOrdersController {
         @Body() dto: CreateCostItemDto,
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.costsService.create(serviceOrderId, dto, null, cu.companyId!)
+        return this.costsService.create(serviceOrderId, dto, null, cu.companyId!, cu.sub)
     }
 
     @Patch(':osId/costs/:costId')

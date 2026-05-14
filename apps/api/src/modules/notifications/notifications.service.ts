@@ -116,6 +116,9 @@ export class NotificationsService {
             case EventType.DAILY_SUMMARY:
                 await this.sendDailySummary(data, companyId)
                 break
+            case EventType.STOCK_LOW_QUANTITY:
+                await this.notifyStockLowQuantity(data, companyId)
+                break
             default:
                 this.logger.warn(`Evento desconhecido: ${event}`)
         }
@@ -370,6 +373,28 @@ export class NotificationsService {
             email: { subject: `📅 ${count} preventiva(s) agendada(s) nos próximos ${daysAhead} dias`, html },
             telegram: telegramMsg,
             ws: { event: EventType.PREVENTIVE_UPCOMING, title: `${count} preventiva(s) nos próximos ${daysAhead} dias`, body: 'Verifique o planejamento de manutenções preventivas', data },
+            companyId,
+        })
+    }
+
+    private async notifyStockLowQuantity(data: any, companyId: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.STOCK_LOW_QUANTITY, {},
+        )
+
+        const subject = `⚠️ Estoque baixo: ${data.itemName}`
+        const html = `
+<p>O item <strong>${data.itemName}</strong>${data.itemCode ? ` (código: ${data.itemCode})` : ''} está abaixo do estoque mínimo.</p>
+<ul>
+  <li><strong>Quantidade atual:</strong> ${data.currentQuantity} ${data.unit}</li>
+  <li><strong>Quantidade mínima:</strong> ${data.minimumQuantity} ${data.unit}</li>
+  ${data.clientName ? `<li><strong>Proprietário:</strong> ${data.clientName}</li>` : ''}
+</ul>`
+
+        await this.sendToRecipients(recipients, channels, {
+            email: { subject, html },
+            telegram: `⚠️ <b>Estoque baixo</b>\n\n<b>${data.itemName}</b>${data.itemCode ? ` (${data.itemCode})` : ''}\nAtual: ${data.currentQuantity} ${data.unit} | Mínimo: ${data.minimumQuantity} ${data.unit}`,
+            ws: { event: EventType.STOCK_LOW_QUANTITY, title: 'Estoque baixo', body: `${data.itemName}: ${data.currentQuantity}/${data.minimumQuantity} ${data.unit}`, data },
             companyId,
         })
     }

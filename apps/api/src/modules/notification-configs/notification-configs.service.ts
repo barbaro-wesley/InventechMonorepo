@@ -89,6 +89,11 @@ const DEFAULT_CONFIGS: Record<EventType, Pick<NotificationConfig, 'recipientRole
     [EventType.MAINTENANCE_OVERDUE]: { recipientRoles: [], recipientContextual: [], channels: [] },
     [EventType.USER_CREATED]: { recipientRoles: [], recipientContextual: [], channels: [] },
     [EventType.USER_DEACTIVATED]: { recipientRoles: [], recipientContextual: [], channels: [] },
+    [EventType.STOCK_LOW_QUANTITY]: {
+        recipientRoles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER],
+        recipientContextual: [],
+        channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
+    },
 }
 
 // Eventos exibidos na UI de configuração
@@ -103,6 +108,7 @@ export const CONFIGURABLE_EVENTS: EventType[] = [
     EventType.OS_CHILD_CREATED,
     EventType.PREVENTIVE_GENERATED,
     EventType.PREVENTIVE_UPCOMING,
+    EventType.STOCK_LOW_QUANTITY,
     EventType.DAILY_SUMMARY,
 ]
 
@@ -117,6 +123,7 @@ export const EVENT_LABELS: Record<string, string> = {
     [EventType.OS_CHILD_CREATED]: 'OS vinculada criada',
     [EventType.PREVENTIVE_GENERATED]: 'Preventiva gerada',
     [EventType.PREVENTIVE_UPCOMING]: 'Preventivas próximas (30 dias)',
+    [EventType.STOCK_LOW_QUANTITY]: 'Estoque abaixo do mínimo',
     [EventType.DAILY_SUMMARY]: 'Resumo diário',
 }
 
