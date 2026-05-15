@@ -7,8 +7,9 @@ import { z } from "zod";
 import {
   Plus, Search, Pencil, Trash2, Package, AlertTriangle,
   MoreHorizontal, ArrowDown, ArrowUp, SlidersHorizontal,
-  History, Tag, X, MapPin, Users, ArrowLeftRight, Loader2,
+  History, Tag, X, MapPin, Users, ArrowLeftRight, Loader2, LayoutDashboard,
 } from "lucide-react";
+import { InventoryDashboard } from "./_components/inventory-dashboard";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -431,12 +432,14 @@ function CategorySheet({ open, editTarget, onClose }: {
 
 // ─── MovementSheet ────────────────────────────────────────────────────────────
 
-function MovementSheet({ open, item, stockPoints, onClose }: {
-  open: boolean; item: StockItem | null; stockPoints: StockPoint[]; onClose: () => void;
+function MovementSheet({ open, item, stockPoints, canCreateMovement, canTransfer, onClose }: {
+  open: boolean; item: StockItem | null; stockPoints: StockPoint[];
+  canCreateMovement: boolean; canTransfer: boolean; onClose: () => void;
 }) {
   const createMovement = useCreateMovement();
   const { data: movementsData } = useItemMovements(item?.id ?? "");
-  const [tab, setTab] = useState<"movement" | "transfer">("movement");
+  const defaultTab = canCreateMovement ? "movement" : canTransfer ? "transfer" : "history";
+  const [tab, setTab] = useState<"movement" | "transfer" | "history">(defaultTab as "movement" | "transfer" | "history");
 
   const movForm = useForm<MovementForm>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -453,7 +456,7 @@ function MovementSheet({ open, item, stockPoints, onClose }: {
   function handleClose() {
     movForm.reset({ type: "ENTRY", quantity: 1 });
     transferForm.reset({ quantity: 1 });
-    setTab("movement");
+    setTab(defaultTab as "movement" | "transfer" | "history");
     onClose();
   }
 
@@ -499,8 +502,8 @@ function MovementSheet({ open, item, stockPoints, onClose }: {
           {/* Tabs */}
           <div className="flex gap-0 border-b mt-4">
             {[
-              { key: "movement", label: "Movimentar" },
-              ...(otherPoints.length > 0 ? [{ key: "transfer", label: "Transferir" }] : []),
+              ...(canCreateMovement ? [{ key: "movement", label: "Movimentar" }] : []),
+              ...(canTransfer && otherPoints.length > 0 ? [{ key: "transfer", label: "Transferir" }] : []),
             ].map((t) => (
               <button key={t.key}
                 onClick={() => setTab(t.key as "movement" | "transfer")}
@@ -853,10 +856,11 @@ function CategoriesList({ canManage }: { canManage: boolean }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function EstoquePage() {
-  const { canAccess } = usePermissions();
-  const canManage = canAccess("inventory", "create");
+  const { canManageInventory, canManageInventoryPoints, canCreateInventoryMovements, canTransferInventory, canViewInventory } = usePermissions();
+  const canManage = canManageInventory;
+  const canManagePoints = canManageInventoryPoints;
 
-  const [activeTab, setActiveTab] = useState<"points" | "items" | "categories">("points");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "points" | "items" | "categories">("dashboard");
   const [search, setSearch] = useState("");
   const [pointFilter, setPointFilter] = useState<string>("all");
   const [belowMinimum, setBelowMinimum] = useState(false);
@@ -887,7 +891,7 @@ export default function EstoquePage() {
   const totalItems = (stockPoints as StockPoint[]).reduce((acc, p) => acc + p._count.items, 0);
 
   const TAB_ACTIONS: Record<string, React.ReactNode> = {
-    points: canManage ? (
+    points: canManagePoints ? (
       <Button size="sm" onClick={() => setPointSheet({ open: true, target: null })}>
         <Plus className="h-4 w-4 mr-1.5" />Novo ponto
       </Button>
@@ -928,6 +932,7 @@ export default function EstoquePage() {
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
         {[
+          { key: "dashboard", label: "Dashboard", icon: LayoutDashboard, count: 0 },
           { key: "points", label: "Pontos", icon: MapPin, count: (stockPoints as StockPoint[]).length },
           { key: "items", label: "Itens", icon: Package, count: total },
           { key: "categories", label: "Categorias", icon: Tag, count: (categories as StockCategory[]).length },
@@ -952,6 +957,9 @@ export default function EstoquePage() {
         ))}
       </div>
 
+      {/* ── Aba Dashboard ── */}
+      {activeTab === "dashboard" && <InventoryDashboard />}
+
       {/* ── Aba Pontos ── */}
       {activeTab === "points" && (
         loadingPoints ? (
@@ -967,7 +975,7 @@ export default function EstoquePage() {
             <p className="text-sm text-slate-400 mt-1 max-w-xs">
               Crie um ponto para começar a organizar e controlar seu estoque
             </p>
-            {canManage && (
+            {canManagePoints && (
               <Button className="mt-4" onClick={() => setPointSheet({ open: true, target: null })}>
                 <Plus className="h-4 w-4 mr-2" />Criar primeiro ponto
               </Button>
@@ -976,7 +984,7 @@ export default function EstoquePage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {(stockPoints as StockPoint[]).map((point) => (
-              <StockPointCard key={point.id} point={point} canManage={canManage}
+              <StockPointCard key={point.id} point={point} canManage={canManagePoints}
                 onEdit={() => setPointSheet({ open: true, target: point })}
                 onDelete={() => setDeletePointTarget(point)} />
             ))}
@@ -1077,6 +1085,8 @@ export default function EstoquePage() {
 
       <MovementSheet open={movementSheet.open} item={movementSheet.item}
         stockPoints={stockPoints as StockPoint[]}
+        canCreateMovement={canCreateInventoryMovements}
+        canTransfer={canTransferInventory}
         onClose={() => setMovementSheet({ open: false, item: null })} />
 
       {/* Delete item */}

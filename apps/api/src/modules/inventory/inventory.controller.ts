@@ -24,13 +24,19 @@ export class InventoryController {
     @Get()
     @Permission('inventory:list')
     findAll(@Query() filters: ListStockItemsDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.inventoryService.findAll(cu.companyId!, filters)
+        return this.inventoryService.findAll(cu.companyId!, filters, cu.clientId ?? undefined)
+    }
+
+    @Get('dashboard')
+    @Permission('inventory:list')
+    getDashboard(@CurrentUser() cu: AuthenticatedUser) {
+        return this.inventoryService.getDashboard(cu.companyId!, cu.clientId ?? undefined)
     }
 
     @Get(':id')
     @Permission('inventory:read')
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-        return this.inventoryService.findOne(id, cu.companyId!)
+        return this.inventoryService.findOne(id, cu.companyId!, cu.clientId ?? undefined)
     }
 
     @Post()

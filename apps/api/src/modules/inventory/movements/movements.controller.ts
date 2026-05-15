@@ -19,13 +19,13 @@ export class MovementsController {
     constructor(private readonly movementsService: MovementsService) {}
 
     @Get()
-    @Permission('inventory:list')
+    @Permission('inventory-movement:list')
     findAll(@Query() filters: ListStockMovementsDto, @CurrentUser() cu: AuthenticatedUser) {
         return this.movementsService.findAll(cu.companyId!, filters)
     }
 
     @Get('item/:itemId')
-    @Permission('inventory:read')
+    @Permission('inventory-movement:read')
     findByItem(
         @Param('itemId', ParseUUIDPipe) itemId: string,
         @Query('page', new ParseIntPipe({ optional: true })) page: number,
@@ -36,13 +36,13 @@ export class MovementsController {
     }
 
     @Post()
-    @Permission('inventory:update')
+    @Permission('inventory-movement:create')
     create(@Body() dto: CreateStockMovementDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.movementsService.create(dto, cu.companyId!, cu.sub)
+        return this.movementsService.create(dto, cu.companyId!, cu.sub, cu.clientId ?? undefined)
     }
 
     @Post('transfer')
-    @Permission('inventory:update')
+    @Permission('inventory-movement:transfer')
     transfer(@Body() dto: CreateTransferDto, @CurrentUser() cu: AuthenticatedUser) {
         return this.movementsService.createTransfer(dto, cu.companyId!, cu.sub)
     }

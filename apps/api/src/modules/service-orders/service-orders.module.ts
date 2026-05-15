@@ -5,6 +5,7 @@ import { CompanyServiceOrdersController } from './company-service-orders.control
 import { CommentsService } from './comments/comments.service'
 import { TasksService } from './tasks/tasks.service'
 import { CostsService } from './costs/costs.service'
+import { MaterialsService } from './materials/materials.service'
 import { ChecklistsService } from './checklists/checklists.service'
 import { ChecklistsController } from './checklists/checklists.controller'
 import { StorageModule } from '../storage/storage.module'
@@ -28,6 +29,7 @@ import { InventoryModule } from '../inventory/inventory.module'
         CommentsService,
         TasksService,
         CostsService,
+        MaterialsService,
         ChecklistsService,
         AutoApproveJob,
     ],

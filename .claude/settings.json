@@ -37,7 +37,11 @@
       "Bash(cd \"/c/Users/User/Documents/inventech/InventechMonorepo/apps/web/src/app\" && find . -name \"equipamentos\" -type d)",
       "Read(//c/c/Users/User/Documents/inventech/InventechMonorepo/apps/web/src/**)",
       "Bash(cd \"/c/Users/User/Documents/inventech/InventechMonorepo/apps/api/src\" && find . -type d -maxdepth 2 | head -50)",
-      "Read(//c/c/Users/User/Documents/inventech/InventechMonorepo/apps/api/**)"
+      "Read(//c/c/Users/User/Documents/inventech/InventechMonorepo/apps/api/**)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\" -Recurse -Directory)",
+      "Bash(Select-Object -First 30)",
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\" -Recurse -Directory | Select-Object -First 50 | ForEach-Object { $_.FullName })",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\" -Directory)"
     ]
   }
 }

@@ -13,13 +13,13 @@ export class CategoriesController {
     constructor(private readonly categoriesService: CategoriesService) {}
 
     @Get()
-    @Permission('inventory:list')
+    @Permission('inventory-category:list')
     findAll(@Query() filters: ListStockCategoriesDto, @CurrentUser() cu: AuthenticatedUser) {
         return this.categoriesService.findAll(cu.companyId!, filters)
     }
 
     @Get(':id')
-    @Permission('inventory:read')
+    @Permission('inventory-category:read')
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
         return this.categoriesService.findOne(id, cu.companyId!)
     }

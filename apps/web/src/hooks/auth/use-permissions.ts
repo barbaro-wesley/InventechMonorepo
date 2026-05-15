@@ -76,7 +76,16 @@ export function usePermissions() {
         canManageEquipment: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"], "equipment:create"),
         canManageEquipmentSubtypes: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "equipment-type:create-sub"),
         canManageServiceOrders: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER"),
-        canManageInventory: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"], "inventory:create"),
+        // Visualizar o módulo de estoque — gestores, técnicos e prestadores (CLIENT_ADMIN)
+        canViewInventory: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN"], "inventory:list"),
+        // Gerenciar itens e configurações do estoque
+        canManageInventory: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "inventory:create"),
+        // Gerenciar pontos de estoque (criar/editar/excluir/vincular clientes)
+        canManageInventoryPoints: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "inventory-point:create"),
+        // Fazer movimentações (entradas, saídas, ajustes) — técnicos e prestadores incluídos
+        canCreateInventoryMovements: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN"], "inventory-movement:create"),
+        // Transferir itens entre pontos — apenas gestores
+        canTransferInventory: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "inventory-movement:transfer"),
         canViewReports: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"),
         canViewDashboard: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"),
 

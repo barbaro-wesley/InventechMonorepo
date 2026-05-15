@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { InventoryService } from '../inventory.service'
@@ -68,12 +68,24 @@ export class MovementsService {
         return { data: data.map(normalizeMovement), pagination: { page, limit, total } }
     }
 
-    async create(dto: CreateStockMovementDto, companyId: string, userId: string) {
+    async create(dto: CreateStockMovementDto, companyId: string, userId: string, clientId?: string) {
         const item = await this.prisma.stockItem.findFirst({
             where: { id: dto.itemId, companyId },
             select: { id: true, stockPointId: true },
         })
         if (!item) throw new NotFoundException('Item de estoque não encontrado')
+
+        // Prestadores (CLIENT_ADMIN / CLIENT_USER) só podem movimentar itens de pontos
+        // de estoque aos quais estão vinculados via StockPointClient
+        if (clientId) {
+            const linked = await this.prisma.stockPointClient.findUnique({
+                where: { stockPointId_clientId: { stockPointId: item.stockPointId, clientId } },
+                select: { stockPointId: true },
+            })
+            if (!linked) {
+                throw new ForbiddenException('Acesso negado: ponto de estoque não vinculado a este prestador')
+            }
+        }
 
         return this.inventoryService.applyMovement(
             dto.itemId,

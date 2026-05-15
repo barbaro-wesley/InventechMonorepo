@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common'
@@ -50,7 +51,16 @@ export class StockPointsService {
         return points.map(this.format)
     }
 
-    async findOne(id: string, companyId: string) {
+    async findOne(id: string, companyId: string, clientId?: string) {
+        // Se clientId informado, valida que o ponto está vinculado a este prestador
+        if (clientId) {
+            const linked = await this.prisma.stockPointClient.findUnique({
+                where: { stockPointId_clientId: { stockPointId: id, clientId } },
+                select: { stockPointId: true },
+            })
+            if (!linked) throw new ForbiddenException('Acesso negado: ponto de estoque não vinculado a este prestador')
+        }
+
         const point = await this.prisma.stockPoint.findFirst({
             where: { id, companyId },
             select: {

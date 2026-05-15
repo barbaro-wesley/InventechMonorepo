@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Delete,
+  Controller, Get, Post, Patch, Delete, Put,
   Body, Param, Query, ParseUUIDPipe,
   HttpCode, HttpStatus, UseInterceptors,
   UploadedFile, BadRequestException,
@@ -163,5 +163,28 @@ export class ClientsController {
     @CurrentUser() cu: AuthenticatedUser,
   ) {
     return this.clientsService.unlinkPlatformUser(id, userId, cu)
+  }
+
+  // ─────────────────────────────────────────
+  // Pontos de estoque do cliente
+  // ─────────────────────────────────────────
+
+  @Get(':id/stock-points')
+  @Permission('client:read')
+  listStockPoints(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.listStockPoints(id, cu)
+  }
+
+  @Put(':id/stock-points')
+  @Permission('client:update')
+  assignStockPoints(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { stockPointIds: string[] },
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.clientsService.assignStockPoints(id, body.stockPointIds ?? [], cu)
   }
 }

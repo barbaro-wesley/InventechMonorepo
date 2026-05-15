@@ -16,6 +16,7 @@ export const inventoryKeys = {
   detail: (id: string) => ["inventory", "detail", id] as const,
   movements: (params?: object) => ["inventory", "movements", params] as const,
   itemMovements: (itemId: string) => ["inventory", "movements", "item", itemId] as const,
+  dashboard: () => ["inventory", "dashboard"] as const,
 };
 
 export function useInventory(params?: ListStockItemsParams) {
@@ -82,6 +83,15 @@ export function useItemMovements(itemId: string) {
     queryKey: inventoryKeys.itemMovements(itemId),
     queryFn: () => inventoryService.listMovementsByItem(itemId),
     enabled: !!itemId,
+  });
+}
+
+export function useInventoryDashboard() {
+  return useQuery({
+    queryKey: inventoryKeys.dashboard(),
+    queryFn: () => inventoryService.getDashboard(),
+    staleTime: 60_000,
+    refetchInterval: 120_000,
   });
 }
 

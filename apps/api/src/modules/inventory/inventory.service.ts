@@ -1,6 +1,7 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Injectable,
     NotFoundException,
 } from '@nestjs/common'
@@ -49,11 +50,17 @@ export class InventoryService {
         private notificationsService: NotificationsService,
     ) {}
 
-    async findAll(companyId: string, filters: ListStockItemsDto) {
+    async findAll(companyId: string, filters: ListStockItemsDto, clientId?: string) {
         const { stockPointId, categoryId, search, isActive, belowMinimum, page = 1, limit = 50 } = filters
+
+        // CLIENT_ADMIN: restringe aos pontos vinculados ao seu cliente
+        const clientFilter: Prisma.StockItemWhereInput = clientId
+            ? { stockPoint: { clients: { some: { clientId } } } }
+            : {}
 
         const where: Prisma.StockItemWhereInput = {
             companyId,
+            ...clientFilter,
             ...(stockPointId && { stockPointId }),
             ...(categoryId && { categoryId }),
             ...(isActive !== undefined && { isActive }),
@@ -69,6 +76,7 @@ export class InventoryService {
         if (belowMinimum) {
             const baseWhere: Prisma.StockItemWhereInput = {
                 companyId,
+                ...clientFilter,
                 ...(stockPointId && { stockPointId }),
                 ...(categoryId && { categoryId }),
                 ...(isActive !== undefined && { isActive }),
@@ -98,12 +106,21 @@ export class InventoryService {
         return { data: data.map(normalizeItem), pagination: { page, limit, total } }
     }
 
-    async findOne(id: string, companyId: string) {
+    async findOne(id: string, companyId: string, clientId?: string) {
         const item = await this.prisma.stockItem.findFirst({
             where: { id, companyId },
-            select: ITEM_SELECT,
+            select: { ...ITEM_SELECT, stockPoint: { select: { id: true, name: true } } },
         })
         if (!item) throw new NotFoundException('Item de estoque não encontrado')
+
+        if (clientId) {
+            const linked = await this.prisma.stockPointClient.findUnique({
+                where: { stockPointId_clientId: { stockPointId: item.stockPointId, clientId } },
+                select: { stockPointId: true },
+            })
+            if (!linked) throw new ForbiddenException('Acesso negado: item pertence a um ponto não vinculado a este prestador')
+        }
+
         return normalizeItem(item)
     }
 
@@ -274,6 +291,254 @@ export class InventoryService {
             quantityBefore: Number(movement.quantityBefore),
             quantityAfter: Number(movement.quantityAfter),
             unitCost: movement.unitCost !== null ? Number(movement.unitCost) : null,
+        }
+    }
+
+    async getDashboard(companyId: string, clientId?: string) {
+        const clientFilter: Prisma.StockItemWhereInput = clientId
+            ? { stockPoint: { clients: { some: { clientId } } } }
+            : {}
+
+        const movClientFilter: Prisma.StockMovementWhereInput = clientId
+            ? { stockPoint: { clients: { some: { clientId } } } }
+            : {}
+
+        const now = new Date()
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+
+        // Run all queries in parallel
+        const [
+            totalItemsCount,
+            allActiveItems,
+            activePointsCount,
+            movementsThisMonth,
+            recentMovements,
+            trendMovements,
+            exitMovements,
+        ] = await Promise.all([
+            // totalItems: active stock items
+            this.prisma.stockItem.count({
+                where: { companyId, isActive: true, ...clientFilter },
+            }),
+
+            // All active items for value/alert/category/point calculations
+            this.prisma.stockItem.findMany({
+                where: { companyId, isActive: true, ...clientFilter },
+                select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                    unit: true,
+                    currentQuantity: true,
+                    minimumQuantity: true,
+                    unitCost: true,
+                    categoryId: true,
+                    category: { select: { id: true, name: true } },
+                    stockPoint: { select: { id: true, name: true } },
+                },
+            }),
+
+            // activePoints
+            this.prisma.stockPoint.count({
+                where: {
+                    companyId,
+                    isActive: true,
+                    ...(clientId ? { clients: { some: { clientId } } } : {}),
+                },
+            }),
+
+            // movementsThisMonth
+            this.prisma.stockMovement.count({
+                where: {
+                    companyId,
+                    createdAt: { gte: startOfMonth },
+                    ...movClientFilter,
+                },
+            }),
+
+            // recentMovements: last 10
+            this.prisma.stockMovement.findMany({
+                where: { companyId, ...movClientFilter },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                select: {
+                    id: true,
+                    type: true,
+                    quantity: true,
+                    createdAt: true,
+                    item: { select: { id: true, name: true, unit: true } },
+                    stockPoint: { select: { id: true, name: true } },
+                    user: { select: { id: true, name: true } },
+                    serviceOrder: { select: { id: true, number: true } },
+                },
+            }),
+
+            // trend: last 30 days
+            this.prisma.stockMovement.findMany({
+                where: {
+                    companyId,
+                    createdAt: { gte: thirtyDaysAgo },
+                    ...movClientFilter,
+                },
+                select: { type: true, quantity: true, createdAt: true },
+            }),
+
+            // EXIT movements last 30 days for topConsumed
+            this.prisma.stockMovement.findMany({
+                where: {
+                    companyId,
+                    type: 'EXIT',
+                    createdAt: { gte: thirtyDaysAgo },
+                    ...movClientFilter,
+                },
+                select: {
+                    itemId: true,
+                    quantity: true,
+                    item: { select: { id: true, name: true, unit: true } },
+                    stockPoint: { select: { id: true, name: true } },
+                },
+            }),
+        ])
+
+        // --- Summary ---
+        const normalizedItems = allActiveItems.map((i) => ({
+            ...i,
+            currentQuantity: Number(i.currentQuantity),
+            minimumQuantity: Number(i.minimumQuantity),
+            unitCost: i.unitCost !== null ? Number(i.unitCost) : null,
+        }))
+
+        const totalStockValue = normalizedItems.reduce(
+            (acc, i) => acc + i.currentQuantity * (i.unitCost ?? 0),
+            0,
+        )
+
+        const belowMinimumItems = normalizedItems.filter(
+            (i) => i.minimumQuantity > 0 && i.currentQuantity < i.minimumQuantity,
+        )
+
+        // --- Alerts: top 10 most critical (biggest deficit %) ---
+        const alerts = belowMinimumItems
+            .map((i) => ({
+                id: i.id,
+                name: i.name,
+                code: i.code,
+                unit: i.unit,
+                currentQuantity: i.currentQuantity,
+                minimumQuantity: i.minimumQuantity,
+                stockPoint: i.stockPoint,
+                _deficit: (i.minimumQuantity - i.currentQuantity) / i.minimumQuantity,
+            }))
+            .sort((a, b) => b._deficit - a._deficit)
+            .slice(0, 10)
+            .map(({ _deficit: _d, ...rest }) => rest)
+
+        // --- Recent movements ---
+        const recentMovementsNormalized = recentMovements.map((m) => ({
+            id: m.id,
+            type: m.type,
+            quantity: Number(m.quantity),
+            createdAt: m.createdAt.toISOString(),
+            item: m.item,
+            stockPoint: m.stockPoint,
+            user: m.user,
+            serviceOrder: m.serviceOrder,
+        }))
+
+        // --- Movement trend: aggregate by date in JS ---
+        const trendMap = new Map<string, { entries: number; exits: number; adjustments: number }>()
+        for (const mov of trendMovements) {
+            const date = mov.createdAt.toISOString().slice(0, 10)
+            if (!trendMap.has(date)) trendMap.set(date, { entries: 0, exits: 0, adjustments: 0 })
+            const entry = trendMap.get(date)!
+            const qty = Number(mov.quantity)
+            if (mov.type === 'ENTRY') entry.entries += qty
+            else if (mov.type === 'EXIT') entry.exits += qty
+            else if (mov.type === 'ADJUSTMENT') entry.adjustments += qty
+        }
+        const movementTrend = Array.from(trendMap.entries())
+            .map(([date, counts]) => ({ date, ...counts }))
+            .sort((a, b) => a.date.localeCompare(b.date))
+
+        // --- Top consumed: group EXIT movements by itemId ---
+        const consumedMap = new Map<
+            string,
+            { itemName: string; unit: string; totalConsumed: number; stockPoint: { id: string; name: string } }
+        >()
+        for (const mov of exitMovements) {
+            const existing = consumedMap.get(mov.itemId)
+            if (existing) {
+                existing.totalConsumed += Number(mov.quantity)
+            } else {
+                consumedMap.set(mov.itemId, {
+                    itemName: mov.item.name,
+                    unit: mov.item.unit,
+                    totalConsumed: Number(mov.quantity),
+                    stockPoint: mov.stockPoint,
+                })
+            }
+        }
+        const topConsumed = Array.from(consumedMap.entries())
+            .map(([itemId, data]) => ({ itemId, ...data }))
+            .sort((a, b) => b.totalConsumed - a.totalConsumed)
+            .slice(0, 5)
+
+        // --- Value by category ---
+        const categoryMap = new Map<
+            string | null,
+            { categoryName: string; totalValue: number; itemCount: number }
+        >()
+        for (const item of normalizedItems) {
+            const key = item.categoryId ?? null
+            if (!categoryMap.has(key)) {
+                categoryMap.set(key, {
+                    categoryName: item.category?.name ?? 'Sem categoria',
+                    totalValue: 0,
+                    itemCount: 0,
+                })
+            }
+            const entry = categoryMap.get(key)!
+            entry.totalValue += item.currentQuantity * (item.unitCost ?? 0)
+            entry.itemCount += 1
+        }
+        const valueByCategory = Array.from(categoryMap.entries()).map(([categoryId, data]) => ({
+            categoryId,
+            ...data,
+        }))
+
+        // --- Value by stock point ---
+        const pointMap = new Map<string, { pointName: string; totalValue: number; itemCount: number }>()
+        for (const item of normalizedItems) {
+            const key = item.stockPoint.id
+            if (!pointMap.has(key)) {
+                pointMap.set(key, { pointName: item.stockPoint.name, totalValue: 0, itemCount: 0 })
+            }
+            const entry = pointMap.get(key)!
+            entry.totalValue += item.currentQuantity * (item.unitCost ?? 0)
+            entry.itemCount += 1
+        }
+        const valueByPoint = Array.from(pointMap.entries()).map(([pointId, data]) => ({
+            pointId,
+            pointName: data.pointName,
+            totalValue: data.totalValue,
+            itemCount: data.itemCount,
+        }))
+
+        return {
+            summary: {
+                totalItems: totalItemsCount,
+                totalStockValue,
+                belowMinimumCount: belowMinimumItems.length,
+                activePoints: activePointsCount,
+                movementsThisMonth,
+            },
+            alerts,
+            recentMovements: recentMovementsNormalized,
+            movementTrend,
+            topConsumed,
+            valueByCategory,
+            valueByPoint,
         }
     }
 

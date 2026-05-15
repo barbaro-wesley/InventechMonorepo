@@ -114,6 +114,44 @@ export interface CreateMovementDto {
   notes?: string;
 }
 
+export interface InventoryDashboard {
+  summary: {
+    totalItems: number
+    totalStockValue: number
+    belowMinimumCount: number
+    activePoints: number
+    movementsThisMonth: number
+  }
+  alerts: Array<{
+    id: string; name: string; code: string | null; unit: string
+    currentQuantity: number; minimumQuantity: number
+    stockPoint: { id: string; name: string }
+  }>
+  recentMovements: Array<{
+    id: string; type: string; quantity: number; createdAt: string
+    item: { id: string; name: string; unit: string }
+    stockPoint: { id: string; name: string }
+    user: { id: string; name: string }
+    serviceOrder: { id: string; number: number } | null
+  }>
+  movementTrend: Array<{
+    date: string; entries: number; exits: number; adjustments: number
+  }>
+  topConsumed: Array<{
+    itemId: string; itemName: string; unit: string
+    totalConsumed: number
+    stockPoint: { id: string; name: string }
+  }>
+  valueByCategory: Array<{
+    categoryId: string | null; categoryName: string
+    totalValue: number; itemCount: number
+  }>
+  valueByPoint: Array<{
+    pointId: string; pointName: string
+    totalValue: number; itemCount: number
+  }>
+}
+
 export const inventoryService = {
   async list(params?: ListStockItemsParams): Promise<PaginatedResponse<StockItem>> {
     const { data } = await api.get("/inventory", { params });
@@ -156,6 +194,11 @@ export const inventoryService = {
 
   async createTransfer(dto: CreateTransferDto): Promise<{ message: string; quantity: number }> {
     const { data } = await api.post("/inventory/movements/transfer", dto);
+    return data;
+  },
+
+  async getDashboard(): Promise<InventoryDashboard> {
+    const { data } = await api.get("/inventory/dashboard");
     return data;
   },
 };

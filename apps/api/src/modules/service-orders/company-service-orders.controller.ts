@@ -11,6 +11,7 @@ import { ServiceOrdersService } from './service-orders.service'
 import { CommentsService } from './comments/comments.service'
 import { TasksService } from './tasks/tasks.service'
 import { CostsService } from './costs/costs.service'
+import { MaterialsService, AddMaterialDto } from './materials/materials.service'
 import { StorageService } from '../storage/storage.service'
 import {
     CreateServiceOrderDto,
@@ -36,6 +37,7 @@ export class CompanyServiceOrdersController {
         private readonly commentsService: CommentsService,
         private readonly tasksService: TasksService,
         private readonly costsService: CostsService,
+        private readonly materialsService: MaterialsService,
         private readonly storageService: StorageService,
     ) { }
 
@@ -284,5 +286,37 @@ export class CompanyServiceOrdersController {
         @CurrentUser() cu: AuthenticatedUser,
     ) {
         return this.costsService.remove(costId, cu.companyId!)
+    }
+
+    // ── Materiais utilizados (integração estoque) ────────────────────────────
+
+    @Get(':id/materials')
+    @Permission('inventory-movement:list')
+    findMaterials(
+        @Param('id', ParseUUIDPipe) serviceOrderId: string,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.materialsService.findAll(serviceOrderId, cu.companyId!)
+    }
+
+    @Post(':id/materials')
+    @Permission('inventory-movement:create')
+    addMaterial(
+        @Param('id', ParseUUIDPipe) serviceOrderId: string,
+        @Body() dto: AddMaterialDto,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.materialsService.create(serviceOrderId, dto, cu.companyId!, cu.sub, cu.clientId ?? undefined)
+    }
+
+    @Delete(':osId/materials/:movementId')
+    @HttpCode(HttpStatus.OK)
+    @Permission('inventory-movement:create')
+    removeMaterial(
+        @Param('movementId', ParseUUIDPipe) movementId: string,
+        @Param('osId', ParseUUIDPipe) serviceOrderId: string,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        return this.materialsService.remove(movementId, serviceOrderId, cu.companyId!)
     }
 }

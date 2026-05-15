@@ -28,25 +28,29 @@ export class StockPointsController {
     constructor(private readonly stockPointsService: StockPointsService) {}
 
     @Get()
-    @Permission('inventory:list')
+    @Permission('inventory-point:list')
     findAll(@Query() filters: ListStockPointsDto, @CurrentUser() cu: AuthenticatedUser) {
-        return this.stockPointsService.findAll(cu.companyId!, filters)
+        // CLIENT_ADMIN users see only stock points linked to their client
+        const effectiveFilters = cu.clientId
+            ? { ...filters, clientId: cu.clientId }
+            : filters
+        return this.stockPointsService.findAll(cu.companyId!, effectiveFilters)
     }
 
     @Get(':id')
-    @Permission('inventory:read')
+    @Permission('inventory-point:read')
     findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
-        return this.stockPointsService.findOne(id, cu.companyId!)
+        return this.stockPointsService.findOne(id, cu.companyId!, cu.clientId ?? undefined)
     }
 
     @Post()
-    @Permission('inventory:create')
+    @Permission('inventory-point:create')
     create(@Body() dto: CreateStockPointDto, @CurrentUser() cu: AuthenticatedUser) {
         return this.stockPointsService.create(dto, cu.companyId!)
     }
 
     @Patch(':id')
-    @Permission('inventory:update')
+    @Permission('inventory-point:update')
     update(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateStockPointDto,
@@ -57,13 +61,13 @@ export class StockPointsController {
 
     @Delete(':id')
     @HttpCode(HttpStatus.OK)
-    @Permission('inventory:delete')
+    @Permission('inventory-point:delete')
     remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() cu: AuthenticatedUser) {
         return this.stockPointsService.remove(id, cu.companyId!)
     }
 
     @Put(':id/clients')
-    @Permission('inventory:update')
+    @Permission('inventory-point:update')
     assignClients(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: AssignClientsDto,

@@ -267,3 +267,30 @@ export interface UpdateTaskDto {
   dueDate?: string
   assignedToId?: string
 }
+
+export interface OsMaterial {
+  id: string
+  type: string
+  quantity: number
+  quantityBefore: number
+  quantityAfter: number
+  unitCost: number | null
+  reason: string | null
+  notes: string | null
+  createdAt: string
+  item: { id: string; name: string; code: string | null; unit: string }
+  stockPoint: { id: string; name: string }
+  user: { id: string; name: string }
+}
+
+export interface OsMaterialsResponse {
+  items: OsMaterial[]
+  totalCost: number
+}
+
+export interface AddOsMaterialDto {
+  stockPointId: string
+  itemId: string
+  quantity: number
+  notes?: string
+}

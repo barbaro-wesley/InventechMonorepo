@@ -17,6 +17,8 @@ import type {
   ServiceOrderCostItem,
   CreateCostItemDto,
   UpdateCostItemDto,
+  OsMaterialsResponse,
+  AddOsMaterialDto,
 } from './service-orders.types'
 
 // Resposta paginada como retornada pelo backend (via ResponseInterceptor)
@@ -268,6 +270,34 @@ async function deleteServiceOrder(clientId: string | null, id: string) {
   return data
 }
 
+// ── Materiais utilizados (integração estoque) ────────────────────────────────
+
+async function getMaterials(
+  clientId: string | null,
+  osId: string,
+): Promise<OsMaterialsResponse> {
+  const { data } = await api.get(`${osBase(clientId, osId)}/materials`)
+  return data
+}
+
+async function addMaterial(
+  clientId: string | null,
+  osId: string,
+  dto: AddOsMaterialDto,
+) {
+  const { data } = await api.post(`${osBase(clientId, osId)}/materials`, dto)
+  return data
+}
+
+async function removeMaterial(
+  clientId: string | null,
+  osId: string,
+  movementId: string,
+) {
+  const { data } = await api.delete(`${osBase(clientId, osId)}/materials/${movementId}`)
+  return data
+}
+
 export const serviceOrdersService = {
   listCompany,
   listByClient,
@@ -293,4 +323,7 @@ export const serviceOrdersService = {
   updateCostItem,
   deleteCostItem,
   deleteServiceOrder,
+  getMaterials,
+  addMaterial,
+  removeMaterial,
 }
