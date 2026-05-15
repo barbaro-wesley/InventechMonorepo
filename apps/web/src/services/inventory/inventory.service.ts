@@ -15,7 +15,7 @@ export interface StockCategory {
 export interface StockItem {
   id: string;
   companyId: string;
-  clientId: string | null;
+  stockPointId: string;
   categoryId: string | null;
   code: string | null;
   name: string;
@@ -28,7 +28,7 @@ export interface StockItem {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  client: { id: string; name: string } | null;
+  stockPoint: { id: string; name: string };
   category: { id: string; name: string; color: string | null } | null;
 }
 
@@ -52,7 +52,7 @@ export interface StockMovement {
 }
 
 export interface ListStockItemsParams {
-  clientId?: string;
+  stockPointId?: string;
   categoryId?: string;
   search?: string;
   isActive?: boolean;
@@ -74,7 +74,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface CreateStockItemDto {
-  clientId?: string;
+  stockPointId: string;
   categoryId?: string;
   code?: string;
   name: string;
@@ -83,6 +83,14 @@ export interface CreateStockItemDto {
   brand?: string;
   minimumQuantity?: number;
   unitCost?: number;
+}
+
+export interface CreateTransferDto {
+  itemId: string;
+  destinationPointId: string;
+  quantity: number;
+  reason?: string;
+  notes?: string;
 }
 
 export interface UpdateStockItemDto {
@@ -143,6 +151,11 @@ export const inventoryService = {
 
   async createMovement(dto: CreateMovementDto): Promise<StockMovement> {
     const { data } = await api.post("/inventory/movements", dto);
+    return data;
+  },
+
+  async createTransfer(dto: CreateTransferDto): Promise<{ message: string; quantity: number }> {
+    const { data } = await api.post("/inventory/movements/transfer", dto);
     return data;
   },
 };

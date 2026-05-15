@@ -2,7 +2,6 @@ import {
     IsBoolean,
     IsNumber,
     IsOptional,
-    IsPositive,
     IsString,
     IsUUID,
     Min,
@@ -10,9 +9,8 @@ import {
 import { Type } from 'class-transformer'
 
 export class CreateStockItemDto {
-    @IsOptional()
     @IsUUID()
-    clientId?: string
+    stockPointId: string
 
     @IsOptional()
     @IsUUID()
@@ -45,7 +43,7 @@ export class CreateStockItemDto {
 
     @IsOptional()
     @IsNumber({ maxDecimalPlaces: 2 })
-    @IsPositive()
+    @Min(0)
     @Type(() => Number)
     unitCost?: number
 }
@@ -83,7 +81,7 @@ export class UpdateStockItemDto {
 
     @IsOptional()
     @IsNumber({ maxDecimalPlaces: 2 })
-    @IsPositive()
+    @Min(0)
     @Type(() => Number)
     unitCost?: number
 
@@ -95,7 +93,7 @@ export class UpdateStockItemDto {
 export class ListStockItemsDto {
     @IsOptional()
     @IsUUID()
-    clientId?: string
+    stockPointId?: string
 
     @IsOptional()
     @IsUUID()

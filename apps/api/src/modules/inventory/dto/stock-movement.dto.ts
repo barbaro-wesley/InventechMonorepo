@@ -14,8 +14,8 @@ export class CreateStockMovementDto {
     @IsUUID()
     itemId: string
 
-    @IsEnum(StockMovementType)
-    type: StockMovementType
+    @IsEnum(['ENTRY', 'EXIT', 'ADJUSTMENT'])
+    type: 'ENTRY' | 'EXIT' | 'ADJUSTMENT'
 
     @IsNumber({ maxDecimalPlaces: 3 })
     @IsPositive()
@@ -24,9 +24,30 @@ export class CreateStockMovementDto {
 
     @IsOptional()
     @IsNumber({ maxDecimalPlaces: 2 })
-    @IsPositive()
+    @Min(0)
     @Type(() => Number)
     unitCost?: number
+
+    @IsOptional()
+    @IsString()
+    reason?: string
+
+    @IsOptional()
+    @IsString()
+    notes?: string
+}
+
+export class CreateTransferDto {
+    @IsUUID()
+    itemId: string
+
+    @IsUUID()
+    destinationPointId: string
+
+    @IsNumber({ maxDecimalPlaces: 3 })
+    @IsPositive()
+    @Type(() => Number)
+    quantity: number
 
     @IsOptional()
     @IsString()
@@ -41,6 +62,10 @@ export class ListStockMovementsDto {
     @IsOptional()
     @IsUUID()
     itemId?: string
+
+    @IsOptional()
+    @IsUUID()
+    stockPointId?: string
 
     @IsOptional()
     @IsEnum(StockMovementType)

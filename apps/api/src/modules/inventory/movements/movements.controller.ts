@@ -9,7 +9,7 @@ import {
     Query,
 } from '@nestjs/common'
 import { MovementsService } from './movements.service'
-import { CreateStockMovementDto, ListStockMovementsDto } from '../dto/stock-movement.dto'
+import { CreateStockMovementDto, CreateTransferDto, ListStockMovementsDto } from '../dto/stock-movement.dto'
 import { CurrentUser } from '../../../common/decorators/current-user.decorator'
 import { AuthenticatedUser } from '../../../common/interfaces/authenticated-user.interface'
 import { Permission } from '../../../common/decorators/permission.decorator'
@@ -39,5 +39,11 @@ export class MovementsController {
     @Permission('inventory:update')
     create(@Body() dto: CreateStockMovementDto, @CurrentUser() cu: AuthenticatedUser) {
         return this.movementsService.create(dto, cu.companyId!, cu.sub)
+    }
+
+    @Post('transfer')
+    @Permission('inventory:update')
+    transfer(@Body() dto: CreateTransferDto, @CurrentUser() cu: AuthenticatedUser) {
+        return this.movementsService.createTransfer(dto, cu.companyId!, cu.sub)
     }
 }

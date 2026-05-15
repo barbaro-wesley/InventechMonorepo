@@ -16,7 +16,7 @@ const { Decimal } = require('decimal.js')
 const ITEM_SELECT = {
     id: true,
     companyId: true,
-    clientId: true,
+    stockPointId: true,
     categoryId: true,
     code: true,
     name: true,
@@ -29,7 +29,7 @@ const ITEM_SELECT = {
     isActive: true,
     createdAt: true,
     updatedAt: true,
-    client: { select: { id: true, name: true } },
+    stockPoint: { select: { id: true, name: true } },
     category: { select: { id: true, name: true, color: true } },
 } satisfies Prisma.StockItemSelect
 
@@ -50,12 +50,12 @@ export class InventoryService {
     ) {}
 
     async findAll(companyId: string, filters: ListStockItemsDto) {
-        const { clientId, categoryId, search, isActive, belowMinimum, page = 1, limit = 50 } = filters
+        const { stockPointId, categoryId, search, isActive, belowMinimum, page = 1, limit = 50 } = filters
 
         const where: Prisma.StockItemWhereInput = {
             companyId,
-            ...(clientId !== undefined ? { clientId } : {}),
-            ...(categoryId !== undefined && { categoryId }),
+            ...(stockPointId && { stockPointId }),
+            ...(categoryId && { categoryId }),
             ...(isActive !== undefined && { isActive }),
             ...(search && {
                 OR: [
@@ -69,8 +69,8 @@ export class InventoryService {
         if (belowMinimum) {
             const baseWhere: Prisma.StockItemWhereInput = {
                 companyId,
-                ...(clientId !== undefined ? { clientId } : {}),
-                ...(categoryId !== undefined && { categoryId }),
+                ...(stockPointId && { stockPointId }),
+                ...(categoryId && { categoryId }),
                 ...(isActive !== undefined && { isActive }),
                 minimumQuantity: { gt: 0 },
             }
@@ -108,26 +108,24 @@ export class InventoryService {
     }
 
     async create(dto: CreateStockItemDto, companyId: string) {
-        if (dto.clientId) {
-            const client = await this.prisma.client.findFirst({
-                where: { id: dto.clientId, companyId },
-                select: { id: true },
-            })
-            if (!client) throw new NotFoundException('Prestador/cliente não encontrado')
-        }
+        const point = await this.prisma.stockPoint.findFirst({
+            where: { id: dto.stockPointId, companyId },
+            select: { id: true },
+        })
+        if (!point) throw new NotFoundException('Ponto de estoque não encontrado')
 
         if (dto.code) {
             const existing = await this.prisma.stockItem.findFirst({
-                where: { companyId, clientId: dto.clientId ?? null, code: dto.code },
+                where: { stockPointId: dto.stockPointId, code: dto.code },
                 select: { id: true },
             })
-            if (existing) throw new ConflictException('Já existe um item com este código para este proprietário')
+            if (existing) throw new ConflictException('Já existe um item com este código neste ponto de estoque')
         }
 
         const item = await this.prisma.stockItem.create({
             data: {
                 companyId,
-                clientId: dto.clientId ?? null,
+                stockPointId: dto.stockPointId,
                 categoryId: dto.categoryId ?? null,
                 code: dto.code ?? null,
                 name: dto.name,
@@ -146,16 +144,16 @@ export class InventoryService {
     async update(id: string, dto: UpdateStockItemDto, companyId: string) {
         const item = await this.prisma.stockItem.findFirst({
             where: { id, companyId },
-            select: { id: true, clientId: true, code: true },
+            select: { id: true, stockPointId: true, code: true },
         })
         if (!item) throw new NotFoundException('Item de estoque não encontrado')
 
         if (dto.code && dto.code !== item.code) {
             const existing = await this.prisma.stockItem.findFirst({
-                where: { companyId, clientId: item.clientId, code: dto.code, id: { not: id } },
+                where: { stockPointId: item.stockPointId, code: dto.code, id: { not: id } },
                 select: { id: true },
             })
-            if (existing) throw new ConflictException('Já existe um item com este código para este proprietário')
+            if (existing) throw new ConflictException('Já existe um item com este código neste ponto de estoque')
         }
 
         const updated = await this.prisma.stockItem.update({
@@ -196,15 +194,16 @@ export class InventoryService {
         itemId: string,
         companyId: string,
         userId: string,
-        type: 'ENTRY' | 'EXIT' | 'ADJUSTMENT' | 'TRANSFER',
+        stockPointId: string,
+        type: 'ENTRY' | 'EXIT' | 'ADJUSTMENT',
         quantity: number,
         opts?: { unitCost?: number; reason?: string; notes?: string; serviceOrderId?: string },
     ) {
         const item = await this.prisma.stockItem.findFirst({
-            where: { id: itemId, companyId },
-            select: { id: true, currentQuantity: true, minimumQuantity: true, name: true, code: true, unit: true, client: { select: { name: true } } },
+            where: { id: itemId, companyId, stockPointId },
+            select: { id: true, currentQuantity: true, minimumQuantity: true, name: true, code: true, unit: true, stockPoint: { select: { name: true } } },
         })
-        if (!item) throw new NotFoundException('Item de estoque não encontrado')
+        if (!item) throw new NotFoundException('Item de estoque não encontrado neste ponto')
 
         const current = new Decimal(item.currentQuantity.toString())
         const qty = new Decimal(quantity)
@@ -225,6 +224,7 @@ export class InventoryService {
             const mov = await tx.stockMovement.create({
                 data: {
                     companyId,
+                    stockPointId,
                     itemId,
                     userId,
                     type,
@@ -237,15 +237,9 @@ export class InventoryService {
                     serviceOrderId: opts?.serviceOrderId ?? null,
                 },
                 select: {
-                    id: true,
-                    type: true,
-                    quantity: true,
-                    quantityBefore: true,
-                    quantityAfter: true,
-                    unitCost: true,
-                    reason: true,
-                    notes: true,
-                    createdAt: true,
+                    id: true, type: true, quantity: true,
+                    quantityBefore: true, quantityAfter: true,
+                    unitCost: true, reason: true, notes: true, createdAt: true,
                 },
             })
 
@@ -269,7 +263,7 @@ export class InventoryService {
                     unit: item.unit,
                     currentQuantity: newQuantity.toFixed(3),
                     minimumQuantity: minQty.toFixed(3),
-                    clientName: item.client?.name ?? null,
+                    stockPointName: item.stockPoint?.name ?? null,
                 },
             })
         }
@@ -281,5 +275,113 @@ export class InventoryService {
             quantityAfter: Number(movement.quantityAfter),
             unitCost: movement.unitCost !== null ? Number(movement.unitCost) : null,
         }
+    }
+
+    async applyTransfer(
+        sourceItemId: string,
+        destinationPointId: string,
+        companyId: string,
+        userId: string,
+        quantity: number,
+        opts?: { unitCost?: number; reason?: string; notes?: string },
+    ) {
+        const sourceItem = await this.prisma.stockItem.findFirst({
+            where: { id: sourceItemId, companyId },
+            select: {
+                id: true, stockPointId: true, currentQuantity: true, minimumQuantity: true,
+                name: true, code: true, unit: true, brand: true, categoryId: true,
+                description: true, unitCost: true,
+            },
+        })
+        if (!sourceItem) throw new NotFoundException('Item de estoque de origem não encontrado')
+
+        const destPoint = await this.prisma.stockPoint.findFirst({
+            where: { id: destinationPointId, companyId },
+            select: { id: true },
+        })
+        if (!destPoint) throw new NotFoundException('Ponto de estoque destino não encontrado')
+
+        if (sourceItem.stockPointId === destinationPointId) {
+            throw new BadRequestException('Origem e destino não podem ser o mesmo ponto')
+        }
+
+        const sourceQty = new Decimal(sourceItem.currentQuantity.toString())
+        const qty = new Decimal(quantity)
+
+        if (sourceQty.lt(qty)) {
+            throw new BadRequestException(`Estoque insuficiente. Disponível: ${sourceQty.toString()} ${sourceItem.unit}`)
+        }
+
+        const sourceNewQty = sourceQty.minus(qty)
+
+        // Busca ou cria o item no ponto destino
+        let destItem = await this.prisma.stockItem.findFirst({
+            where: { stockPointId: destinationPointId, name: sourceItem.name, code: sourceItem.code },
+            select: { id: true, currentQuantity: true },
+        })
+
+        const destCurrentQty = destItem ? new Decimal(destItem.currentQuantity.toString()) : new Decimal(0)
+        const destNewQty = destCurrentQty.plus(qty)
+
+        await this.prisma.$transaction(async (tx) => {
+            // Cria item no destino se não existir
+            if (!destItem) {
+                destItem = await tx.stockItem.create({
+                    data: {
+                        companyId,
+                        stockPointId: destinationPointId,
+                        name: sourceItem.name,
+                        code: sourceItem.code,
+                        description: sourceItem.description,
+                        unit: sourceItem.unit,
+                        brand: sourceItem.brand,
+                        categoryId: sourceItem.categoryId,
+                        unitCost: sourceItem.unitCost,
+                        currentQuantity: new Decimal(0),
+                        minimumQuantity: new Decimal(0),
+                    },
+                    select: { id: true, currentQuantity: true },
+                })
+            }
+
+            // Movimento EXIT no ponto origem
+            await tx.stockMovement.create({
+                data: {
+                    companyId,
+                    stockPointId: sourceItem.stockPointId,
+                    itemId: sourceItem.id,
+                    userId,
+                    type: 'TRANSFER',
+                    quantity: qty,
+                    quantityBefore: sourceQty,
+                    quantityAfter: sourceNewQty,
+                    destinationPointId,
+                    reason: opts?.reason ?? null,
+                    notes: opts?.notes ?? null,
+                },
+            })
+
+            // Movimento ENTRY no ponto destino
+            await tx.stockMovement.create({
+                data: {
+                    companyId,
+                    stockPointId: destinationPointId,
+                    itemId: destItem!.id,
+                    userId,
+                    type: 'TRANSFER',
+                    quantity: qty,
+                    quantityBefore: destCurrentQty,
+                    quantityAfter: destNewQty,
+                    reason: opts?.reason ?? null,
+                    notes: opts?.notes ?? null,
+                },
+            })
+
+            // Atualiza quantidades
+            await tx.stockItem.update({ where: { id: sourceItem.id }, data: { currentQuantity: sourceNewQty } })
+            await tx.stockItem.update({ where: { id: destItem!.id }, data: { currentQuantity: destNewQty } })
+        })
+
+        return { message: 'Transferência realizada com sucesso', quantity: Number(qty) }
     }
 }

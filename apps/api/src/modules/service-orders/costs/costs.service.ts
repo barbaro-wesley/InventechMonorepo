@@ -108,14 +108,21 @@ export class CostsService {
         })
 
         if (dto.stockItemId && dto.type === 'MATERIAL') {
-            await this.inventoryService.applyMovement(
-                dto.stockItemId,
-                companyId,
-                userId,
-                'EXIT',
-                dto.quantity,
-                { unitCost: dto.unitPrice, reason: `Baixa automática via OS`, serviceOrderId },
-            )
+            const stockItem = await this.prisma.stockItem.findFirst({
+                where: { id: dto.stockItemId, companyId },
+                select: { stockPointId: true },
+            })
+            if (stockItem) {
+                await this.inventoryService.applyMovement(
+                    dto.stockItemId,
+                    companyId,
+                    userId,
+                    stockItem.stockPointId,
+                    'EXIT',
+                    dto.quantity,
+                    { unitCost: dto.unitPrice, reason: `Baixa automática via OS`, serviceOrderId },
+                )
+            }
         }
 
         return normalizeItem(item)

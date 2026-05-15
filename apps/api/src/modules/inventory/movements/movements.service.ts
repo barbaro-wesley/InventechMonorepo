@@ -2,14 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { InventoryService } from '../inventory.service'
-import { CreateStockMovementDto, ListStockMovementsDto } from '../dto/stock-movement.dto'
+import { CreateStockMovementDto, CreateTransferDto, ListStockMovementsDto } from '../dto/stock-movement.dto'
 
 const MOVEMENT_SELECT = {
     id: true,
     companyId: true,
+    stockPointId: true,
     itemId: true,
     userId: true,
     serviceOrderId: true,
+    destinationPointId: true,
     type: true,
     quantity: true,
     quantityBefore: true,
@@ -20,6 +22,8 @@ const MOVEMENT_SELECT = {
     createdAt: true,
     item: { select: { id: true, name: true, code: true, unit: true } },
     user: { select: { id: true, name: true } },
+    stockPoint: { select: { id: true, name: true } },
+    destinationPoint: { select: { id: true, name: true } },
     serviceOrder: { select: { id: true, number: true } },
 } satisfies Prisma.StockMovementSelect
 
@@ -41,11 +45,12 @@ export class MovementsService {
     ) {}
 
     async findAll(companyId: string, filters: ListStockMovementsDto) {
-        const { itemId, type, page = 1, limit = 50 } = filters
+        const { itemId, stockPointId, type, page = 1, limit = 50 } = filters
 
         const where: Prisma.StockMovementWhereInput = {
             companyId,
             ...(itemId && { itemId }),
+            ...(stockPointId && { stockPointId }),
             ...(type && { type }),
         }
 
@@ -66,7 +71,7 @@ export class MovementsService {
     async create(dto: CreateStockMovementDto, companyId: string, userId: string) {
         const item = await this.prisma.stockItem.findFirst({
             where: { id: dto.itemId, companyId },
-            select: { id: true },
+            select: { id: true, stockPointId: true },
         })
         if (!item) throw new NotFoundException('Item de estoque não encontrado')
 
@@ -74,9 +79,21 @@ export class MovementsService {
             dto.itemId,
             companyId,
             userId,
-            dto.type,
+            item.stockPointId,
+            dto.type as 'ENTRY' | 'EXIT' | 'ADJUSTMENT',
             dto.quantity,
             { unitCost: dto.unitCost, reason: dto.reason, notes: dto.notes },
+        )
+    }
+
+    async createTransfer(dto: CreateTransferDto, companyId: string, userId: string) {
+        return this.inventoryService.applyTransfer(
+            dto.itemId,
+            dto.destinationPointId,
+            companyId,
+            userId,
+            dto.quantity,
+            { reason: dto.reason, notes: dto.notes },
         )
     }
 

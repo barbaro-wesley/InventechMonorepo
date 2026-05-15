@@ -63,6 +63,10 @@ model Company {
   scan_file_events       scan_file_events[]
   scans                  Scan[]
   serviceOrderChecklists ServiceOrderChecklist[]
+  stockCategories        StockCategory[]
+  stockItems             StockItem[]
+  stockMovements         StockMovement[]
+  stockPoints            StockPoint[]
   users                  User[]
 
   @@index([platformId])
@@ -94,6 +98,7 @@ model Client {
   maintenanceSchedules MaintenanceSchedule[]
   maintenances         Maintenance[]
   serviceOrders        ServiceOrder[]
+  stockPointClients    StockPointClient[]
   users                User[]
 
   @@index([companyId])
@@ -146,6 +151,7 @@ model User {
   serviceOrderTechnicians      ServiceOrderTechnician[]
   serviceOrdersApproved        ServiceOrder[]              @relation("ServiceOrderApprover")
   serviceOrdersOwned           ServiceOrder[]              @relation("ServiceOrderRequester")
+  stockMovements               StockMovement[]
   technicianGroups             TechnicianGroup[]
   twoFactorCodes               TwoFactorCode[]
   client                       Client?                     @relation(fields: [clientId], references: [id])
@@ -543,6 +549,7 @@ model ServiceOrder {
   parentServiceOrder   ServiceOrder?               @relation("OSChildren", fields: [parentServiceOrderId], references: [id])
   childServiceOrders   ServiceOrder[]              @relation("OSChildren")
   requester            User                        @relation("ServiceOrderRequester", fields: [requesterId], references: [id])
+  stockMovements       StockMovement[]
 
   @@unique([companyId, number])
   @@index([companyId])
@@ -1402,6 +1409,7 @@ enum EventType {
   DAILY_SUMMARY
   PREVENTIVE_UPCOMING
   OS_CHILD_CREATED
+  STOCK_LOW_QUANTITY
 }
 
 enum ContextualRecipient {
@@ -1492,4 +1500,115 @@ enum OcrStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+enum StockMovementType {
+  ENTRY
+  EXIT
+  ADJUSTMENT
+  TRANSFER
+}
+
+model StockCategory {
+  id          String      @id @default(uuid())
+  companyId   String      @map("company_id")
+  name        String
+  description String?
+  color       String?
+  isActive    Boolean     @default(true) @map("is_active")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  company     Company     @relation(fields: [companyId], references: [id])
+  items       StockItem[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("stock_categories")
+}
+
+model StockItem {
+  id              String          @id @default(uuid())
+  companyId       String          @map("company_id")
+  stockPointId    String          @map("stock_point_id")
+  categoryId      String?         @map("category_id")
+  code            String?
+  name            String
+  description     String?
+  unit            String          @default("UN")
+  brand           String?
+  minimumQuantity Decimal         @default(0) @map("minimum_quantity") @db.Decimal(15, 3)
+  currentQuantity Decimal         @default(0) @map("current_quantity") @db.Decimal(15, 3)
+  unitCost        Decimal?        @map("unit_cost") @db.Decimal(15, 2)
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  category        StockCategory?  @relation(fields: [categoryId], references: [id])
+  company         Company         @relation(fields: [companyId], references: [id])
+  stockPoint      StockPoint      @relation(fields: [stockPointId], references: [id])
+  movements       StockMovement[]
+
+  @@unique([stockPointId, code])
+  @@index([companyId])
+  @@index([stockPointId])
+  @@index([categoryId])
+  @@map("stock_items")
+}
+
+model StockMovement {
+  id                  String            @id @default(uuid())
+  companyId           String            @map("company_id")
+  stockPointId        String            @map("stock_point_id")
+  itemId              String            @map("item_id")
+  userId              String            @map("user_id")
+  serviceOrderId      String?           @map("service_order_id")
+  destinationPointId  String?           @map("destination_point_id")
+  type                StockMovementType
+  quantity            Decimal           @db.Decimal(15, 3)
+  quantityBefore      Decimal           @map("quantity_before") @db.Decimal(15, 3)
+  quantityAfter       Decimal           @map("quantity_after") @db.Decimal(15, 3)
+  unitCost            Decimal?          @map("unit_cost") @db.Decimal(15, 2)
+  reason              String?
+  notes               String?
+  createdAt           DateTime          @default(now()) @map("created_at")
+  company             Company           @relation(fields: [companyId], references: [id])
+  destinationPoint    StockPoint?       @relation("TransferDestination", fields: [destinationPointId], references: [id])
+  item                StockItem         @relation(fields: [itemId], references: [id])
+  serviceOrder        ServiceOrder?     @relation(fields: [serviceOrderId], references: [id])
+  stockPoint          StockPoint        @relation("MovementPoint", fields: [stockPointId], references: [id])
+  user                User              @relation(fields: [userId], references: [id])
+
+  @@index([companyId, createdAt(sort: Desc)])
+  @@index([stockPointId])
+  @@index([itemId])
+  @@map("stock_movements")
+}
+
+model StockPoint {
+  id                String             @id @default(uuid())
+  companyId         String             @map("company_id")
+  name              String
+  description       String?
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  company           Company            @relation(fields: [companyId], references: [id])
+  clients           StockPointClient[]
+  items             StockItem[]
+  movements         StockMovement[]    @relation("MovementPoint")
+  incomingTransfers StockMovement[]    @relation("TransferDestination")
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("stock_points")
+}
+
+model StockPointClient {
+  stockPointId String     @map("stock_point_id")
+  clientId     String     @map("client_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  client       Client     @relation(fields: [clientId], references: [id])
+  stockPoint   StockPoint @relation(fields: [stockPointId], references: [id])
+
+  @@id([stockPointId, clientId])
+  @@map("stock_point_clients")
 }
