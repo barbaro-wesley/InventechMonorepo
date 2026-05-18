@@ -105,6 +105,14 @@ export const EVENT_VARIABLE_REGISTRY: Record<EventType, VariableDefinition[]> = 
         { key: 'userEmail', label: 'Email', type: 'string' },
         { key: 'userRole',  label: 'Papel', type: 'string' },
     ],
+    [EventType.STOCK_LOW_QUANTITY]: [
+        { key: 'itemName',        label: 'Item',             type: 'string' },
+        { key: 'itemCode',        label: 'Código',           type: 'string' },
+        { key: 'unit',            label: 'Unidade',          type: 'string' },
+        { key: 'currentQuantity', label: 'Qtd. atual',       type: 'number' },
+        { key: 'minimumQuantity', label: 'Qtd. mínima',      type: 'number' },
+        { key: 'clientName',      label: 'Proprietário',     type: 'string' },
+    ],
     [EventType.DAILY_SUMMARY]: [
         { key: 'companyName',           label: 'Empresa',                  type: 'string' },
         { key: 'date',                  label: 'Data',                     type: 'date' },

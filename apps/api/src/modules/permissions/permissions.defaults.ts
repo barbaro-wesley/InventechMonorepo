@@ -236,6 +236,37 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   // ── GHOSP (pacientes internados — banco hospitalar externo) ────────────────
   'ghosp:list':                  [SA, CA],
 
+  // ── INVENTORY (itens de estoque) ───────────────────────────────────────────
+  // Prestadores (CLA) podem visualizar itens dos pontos vinculados a eles
+  'inventory:browse':              [SA, CA, CM, TEC, CLA],
+  'inventory:list':                [SA, CA, CM, TEC, CLA],
+  'inventory:read':                [SA, CA, CM, TEC, CLA],
+  'inventory:create':              [SA, CA, CM],
+  'inventory:update':              [SA, CA, CM],
+  'inventory:delete':              [SA, CA, CM],
+
+  // ── INVENTORY POINT (pontos de estoque) ────────────────────────────────────
+  'inventory-point:list':          [SA, CA, CM, TEC, CLA],
+  'inventory-point:read':          [SA, CA, CM, TEC, CLA],
+  'inventory-point:create':        [SA, CA, CM],
+  'inventory-point:update':        [SA, CA, CM],
+  'inventory-point:delete':        [SA, CA, CM],
+
+  // ── INVENTORY CATEGORY ─────────────────────────────────────────────────────
+  'inventory-category:browse':     [SA, CA, CM, TEC],
+  'inventory-category:list':       [SA, CA, CM, TEC],
+  'inventory-category:read':       [SA, CA, CM, TEC],
+  'inventory-category:create':     [SA, CA, CM],
+  'inventory-category:update':     [SA, CA, CM],
+  'inventory-category:delete':     [SA, CA],
+
+  // ── INVENTORY MOVEMENT (movimentações / saídas) ────────────────────────────
+  // TEC e CLA podem criar saídas; só gestores fazem transferências entre pontos
+  'inventory-movement:list':       [SA, CA, CM, TEC, CLA],
+  'inventory-movement:read':       [SA, CA, CM, TEC, CLA],
+  'inventory-movement:create':     [SA, CA, CM, TEC, CLA],
+  'inventory-movement:transfer':   [SA, CA, CM],
+
   // ── ANALYTICS ──────────────────────────────────────────────────────────────
   // Acesso por módulo — cada tipo de análise pode ser liberado independentemente
   'analytics:equipment':         [SA, CA, CM, CLA],
@@ -275,6 +306,10 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'scan':                 ['browse', 'list', 'read', 'download', 'update', 'delete'],
   'ghosp':                ['list'],
   'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial'],
+  'inventory':            ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'inventory-point':      ['list', 'read', 'create', 'update', 'delete'],
+  'inventory-category':   ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'inventory-movement':   ['list', 'read', 'create', 'transfer'],
 }
 
 // Roles que não podem ser removidos de certos recursos críticos (lock-out prevention)

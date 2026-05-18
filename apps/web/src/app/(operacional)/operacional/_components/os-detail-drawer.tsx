@@ -52,12 +52,13 @@ import { OsCommentsTab } from './tabs/os-comments-tab'
 import { OsHistoryTab } from './tabs/os-history-tab'
 import { OsCostsTab } from './tabs/os-costs-tab'
 import { OsChecklistTab } from './tabs/os-checklist-tab'
+import { OsMaterialsTab } from './tabs/os-materials-tab'
 import { OsChildCreateSheet } from './os-child-create-sheet'
 import { STATUS_CONFIG, PRIORITY_CONFIG } from './os-utils'
 import type { ServiceOrderStatus, ServiceOrderPriority, MaintenanceType } from '@/services/service-orders/service-orders.types'
 import { MAINTENANCE_TYPE_LABELS } from './os-utils'
 
-type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs' | 'checklist'
+type Tab = 'details' | 'tasks' | 'comments' | 'history' | 'costs' | 'checklist' | 'materials'
 
 interface OsDetailDrawerProps {
   osId: string | null
@@ -204,6 +205,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     { id: 'tasks', label: 'Tarefas', count: os?.tasks?.length },
     { id: 'comments', label: 'Comentários', count: os?.comments?.length },
     { id: 'costs', label: 'Custos' },
+    ...(user?.permissions?.includes('inventory-movement:list') ? [{ id: 'materials' as Tab, label: 'Materiais' }] : []),
     ...(os?.checklist != null ? [{ id: 'checklist' as Tab, label: 'Checklist' }] : []),
     {
       id: 'history',
@@ -226,6 +228,7 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
     os?.isAvailable &&
     (user?.permissions?.includes('service-order:assume') ?? false)
   const canEdit = user?.permissions?.includes('service-order:update') ?? false
+  const canManageMaterials = user?.permissions?.includes('inventory-movement:create') ?? false
   const canDelete = user?.permissions?.includes('service-order:delete') ?? false
   const canCreateChild =
     (user?.permissions?.includes('service-order:create-child') ?? false) &&
@@ -463,6 +466,13 @@ export function OsDetailDrawer({ osId, clientId, open, onClose }: OsDetailDrawer
                         }
                       : null
                     }
+                  />
+                )}
+                {activeTab === 'materials' && (
+                  <OsMaterialsTab
+                    clientId={clientId}
+                    osId={osId}
+                    canEdit={canManageMaterials && os.status !== 'CANCELLED' && os.status !== 'COMPLETED_APPROVED'}
                   />
                 )}
                 {activeTab === 'checklist' && (

@@ -15,6 +15,7 @@ import type {
   CreateChildServiceOrderDto,
   CreateCostItemDto,
   UpdateCostItemDto,
+  AddOsMaterialDto,
 } from '@/services/service-orders/service-orders.types'
 
 export const serviceOrderKeys = {
@@ -30,6 +31,8 @@ export const serviceOrderKeys = {
     ['service-orders', 'tasks', clientId ?? '', id] as const,
   costs: (clientId: string | null, id: string) =>
     ['service-orders', 'costs', clientId ?? '', id] as const,
+  materials: (clientId: string | null, id: string) =>
+    ['service-orders', 'materials', clientId ?? '', id] as const,
 }
 
 // ─────────────────────────────────────────
@@ -320,6 +323,43 @@ export function useCreateChildServiceOrder(clientId: string | null, parentId: st
       } else {
         toast.success('Agendamento preventivo criado com sucesso')
       }
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+// ─────────────────────────────────────────
+// Materiais utilizados (integração estoque)
+// ─────────────────────────────────────────
+export function useOsMaterials(clientId: string | null, osId: string) {
+  return useQuery({
+    queryKey: serviceOrderKeys.materials(clientId, osId),
+    queryFn: () => serviceOrdersService.getMaterials(clientId, osId),
+    enabled: Boolean(osId),
+  })
+}
+
+export function useAddOsMaterial(clientId: string | null, osId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dto: AddOsMaterialDto) =>
+      serviceOrdersService.addMaterial(clientId, osId, dto),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.materials(clientId, osId) })
+      toast.success('Material registrado')
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+export function useRemoveOsMaterial(clientId: string | null, osId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (movementId: string) =>
+      serviceOrdersService.removeMaterial(clientId, osId, movementId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.materials(clientId, osId) })
+      toast.success('Material removido e estoque revertido')
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   })

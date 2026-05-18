@@ -8,7 +8,7 @@ import type {
   UpdateClientDto,
   ListClientsParams,
 } from "@inventech/shared-types";
-import type { PlatformUser } from "@/services/clients/clients.service";
+import type { PlatformUser, ClientStockPoint } from "@/services/clients/clients.service";
 
 export const clientKeys = {
   all: ["clients"] as const,
@@ -160,6 +160,34 @@ export function useUnlinkPlatformUser(clientId: string) {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       queryClient.invalidateQueries({ queryKey: platformUserKeys.available(clientId) });
       toast.success("Usuário desvinculado do cliente!");
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  });
+}
+
+// ── Pontos de Estoque do cliente ──────────────────────────────────────────────
+
+export const clientStockPointKeys = {
+  list: (clientId: string) => ["clients", clientId, "stock-points"] as const,
+};
+
+export function useClientStockPoints(clientId: string) {
+  return useQuery<ClientStockPoint[]>({
+    queryKey: clientStockPointKeys.list(clientId),
+    queryFn: () => clientsService.listStockPoints(clientId),
+    enabled: !!clientId,
+  });
+}
+
+export function useAssignClientStockPoints(clientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (stockPointIds: string[]) =>
+      clientsService.assignStockPoints(clientId, stockPointIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: clientStockPointKeys.list(clientId) });
+      queryClient.invalidateQueries({ queryKey: ["stock-points"] });
+      toast.success("Pontos de estoque atualizados!");
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   });

@@ -74,7 +74,25 @@ export const clientsService = {
   async unlinkPlatformUser(clientId: string, userId: string): Promise<void> {
     await api.delete(`/clients/${clientId}/platform-users/${userId}`);
   },
+
+  async listStockPoints(clientId: string): Promise<ClientStockPoint[]> {
+    const { data } = await api.get(`/clients/${clientId}/stock-points`);
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  },
+
+  async assignStockPoints(clientId: string, stockPointIds: string[]): Promise<ClientStockPoint[]> {
+    const { data } = await api.put(`/clients/${clientId}/stock-points`, { stockPointIds });
+    return Array.isArray(data) ? data : (data?.data ?? []);
+  },
 };
+
+export interface ClientStockPoint {
+  id: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  _count: { items: number };
+}
 
 export interface PlatformUser {
   id: string;

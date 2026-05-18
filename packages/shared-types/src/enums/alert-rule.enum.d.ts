@@ -15,6 +15,7 @@ export declare const EventType: {
     readonly MAINTENANCE_OVERDUE: "MAINTENANCE_OVERDUE";
     readonly USER_CREATED: "USER_CREATED";
     readonly USER_DEACTIVATED: "USER_DEACTIVATED";
+    readonly STOCK_LOW_QUANTITY: "STOCK_LOW_QUANTITY";
     readonly DAILY_SUMMARY: "DAILY_SUMMARY";
 };
 export type EventType = (typeof EventType)[keyof typeof EventType];

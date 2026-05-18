@@ -3,6 +3,7 @@ import {
     NotFoundException,
 } from '@nestjs/common'
 import { PrismaService } from '../../../prisma/prisma.service'
+import { InventoryService } from '../../inventory/inventory.service'
 import { CreateCostItemDto, UpdateCostItemDto } from './dto/cost.dto'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -10,6 +11,7 @@ const { Decimal } = require('decimal.js')
 
 const COST_ITEM_SELECT = {
     id: true,
+    stockItemId: true,
     description: true,
     type: true,
     quantity: true,
@@ -40,7 +42,10 @@ function normalizeItem(item: {
 
 @Injectable()
 export class CostsService {
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private inventoryService: InventoryService,
+    ) { }
 
     private async validateServiceOrder(serviceOrderId: string, clientId: string | null, companyId: string) {
         const os = await this.prisma.serviceOrder.findFirst({
@@ -76,6 +81,7 @@ export class CostsService {
         dto: CreateCostItemDto,
         clientId: string | null,
         companyId: string,
+        userId: string,
     ) {
         await this.validateServiceOrder(serviceOrderId, clientId, companyId)
 
@@ -85,6 +91,7 @@ export class CostsService {
             const created = await tx.serviceOrderCostItem.create({
                 data: {
                     serviceOrderId,
+                    stockItemId: dto.stockItemId ?? null,
                     description: dto.description,
                     type: dto.type,
                     quantity: new Decimal(dto.quantity),
@@ -99,6 +106,24 @@ export class CostsService {
 
             return created
         })
+
+        if (dto.stockItemId && dto.type === 'MATERIAL') {
+            const stockItem = await this.prisma.stockItem.findFirst({
+                where: { id: dto.stockItemId, companyId },
+                select: { stockPointId: true },
+            })
+            if (stockItem) {
+                await this.inventoryService.applyMovement(
+                    dto.stockItemId,
+                    companyId,
+                    userId,
+                    stockItem.stockPointId,
+                    'EXIT',
+                    dto.quantity,
+                    { unitCost: dto.unitPrice, reason: `Baixa automática via OS`, serviceOrderId },
+                )
+            }
+        }
 
         return normalizeItem(item)
     }

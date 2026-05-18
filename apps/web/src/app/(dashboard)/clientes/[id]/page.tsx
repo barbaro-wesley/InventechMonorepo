@@ -28,6 +28,7 @@ import {
   Link as LinkIcon,
   Unlink,
   Search,
+  Package,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,8 +44,12 @@ import {
   useAvailablePlatformUsers,
   useLinkPlatformUser,
   useUnlinkPlatformUser,
+  useClientStockPoints,
+  useAssignClientStockPoints,
 } from "@/hooks/clients/use-clients";
 import { useMaintenanceGroups } from "@/hooks/maintenance-groups/use-maintenance-groups";
+import { useStockPoints } from "@/hooks/inventory/use-stock-points";
+import type { StockPoint } from "@/services/inventory/stock-points.service";
 import {
   useUsers,
   useCreateUser,
@@ -654,6 +659,119 @@ function HeaderSkeleton() {
 }
 
 // ---------------------------------------------------------------------------
+// StockPointsTab
+// ---------------------------------------------------------------------------
+
+function StockPointsTab({ clientId }: { clientId: string }) {
+  const { data: assigned = [], isLoading: assignedLoading } = useClientStockPoints(clientId);
+  const { data: allPoints = [], isLoading: pointsLoading } = useStockPoints({ isActive: true });
+  const assign = useAssignClientStockPoints(clientId);
+
+  const assignedIds = new Set(assigned.map((p) => p.id));
+  const available = (allPoints as StockPoint[]).filter((p) => !assignedIds.has(p.id));
+
+  const isLoading = assignedLoading || pointsLoading;
+
+  function handleAssign(pointId: string) {
+    assign.mutate([...Array.from(assignedIds), pointId]);
+  }
+
+  function handleRemove(pointId: string) {
+    assign.mutate(Array.from(assignedIds).filter((id) => id !== pointId));
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Pontos vinculados */}
+      <div>
+        <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+          Pontos de estoque vinculados
+          <span className="ml-2 text-xs font-normal text-slate-400">
+            Definem quais pontos este prestador pode realizar saídas
+          </span>
+        </h3>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <div key={i} className="h-16 rounded-xl border border-slate-200 bg-slate-50 animate-pulse" />)}
+          </div>
+        ) : assigned.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 py-10 text-center">
+            <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">Nenhum ponto de estoque vinculado</p>
+            <p className="text-xs text-slate-400 mt-1">Vincule um ponto abaixo para liberar acesso ao estoque</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {assigned.map((point) => (
+              <div
+                key={point.id}
+                className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{point.name}</p>
+                  {point.description && (
+                    <p className="text-xs text-slate-500 truncate">{point.description}</p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-0.5">{point._count.items} {point._count.items === 1 ? "item" : "itens"}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={assign.isPending}
+                  onClick={() => handleRemove(point.id)}
+                  className="flex-shrink-0 text-slate-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                  title="Remover vínculo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Adicionar ponto */}
+      {available.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">Adicionar ponto de estoque</h3>
+          <div className="space-y-2">
+            {available.map((point) => (
+              <div
+                key={point.id}
+                className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+              >
+                <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{point.name}</p>
+                  {point.description && (
+                    <p className="text-xs text-slate-500 truncate">{point.description}</p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-0.5">{point._count.items} {point._count.items === 1 ? "item" : "itens"}</p>
+                </div>
+                <button
+                  type="button"
+                  disabled={assign.isPending}
+                  onClick={() => handleAssign(point.id)}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 border border-blue-200 hover:border-blue-300 px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Vincular
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // GroupsTab
 // ---------------------------------------------------------------------------
 
@@ -911,6 +1029,10 @@ export default function ClientDetailPage() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="stock-points" className="gap-2">
+            <Package className="w-4 h-4" />
+            Estoque
+          </TabsTrigger>
           <TabsTrigger value="groups" className="gap-2">
             <Wrench className="w-4 h-4" />
             Grupos
@@ -991,6 +1113,17 @@ export default function ClientDetailPage() {
                 </Button>
               </Link>
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Pontos de Estoque */}
+        <TabsContent value="stock-points" className="mt-6">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
+            {client ? (
+              <StockPointsTab clientId={client.id} />
+            ) : isLoading ? (
+              <Skeleton className="h-48 w-full rounded-xl" />
+            ) : null}
           </div>
         </TabsContent>
 

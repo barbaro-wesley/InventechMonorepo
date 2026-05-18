@@ -19,6 +19,8 @@ export const EventType = {
   // Usuários
   USER_CREATED:                'USER_CREATED',
   USER_DEACTIVATED:            'USER_DEACTIVATED',
+  // Estoque
+  STOCK_LOW_QUANTITY:          'STOCK_LOW_QUANTITY',
   // Sistema / Relatórios
   DAILY_SUMMARY:               'DAILY_SUMMARY',
 } as const

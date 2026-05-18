@@ -5,16 +5,19 @@ import { CompanyServiceOrdersController } from './company-service-orders.control
 import { CommentsService } from './comments/comments.service'
 import { TasksService } from './tasks/tasks.service'
 import { CostsService } from './costs/costs.service'
+import { MaterialsService } from './materials/materials.service'
 import { ChecklistsService } from './checklists/checklists.service'
 import { ChecklistsController } from './checklists/checklists.controller'
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { AutoApproveJob } from './jobs/auto-approve.job'
+import { InventoryModule } from '../inventory/inventory.module'
 
 @Module({
     imports: [
         StorageModule,
         NotificationsModule,
+        InventoryModule,
     ],
     controllers: [
         ServiceOrdersController,
@@ -26,6 +29,7 @@ import { AutoApproveJob } from './jobs/auto-approve.job'
         CommentsService,
         TasksService,
         CostsService,
+        MaterialsService,
         ChecklistsService,
         AutoApproveJob,
     ],

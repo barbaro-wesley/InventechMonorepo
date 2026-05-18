@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "StockMovementType" AS ENUM ('ENTRY', 'EXIT', 'ADJUSTMENT', 'TRANSFER');
+
+-- AlterEnum
+ALTER TYPE "EventType" ADD VALUE 'STOCK_LOW_QUANTITY';

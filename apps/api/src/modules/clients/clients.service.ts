@@ -318,6 +318,65 @@ export class ClientsService {
     return { message: 'Grupo removido do cliente com sucesso' }
   }
 
+  // ─────────────────────────────────────────
+  // Pontos de estoque vinculados ao cliente
+  // ─────────────────────────────────────────
+
+  async listStockPoints(clientId: string, currentUser: AuthenticatedUser) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    return this.prisma.stockPointClient.findMany({
+      where: { clientId },
+      select: {
+        stockPoint: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            isActive: true,
+            _count: { select: { items: true } },
+          },
+        },
+      },
+      orderBy: { stockPoint: { name: 'asc' } },
+    }).then((rows) => rows.map((r) => r.stockPoint))
+  }
+
+  async assignStockPoints(
+    clientId: string,
+    stockPointIds: string[],
+    currentUser: AuthenticatedUser,
+  ) {
+    this.ensureCompanyRole(currentUser)
+    const companyId = this.resolveCompanyId(currentUser)
+
+    const client = await this.clientsRepository.findById(clientId, companyId)
+    if (!client) throw new NotFoundException('Cliente não encontrado')
+
+    if (stockPointIds.length > 0) {
+      const count = await this.prisma.stockPoint.count({
+        where: { id: { in: stockPointIds }, companyId },
+      })
+      if (count !== stockPointIds.length) {
+        throw new NotFoundException('Um ou mais pontos de estoque não encontrados')
+      }
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.stockPointClient.deleteMany({ where: { clientId } }),
+      this.prisma.stockPointClient.createMany({
+        data: stockPointIds.map((stockPointId) => ({ stockPointId, clientId })),
+        skipDuplicates: true,
+      }),
+    ])
+
+    return this.listStockPoints(clientId, currentUser)
+  }
+
   async listTechnicians(clientId: string, currentUser: AuthenticatedUser) {
     this.ensureCompanyRole(currentUser)
     const companyId = this.resolveCompanyId(currentUser)

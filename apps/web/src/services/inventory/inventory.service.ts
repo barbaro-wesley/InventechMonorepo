@@ -1,0 +1,204 @@
+import { api } from "@/lib/api";
+
+export interface StockCategory {
+  id: string;
+  companyId: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count: { items: number };
+}
+
+export interface StockItem {
+  id: string;
+  companyId: string;
+  stockPointId: string;
+  categoryId: string | null;
+  code: string | null;
+  name: string;
+  description: string | null;
+  unit: string;
+  brand: string | null;
+  minimumQuantity: number;
+  currentQuantity: number;
+  unitCost: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  stockPoint: { id: string; name: string };
+  category: { id: string; name: string; color: string | null } | null;
+}
+
+export interface StockMovement {
+  id: string;
+  companyId: string;
+  itemId: string;
+  userId: string;
+  serviceOrderId: string | null;
+  type: "ENTRY" | "EXIT" | "ADJUSTMENT" | "TRANSFER";
+  quantity: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  unitCost: number | null;
+  reason: string | null;
+  notes: string | null;
+  createdAt: string;
+  item: { id: string; name: string; code: string | null; unit: string };
+  user: { id: string; name: string };
+  serviceOrder: { id: string; number: number } | null;
+}
+
+export interface ListStockItemsParams {
+  stockPointId?: string;
+  categoryId?: string;
+  search?: string;
+  isActive?: boolean;
+  belowMinimum?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface ListMovementsParams {
+  itemId?: string;
+  type?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: { page: number; limit: number; total: number };
+}
+
+export interface CreateStockItemDto {
+  stockPointId: string;
+  categoryId?: string;
+  code?: string;
+  name: string;
+  description?: string;
+  unit?: string;
+  brand?: string;
+  minimumQuantity?: number;
+  unitCost?: number;
+}
+
+export interface CreateTransferDto {
+  itemId: string;
+  destinationPointId: string;
+  quantity: number;
+  reason?: string;
+  notes?: string;
+}
+
+export interface UpdateStockItemDto {
+  categoryId?: string | null;
+  code?: string;
+  name?: string;
+  description?: string;
+  unit?: string;
+  brand?: string;
+  minimumQuantity?: number;
+  unitCost?: number;
+  isActive?: boolean;
+}
+
+export interface CreateMovementDto {
+  itemId: string;
+  type: "ENTRY" | "EXIT" | "ADJUSTMENT" | "TRANSFER";
+  quantity: number;
+  unitCost?: number;
+  reason?: string;
+  notes?: string;
+}
+
+export interface InventoryDashboard {
+  summary: {
+    totalItems: number
+    totalStockValue: number
+    belowMinimumCount: number
+    activePoints: number
+    movementsThisMonth: number
+  }
+  alerts: Array<{
+    id: string; name: string; code: string | null; unit: string
+    currentQuantity: number; minimumQuantity: number
+    stockPoint: { id: string; name: string }
+  }>
+  recentMovements: Array<{
+    id: string; type: string; quantity: number; createdAt: string
+    item: { id: string; name: string; unit: string }
+    stockPoint: { id: string; name: string }
+    user: { id: string; name: string }
+    serviceOrder: { id: string; number: number } | null
+  }>
+  movementTrend: Array<{
+    date: string; entries: number; exits: number; adjustments: number
+  }>
+  topConsumed: Array<{
+    itemId: string; itemName: string; unit: string
+    totalConsumed: number
+    stockPoint: { id: string; name: string }
+  }>
+  valueByCategory: Array<{
+    categoryId: string | null; categoryName: string
+    totalValue: number; itemCount: number
+  }>
+  valueByPoint: Array<{
+    pointId: string; pointName: string
+    totalValue: number; itemCount: number
+  }>
+}
+
+export const inventoryService = {
+  async list(params?: ListStockItemsParams): Promise<PaginatedResponse<StockItem>> {
+    const { data } = await api.get("/inventory", { params });
+    return data;
+  },
+
+  async getById(id: string): Promise<StockItem> {
+    const { data } = await api.get(`/inventory/${id}`);
+    return data;
+  },
+
+  async create(dto: CreateStockItemDto): Promise<StockItem> {
+    const { data } = await api.post("/inventory", dto);
+    return data;
+  },
+
+  async update(id: string, dto: UpdateStockItemDto): Promise<StockItem> {
+    const { data } = await api.patch(`/inventory/${id}`, dto);
+    return data;
+  },
+
+  async remove(id: string): Promise<void> {
+    await api.delete(`/inventory/${id}`);
+  },
+
+  async listMovements(params?: ListMovementsParams): Promise<PaginatedResponse<StockMovement>> {
+    const { data } = await api.get("/inventory/movements", { params });
+    return data;
+  },
+
+  async listMovementsByItem(itemId: string, page = 1, limit = 50): Promise<PaginatedResponse<StockMovement>> {
+    const { data } = await api.get(`/inventory/movements/item/${itemId}`, { params: { page, limit } });
+    return data;
+  },
+
+  async createMovement(dto: CreateMovementDto): Promise<StockMovement> {
+    const { data } = await api.post("/inventory/movements", dto);
+    return data;
+  },
+
+  async createTransfer(dto: CreateTransferDto): Promise<{ message: string; quantity: number }> {
+    const { data } = await api.post("/inventory/movements/transfer", dto);
+    return data;
+  },
+
+  async getDashboard(): Promise<InventoryDashboard> {
+    const { data } = await api.get("/inventory/dashboard");
+    return data;
+  },
+};

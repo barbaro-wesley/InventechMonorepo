@@ -1,10 +1,14 @@
 import {
-    IsEnum, IsNumber, IsOptional, IsPositive, IsString,
+    IsEnum, IsNumber, IsOptional, IsPositive, IsString, IsUUID,
 } from 'class-validator'
 import { Type } from 'class-transformer'
 import { CostItemType } from '@prisma/client'
 
 export class CreateCostItemDto {
+    @IsOptional()
+    @IsUUID()
+    stockItemId?: string
+
     @IsString()
     description: string
 
