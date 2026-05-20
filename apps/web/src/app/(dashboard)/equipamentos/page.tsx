@@ -43,6 +43,7 @@ import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
