@@ -311,7 +311,7 @@ function CustomRoleSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <SheetContent className="w-full sm:w-[680px] sm:max-w-[680px] p-0 flex flex-col gap-0">
+      <SheetContent className="w-full sm:w-[680px] sm:max-w-[680px] p-0 flex flex-col gap-0 overflow-hidden">
         <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>{editTarget ? "Editar papel" : "Novo papel personalizado"}</SheetTitle>
           <p className="text-sm text-muted-foreground">
@@ -319,7 +319,7 @@ function CustomRoleSheet({
           </p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {/* Identificação */}
             <div className="space-y-4">

@@ -7,10 +7,6 @@ import { XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-// ---------------------------------------------------------------------------
-// Root / Trigger / Close — thin wrappers over Radix Dialog primitives
-// ---------------------------------------------------------------------------
-
 function Drawer({
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -29,10 +25,6 @@ function DrawerClose({
   return <SheetPrimitive.Close data-slot="drawer-close" {...props} />;
 }
 
-// ---------------------------------------------------------------------------
-// Overlay — dark semitransparent backdrop
-// ---------------------------------------------------------------------------
-
 function DrawerOverlay({
   className,
   ...props
@@ -42,7 +34,6 @@ function DrawerOverlay({
       data-slot="drawer-overlay"
       className={cn(
         "fixed inset-0 z-50 bg-black/50",
-        // fade in 500ms open, fade out 300ms close
         "data-open:animate-in data-open:fade-in-0 data-open:duration-500",
         "data-closed:animate-out data-closed:fade-out-0 data-closed:duration-300",
         className
@@ -51,10 +42,6 @@ function DrawerOverlay({
     />
   );
 }
-
-// ---------------------------------------------------------------------------
-// Content — the side panel that slides in from the right
-// ---------------------------------------------------------------------------
 
 function DrawerContent({
   className,
@@ -69,21 +56,12 @@ function DrawerContent({
       <DrawerOverlay />
       <SheetPrimitive.Content
         data-slot="drawer-content"
-        style={
-          {
-            "--slide-easing": "cubic-bezier(0.4, 0, 0.2, 1)",
-          } as React.CSSProperties
-        }
+        style={{ "--slide-easing": "cubic-bezier(0.4, 0, 0.2, 1)" } as React.CSSProperties}
         className={cn(
-          // position
-          "fixed inset-y-0 right-0 z-50 flex flex-col",
-          // sizing — full-screen on mobile, max 600px on desktop
+          "fixed inset-y-0 right-0 z-50 overflow-y-auto",
           "h-full w-full sm:max-w-[600px]",
-          // visual
           "bg-white dark:bg-slate-950 shadow-2xl border-l border-slate-200 dark:border-slate-800",
-          // open — slide in 500ms
           "data-open:animate-in data-open:slide-in-from-right-full data-open:duration-500",
-          // close — slide out 300ms
           "data-closed:animate-out data-closed:slide-out-to-right-full data-closed:duration-300",
           className
         )}
@@ -108,18 +86,11 @@ function DrawerContent({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Layout slots
-// ---------------------------------------------------------------------------
-
 function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="drawer-header"
-      className={cn(
-        "flex-shrink-0 px-6 py-5 border-b border-slate-100 dark:border-slate-800",
-        className
-      )}
+      className={cn("px-6 py-5 border-b border-slate-100 dark:border-slate-800", className)}
       {...props}
     />
   );
@@ -132,10 +103,7 @@ function DrawerTitle({
   return (
     <SheetPrimitive.Title
       data-slot="drawer-title"
-      className={cn(
-        "text-base font-semibold text-slate-900 dark:text-slate-100 pr-8",
-        className
-      )}
+      className={cn("text-base font-semibold text-slate-900 dark:text-slate-100 pr-8", className)}
       {...props}
     />
   );
@@ -154,12 +122,11 @@ function DrawerDescription({
   );
 }
 
-/** Scrollable body — grows to fill available height */
 function DrawerBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="drawer-body"
-      className={cn("flex-1 overflow-y-auto px-6 py-5", className)}
+      className={cn("px-6 py-5", className)}
       {...props}
     />
   );
@@ -170,7 +137,7 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="drawer-footer"
       className={cn(
-        "flex-shrink-0 flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800",
+        "flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800",
         className
       )}
       {...props}
