@@ -6,6 +6,7 @@ import { Loader2, CalendarClock, AlertTriangle } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
@@ -125,51 +126,51 @@ export function EquipmentScheduleCreateSheet({
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:w-[520px] overflow-y-auto">
-        <SheetHeader className="mb-6">
+      <SheetContent side="right" className="overflow-y-auto p-6" style={{ width: '100%', maxWidth: '520px' }}>
+        <SheetHeader>
           <SheetTitle>Agendar Preventiva</SheetTitle>
         </SheetHeader>
 
-        {/* Equipment info (read-only) */}
-        {equipment && (
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-5">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #10b981, #3b82f6)' }}
-            >
-              <CalendarClock className="w-4 h-4 text-white" />
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-6 pb-6">
+          {/* Equipment info */}
+          {equipment && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #10b981, #3b82f6)' }}
+              >
+                <CalendarClock className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold truncate">{equipment.name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(' › ')}
+                </p>
+              </div>
+              {equipmentGroup && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex-shrink-0">
+                  {equipmentGroup.name}
+                </span>
+              )}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold truncate">{equipment.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(' › ')}
+          )}
+
+          {equipment && !equipmentGroup && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <p>
+                O tipo deste equipamento não tem grupo de manutenção vinculado.
+                As OS geradas automaticamente não serão roteadas para nenhum grupo.
+                Configure o grupo no cadastro de tipos.
               </p>
             </div>
-            {equipmentGroup && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex-shrink-0">
-                {equipmentGroup.name}
-              </span>
-            )}
-          </div>
-        )}
+          )}
 
-        {equipment && !equipmentGroup && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs mb-5">
-            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <p>
-              O tipo deste equipamento não tem grupo de manutenção vinculado.
-              As OS geradas automaticamente não serão roteadas para nenhum grupo.
-              Configure o grupo no cadastro de tipos.
-            </p>
-          </div>
-        )}
-
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           {/* Cliente */}
           {fixedClientId ? (
             <input type="hidden" {...form.register('clientId')} value={fixedClientId} />
           ) : (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Prestador <span className="text-red-500">*</span></Label>
               <Select
                 onValueChange={(v) => form.setValue('clientId', v)}
@@ -187,32 +188,37 @@ export function EquipmentScheduleCreateSheet({
             </div>
           )}
 
-          {/* Título */}
-          <div className="space-y-1.5">
-            <Label>Título <span className="text-red-500">*</span></Label>
-            <Input
-              {...form.register('title', { required: 'Título obrigatório' })}
-              placeholder="Ex: Preventiva mensal — Ar condicionado"
-              className={form.formState.errors.title ? 'border-red-500' : ''}
-            />
-            {form.formState.errors.title && (
-              <p className="text-xs text-red-500">{form.formState.errors.title.message}</p>
-            )}
+          {/* Seção: Identificação */}
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Identificação</p>
+
+            <div className="space-y-2">
+              <Label>Título <span className="text-red-500">*</span></Label>
+              <Input
+                {...form.register('title', { required: 'Título obrigatório' })}
+                placeholder="Ex: Preventiva mensal — Ar condicionado"
+                className={form.formState.errors.title ? 'border-red-500' : ''}
+              />
+              {form.formState.errors.title && (
+                <p className="text-xs text-red-500">{form.formState.errors.title.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Textarea
+                {...form.register('description')}
+                placeholder="Descreva o que deve ser feito na preventiva..."
+                rows={3}
+              />
+            </div>
           </div>
 
-          {/* Descrição */}
-          <div className="space-y-1.5">
-            <Label>Descrição</Label>
-            <Textarea
-              {...form.register('description')}
-              placeholder="Descreva o que deve ser feito na preventiva..."
-              rows={3}
-            />
-          </div>
+          {/* Seção: Agendamento */}
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agendamento</p>
 
-          {/* Recorrência + Data de início */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Recorrência <span className="text-red-500">*</span></Label>
               <Select
                 defaultValue="MONTHLY"
@@ -229,62 +235,60 @@ export function EquipmentScheduleCreateSheet({
               </Select>
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Data de início <span className="text-red-500">*</span></Label>
-              <Input
-                type="date"
-                {...form.register('startDate', { required: 'Data obrigatória' })}
-                className={form.formState.errors.startDate ? 'border-red-500' : ''}
-              />
-              {form.formState.errors.startDate && (
-                <p className="text-xs text-red-500">{form.formState.errors.startDate.message}</p>
-              )}
+            {recurrenceType === 'CUSTOM' && (
+              <div className="space-y-2">
+                <Label>Intervalo (dias) <span className="text-red-500">*</span></Label>
+                <Input
+                  type="number"
+                  min={1}
+                  {...form.register('customIntervalDays', {
+                    required: 'Obrigatório para recorrência personalizada',
+                    valueAsNumber: true,
+                  })}
+                  placeholder="Ex: 45"
+                  className={form.formState.errors.customIntervalDays ? 'border-red-500' : ''}
+                />
+                {form.formState.errors.customIntervalDays && (
+                  <p className="text-xs text-red-500">
+                    {form.formState.errors.customIntervalDays.message}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Data de início <span className="text-red-500">*</span></Label>
+                <Input
+                  type="date"
+                  {...form.register('startDate', { required: 'Data obrigatória' })}
+                  className={form.formState.errors.startDate ? 'border-red-500' : ''}
+                />
+                {form.formState.errors.startDate && (
+                  <p className="text-xs text-red-500">{form.formState.errors.startDate.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Duração estimada (min)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  {...form.register('estimatedDurationMin', { valueAsNumber: true })}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Intervalo customizado (só quando CUSTOM) */}
-          {recurrenceType === 'CUSTOM' && (
-            <div className="space-y-1.5">
-              <Label>Intervalo (dias) <span className="text-red-500">*</span></Label>
-              <Input
-                type="number"
-                min={1}
-                {...form.register('customIntervalDays', {
-                  required: 'Obrigatório para recorrência personalizada',
-                  valueAsNumber: true,
-                })}
-                placeholder="Ex: 45"
-                className={form.formState.errors.customIntervalDays ? 'border-red-500' : ''}
-              />
-              {form.formState.errors.customIntervalDays && (
-                <p className="text-xs text-red-500">
-                  {form.formState.errors.customIntervalDays.message}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Duração estimada */}
-          <div className="space-y-1.5">
-            <Label>Duração estimada (min)</Label>
-            <Input
-              type="number"
-              min={1}
-              {...form.register('estimatedDurationMin', { valueAsNumber: true })}
-              className="w-28"
-            />
-          </div>
-
-          {/* Botões */}
-          <div className="flex gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+          <SheetFooter className="mt-auto pt-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createSchedule.isPending} className="flex-1">
+            <Button type="submit" disabled={createSchedule.isPending}>
               {createSchedule.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Agendar
             </Button>
-          </div>
+          </SheetFooter>
         </form>
       </SheetContent>
     </Sheet>

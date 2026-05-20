@@ -262,7 +262,7 @@ export function ScheduleFormSheet({
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-full sm:w-[720px] sm:max-w-[720px] overflow-y-auto p-0 flex flex-col">
+      <SheetContent side="right" className="w-full sm:w-[720px] sm:max-w-[720px] overflow-hidden p-0 flex flex-col gap-0">
         {/* Header */}
         <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -278,8 +278,8 @@ export function ScheduleFormSheet({
           </div>
         </SheetHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1">
-          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-4">
 
             {/* Equipamento (create mode: busca dinâmica) */}
             {mode === "create" ? (

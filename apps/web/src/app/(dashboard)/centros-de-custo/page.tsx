@@ -26,7 +26,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -100,37 +99,39 @@ function CostCenterSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <SheetContent>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>{editTarget ? "Editar centro de custo" : "Novo centro de custo"}</SheetTitle>
           <p className="text-sm text-muted-foreground">
             Agrupa localizações físicas para fins de organização e controle.
           </p>
         </SheetHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="cc-name">Nome *</Label>
-            <Input id="cc-name" placeholder="Ex: TI, Produção, Administrativo" {...register("name")} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="cc-name">Nome *</Label>
+              <Input id="cc-name" placeholder="Ex: TI, Produção, Administrativo" {...register("name")} />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cc-code">
+                Código interno <span className="text-muted-foreground font-normal">(opcional)</span>
+              </Label>
+              <Input id="cc-code" placeholder="Ex: CC-001" {...register("code")} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="cc-desc">
+                Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
+              </Label>
+              <Input id="cc-desc" placeholder="Breve descrição" {...register("description")} />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cc-code">
-              Código interno <span className="text-muted-foreground font-normal">(opcional)</span>
-            </Label>
-            <Input id="cc-code" placeholder="Ex: CC-001" {...register("code")} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="cc-desc">
-              Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
-            </Label>
-            <Input id="cc-desc" placeholder="Breve descrição" {...register("description")} />
-          </div>
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={isPending}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : editTarget ? "Salvar" : "Criar centro de custo"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>
@@ -194,8 +195,8 @@ function EmbeddedLocationSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <SheetContent>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>{title}</SheetTitle>
           {contextLabel && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
@@ -204,32 +205,34 @@ function EmbeddedLocationSheet({
             </div>
           )}
         </SheetHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="loc-name">Nome *</Label>
-            <Input
-              id="loc-name"
-              placeholder={
-                context?.type === "child" || (editTarget && editTarget.parentId)
-                  ? "Ex: CPD, Help Desk, Sala 01"
-                  : "Ex: RH, TI, Financeiro"
-              }
-              {...register("name")}
-            />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="loc-name">Nome *</Label>
+              <Input
+                id="loc-name"
+                placeholder={
+                  context?.type === "child" || (editTarget && editTarget.parentId)
+                    ? "Ex: CPD, Help Desk, Sala 01"
+                    : "Ex: RH, TI, Financeiro"
+                }
+                {...register("name")}
+              />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="loc-desc">
+                Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
+              </Label>
+              <Input id="loc-desc" placeholder="Breve descrição" {...register("description")} />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="loc-desc">
-              Descrição <span className="text-muted-foreground font-normal">(opcional)</span>
-            </Label>
-            <Input id="loc-desc" placeholder="Breve descrição" {...register("description")} />
-          </div>
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={isPending}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : editTarget ? "Salvar" : "Criar"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>

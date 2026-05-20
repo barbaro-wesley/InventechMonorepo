@@ -25,7 +25,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -120,94 +119,96 @@ function GroupSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <SheetContent className="overflow-y-auto" style={{ maxWidth: "480px", width: "100%" }}>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[520px] sm:max-w-[520px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>{editTarget ? "Editar grupo" : "Novo grupo de manutenção"}</SheetTitle>
           <p className="text-sm text-muted-foreground">
             Grupos definem categorias de manutenção e controlam quais equipamentos cada cliente pode visualizar.
           </p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-6 pb-6">
-          <div className="space-y-2">
-            <Label htmlFor="mg-name">Nome *</Label>
-            <Input id="mg-name" placeholder="Ex: Ar Condicionado, Elétrica, Hidráulica" {...register("name")} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="mg-desc">Descrição</Label>
-            <Textarea
-              id="mg-desc"
-              placeholder="Descreva o escopo deste grupo..."
-              rows={3}
-              {...register("description")}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Cor de identificação</Label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => { setSelectedColor(c); setValue("color", c); }}
-                  className="w-8 h-8 rounded-lg border-2 transition-all"
-                  style={{
-                    background: c,
-                    borderColor: selectedColor === c ? "#1e293b" : "transparent",
-                    transform: selectedColor === c ? "scale(1.15)" : "scale(1)",
-                  }}
-                />
-              ))}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="mg-name">Nome *</Label>
+              <Input id="mg-name" placeholder="Ex: Ar Condicionado, Elétrica, Hidráulica" {...register("name")} />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: selectedColor }} />
-              <input
-                type="text"
-                value={selectedColor}
-                onChange={(e) => setSelectedColor(e.target.value)}
-                className="text-xs font-mono border border-border rounded px-2 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-primary/30"
-                placeholder="#3b82f6"
+
+            <div className="space-y-2">
+              <Label htmlFor="mg-desc">Descrição</Label>
+              <Textarea
+                id="mg-desc"
+                placeholder="Descreva o escopo deste grupo..."
+                rows={3}
+                {...register("description")}
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Acesso a equipamentos</Label>
-            <label
-              className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                noRestriction
-                  ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30"
-                  : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-amber-500"
-                {...register("noRestriction")}
-              />
-              <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Infinity className="w-3.5 h-3.5 text-amber-500" />
-                  Sem restrição de tipo
-                </p>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Clientes vinculados a este grupo poderão ver todos os tipos de equipamento, independente do vínculo no cadastro do tipo.
-                </p>
+            <div className="space-y-2">
+              <Label>Cor de identificação</Label>
+              <div className="flex flex-wrap gap-2">
+                {PRESET_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => { setSelectedColor(c); setValue("color", c); }}
+                    className="w-8 h-8 rounded-lg border-2 transition-all"
+                    style={{
+                      background: c,
+                      borderColor: selectedColor === c ? "#1e293b" : "transparent",
+                      transform: selectedColor === c ? "scale(1.15)" : "scale(1)",
+                    }}
+                  />
+                ))}
               </div>
-            </label>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-5 h-5 rounded-full flex-shrink-0" style={{ background: selectedColor }} />
+                <input
+                  type="text"
+                  value={selectedColor}
+                  onChange={(e) => setSelectedColor(e.target.value)}
+                  className="text-xs font-mono border border-border rounded px-2 py-1 w-28 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  placeholder="#3b82f6"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Acesso a equipamentos</Label>
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                  noRestriction
+                    ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30"
+                    : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-amber-500"
+                  {...register("noRestriction")}
+                />
+                <div>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <Infinity className="w-3.5 h-3.5 text-amber-500" />
+                    Sem restrição de tipo
+                  </p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Clientes vinculados a este grupo poderão ver todos os tipos de equipamento, independente do vínculo no cadastro do tipo.
+                  </p>
+                </div>
+              </label>
+            </div>
           </div>
 
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button type="submit" disabled={isPending}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={handleClose} className="flex-1">Cancelar</Button>
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending
                 ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
                 : editTarget ? "Salvar" : "Criar grupo"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>

@@ -258,13 +258,14 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto"
+        className="w-full sm:max-w-2xl lg:max-w-3xl overflow-hidden p-0 flex flex-col gap-0"
       >
-        <SheetHeader className="mb-5">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>Nova Ordem de Serviço</SheetTitle>
         </SheetHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 px-4 pb-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-4">
 
           {/* ── Equipamento (opcional) ─────────────────────────────── */}
           <div className="space-y-1.5">
@@ -506,8 +507,9 @@ export function OsCreateSheet({ open, onClose, preselectedEquipment }: OsCreateS
             <p className="text-xs text-muted-foreground">Imagens, PDF, Word, Excel — máx. 10 arquivos, 20 MB cada</p>
           </div>
 
-          {/* ── Botões ─────────────────────────────────────────────────── */}
-          <div className="flex gap-2 pt-4 border-t border-border">
+        </div>
+
+        <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>

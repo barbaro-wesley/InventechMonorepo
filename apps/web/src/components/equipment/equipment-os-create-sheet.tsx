@@ -6,6 +6,7 @@ import { Loader2, Wrench, AlertTriangle, Paperclip, Plus, X } from 'lucide-react
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
@@ -69,12 +70,9 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
   const createOs = useCreateServiceOrder()
 
-  // The group comes directly from the equipment's type — no user selection needed
   const equipmentGroup = equipment?.type?.group ?? null
-  // Usuários com permissão de listar prestadores podem escolher — os demais ficam fixos no seu clientId
   const canChooseClient = canAccess('client', 'list')
   const fixedClientId = canChooseClient ? null : (currentUser?.clientId ?? null)
-  // Quando pode escolher mas já tem um cliente próprio, pré-seleciona o dele
   const defaultClientId = fixedClientId ?? currentUser?.clientId ?? ''
 
   const form = useForm<FormData>({
@@ -101,7 +99,6 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
     }
   }, [open])
 
-  // Carrega técnicos vinculados ao cliente (por clientId direto ou por grupos)
   useEffect(() => {
     if (!selectedClientId) {
       setTechnicians([])
@@ -153,54 +150,51 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="overflow-y-auto" style={{ width: '100%', maxWidth: '680px' }}>
-        <SheetHeader className="mb-6">
+      <SheetContent side="right" className="overflow-y-auto p-6" style={{ width: '100%', maxWidth: '680px' }}>
+        <SheetHeader>
           <SheetTitle>Nova Ordem de Serviço</SheetTitle>
         </SheetHeader>
 
-        {/* Equipment info (read-only) */}
-        {equipment && (
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 mb-5">
-            <div
-              className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #3b82f6, #f97316)' }}
-            >
-              <Wrench className="w-4 h-4 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold truncate">{equipment.name}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(' › ')}
-              </p>
-            </div>
-            {/* Group badge */}
-            {equipmentGroup && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex-shrink-0">
-                {equipmentGroup.name}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Warning: equipment type has no group */}
-        {equipment && !equipmentGroup && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs mb-5">
-            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <p>
-              O tipo deste equipamento não tem grupo de manutenção vinculado.
-              A OS será criada sem grupo e qualquer técnico poderá assumir.
-              Configure o grupo no cadastro de tipos para rotear corretamente.
-            </p>
-          </div>
-        )}
-
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* clientId sempre registrado — garante que vai no payload */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-6 pb-6">
           <input type="hidden" {...form.register('clientId')} />
 
-          {/* Cliente — oculto se o usuário NÃO pode escolher */}
+          {/* Equipment info */}
+          {equipment && (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg, #3b82f6, #f97316)' }}
+              >
+                <Wrench className="w-4 h-4 text-white" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold truncate">{equipment.name}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(' › ')}
+                </p>
+              </div>
+              {equipmentGroup && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium flex-shrink-0">
+                  {equipmentGroup.name}
+                </span>
+              )}
+            </div>
+          )}
+
+          {equipment && !equipmentGroup && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <p>
+                O tipo deste equipamento não tem grupo de manutenção vinculado.
+                A OS será criada sem grupo e qualquer técnico poderá assumir.
+                Configure o grupo no cadastro de tipos para rotear corretamente.
+              </p>
+            </div>
+          )}
+
+          {/* Cliente */}
           {!fixedClientId && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Prestador <span className="text-red-500">*</span></Label>
               <Select
                 onValueChange={(v) => { setSelectedClientId(v); form.setValue('clientId', v) }}
@@ -223,7 +217,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
           {/* Técnico */}
           {selectedClientId && (
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Técnico Responsável</Label>
               <Select onValueChange={(v) => form.setValue('technicianId', v === 'none' ? undefined : v)}>
                 <SelectTrigger>
@@ -243,7 +237,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
           )}
 
           {/* Título */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>Título <span className="text-red-500">*</span></Label>
             <Input
               {...form.register('title', { required: 'Título obrigatório' })}
@@ -256,7 +250,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
           </div>
 
           {/* Descrição */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>Descrição <span className="text-red-500">*</span></Label>
             <Textarea
               {...form.register('description', { required: 'Descrição obrigatória' })}
@@ -271,7 +265,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
           {/* Tipo + Prioridade */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Tipo <span className="text-red-500">*</span></Label>
               <Select onValueChange={(v) => form.setValue('maintenanceType', v)}>
                 <SelectTrigger className={form.formState.errors.maintenanceType ? 'border-red-500' : ''}>
@@ -288,7 +282,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
               )}
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>Prioridade</Label>
               <Select defaultValue="MEDIUM" onValueChange={(v) => form.setValue('priority', v as any)}>
                 <SelectTrigger>
@@ -305,7 +299,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
           </div>
 
           {/* Alerta */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label>Alertar após (horas sem técnico)</Label>
             <Input
               type="number"
@@ -353,16 +347,15 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
             <p className="text-xs text-muted-foreground">Imagens, PDF, Word, Excel — máx. 10 arquivos</p>
           </div>
 
-          {/* Botões */}
-          <div className="flex gap-2 pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+          <SheetFooter className="mt-auto pt-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createOs.isPending} className="flex-1">
+            <Button type="submit" disabled={createOs.isPending}>
               {createOs.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Criar OS
             </Button>
-          </div>
+          </SheetFooter>
         </form>
       </SheetContent>
     </Sheet>

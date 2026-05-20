@@ -27,7 +27,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   Dialog,
@@ -279,87 +278,89 @@ function PrinterSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <SheetContent className="overflow-y-auto">
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[520px] sm:max-w-[520px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>{editTarget ? "Editar impressora" : "Nova impressora"}</SheetTitle>
           <p className="text-sm text-muted-foreground">
             {editTarget ? "Atualize os dados da impressora." : "Cadastre uma nova impressora na rede."}
           </p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="p-name">Nome *</Label>
-            <Input id="p-name" placeholder='Ex: Brother RH' {...register("name")} />
-            {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="p-ip">IP da Impressora *</Label>
-            <Input id="p-ip" placeholder="Ex: 192.168.0.100" {...register("ipAddress")} />
-            {errors.ipAddress && <p className="text-xs text-destructive">{errors.ipAddress.message}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="p-brand">
-                Marca <span className="text-muted-foreground font-normal">(opcional)</span>
-              </Label>
-              <Input id="p-brand" placeholder="Ex: Brother" {...register("brand")} />
+              <Label htmlFor="p-name">Nome *</Label>
+              <Input id="p-name" placeholder='Ex: Brother RH' {...register("name")} />
+              {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
+
             <div className="space-y-1.5">
-              <Label htmlFor="p-model">
-                Modelo <span className="text-muted-foreground font-normal">(opcional)</span>
+              <Label htmlFor="p-ip">IP da Impressora *</Label>
+              <Input id="p-ip" placeholder="Ex: 192.168.0.100" {...register("ipAddress")} />
+              {errors.ipAddress && <p className="text-xs text-destructive">{errors.ipAddress.message}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="p-brand">
+                  Marca <span className="text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <Input id="p-brand" placeholder="Ex: Brother" {...register("brand")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="p-model">
+                  Modelo <span className="text-muted-foreground font-normal">(opcional)</span>
+                </Label>
+                <Input id="p-model" placeholder="Ex: L6902DW" {...register("model")} />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>
+                Centro de Custo <span className="text-muted-foreground font-normal">(opcional)</span>
               </Label>
-              <Input id="p-model" placeholder="Ex: L6902DW" {...register("model")} />
+              <Controller
+                control={control}
+                name="costCenterId"
+                render={({ field }) => (
+                  <Select
+                    value={field.value || "none"}
+                    onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecionar centro de custo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {costCenters.map((cc) => (
+                        <SelectItem key={cc.id} value={cc.id}>
+                          {cc.name}
+                          {cc.code && <span className="text-muted-foreground ml-1">· {cc.code}</span>}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="p-notes">
+                Observações <span className="text-muted-foreground font-normal">(opcional)</span>
+              </Label>
+              <Textarea id="p-notes" placeholder="Informações adicionais..." rows={3} {...register("notes")} />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>
-              Centro de Custo <span className="text-muted-foreground font-normal">(opcional)</span>
-            </Label>
-            <Controller
-              control={control}
-              name="costCenterId"
-              render={({ field }) => (
-                <Select
-                  value={field.value || "none"}
-                  onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecionar centro de custo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {costCenters.map((cc) => (
-                      <SelectItem key={cc.id} value={cc.id}>
-                        {cc.name}
-                        {cc.code && <span className="text-muted-foreground ml-1">· {cc.code}</span>}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="p-notes">
-              Observações <span className="text-muted-foreground font-normal">(opcional)</span>
-            </Label>
-            <Textarea id="p-notes" placeholder="Informações adicionais..." rows={3} {...register("notes")} />
-          </div>
-
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={isPending}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancelar</Button>
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending
                 ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
                 : editTarget ? "Salvar" : "Criar impressora"
               }
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>

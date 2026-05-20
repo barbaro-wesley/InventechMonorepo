@@ -43,9 +43,9 @@ import { Label } from "@/components/ui/label";
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -339,15 +339,16 @@ function EquipmentSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <SheetContent className="overflow-y-auto" style={{ maxWidth: "720px", width: "100%" }}>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[720px] sm:max-w-[720px] p-0 flex flex-col gap-0 overflow-hidden">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>{editTarget ? "Editar equipamento" : "Novo equipamento"}</SheetTitle>
           <p className="text-sm text-muted-foreground">
             Preencha as informações do equipamento.
           </p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6 mt-6 pb-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+        <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-6">
           {/* ── Identificação ── */}
           <fieldset className="space-y-4">
             <legend className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identificação</legend>
@@ -676,15 +677,17 @@ function EquipmentSheet({
             </fieldset>
           )}
 
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button type="submit" disabled={isPending}>
-              {isPending
-                ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
-                : editTarget ? "Salvar" : "Cadastrar equipamento"}
-            </Button>
-          </SheetFooter>
-        </form>
+        </div>
+
+        <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+          <Button type="button" variant="outline" onClick={handleClose} className="flex-1">Cancelar</Button>
+          <Button type="submit" disabled={isPending} className="flex-1">
+            {isPending
+              ? <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+              : editTarget ? "Salvar" : "Cadastrar equipamento"}
+          </Button>
+        </div>
+      </form>
       </SheetContent>
     </Sheet>
   );
