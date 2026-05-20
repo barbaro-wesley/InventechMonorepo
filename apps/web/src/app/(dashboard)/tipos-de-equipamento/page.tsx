@@ -27,7 +27,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -116,60 +115,62 @@ function TypeSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <SheetContent>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>
             {editTarget ? "Editar tipo" : "Novo tipo de equipamento"}
           </SheetTitle>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="type-name">Nome *</Label>
-            <Input
-              id="type-name"
-              placeholder="Ex: Computador, Impressora, UPS"
-              {...register("name")}
-            />
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="type-desc">Descrição (opcional)</Label>
-            <Input
-              id="type-desc"
-              placeholder="Breve descrição do tipo"
-              {...register("description")}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="type-group">Grupo de manutenção</Label>
-            <select
-              id="type-group"
-              {...register("groupId")}
-              className="w-full text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
-            >
-              <option value="">— Sem grupo —</option>
-              {groups.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-            <p className="text-xs text-muted-foreground">
-              Define quais clientes podem ver equipamentos deste tipo.
-            </p>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="type-name">Nome *</Label>
+              <Input
+                id="type-name"
+                placeholder="Ex: Computador, Impressora, UPS"
+                {...register("name")}
+              />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="type-desc">Descrição (opcional)</Label>
+              <Input
+                id="type-desc"
+                placeholder="Breve descrição do tipo"
+                {...register("description")}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="type-group">Grupo de manutenção</Label>
+              <select
+                id="type-group"
+                {...register("groupId")}
+                className="w-full text-sm border border-border rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                <option value="">— Sem grupo —</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Define quais clientes podem ver equipamentos deste tipo.
+              </p>
+            </div>
           </div>
 
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending ? (
                 <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
               ) : editTarget ? "Salvar alterações" : "Criar tipo"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>
@@ -224,8 +225,8 @@ function SubtypeSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { reset(); onClose(); } }}>
-      <SheetContent>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>
             {editTarget ? "Editar subtipo" : "Novo subtipo"}
           </SheetTitle>
@@ -234,37 +235,39 @@ function SubtypeSheet({
           </p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="sub-name">Nome *</Label>
-            <Input
-              id="sub-name"
-              placeholder="Ex: Desktop, Notebook, All-in-One"
-              {...register("name")}
-            />
-            {errors.name && (
-              <p className="text-xs text-destructive">{errors.name.message}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="sub-desc">Descrição (opcional)</Label>
-            <Input
-              id="sub-desc"
-              placeholder="Breve descrição"
-              {...register("description")}
-            />
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="sub-name">Nome *</Label>
+              <Input
+                id="sub-name"
+                placeholder="Ex: Desktop, Notebook, All-in-One"
+                {...register("name")}
+              />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sub-desc">Descrição (opcional)</Label>
+              <Input
+                id="sub-desc"
+                placeholder="Breve descrição"
+                {...register("description")}
+              />
+            </div>
           </div>
 
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending ? (
                 <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
               ) : editTarget ? "Salvar" : "Criar subtipo"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>

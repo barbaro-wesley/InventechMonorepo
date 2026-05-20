@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
+  Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -311,85 +311,87 @@ function CustomRoleSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <SheetContent className="overflow-y-auto" style={{ maxWidth: "680px", width: "100%" }}>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[680px] sm:max-w-[680px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>{editTarget ? "Editar papel" : "Novo papel personalizado"}</SheetTitle>
           <p className="text-sm text-muted-foreground">
             Defina o nome e quais ações este papel pode executar.
           </p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
-          {/* Identificação */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome do papel *</Label>
-              <Input id="name" placeholder="Ex: Supervisor TI" className="mt-1" {...register("name")} />
-              {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+            {/* Identificação */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="name">Nome do papel *</Label>
+                <Input id="name" placeholder="Ex: Supervisor TI" className="mt-1" {...register("name")} />
+                {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
+              </div>
+              <div>
+                <Label htmlFor="description">Descrição</Label>
+                <Input id="description" placeholder="Descreva o propósito deste papel" className="mt-1" {...register("description")} />
+              </div>
             </div>
-            <div>
-              <Label htmlFor="description">Descrição</Label>
-              <Input id="description" placeholder="Descreva o propósito deste papel" className="mt-1" {...register("description")} />
-            </div>
-          </div>
 
-          {/* Permissões */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <Label className="text-sm font-semibold">Permissões</Label>
-              <span className="text-xs text-muted-foreground">{selected.size} selecionada{selected.size !== 1 ? "s" : ""}</span>
-            </div>
-            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              {totalResources.map((resource) => {
-                const actions = matrixResources[resource];
-                const keys = actions.map((a) => `${resource}:${a}`);
-                const checked = keys.filter((k) => selected.has(k)).length;
-                const allChecked = checked === keys.length;
-                const someChecked = checked > 0 && !allChecked;
+            {/* Permissões */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <Label className="text-sm font-semibold">Permissões</Label>
+                <span className="text-xs text-muted-foreground">{selected.size} selecionada{selected.size !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="space-y-2">
+                {totalResources.map((resource) => {
+                  const actions = matrixResources[resource];
+                  const keys = actions.map((a) => `${resource}:${a}`);
+                  const checked = keys.filter((k) => selected.has(k)).length;
+                  const allChecked = checked === keys.length;
+                  const someChecked = checked > 0 && !allChecked;
 
-                return (
-                  <div key={resource} className="border border-border rounded-lg overflow-hidden">
-                    <div
-                      className="flex items-center gap-3 px-3 py-2.5 bg-muted/30 cursor-pointer hover:bg-muted/50"
-                      onClick={() => toggleResource(resource, actions)}
-                    >
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                        ${allChecked ? "bg-primary border-primary" : someChecked ? "bg-primary/30 border-primary" : "border-border bg-white dark:bg-zinc-950/50"}`}
+                  return (
+                    <div key={resource} className="border border-border rounded-lg overflow-hidden">
+                      <div
+                        className="flex items-center gap-3 px-3 py-2.5 bg-muted/30 cursor-pointer hover:bg-muted/50"
+                        onClick={() => toggleResource(resource, actions)}
                       >
-                        {(allChecked || someChecked) && <Check className="w-2.5 h-2.5 text-white" />}
+                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors
+                          ${allChecked ? "bg-primary border-primary" : someChecked ? "bg-primary/30 border-primary" : "border-border bg-white dark:bg-zinc-950/50"}`}
+                        >
+                          {(allChecked || someChecked) && <Check className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        <span className="text-xs font-semibold">{RESOURCE_LABEL[resource] ?? resource}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">{checked}/{keys.length}</span>
                       </div>
-                      <span className="text-xs font-semibold">{RESOURCE_LABEL[resource] ?? resource}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">{checked}/{keys.length}</span>
+                      <div className="flex flex-wrap gap-1.5 px-3 py-2.5">
+                        {actions.map((action) => {
+                          const key = `${resource}:${action}`;
+                          const on = selected.has(key);
+                          return (
+                            <button
+                              key={action}
+                              type="button"
+                              onClick={() => togglePerm(key)}
+                              className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all
+                                ${on ? "bg-primary text-primary-foreground border-primary" : "bg-white dark:bg-zinc-950/50 border-border text-muted-foreground hover:border-primary/50"}`}
+                            >
+                              {ACTION_LABEL[action] ?? action}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 px-3 py-2.5">
-                      {actions.map((action) => {
-                        const key = `${resource}:${action}`;
-                        const on = selected.has(key);
-                        return (
-                          <button
-                            key={action}
-                            type="button"
-                            onClick={() => togglePerm(key)}
-                            className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-all
-                              ${on ? "bg-primary text-primary-foreground border-primary" : "bg-white dark:bg-zinc-950/50 border-border text-muted-foreground hover:border-primary/50"}`}
-                          >
-                            {ACTION_LABEL[action] ?? action}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <SheetFooter>
-            <Button type="button" variant="outline" onClick={handleClose}>Cancelar</Button>
-            <Button type="submit" disabled={isPending}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={handleClose} className="flex-1">Cancelar</Button>
+            <Button type="submit" disabled={isPending} className="flex-1">
               {isPending ? "Salvando..." : editTarget ? "Salvar" : "Criar papel"}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>

@@ -30,7 +30,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetFooter,
 } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -190,41 +189,43 @@ function RenewLicenseSheet({
         if (!o) { reset(); onClose(); }
       }}
     >
-      <SheetContent>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>Renovar licença</SheetTitle>
           <p className="text-sm text-muted-foreground">{company?.name}</p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="expiresAt">Nova data de vencimento</Label>
-            <Input id="expiresAt" type="date" {...register("expiresAt")} />
-            {errors.expiresAt && (
-              <p className="text-xs text-destructive">{errors.expiresAt.message}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="notes">Observações (opcional)</Label>
-            <Input
-              id="notes"
-              placeholder="Ex: Plano anual — Contrato #2026-042"
-              {...register("notes")}
-            />
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="expiresAt">Nova data de vencimento</Label>
+              <Input id="expiresAt" type="date" {...register("expiresAt")} />
+              {errors.expiresAt && (
+                <p className="text-xs text-destructive">{errors.expiresAt.message}</p>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="notes">Observações (opcional)</Label>
+              <Input
+                id="notes"
+                placeholder="Ex: Plano anual — Contrato #2026-042"
+                {...register("notes")}
+              />
+            </div>
           </div>
 
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>
-            <Button type="submit" disabled={updateLicense.isPending}>
+            <Button type="submit" disabled={updateLicense.isPending} className="flex-1">
               {updateLicense.isPending ? (
                 <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
               ) : (
                 "Salvar licença"
               )}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>
@@ -267,33 +268,35 @@ function SetTrialSheet({
         if (!o) { reset(); onClose(); }
       }}
     >
-      <SheetContent>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle>Configurar período de trial</SheetTitle>
           <p className="text-sm text-muted-foreground">{company?.name}</p>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-6">
-          <div className="space-y-1.5">
-            <Label htmlFor="trialEndsAt">Término do trial</Label>
-            <Input id="trialEndsAt" type="date" {...register("trialEndsAt")} />
-            {errors.trialEndsAt && (
-              <p className="text-xs text-destructive">{errors.trialEndsAt.message}</p>
-            )}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="trialEndsAt">Término do trial</Label>
+              <Input id="trialEndsAt" type="date" {...register("trialEndsAt")} />
+              {errors.trialEndsAt && (
+                <p className="text-xs text-destructive">{errors.trialEndsAt.message}</p>
+              )}
+            </div>
           </div>
 
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>
-            <Button type="submit" disabled={updateTrial.isPending}>
+            <Button type="submit" disabled={updateTrial.isPending} className="flex-1">
               {updateTrial.isPending ? (
                 <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
               ) : (
                 "Salvar trial"
               )}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>
@@ -337,42 +340,44 @@ function SuspendSheet({
         if (!o) { reset(); onClose(); }
       }}
     >
-      <SheetContent>
-        <SheetHeader>
+      <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+        <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <SheetTitle className="text-destructive">Suspender empresa</SheetTitle>
           <p className="text-sm text-muted-foreground">{company?.name}</p>
         </SheetHeader>
 
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          <AlertTriangle className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-          Todos os usuários serão bloqueados imediatamente e as sessões ativas serão encerradas.
-        </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+              Todos os usuários serão bloqueados imediatamente e as sessões ativas serão encerradas.
+            </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 mt-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="reason">Motivo da suspensão</Label>
-            <Input
-              id="reason"
-              placeholder="Ex: Contrato vencido — cliente não renovou"
-              {...register("reason")}
-            />
-            {errors.reason && (
-              <p className="text-xs text-destructive">{errors.reason.message}</p>
-            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="reason">Motivo da suspensão</Label>
+              <Input
+                id="reason"
+                placeholder="Ex: Contrato vencido — cliente não renovou"
+                {...register("reason")}
+              />
+              {errors.reason && (
+                <p className="text-xs text-destructive">{errors.reason.message}</p>
+              )}
+            </div>
           </div>
 
-          <SheetFooter className="mt-auto pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancelar
             </Button>
-            <Button type="submit" variant="destructive" disabled={suspend.isPending}>
+            <Button type="submit" variant="destructive" disabled={suspend.isPending} className="flex-1">
               {suspend.isPending ? (
                 <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />Suspendendo...</>
               ) : (
                 "Suspender empresa"
               )}
             </Button>
-          </SheetFooter>
+          </div>
         </form>
       </SheetContent>
     </Sheet>

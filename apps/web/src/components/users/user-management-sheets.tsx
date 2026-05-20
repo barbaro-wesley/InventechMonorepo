@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -75,79 +75,82 @@ function EditUserForm({
   }, [user]);
 
   return (
-    <div className="mt-6 space-y-4">
-      <div>
-        <Label htmlFor="edit-name">Nome</Label>
-        <Input id="edit-name" className="mt-1.5" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div>
-        <Label htmlFor="edit-email">Email</Label>
-        <Input
-          id="edit-email"
-          type="email"
-          className="mt-1.5"
-          value={canEditEmail ? email : user.email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={!canEditEmail}
-          title={!canEditEmail ? "Sem permissão para editar email" : undefined}
-        />
-      </div>
-      <div>
-        <Label htmlFor="edit-phone">Telefone</Label>
-        <Input id="edit-phone" className="mt-1.5" placeholder="(51) 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} />
-      </div>
-      <div>
-        <Label>Status</Label>
-        <Select value={status} onValueChange={(v) => setStatus(v as UpdateUserDto["status"])}>
-          <SelectTrigger className="mt-1.5">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(STATUS_CONFIG).map(([val, cfg]) => (
-              <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label>Papel de sistema</Label>
-        <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-          <SelectTrigger className="mt-1.5">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {!roleOptions.find((o) => o.value === role) && (
-              <SelectItem value={role}>{ROLE_LABELS[role as keyof typeof ROLE_LABELS]}</SelectItem>
-            )}
-            {roleOptions.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="rounded-lg border border-border bg-muted/30 p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium">Autenticação de dois fatores (2FA)</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {user.role === "SUPER_ADMIN"
-                ? "Obrigatório para Super Admin — não pode ser desativado."
-                : "Exige código por e-mail a cada login deste usuário."}
-            </p>
-          </div>
-          <Switch
-            id="require2FA"
-            checked={user.role === "SUPER_ADMIN" ? true : require2FA}
-            onCheckedChange={setRequire2FA}
-            disabled={user.role === "SUPER_ADMIN"}
+    <div className="flex flex-col flex-1">
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div>
+          <Label htmlFor="edit-name">Nome</Label>
+          <Input id="edit-name" className="mt-1.5" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <Label htmlFor="edit-email">Email</Label>
+          <Input
+            id="edit-email"
+            type="email"
+            className="mt-1.5"
+            value={canEditEmail ? email : user.email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={!canEditEmail}
+            title={!canEditEmail ? "Sem permissão para editar email" : undefined}
           />
+        </div>
+        <div>
+          <Label htmlFor="edit-phone">Telefone</Label>
+          <Input id="edit-phone" className="mt-1.5" placeholder="(51) 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div>
+          <Label>Status</Label>
+          <Select value={status} onValueChange={(v) => setStatus(v as UpdateUserDto["status"])}>
+            <SelectTrigger className="mt-1.5">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(STATUS_CONFIG).map(([val, cfg]) => (
+                <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Papel de sistema</Label>
+          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+            <SelectTrigger className="mt-1.5">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {!roleOptions.find((o) => o.value === role) && (
+                <SelectItem value={role}>{ROLE_LABELS[role as keyof typeof ROLE_LABELS]}</SelectItem>
+              )}
+              {roleOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Autenticação de dois fatores (2FA)</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {user.role === "SUPER_ADMIN"
+                  ? "Obrigatório para Super Admin — não pode ser desativado."
+                  : "Exige código por e-mail a cada login deste usuário."}
+              </p>
+            </div>
+            <Switch
+              id="require2FA"
+              checked={user.role === "SUPER_ADMIN" ? true : require2FA}
+              onCheckedChange={setRequire2FA}
+              disabled={user.role === "SUPER_ADMIN"}
+            />
+          </div>
         </div>
       </div>
 
-      <SheetFooter className="pt-2">
-        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+      <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+        <Button variant="outline" onClick={onCancel} className="flex-1">Cancelar</Button>
         <Button
           disabled={isPending || !name.trim() || (canEditEmail && !email.trim())}
+          className="flex-1"
           onClick={() => onSave({
             name,
             ...(canEditEmail && email !== user.email ? { email } : {}),
@@ -159,7 +162,7 @@ function EditUserForm({
         >
           {isPending ? "Salvando..." : "Salvar"}
         </Button>
-      </SheetFooter>
+      </div>
     </div>
   );
 }
@@ -200,8 +203,8 @@ export function UserManagementSheets({
     <>
       {/* Sheet — Editar usuário */}
       <Sheet open={!!editUser} onOpenChange={(open) => { if (!open) onEditUserChange(null); }}>
-        <SheetContent>
-          <SheetHeader>
+        <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+          <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
             <SheetTitle>Editar usuário</SheetTitle>
             <p className="text-sm text-muted-foreground">{editUser?.name}</p>
           </SheetHeader>
@@ -223,8 +226,8 @@ export function UserManagementSheets({
         open={!!assignRoleUser}
         onOpenChange={(open) => { if (!open) onAssignRoleUserChange(null); }}
       >
-        <SheetContent>
-          <SheetHeader>
+        <SheetContent className="w-full sm:w-[480px] sm:max-w-[480px] p-0 flex flex-col gap-0">
+          <SheetHeader className="px-5 py-4 border-b border-border bg-muted/20 flex-shrink-0">
             <SheetTitle>Papel personalizado</SheetTitle>
             <p className="text-sm text-muted-foreground">
               Atribua um papel personalizado para <strong>{assignRoleUser?.name}</strong>.
@@ -232,77 +235,80 @@ export function UserManagementSheets({
             </p>
           </SheetHeader>
 
-          <div className="mt-6 space-y-4">
-            <div>
-              <Label>Papel personalizado</Label>
-              <Select
-                value={selectedCustomRoleId}
-                onValueChange={setSelectedCustomRoleId}
-              >
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Nenhum (usar papel de sistema)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_none">Nenhum (usar papel de sistema)</SelectItem>
-                  {customRoles.filter((r) => r.isActive).map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                      {role.description && (
-                        <span className="text-muted-foreground ml-1 text-xs">— {role.description}</span>
+          <div className="flex flex-col flex-1">
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div>
+                <Label>Papel personalizado</Label>
+                <Select
+                  value={selectedCustomRoleId}
+                  onValueChange={setSelectedCustomRoleId}
+                >
+                  <SelectTrigger className="mt-1.5">
+                    <SelectValue placeholder="Nenhum (usar papel de sistema)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Nenhum (usar papel de sistema)</SelectItem>
+                    {customRoles.filter((r) => r.isActive).map((role) => (
+                      <SelectItem key={role.id} value={role.id}>
+                        {role.name}
+                        {role.description && (
+                          <span className="text-muted-foreground ml-1 text-xs">— {role.description}</span>
+                        )}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!effectiveCompanyId && (
+                  <p className="text-xs text-amber-600 mt-2">
+                    Sua conta SUPER_ADMIN não está vinculada a uma empresa. Papéis personalizados são criados por empresa.
+                  </p>
+                )}
+                {effectiveCompanyId && customRoles.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Nenhum papel personalizado criado. Crie papéis em{" "}
+                    <a href="/papeis-permissoes" className="text-primary underline">Papéis & Permissões</a>.
+                  </p>
+                )}
+              </div>
+
+              {selectedCustomRoleId && selectedCustomRoleId !== "_none" && (() => {
+                const role = customRoles.find((r) => r.id === selectedCustomRoleId);
+                if (!role || role.permissions.length === 0) return null;
+                return (
+                  <div className="rounded-lg bg-muted/40 border border-border px-4 py-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Permissões deste papel ({role.permissions.length})</p>
+                    <div className="flex flex-wrap gap-1">
+                      {role.permissions.slice(0, 12).map((p) => (
+                        <span key={`${p.resource}:${p.action}`} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                          {p.resource}:{p.action}
+                        </span>
+                      ))}
+                      {role.permissions.length > 12 && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">+{role.permissions.length - 12}</span>
                       )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {!effectiveCompanyId && (
-                <p className="text-xs text-amber-600 mt-2">
-                  Sua conta SUPER_ADMIN não está vinculada a uma empresa. Papéis personalizados são criados por empresa.
-                </p>
-              )}
-              {effectiveCompanyId && customRoles.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Nenhum papel personalizado criado. Crie papéis em{" "}
-                  <a href="/papeis-permissoes" className="text-primary underline">Papéis & Permissões</a>.
-                </p>
-              )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            {selectedCustomRoleId && selectedCustomRoleId !== "_none" && (() => {
-              const role = customRoles.find((r) => r.id === selectedCustomRoleId);
-              if (!role || role.permissions.length === 0) return null;
-              return (
-                <div className="rounded-lg bg-muted/40 border border-border px-4 py-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Permissões deste papel ({role.permissions.length})</p>
-                  <div className="flex flex-wrap gap-1">
-                    {role.permissions.slice(0, 12).map((p) => (
-                      <span key={`${p.resource}:${p.action}`} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                        {p.resource}:{p.action}
-                      </span>
-                    ))}
-                    {role.permissions.length > 12 && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">+{role.permissions.length - 12}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
+            <div className="flex gap-2 p-5 pt-4 border-t border-border flex-shrink-0">
+              <Button variant="outline" onClick={() => onAssignRoleUserChange(null)} className="flex-1">Cancelar</Button>
+              <Button
+                disabled={assignCustomRole.isPending}
+                className="flex-1"
+                onClick={() => {
+                  if (!assignRoleUser) return;
+                  assignCustomRole.mutate(
+                    { userId: assignRoleUser.id, customRoleId: selectedCustomRoleId === "_none" ? null : (selectedCustomRoleId || null) },
+                    { onSuccess: () => onAssignRoleUserChange(null) }
+                  );
+                }}
+              >
+                {assignCustomRole.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
           </div>
-
-          <SheetFooter className="mt-6">
-            <Button variant="outline" onClick={() => onAssignRoleUserChange(null)}>Cancelar</Button>
-            <Button
-              disabled={assignCustomRole.isPending}
-              onClick={() => {
-                if (!assignRoleUser) return;
-                assignCustomRole.mutate(
-                  { userId: assignRoleUser.id, customRoleId: selectedCustomRoleId === "_none" ? null : (selectedCustomRoleId || null) },
-                  { onSuccess: () => onAssignRoleUserChange(null) }
-                );
-              }}
-            >
-              {assignCustomRole.isPending ? "Salvando..." : "Salvar"}
-            </Button>
-          </SheetFooter>
         </SheetContent>
       </Sheet>
     </>
