@@ -1425,13 +1425,29 @@ export class ReportsService {
             assignedTechnician: { select: { name: true } },
           },
         },
+        currentAccessories: {
+          where: { deletedAt: null },
+          orderBy: { name: 'asc' },
+          select: {
+            name: true,
+            brand: true,
+            model: true,
+            serialNumber: true,
+            patrimonyNumber: true,
+            qrCode: true,
+            status: true,
+            criticality: true,
+            warrantyEnd: true,
+            category: { select: { name: true } },
+          },
+        },
       },
     })
 
     if (!equipment) {
       throw new Error('Equipment not found')
     }
-    
+
     return equipment
   }
 
@@ -1749,7 +1765,93 @@ export class ReportsService {
       })
     }
 
-    // ── 4. Agendamentos de Manutenção Preventiva ──
+    // ── 4. Acessórios Vinculados ──
+    if (y > doc.page.height - 150) { doc.addPage(); y = 40 }
+    else { y += 20 }
+
+    const ACCESSORY_STATUS_LABEL: Record<string, string> = {
+      AVAILABLE: 'Disponível', IN_USE: 'Em uso',
+      UNDER_MAINTENANCE: 'Em manutenção', LOANED: 'Emprestado',
+      SCRAPPED: 'Baixado', LOST: 'Extraviado',
+    }
+
+    const accCols = [
+      { label: 'Nome',            w: 120 },
+      { label: 'Categoria',       w: 75 },
+      { label: 'Marca / Modelo',  w: 90 },
+      { label: 'Série',           w: 80 },
+      { label: 'Patrimônio',      w: 70 },
+      { label: 'Status',          w: W - 435 },
+    ]
+
+    const accessories = (equipment as any).currentAccessories as {
+      name: string; brand: string | null; model: string | null
+      serialNumber: string | null; patrimonyNumber: string | null
+      qrCode: string | null; status: string; criticality: string
+      warrantyEnd: Date | null; category: { name: string } | null
+    }[]
+
+    y = drawTableHeader(`Acessórios Vinculados (${accessories.length})`, accCols, y)
+
+    rowIdx = 0
+    if (accessories.length === 0) {
+      doc.fillColor('#6B7280').font('Helvetica-Oblique').fontSize(8.5)
+        .text('Nenhum acessório vinculado a este equipamento.', 45, y + 10)
+      y += 30
+    } else {
+      accessories.forEach((acc) => {
+        const rowH = 18
+        if (y + rowH > doc.page.height - 80) {
+          doc.addPage()
+          y = drawTableHeader(`Acessórios Vinculados (cont.)`, accCols, 40)
+          rowIdx = 0
+        }
+
+        const bgColor = rowIdx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+        doc.rect(40, y, W, rowH).fill(bgColor).stroke('#E2E8F0')
+
+        // Alerta visual se garantia vencendo (≤ 30 dias) ou vencida
+        const warnColor = (() => {
+          if (!acc.warrantyEnd) return null
+          const days = Math.ceil((new Date(acc.warrantyEnd).getTime() - Date.now()) / 86_400_000)
+          if (days <= 0) return '#EF4444'
+          if (days <= 30) return '#F59E0B'
+          return null
+        })()
+
+        const accCells = [
+          acc.name,
+          acc.category?.name ?? '-',
+          [acc.brand, acc.model].filter(Boolean).join(' / ') || '-',
+          acc.serialNumber ?? '-',
+          acc.patrimonyNumber ?? '-',
+          ACCESSORY_STATUS_LABEL[acc.status] ?? acc.status,
+        ]
+
+        let cx = 40
+        doc.fontSize(7.5).font('Helvetica').fillColor('#1F2937')
+        accCells.forEach((text, i) => {
+          // Destacar nome em vermelho/âmbar quando garantia vencendo
+          if (i === 0 && warnColor) doc.fillColor(warnColor)
+          else doc.fillColor('#1F2937')
+          doc.text(text, cx + 3, y + 4, { width: accCols[i].w - 6, height: rowH - 8, lineBreak: false, ellipsis: true })
+          cx += accCols[i].w
+        })
+
+        // Ícone textual de alerta de garantia na última coluna
+        if (warnColor && acc.warrantyEnd) {
+          const days = Math.ceil((new Date(acc.warrantyEnd).getTime() - Date.now()) / 86_400_000)
+          const msg = days <= 0 ? '⚠ Gar. vencida' : `⚠ ${days}d`
+          doc.fillColor(warnColor).fontSize(6.5).font('Helvetica-Bold')
+            .text(msg, 40 + W - 55, y + 5, { width: 52, lineBreak: false })
+        }
+
+        y += rowH
+        rowIdx++
+      })
+    }
+
+    // ── 5. Agendamentos de Manutenção Preventiva ──
     if (y > doc.page.height - 150) { doc.addPage(); y = 40 }
     else { y += 20 }
 

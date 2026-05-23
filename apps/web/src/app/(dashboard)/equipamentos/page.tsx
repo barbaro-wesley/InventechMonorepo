@@ -82,6 +82,7 @@ import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-sch
 import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-create-sheet";
 import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
 import { EquipmentManualsSheet } from "@/components/equipment/equipment-manuals-sheet";
+import { EquipmentAccessoriesTab } from "@/components/equipment/equipment-accessories-tab";
 import { OsDetailDrawer } from "@/app/(operacional)/operacional/_components/os-detail-drawer";
 
 import { usePermissions } from "@/hooks/auth/use-permissions";
@@ -1032,7 +1033,7 @@ function DetailSheet({
   onMove: (e: Equipment) => void;
   onPrint: (e: Equipment) => void;
 }) {
-  const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history" | "schedules">("info");
+  const [tab, setTab] = React.useState<"info" | "movements" | "attachments" | "history" | "schedules" | "accessories">("info");
   const [selectedHistoryOs, setSelectedHistoryOs] = React.useState<{ id: string; clientId: string | null } | null>(null);
   const [manualsOpen, setManualsOpen] = React.useState(false);
   const [scheduleCreateOpen, setScheduleCreateOpen] = React.useState(false);
@@ -1130,6 +1131,7 @@ function DetailSheet({
         <div className="flex border-b border-border bg-white sticky top-0 z-10">
           {[
             { id: "info", label: "Informações", short: "Info" },
+            { id: "accessories", label: "Acessórios", short: "Acess." },
             { id: "movements", label: "Movimentações", short: "Movim.", count: movements.length },
             { id: "attachments", label: "Anexos", short: "Anexos", count: attachments.length },
             { id: "history", label: "Histórico", short: "Histórico", count: equipment.totalServiceOrders },
@@ -1256,6 +1258,11 @@ function DetailSheet({
               </p>
             </div>
           </div>
+        )}
+
+        {/* ── Accessories tab ── */}
+        {tab === "accessories" && (
+          <EquipmentAccessoriesTab equipmentId={equipment.id} />
         )}
 
         {/* ── Movements tab ── */}

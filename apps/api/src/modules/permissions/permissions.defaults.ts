@@ -274,6 +274,34 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'analytics:technicians':       [SA, CA, CM],
   'analytics:preventive':        [SA, CA, CM, CLA],
   'analytics:financial':         [SA, CA],
+
+  // ── ACCESSORIES ────────────────────────────────────────────────────────────
+  'accessories:read':                    [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'accessories:create':                  [SA, CA, CM, TEC],
+  'accessories:update':                  [SA, CA, CM, TEC],
+  'accessories:delete':                  [SA, CA, CM],
+
+  'accessory_categories:read':           [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'accessory_categories:create':         [SA, CA, CM],
+  'accessory_categories:update':         [SA, CA, CM],
+  'accessory_categories:delete':         [SA, CA],
+
+  'accessory_assignments:read':          [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'accessory_assignments:assign':        [SA, CA, CM, TEC],
+  'accessory_assignments:unassign':      [SA, CA, CM, TEC],
+
+  'accessory_movements:read':            [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'accessory_movements:create':          [SA, CA, CM, TEC],
+  'accessory_movements:return':          [SA, CA, CM, TEC],
+
+  'accessory_maintenances:read':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'accessory_maintenances:create':       [SA, CA, CM, TEC],
+  'accessory_maintenances:update':       [SA, CA, CM, TEC],
+
+  'accessory_templates:read':            [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'accessory_templates:create':          [SA, CA, CM],
+  'accessory_templates:update':          [SA, CA, CM],
+  'accessory_templates:delete':          [SA, CA],
 }
 
 // Lista de todos os recursos e suas ações possíveis (para a UI de configuração)
@@ -306,6 +334,12 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'scan':                 ['browse', 'list', 'read', 'download', 'update', 'delete'],
   'ghosp':                ['list'],
   'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial'],
+  'accessories':              ['read', 'create', 'update', 'delete'],
+  'accessory_categories':     ['read', 'create', 'update', 'delete'],
+  'accessory_assignments':    ['read', 'assign', 'unassign'],
+  'accessory_movements':      ['read', 'create', 'return'],
+  'accessory_maintenances':   ['read', 'create', 'update'],
+  'accessory_templates':      ['read', 'create', 'update', 'delete'],
   'inventory':            ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'inventory-point':      ['list', 'read', 'create', 'update', 'delete'],
   'inventory-category':   ['browse', 'list', 'read', 'create', 'update', 'delete'],

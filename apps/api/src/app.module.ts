@@ -35,6 +35,7 @@ import { ScansModule } from './modules/scans/scans.module'
 import { GhospModule } from './modules/ghosp/ghosp.module'
 import { AnalyticsModule } from './modules/analytics/analytics.module'
 import { InventoryModule } from './modules/inventory/inventory.module'
+import { AccessoriesModule } from './modules/accessories/accessories.module'
 
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
 import { RateLimitGuard } from './common/guards/rate-limit.guard'
@@ -93,6 +94,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     GhospModule,
     AnalyticsModule,
     InventoryModule,
+    AccessoriesModule,
   ],
   providers: [
     // ─── Ordem dos guards é crítica ──────────────────────────────

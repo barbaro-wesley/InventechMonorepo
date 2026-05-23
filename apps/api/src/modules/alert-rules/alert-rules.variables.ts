@@ -121,6 +121,45 @@ export const EVENT_VARIABLE_REGISTRY: Record<EventType, VariableDefinition[]> = 
         { key: 'completedPendingCount', label: 'OS aguardando aprovação',  type: 'number' },
         { key: 'overdueCount',          label: 'OS com alerta',            type: 'number' },
     ],
+    // ─── Acessórios ────────────────────────────────────────────────────
+    [EventType.ACCESSORY_CREATED]: [
+        { key: 'accessoryName',  label: 'Acessório',     type: 'string' },
+        { key: 'categoryName',   label: 'Categoria',     type: 'string' },
+        { key: 'serialNumber',   label: 'N° de Série',   type: 'string' },
+    ],
+    [EventType.ACCESSORY_ASSIGNED]: [
+        { key: 'accessoryName',  label: 'Acessório',     type: 'string' },
+        { key: 'equipmentName',  label: 'Equipamento',   type: 'string' },
+        { key: 'assignedByName', label: 'Vinculado por', type: 'string' },
+    ],
+    [EventType.ACCESSORY_UNASSIGNED]: [
+        { key: 'accessoryName',    label: 'Acessório',       type: 'string' },
+        { key: 'equipmentName',    label: 'Equipamento',     type: 'string' },
+        { key: 'unassignedByName', label: 'Desvinculado por', type: 'string' },
+        { key: 'reason',           label: 'Motivo',          type: 'string' },
+    ],
+    [EventType.ACCESSORY_MOVED]: [
+        { key: 'accessoryName', label: 'Acessório',         type: 'string' },
+        { key: 'fromLocation',  label: 'Origem',            type: 'string' },
+        { key: 'toLocation',    label: 'Destino',           type: 'string' },
+        { key: 'movedByName',   label: 'Movido por',        type: 'string' },
+    ],
+    [EventType.ACCESSORY_MAINTENANCE_COMPLETED]: [
+        { key: 'accessoryName',    label: 'Acessório',          type: 'string' },
+        { key: 'maintenanceTitle', label: 'Manutenção',         type: 'string' },
+        { key: 'technicianName',   label: 'Técnico',            type: 'string' },
+    ],
+    [EventType.ACCESSORY_WARRANTY_EXPIRING]: [
+        { key: 'accessoryName', label: 'Acessório',       type: 'string' },
+        { key: 'warrantyEnd',   label: 'Vencimento',       type: 'date' },
+        { key: 'daysRemaining', label: 'Dias restantes',   type: 'number' },
+    ],
+    [EventType.ACCESSORY_STATUS_CHANGED]: [
+        { key: 'accessoryName', label: 'Acessório',    type: 'string' },
+        { key: 'fromStatus',    label: 'Status anterior', type: 'string' },
+        { key: 'toStatus',      label: 'Novo status',   type: 'string' },
+        { key: 'changedByName', label: 'Alterado por',  type: 'string' },
+    ],
 }
 
 // ─────────────────────────────────────────

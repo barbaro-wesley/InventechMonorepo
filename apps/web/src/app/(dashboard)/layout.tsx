@@ -30,6 +30,7 @@ import {
     Printer,
     ScanLine,
     Package,
+    Cable,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -164,6 +165,13 @@ const navSections: NavSection[] = [
                 icon: Package,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
                 permission: "inventory:browse",
+            },
+            {
+                label: "Acessórios",
+                href: "/acessorios",
+                icon: Cable,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER", "CLIENT_VIEWER"],
+                permission: "accessories:read",
             },
         ],
     },
