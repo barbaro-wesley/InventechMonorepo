@@ -94,6 +94,18 @@ const DEFAULT_CONFIGS: Record<EventType, Pick<NotificationConfig, 'recipientRole
         recipientContextual: [],
         channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
     },
+    // Eventos de acessório — sem destinatários por padrão (configurável pela empresa)
+    [EventType.ACCESSORY_CREATED]: { recipientRoles: [], recipientContextual: [], channels: [] },
+    [EventType.ACCESSORY_ASSIGNED]: { recipientRoles: [], recipientContextual: [], channels: [] },
+    [EventType.ACCESSORY_UNASSIGNED]: { recipientRoles: [], recipientContextual: [], channels: [] },
+    [EventType.ACCESSORY_MOVED]: { recipientRoles: [], recipientContextual: [], channels: [] },
+    [EventType.ACCESSORY_MAINTENANCE_COMPLETED]: { recipientRoles: [], recipientContextual: [], channels: [] },
+    [EventType.ACCESSORY_WARRANTY_EXPIRING]: {
+        recipientRoles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER],
+        recipientContextual: [],
+        channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
+    },
+    [EventType.ACCESSORY_STATUS_CHANGED]: { recipientRoles: [], recipientContextual: [], channels: [] },
 }
 
 // Eventos exibidos na UI de configuração

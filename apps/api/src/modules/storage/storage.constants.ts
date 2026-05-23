@@ -52,6 +52,8 @@ export const ENTITY_BUCKET_MAP: Record<AttachmentEntity, string> = {
   INVOICE: 'invoices',
   AVATAR: 'avatars',
   COMMENT: 'service-order-attachments',
+  ACCESSORY: 'accessory-attachments',
+  ACCESSORY_MAINTENANCE: 'accessory-attachments',
 }
 
 // ─────────────────────────────────────────

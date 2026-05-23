@@ -157,6 +157,12 @@ model User {
   client                       Client?                     @relation(fields: [clientId], references: [id])
   company                      Company?                    @relation(fields: [companyId], references: [id])
   customRole                   CustomRole?                 @relation(fields: [customRoleId], references: [id])
+  accessoryAssignmentsCreated  AccessoryAssignment[]       @relation("AssignmentCreatedBy")
+  accessoryAssignmentsClosed   AccessoryAssignment[]       @relation("AssignmentClosedBy")
+  accessoryMovementsRequested  AccessoryMovement[]         @relation("AccessoryMovementRequester")
+  accessoryMovementsApproved   AccessoryMovement[]         @relation("AccessoryMovementApprover")
+  accessoryMaintenances        AccessoryMaintenance[]      @relation("AccessoryMaintenanceTechnician")
+  accessoryStatusChanges       AccessoryStatusHistory[]    @relation("AccessoryStatusChangedBy")
 
   @@index([companyId])
   @@index([clientId])
@@ -261,14 +267,17 @@ model Location {
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
   costCenterId      String?             @map("cost_center_id")
-  movementsTo       EquipmentMovement[] @relation("MovementDestination")
-  movementsFrom     EquipmentMovement[] @relation("MovementOrigin")
-  currentEquipments Equipment[]         @relation("CurrentLocation")
-  equipments        Equipment[]
-  costCenter        CostCenter?         @relation(fields: [costCenterId], references: [id])
-  parent            Location?           @relation("LocationHierarchy", fields: [parentId], references: [id])
-  children          Location[]          @relation("LocationHierarchy")
-  serviceOrders     ServiceOrder[]
+  movementsTo            EquipmentMovement[] @relation("MovementDestination")
+  movementsFrom          EquipmentMovement[] @relation("MovementOrigin")
+  currentEquipments      Equipment[]         @relation("CurrentLocation")
+  equipments             Equipment[]
+  costCenter             CostCenter?         @relation(fields: [costCenterId], references: [id])
+  parent                 Location?           @relation("LocationHierarchy", fields: [parentId], references: [id])
+  children               Location[]          @relation("LocationHierarchy")
+  serviceOrders          ServiceOrder[]
+  currentAccessories     Accessory[]         @relation("AccessoryCurrentLocation")
+  accessoryMovementsTo   AccessoryMovement[] @relation("AccessoryMovementDestination")
+  accessoryMovementsFrom AccessoryMovement[] @relation("AccessoryMovementOrigin")
 
   @@index([companyId])
   @@index([companyId, parentId])
@@ -284,9 +293,10 @@ model EquipmentType {
   isActive    Boolean            @default(true) @map("is_active")
   createdAt   DateTime           @default(now()) @map("created_at")
   groupId     String?            @map("group_id")
-  subtypes    EquipmentSubtype[]
-  group       MaintenanceGroup?  @relation(fields: [groupId], references: [id])
-  equipments  Equipment[]
+  subtypes           EquipmentSubtype[]
+  group              MaintenanceGroup?            @relation(fields: [groupId], references: [id])
+  equipments         Equipment[]
+  accessoryTemplates EquipmentAccessoryTemplate[]
 
   @@index([companyId])
   @@index([groupId])
@@ -388,6 +398,8 @@ model Equipment {
   schedules            MaintenanceSchedule[]
   maintenances         Maintenance[]
   serviceOrders        ServiceOrder[]
+  currentAccessories   Accessory[]                 @relation("AccessoryCurrentEquipment")
+  accessoryAssignments AccessoryAssignment[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -690,14 +702,18 @@ model Attachment {
   sizeBytes      Int                  @map("size_bytes")
   uploadedById   String               @map("uploaded_by_id")
   createdAt      DateTime             @default(now()) @map("created_at")
-  commentId      String?              @map("comment_id")
-  equipmentId    String?              @map("equipment_id")
-  maintenanceId  String?              @map("maintenance_id")
-  serviceOrderId String?              @map("service_order_id")
-  comment        ServiceOrderComment? @relation("CommentAttachments", fields: [commentId], references: [id])
-  equipment      Equipment?           @relation("EquipmentAttachments", fields: [equipmentId], references: [id])
-  maintenance    Maintenance?         @relation("MaintenanceAttachments", fields: [maintenanceId], references: [id])
-  serviceOrder   ServiceOrder?        @relation("ServiceOrderAttachments", fields: [serviceOrderId], references: [id])
+  commentId              String?              @map("comment_id")
+  equipmentId            String?              @map("equipment_id")
+  maintenanceId          String?              @map("maintenance_id")
+  serviceOrderId         String?              @map("service_order_id")
+  accessoryId            String?              @map("accessory_id")
+  accessoryMaintenanceId String?              @map("accessory_maintenance_id")
+  comment                ServiceOrderComment? @relation("CommentAttachments", fields: [commentId], references: [id])
+  equipment              Equipment?           @relation("EquipmentAttachments", fields: [equipmentId], references: [id])
+  maintenance            Maintenance?         @relation("MaintenanceAttachments", fields: [maintenanceId], references: [id])
+  serviceOrder           ServiceOrder?        @relation("ServiceOrderAttachments", fields: [serviceOrderId], references: [id])
+  accessory              Accessory?           @relation("AccessoryAttachments", fields: [accessoryId], references: [id])
+  accessoryMaintenance   AccessoryMaintenance? @relation("AccessoryMaintenanceAttachments", fields: [accessoryMaintenanceId], references: [id])
 
   @@index([serviceOrderId])
   @@index([maintenanceId])
@@ -1374,6 +1390,8 @@ enum AttachmentEntity {
   INVOICE
   AVATAR
   COMMENT
+  ACCESSORY
+  ACCESSORY_MAINTENANCE
 }
 
 enum ReportType {
@@ -1410,6 +1428,13 @@ enum EventType {
   PREVENTIVE_UPCOMING
   OS_CHILD_CREATED
   STOCK_LOW_QUANTITY
+  ACCESSORY_CREATED
+  ACCESSORY_ASSIGNED
+  ACCESSORY_UNASSIGNED
+  ACCESSORY_MOVED
+  ACCESSORY_MAINTENANCE_COMPLETED
+  ACCESSORY_WARRANTY_EXPIRING
+  ACCESSORY_STATUS_CHANGED
 }
 
 enum ContextualRecipient {
@@ -1502,11 +1527,209 @@ enum OcrStatus {
   FAILED
 }
 
+enum AccessoryStatus {
+  AVAILABLE
+  IN_USE
+  UNDER_MAINTENANCE
+  LOANED
+  SCRAPPED
+  LOST
+}
+
+enum AccessoryOwnership {
+  COMPANY
+  CLIENT
+  LEASED
+  DONATED
+}
+
 enum StockMovementType {
   ENTRY
   EXIT
   ADJUSTMENT
   TRANSFER
+}
+
+// ─── Módulo de Acessórios ─────────────────────────────────────────────────────
+
+model AccessoryCategory {
+  id          String                      @id @default(uuid())
+  companyId   String                      @map("company_id")
+  name        String
+  description String?
+  color       String?
+  isActive    Boolean                     @default(true) @map("is_active")
+  createdAt   DateTime                    @default(now()) @map("created_at")
+  updatedAt   DateTime                    @updatedAt @map("updated_at")
+  accessories Accessory[]
+  templates   EquipmentAccessoryTemplate[]
+
+  @@unique([companyId, name])
+  @@index([companyId, isActive])
+  @@map("accessory_categories")
+}
+
+model EquipmentAccessoryTemplate {
+  id              String            @id @default(uuid())
+  companyId       String            @map("company_id")
+  equipmentTypeId String            @map("equipment_type_id")
+  categoryId      String            @map("category_id")
+  isRequired      Boolean           @default(false) @map("is_required")
+  minQuantity     Int               @default(1) @map("min_quantity")
+  maxQuantity     Int?              @map("max_quantity")
+  notes           String?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  category        AccessoryCategory @relation(fields: [categoryId], references: [id])
+  equipmentType   EquipmentType     @relation(fields: [equipmentTypeId], references: [id])
+
+  @@unique([equipmentTypeId, categoryId])
+  @@index([companyId])
+  @@index([equipmentTypeId])
+  @@map("equipment_accessory_templates")
+}
+
+model Accessory {
+  id                 String                   @id @default(uuid())
+  companyId          String                   @map("company_id")
+  categoryId         String?                  @map("category_id")
+  name               String
+  brand              String?
+  model              String?
+  serialNumber       String?                  @map("serial_number")
+  patrimonyNumber    String?                  @map("patrimony_number")
+  qrCode             String?                  @unique @map("qr_code")
+  anvisaNumber       String?                  @map("anvisa_number")
+  ownership          AccessoryOwnership       @default(COMPANY)
+  purchaseValue      Decimal?                 @map("purchase_value") @db.Decimal(12, 2)
+  purchaseDate       DateTime?                @map("purchase_date") @db.Date
+  invoiceNumber      String?                  @map("invoice_number")
+  warrantyStart      DateTime?                @map("warranty_start") @db.Date
+  warrantyEnd        DateTime?                @map("warranty_end") @db.Date
+  status             AccessoryStatus          @default(AVAILABLE)
+  criticality        EquipmentCriticality     @default(MEDIUM)
+  observations       String?
+  currentLocationId  String?                  @map("current_location_id")
+  currentEquipmentId String?                  @map("current_equipment_id")
+  lastMaintenanceAt  DateTime?                @map("last_maintenance_at")
+  totalMaintenances  Int                      @default(0) @map("total_maintenances")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  deletedAt          DateTime?                @map("deleted_at")
+  category           AccessoryCategory?       @relation(fields: [categoryId], references: [id])
+  currentLocation    Location?                @relation("AccessoryCurrentLocation", fields: [currentLocationId], references: [id])
+  currentEquipment   Equipment?               @relation("AccessoryCurrentEquipment", fields: [currentEquipmentId], references: [id])
+  assignments        AccessoryAssignment[]
+  movements          AccessoryMovement[]
+  maintenances       AccessoryMaintenance[]
+  statusHistory      AccessoryStatusHistory[]
+  attachments        Attachment[]             @relation("AccessoryAttachments")
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@index([companyId, categoryId])
+  @@index([companyId, currentEquipmentId])
+  @@index([serialNumber])
+  @@index([patrimonyNumber])
+  @@index([qrCode])
+  @@index([warrantyEnd])
+  @@map("accessories")
+}
+
+model AccessoryAssignment {
+  id                String    @id @default(uuid())
+  companyId         String    @map("company_id")
+  accessoryId       String    @map("accessory_id")
+  equipmentId       String    @map("equipment_id")
+  assignedById      String    @map("assigned_by_id")
+  unassignedById    String?   @map("unassigned_by_id")
+  assignedAt        DateTime  @default(now()) @map("assigned_at")
+  unassignedAt      DateTime? @map("unassigned_at")
+  reason            String?
+  unassignReason    String?   @map("unassign_reason")
+  notes             String?
+  isActive          Boolean   @default(true) @map("is_active")
+  equipmentSnapshot Json?     @map("equipment_snapshot")
+  accessory         Accessory @relation(fields: [accessoryId], references: [id])
+  equipment         Equipment @relation(fields: [equipmentId], references: [id])
+  assignedBy        User      @relation("AssignmentCreatedBy", fields: [assignedById], references: [id])
+  unassignedBy      User?     @relation("AssignmentClosedBy", fields: [unassignedById], references: [id])
+
+  @@index([companyId])
+  @@index([accessoryId, isActive])
+  @@index([equipmentId, isActive])
+  @@index([assignedAt])
+  @@map("accessory_assignments")
+}
+
+model AccessoryMovement {
+  id                    String         @id @default(uuid())
+  companyId             String         @map("company_id")
+  accessoryId           String         @map("accessory_id")
+  requesterId           String         @map("requester_id")
+  approverId            String?        @map("approver_id")
+  type                  MovementType
+  status                MovementStatus @default(ACTIVE)
+  originLocationId      String         @map("origin_location_id")
+  destinationLocationId String         @map("destination_location_id")
+  reason                String?
+  expectedReturnAt      DateTime?      @map("expected_return_at")
+  returnedAt            DateTime?      @map("returned_at")
+  notes                 String?
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  accessory             Accessory      @relation(fields: [accessoryId], references: [id])
+  origin                Location       @relation("AccessoryMovementOrigin", fields: [originLocationId], references: [id])
+  destination           Location       @relation("AccessoryMovementDestination", fields: [destinationLocationId], references: [id])
+  requester             User           @relation("AccessoryMovementRequester", fields: [requesterId], references: [id])
+  approver              User?          @relation("AccessoryMovementApprover", fields: [approverId], references: [id])
+
+  @@index([companyId])
+  @@index([accessoryId, status])
+  @@index([accessoryId, createdAt(sort: Desc)])
+  @@map("accessory_movements")
+}
+
+model AccessoryMaintenance {
+  id           String          @id @default(uuid())
+  companyId    String          @map("company_id")
+  accessoryId  String          @map("accessory_id")
+  technicianId String?         @map("technician_id")
+  type         MaintenanceType
+  title        String
+  description  String?
+  observations String?
+  scheduledAt  DateTime?       @map("scheduled_at")
+  startedAt    DateTime?       @map("started_at")
+  completedAt  DateTime?       @map("completed_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  accessory    Accessory       @relation(fields: [accessoryId], references: [id])
+  technician   User?           @relation("AccessoryMaintenanceTechnician", fields: [technicianId], references: [id])
+  attachments  Attachment[]    @relation("AccessoryMaintenanceAttachments")
+
+  @@index([companyId])
+  @@index([accessoryId])
+  @@index([accessoryId, completedAt(sort: Desc)])
+  @@index([technicianId])
+  @@map("accessory_maintenances")
+}
+
+model AccessoryStatusHistory {
+  id          String           @id @default(uuid())
+  accessoryId String           @map("accessory_id")
+  fromStatus  AccessoryStatus? @map("from_status")
+  toStatus    AccessoryStatus  @map("to_status")
+  changedById String           @map("changed_by_id")
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  accessory   Accessory        @relation(fields: [accessoryId], references: [id])
+  changedBy   User             @relation("AccessoryStatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([accessoryId])
+  @@index([accessoryId, createdAt(sort: Desc)])
+  @@map("accessory_status_history")
 }
 
 model StockCategory {

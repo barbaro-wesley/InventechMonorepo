@@ -86,6 +86,12 @@ export function usePermissions() {
         canCreateInventoryMovements: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN"], "inventory-movement:create"),
         // Transferir itens entre pontos — apenas gestores
         canTransferInventory: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER"], "inventory-movement:transfer"),
+        // Visualizar módulo de acessórios — empresa + cliente com acesso
+        canViewAccessories: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN", "CLIENT_ADMIN", "CLIENT_USER", "CLIENT_VIEWER"], "accessories:read"),
+        // Criar/editar acessórios
+        canManageAccessories: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"], "accessories:create"),
+        // Vincular/desvincular acessórios a equipamentos
+        canAssignAccessories: canSeeNav(["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"], "accessory_assignments:assign"),
         canViewReports: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN"),
         canViewDashboard: isRole("SUPER_ADMIN", "COMPANY_ADMIN", "COMPANY_MANAGER", "CLIENT_ADMIN", "CLIENT_USER"),
 

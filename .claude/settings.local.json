@@ -3,7 +3,13 @@
     "allow": [
       "Bash(find 'c:/Users/Wesley Barbaro/Documents/inventech-monorepo/apps/web/node_modules/next/dist' -name *.md)",
       "Bash(grep -r \"middleware-to-proxy\\\\|proxy\\\\.ts\\\\|proxy\\\\|isProxy\\\\|PROXY_CONVENTION\" 'c:/Users/Wesley Barbaro/Documents/inventech-monorepo/node_modules/next/dist' --include=*.js -l)",
-      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Wesley Barbaro\\\\Documents\\\\inventech-monorepo\\\\apps\\\\web\\\\src\\\\app\\\\\\(dashboard\\)\" -Recurse -File | Where-Object { $_.Extension -eq '.tsx' -or $_.Extension -eq '.ts' } | Select-Object -ExpandProperty FullName)"
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Wesley Barbaro\\\\Documents\\\\inventech-monorepo\\\\apps\\\\web\\\\src\\\\app\\\\\\(dashboard\\)\" -Recurse -File | Where-Object { $_.Extension -eq '.tsx' -or $_.Extension -eq '.ts' } | Select-Object -ExpandProperty FullName)",
+      "PowerShell(docker unpause manutencao_postgres manutencao_redis manutencao_minio manutencao_ocr_worker 2>&1)",
+      "Bash(npx prisma *)",
+      "Bash(dir /s /b \"c:\\\\Users\\\\Wesley.Barbaro\\\\Documents\\\\Inventech\\\\InventechMonorepo\\\\apps\\\\api\\\\src\\\\modules\\\\alert-rules\")",
+      "Bash(npx tsx *)",
+      "Bash(node --input-type=module)",
+      "Bash(2>&1)"
     ]
   }
 }

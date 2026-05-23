@@ -245,4 +245,13 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get stockMovement() { return this._db.stockMovement }
   get stockPoint() { return this._db.stockPoint }
   get stockPointClient() { return this._db.stockPointClient }
+
+  // ─── Acessórios ───────────────────────────────────────────────────────
+  get accessoryCategory() { return this._db.accessoryCategory }
+  get accessory() { return this._db.accessory }
+  get equipmentAccessoryTemplate() { return this._db.equipmentAccessoryTemplate }
+  get accessoryAssignment() { return this._db.accessoryAssignment }
+  get accessoryMovement() { return this._db.accessoryMovement }
+  get accessoryMaintenance() { return this._db.accessoryMaintenance }
+  get accessoryStatusHistory() { return this._db.accessoryStatusHistory }
 }
