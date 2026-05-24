@@ -72,15 +72,21 @@ export class UsersService {
       throw new BadRequestException('Informe o papel de sistema ou um papel personalizado')
     }
 
+    // Quando só customRoleId é fornecido (sem role de sistema), usamos MEMBER como
+    // papel base no banco mas pulamos validações exclusivas de papéis de cliente.
+    const isCustomRoleOnly = !dto.role && !!dto.customRoleId
     const role = dto.role ?? UserRole.MEMBER
-    this.validateRolePermission(role, currentUser)
+
+    if (!isCustomRoleOnly) {
+      this.validateRolePermission(role, currentUser)
+    }
 
     const emailTaken = await this.usersRepository.emailExists(dto.email)
     if (emailTaken) throw new ConflictException('Este email já está em uso')
 
-    const { companyId, clientId } = this.resolveTenantIds({ ...dto, role }, currentUser)
+    const { companyId, clientId } = this.resolveTenantIds({ ...dto, role }, currentUser, isCustomRoleOnly)
 
-    if ((CLIENT_ROLES as UserRole[]).includes(role) && !clientId) {
+    if (!isCustomRoleOnly && (CLIENT_ROLES as UserRole[]).includes(role) && !clientId) {
       throw new BadRequestException('clientId é obrigatório para usuários do tipo cliente')
     }
 
@@ -93,6 +99,7 @@ export class UsersService {
       passwordHash,
       role,
       status: UserStatus.UNVERIFIED,  // ← era ACTIVE antes
+      mustChangePassword: true,         // ← admin definiu a senha; usuário deve trocar no 1º login
       phone: dto.phone,
       telegramChatId: dto.telegramChatId,
       company: companyId ? { connect: { id: companyId } } : undefined,
@@ -153,6 +160,7 @@ export class UsersService {
 
     if (dto.password) {
       data.passwordHash = await bcrypt.hash(dto.password, 10)
+      data.mustChangePassword = true  // ← força troca na próxima sessão
     }
 
     const updated = await this.usersRepository.update(id, data)
@@ -283,13 +291,21 @@ export class UsersService {
     }
   }
 
-  private resolveTenantIds(dto: CreateUserDto, currentUser: AuthenticatedUser) {
+  private resolveTenantIds(
+    dto: CreateUserDto,
+    currentUser: AuthenticatedUser,
+    isCustomRoleOnly = false,
+  ) {
     if (currentUser.role === UserRole.SUPER_ADMIN) {
       return { companyId: dto.companyId ?? null, clientId: dto.clientId ?? null }
     }
     const companyId = currentUser.companyId!
-    // CLIENT_ADMIN sempre cria usuários no contexto do seu cliente (mesmo técnicos)
-    const isClientRole = dto.role ? (CLIENT_ROLES as UserRole[]).includes(dto.role) : true
+    // CLIENT_ADMIN sempre cria usuários no contexto do seu cliente (mesmo técnicos).
+    // Quando só customRoleId foi fornecido, não inferimos clientId automaticamente —
+    // o papel personalizado pode ser de empresa, não de cliente.
+    const isClientRole = !isCustomRoleOnly && (dto.role
+      ? (CLIENT_ROLES as UserRole[]).includes(dto.role)
+      : false)
     const fallbackClientId = (isClientRole || currentUser.role === UserRole.CLIENT_ADMIN)
       ? currentUser.clientId
       : null

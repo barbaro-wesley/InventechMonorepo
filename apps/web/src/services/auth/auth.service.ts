@@ -42,4 +42,12 @@ export const authService = {
     async verify2FA(userId: string, code: string): Promise<void> {
         await api.post("/auth/2fa/verify", { userId, code });
     },
+
+    async setFirstPassword(changeToken: string, newPassword: string): Promise<LoginResponse> {
+        const { data } = await api.post<LoginResponse>("/auth/set-first-password", {
+            changeToken,
+            newPassword,
+        });
+        return data;
+    },
 };

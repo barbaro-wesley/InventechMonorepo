@@ -1,13 +1,14 @@
 import {
     Injectable,
     UnauthorizedException,
+    BadRequestException,
     Logger,
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { UserStatus, UserRole, RefreshToken } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
-import { createHash, timingSafeEqual } from 'crypto'
+import { createHash, timingSafeEqual, randomBytes } from 'crypto'
 import { PrismaService } from '../../prisma/prisma.service'
 import { LoginDto } from './dto/login.dto'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -96,6 +97,20 @@ export class AuthService {
                 failReason: 'WRONG_PASSWORD',
             })
             throw new UnauthorizedException('Credenciais inválidas')
+        }
+
+        // 4.5 — Verifica se é o primeiro login (troca obrigatória de senha)
+        if (user.mustChangePassword) {
+            await this.loginSecurityService.recordAttempt({
+                email: dto.email,
+                userId: user.id,
+                success: true,
+                ipAddress: ipAddress ?? '',
+                userAgent,
+            })
+            const changeToken = await this.generateFirstPasswordToken(user.id, ipAddress)
+            this.logger.log(`Primeiro login detectado: ${user.email} | IP: ${ipAddress}`)
+            return { requiresPasswordChange: true, changeToken }
         }
 
         // 5. Verifica se 2FA é obrigatório
@@ -392,5 +407,114 @@ export class AuthService {
             where: { userId, revokedAt: null },
             data: { revokedAt: new Date() },
         })
+    }
+
+    // ─────────────────────────────────────────
+    // Gera token temporário para troca de senha no 1º login
+    // ─────────────────────────────────────────
+    private async generateFirstPasswordToken(userId: string, ipAddress?: string): Promise<string> {
+        // Invalida todos os tokens pendentes do usuário antes de criar um novo
+        await this.prisma.passwordReset.updateMany({
+            where: { userId, usedAt: null },
+            data: { usedAt: new Date() },
+        })
+
+        // 256 bits de entropia — suficientemente seguro
+        const rawToken = randomBytes(32).toString('hex')
+
+        await this.prisma.passwordReset.create({
+            data: {
+                userId,
+                token: rawToken,
+                ipAddress,
+                expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutos
+            },
+        })
+
+        return rawToken
+    }
+
+    // ─────────────────────────────────────────
+    // Define a senha no primeiro acesso (via token temporário)
+    // ─────────────────────────────────────────
+    async setFirstPassword(
+        rawToken: string,
+        newPassword: string,
+        ipAddress?: string,
+        userAgent?: string,
+    ) {
+        // 1. Busca token no banco
+        const record = await this.prisma.passwordReset.findUnique({
+            where: { token: rawToken },
+            include: { user: true },
+        })
+
+        if (!record) {
+            throw new UnauthorizedException('Token inválido ou expirado')
+        }
+
+        // 2. Valida expiração
+        if (record.expiresAt < new Date()) {
+            throw new UnauthorizedException('Token expirado. Faça login novamente para obter um novo link.')
+        }
+
+        // 3. Valida uso único
+        if (record.usedAt) {
+            throw new UnauthorizedException('Token já utilizado')
+        }
+
+        // 4. Confirma que o usuário realmente precisa trocar a senha
+        if (!record.user.mustChangePassword) {
+            throw new UnauthorizedException('Operação não permitida')
+        }
+
+        // 5. Valida comprimento mínimo da nova senha
+        if (newPassword.length < 6) {
+            throw new BadRequestException('A nova senha deve ter no mínimo 6 caracteres')
+        }
+
+        const passwordHash = await bcrypt.hash(newPassword, 10)
+
+        // 6. Transação atômica: token marcado como usado + senha atualizada + flag desativada
+        await this.prisma.$transaction([
+            this.prisma.passwordReset.update({
+                where: { id: record.id },
+                data: { usedAt: new Date() },
+            }),
+            this.prisma.user.update({
+                where: { id: record.userId },
+                data: {
+                    passwordHash,
+                    mustChangePassword: false,
+                    lastLoginAt: new Date(),
+                    lastLoginIp: ipAddress,
+                },
+            }),
+        ])
+
+        // 7. Emite tokens normais — usuário está autenticado a partir daqui
+        const user = record.user
+        const payload: AuthenticatedUser = {
+            sub: user.id,
+            email: user.email,
+            role: user.role,
+            companyId: user.companyId,
+            clientId: user.clientId,
+            customRoleId: user.customRoleId ?? null,
+        }
+
+        const { accessToken, refreshToken } = await this.generateTokens(payload)
+        await this.saveRefreshToken(user.id, refreshToken, ipAddress, userAgent)
+
+        await this.loginSecurityService.recordAttempt({
+            email: user.email,
+            userId: user.id,
+            success: true,
+            ipAddress: ipAddress ?? '',
+            userAgent,
+        })
+
+        this.logger.log(`Senha inicial definida: ${user.email} | IP: ${ipAddress}`)
+        return { accessToken, refreshToken, user: payload }
     }
 }
