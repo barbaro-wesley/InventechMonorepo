@@ -45,6 +45,15 @@ class TwoFactorVerifyDto {
   code: string
 }
 
+class SetFirstPasswordDto {
+  @IsString()
+  changeToken: string
+
+  @IsString()
+  @MinLength(6, { message: 'A senha deve ter no mínimo 6 caracteres' })
+  newPassword: string
+}
+
 function getClientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for']
   if (forwarded) {
@@ -90,6 +99,10 @@ export class AuthController {
 
     if (result.requires2FA) {
       return { requires2FA: true, user: result.user }
+    }
+
+    if ('requiresPasswordChange' in result && result.requiresPasswordChange) {
+      return { requiresPasswordChange: true, changeToken: (result as any).changeToken }
     }
 
     const { accessToken, refreshToken, user } = result as {
@@ -316,5 +329,42 @@ unblockUser(
   @CurrentUser() cu: AuthenticatedUser,
 ) {
   return this.loginSecurityService.unblockAccount(userId, cu.sub)
+}
+
+// ─────────────────────────────────────────
+// POST /auth/set-first-password
+// ─────────────────────────────────────────
+@Public()
+@Post('set-first-password')
+@HttpCode(HttpStatus.OK)
+@RateLimit({ limit: 5, ttl: 300, message: 'Muitas tentativas. Aguarde {{ttl}} segundos.' })
+@ApiOperation({
+  summary: 'Definir senha no primeiro acesso',
+  description: 'Permite ao usuário definir sua própria senha usando o token temporário recebido no login.',
+})
+async setFirstPassword(
+  @Body() dto: SetFirstPasswordDto,
+  @Req() req: Request,
+  @Res({ passthrough: true }) res: Response,
+) {
+  const { accessToken, refreshToken, user } = await this.authService.setFirstPassword(
+    dto.changeToken,
+    dto.newPassword,
+    getClientIp(req),
+    req.headers['user-agent'],
+  )
+
+  res.cookie('access_token', accessToken, { ...COOKIE_OPTIONS, maxAge: ACCESS_MAX_AGE })
+  res.cookie('refresh_token', refreshToken, { ...COOKIE_OPTIONS, maxAge: REFRESH_MAX_AGE })
+
+  return {
+    user: {
+      id: user.sub,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+      clientId: user.clientId,
+    },
+  }
 }
 }

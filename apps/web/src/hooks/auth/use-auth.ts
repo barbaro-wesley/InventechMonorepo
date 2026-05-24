@@ -28,6 +28,8 @@ export function useAuth() {
     const isLoading = useIsAuthLoading();
     const [requires2FA, setRequires2FA] = useState(false);
     const [twoFAUserId, setTwoFAUserId] = useState<string | null>(null);
+    const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
+    const [changeToken, setChangeToken] = useState<string | null>(null);
 
     // Login
     const loginMutation = useMutation({
@@ -41,8 +43,15 @@ export function useAuth() {
                 toast.info("Código de verificação enviado para seu e-mail.");
                 return;
             }
-            setUser(response.user);
-            toast.success(`Bem-vindo, ${response.user.name?.split(" ")[0] ?? response.user.name}!`);
+
+            if (response.requiresPasswordChange) {
+                setRequiresPasswordChange(true);
+                setChangeToken(response.changeToken ?? null);
+                return;
+            }
+
+            setUser(response.user!);
+            toast.success(`Bem-vindo, ${response.user!.name?.split(" ")[0] ?? response.user!.name}!`);
             router.push(getPostLoginRedirect());
         },
 
@@ -59,6 +68,22 @@ export function useAuth() {
             const user = await authService.me();
             setUser(user);
             toast.success(`Bem-vindo, ${user.name?.split(" ")[0] ?? user.name}!`);
+            router.push(getPostLoginRedirect());
+        },
+        onError: (error) => {
+            toast.error(getErrorMessage(error));
+        },
+    });
+
+    // Definir senha no primeiro acesso
+    const setFirstPasswordMutation = useMutation({
+        mutationFn: ({ token, newPassword }: { token: string; newPassword: string }) =>
+            authService.setFirstPassword(token, newPassword),
+        onSuccess: (response) => {
+            setUser(response.user!);
+            setRequiresPasswordChange(false);
+            setChangeToken(null);
+            toast.success("Senha definida com sucesso! Bem-vindo!");
             router.push(getPostLoginRedirect());
         },
         onError: (error) => {
@@ -91,12 +116,17 @@ export function useAuth() {
         isLoading,
         requires2FA,
         twoFAUserId,
+        requiresPasswordChange,
+        changeToken,
 
         login: loginMutation.mutate,
         isLoggingIn: loginMutation.isPending,
 
         verify2FA: verify2FAMutation.mutate,
         isVerifying2FA: verify2FAMutation.isPending,
+
+        setFirstPassword: setFirstPasswordMutation.mutate,
+        isSettingFirstPassword: setFirstPasswordMutation.isPending,
 
         logout: logoutMutation.mutate,
         isLoggingOut: logoutMutation.isPending,

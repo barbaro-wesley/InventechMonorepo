@@ -34,8 +34,10 @@ export interface AuthUser {
 }
 
 export interface LoginResponse {
-  user: AuthUser;
+  user?: AuthUser;
   requires2FA?: boolean;
+  requiresPasswordChange?: boolean;
+  changeToken?: string;
 }
 
 export type AuthMeResponse = AuthUser;

@@ -125,6 +125,7 @@ model User {
   deletedAt                    DateTime?                   @map("deleted_at")
   customRoleId                 String?                     @map("custom_role_id")
   require2FA                   Boolean                     @default(false) @map("require_2fa")
+  mustChangePassword           Boolean                     @default(false) @map("must_change_password")
   accountBlocks                AccountBlock[]
   alertRulesCreated            AlertRule[]
   checklistTemplatesCreated    ChecklistTemplate[]         @relation("ChecklistTemplateCreatedBy")

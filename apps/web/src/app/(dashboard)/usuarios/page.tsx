@@ -148,19 +148,17 @@ export default function UsuariosPage() {
 
     function handleCreate(formData: CreateUserForm) {
         const { customRoleId, role, ...rest } = formData;
-        const userDto = { ...rest, ...(role ? { role } : {}) };
+        // Inclui customRoleId no corpo da criação para que a API possa satisfazer
+        // a validação mesmo quando nenhum papel de sistema é selecionado.
+        const userDto = {
+            ...rest,
+            ...(role       ? { role }       : {}),
+            ...(customRoleId ? { customRoleId } : {}),
+        };
         createUser.mutate(userDto as any, {
-            onSuccess: (created) => {
-                // Se papel personalizado selecionado, atribuir logo após criar
-                if (customRoleId && created?.id) {
-                    assignCustomRole.mutate(
-                        { userId: created.id, customRoleId },
-                        { onSettled: () => { setCreateOpen(false); form.reset(); } }
-                    );
-                } else {
-                    setCreateOpen(false);
-                    form.reset();
-                }
+            onSuccess: () => {
+                setCreateOpen(false);
+                form.reset();
             },
         });
     }

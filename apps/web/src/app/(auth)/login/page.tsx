@@ -32,14 +32,27 @@ const twoFASchema = z.object({
     .regex(/^\d+$/, "Apenas números"),
 });
 
+const firstPasswordSchema = z
+  .object({
+    newPassword: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
+    confirmPassword: z.string().min(6, "Confirme sua senha"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "As senhas não coincidem",
+    path: ["confirmPassword"],
+  });
+
 type LoginFormData = z.infer<typeof loginSchema>;
 type TwoFAFormData = z.infer<typeof twoFASchema>;
+type FirstPasswordFormData = z.infer<typeof firstPasswordSchema>;
 
 // ---------------------------------------------------------------------------
 // Página
 // ---------------------------------------------------------------------------
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     login,
@@ -48,6 +61,10 @@ export default function LoginPage() {
     twoFAUserId,
     verify2FA,
     isVerifying2FA,
+    requiresPasswordChange,
+    changeToken,
+    setFirstPassword,
+    isSettingFirstPassword,
   } = useAuth();
 
   const loginForm = useForm<LoginFormData>({
@@ -60,6 +77,11 @@ export default function LoginPage() {
     defaultValues: { code: "" },
   });
 
+  const firstPasswordForm = useForm<FirstPasswordFormData>({
+    resolver: zodResolver(firstPasswordSchema),
+    defaultValues: { newPassword: "", confirmPassword: "" },
+  });
+
   function handleLogin(data: LoginFormData) {
     login({ email: data.email, password: data.password });
   }
@@ -67,6 +89,11 @@ export default function LoginPage() {
   function handle2FA(data: TwoFAFormData) {
     if (!twoFAUserId) return;
     verify2FA({ userId: twoFAUserId, code: data.code });
+  }
+
+  function handleFirstPassword(data: FirstPasswordFormData) {
+    if (!changeToken) return;
+    setFirstPassword({ token: changeToken, newPassword: data.newPassword });
   }
 
   // ---------------------------------------------------------------------------
@@ -144,6 +171,122 @@ export default function LoginPage() {
               Voltar ao login
             </button>
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step 3: Definir senha inicial
+  // ---------------------------------------------------------------------------
+  if (requiresPasswordChange) {
+    return (
+      <div className="flex flex-col items-center">
+        <div className="w-full mx-auto">
+          {/* Icon */}
+          <div className="flex justify-center mb-6">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20">
+              <KeyRound className="w-6 h-6 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+            </div>
+          </div>
+
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white mb-2 tracking-tight">
+              Defina sua senha
+            </h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              Este é seu primeiro acesso. Crie uma senha de sua escolha para continuar.
+            </p>
+          </div>
+
+          <form
+            onSubmit={firstPasswordForm.handleSubmit(handleFirstPassword)}
+            className="space-y-5"
+            noValidate
+          >
+            {/* Nova Senha */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Nova senha
+              </label>
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  autoFocus
+                  placeholder="Mínimo 6 caracteres"
+                  className={cn(
+                    "w-full h-12 rounded-xl border bg-white dark:bg-zinc-800/60 pl-4 pr-12",
+                    "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600",
+                    "outline-none transition-all duration-200",
+                    firstPasswordForm.formState.errors.newPassword
+                      ? "border-red-400 focus:ring-2 focus:ring-red-500/20"
+                      : "border-zinc-200 dark:border-zinc-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  )}
+                  {...firstPasswordForm.register("newPassword")}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {firstPasswordForm.formState.errors.newPassword && (
+                <p className="text-xs text-red-500 font-medium">
+                  {firstPasswordForm.formState.errors.newPassword.message}
+                </p>
+              )}
+            </div>
+
+            {/* Confirmar Senha */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Confirmar senha
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  placeholder="Repita a senha"
+                  className={cn(
+                    "w-full h-12 rounded-xl border bg-white dark:bg-zinc-800/60 pl-4 pr-12",
+                    "text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600",
+                    "outline-none transition-all duration-200",
+                    firstPasswordForm.formState.errors.confirmPassword
+                      ? "border-red-400 focus:ring-2 focus:ring-red-500/20"
+                      : "border-zinc-200 dark:border-zinc-700 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                  )}
+                  {...firstPasswordForm.register("confirmPassword")}
+                />
+                <button
+                  type="button"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {firstPasswordForm.formState.errors.confirmPassword && (
+                <p className="text-xs text-red-500 font-medium">
+                  {firstPasswordForm.formState.errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={isSettingFirstPassword}
+              className="w-full h-12 mt-1 rounded-xl text-sm font-semibold text-white bg-amber-600 hover:bg-amber-500 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-amber-500/25"
+            >
+              {isSettingFirstPassword && <Loader2 className="w-4 h-4 animate-spin" />}
+              {isSettingFirstPassword ? "Salvando..." : "Definir senha e entrar"}
+            </button>
+          </form>
         </div>
       </div>
     );
