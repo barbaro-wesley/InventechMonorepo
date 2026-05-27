@@ -329,7 +329,12 @@ function EquipmentSheet({
     if (files.length > 0) {
       const formData = new FormData();
       Object.entries(dtoFields).forEach(([key, value]) => {
-        if (value !== undefined) formData.append(key, String(value));
+        if (value === undefined) return;
+        if (Array.isArray(value) || (typeof value === "object" && value !== null)) {
+          formData.append(key, JSON.stringify(value));
+        } else {
+          formData.append(key, String(value));
+        }
       });
       files.forEach((file) => formData.append("files", file));
       create.mutate(formData, { onSuccess: handleClose });
