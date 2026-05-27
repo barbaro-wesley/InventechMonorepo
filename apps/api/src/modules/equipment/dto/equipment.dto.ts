@@ -2,9 +2,17 @@ import {
     IsArray, IsDateString, IsDecimal, IsEnum, IsInt, IsOptional,
     IsString, IsUUID, Max, Min, ValidateNested,
 } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
 import { EquipmentCriticality, EquipmentStatus, MaintenanceType, ServiceOrderStatus } from '@prisma/client'
 import { CustomFieldValueDto } from '../custom-fields/dto/custom-field.dto'
+
+/** Transforma JSON string → array quando enviado via multipart/form-data */
+function parseJsonArray({ value }: { value: unknown }): unknown {
+    if (typeof value === 'string') {
+        try { return JSON.parse(value) } catch { return value }
+    }
+    return value
+}
 
 export class CreateEquipmentDto {
     @IsString()
@@ -102,6 +110,7 @@ export class CreateEquipmentDto {
     observations?: string
 
     @IsOptional()
+    @Transform(parseJsonArray)
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => CustomFieldValueDto)
@@ -135,6 +144,7 @@ export class UpdateEquipmentDto {
     @IsOptional() @IsString() observations?: string
 
     @IsOptional()
+    @Transform(parseJsonArray)
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => CustomFieldValueDto)
