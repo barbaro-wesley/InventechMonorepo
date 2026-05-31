@@ -167,7 +167,7 @@ export class AuthService {
         ])
 
         this.logger.log(`Login: ${user.email} | IP: ${ipAddress}`)
-        return { accessToken, refreshToken, user: payload }
+        return { accessToken, refreshToken, user: { ...payload, name: user.name } }
     }
 
     // ─────────────────────────────────────────
@@ -515,6 +515,6 @@ export class AuthService {
         })
 
         this.logger.log(`Senha inicial definida: ${user.email} | IP: ${ipAddress}`)
-        return { accessToken, refreshToken, user: payload }
+        return { accessToken, refreshToken, user: { ...payload, name: user.name } }
     }
 }

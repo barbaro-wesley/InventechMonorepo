@@ -686,7 +686,11 @@ export class MaintenanceService {
         limit.setDate(limit.getDate() + daysAhead)
 
         const rows = await this.prisma.equipment.findMany({
-            where: { warrantyEnd: { gte: today, lte: limit } },
+            where: {
+                warrantyEnd: { gte: today, lte: limit },
+                deletedAt: null,
+                status: { notIn: ['INACTIVE', 'SCRAPPED'] },
+            },
         })
 
         return rows.map((eq) => ({
