@@ -116,6 +116,9 @@ export class NotificationsService {
             case EventType.DAILY_SUMMARY:
                 await this.sendDailySummary(data, companyId)
                 break
+            case EventType.OS_CHILD_CREATED:
+                await this.notifyOsChildCreated(data, companyId, serviceOrderId)
+                break
             case EventType.STOCK_LOW_QUANTITY:
                 await this.notifyStockLowQuantity(data, companyId)
                 break
@@ -132,7 +135,7 @@ export class NotificationsService {
 
     private async notifyOsCreatedNoTechnician(data: any, companyId: string, serviceOrderId?: string) {
         const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
-            companyId, EventType.OS_CREATED_NO_TECHNICIAN, { groupId: data.groupId, serviceOrderId },
+            companyId, EventType.OS_CREATED_NO_TECHNICIAN, { groupId: data.groupId, clientId: data.clientId, serviceOrderId },
         )
 
         await this.sendToRecipients(recipients, channels, {
@@ -241,7 +244,7 @@ export class NotificationsService {
 
     private async notifyOsApproved(data: any, companyId: string, serviceOrderId?: string) {
         const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
-            companyId, EventType.OS_APPROVED, { serviceOrderId },
+            companyId, EventType.OS_APPROVED, { requesterId: data.requesterId, serviceOrderId },
         )
 
         await this.sendToRecipients(recipients, channels, {
@@ -267,7 +270,7 @@ export class NotificationsService {
 
     private async notifyOsRejected(data: any, companyId: string, serviceOrderId?: string) {
         const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
-            companyId, EventType.OS_REJECTED, { serviceOrderId },
+            companyId, EventType.OS_REJECTED, { requesterId: data.requesterId, serviceOrderId },
         )
 
         await this.sendToRecipients(recipients, channels, {
@@ -290,7 +293,7 @@ export class NotificationsService {
 
     private async notifyUnassignedAlert(data: any, companyId: string, serviceOrderId?: string) {
         const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
-            companyId, EventType.OS_UNASSIGNED_ALERT, { groupId: data.groupId, serviceOrderId },
+            companyId, EventType.OS_UNASSIGNED_ALERT, { groupId: data.groupId, clientId: data.clientId, serviceOrderId },
         )
 
         await this.sendToRecipients(recipients, channels, {
@@ -304,7 +307,7 @@ export class NotificationsService {
 
     private async notifyPreventiveGenerated(data: any, companyId: string, serviceOrderId?: string) {
         const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
-            companyId, EventType.PREVENTIVE_GENERATED, { groupId: data.groupId, serviceOrderId },
+            companyId, EventType.PREVENTIVE_GENERATED, { groupId: data.groupId, clientId: data.clientId, serviceOrderId },
         )
 
         await this.sendToRecipients(recipients, channels, {
@@ -374,6 +377,23 @@ export class NotificationsService {
             telegram: telegramMsg,
             ws: { event: EventType.PREVENTIVE_UPCOMING, title: `${count} preventiva(s) nos próximos ${daysAhead} dias`, body: 'Verifique o planejamento de manutenções preventivas', data },
             companyId,
+        })
+    }
+
+    private async notifyOsChildCreated(data: any, companyId: string, serviceOrderId?: string) {
+        const { recipients, channels } = await this.notificationConfigs.resolveRecipients(
+            companyId, EventType.OS_CHILD_CREATED, { serviceOrderId },
+        )
+
+        await this.sendToRecipients(recipients, channels, {
+            email: {
+                subject: `🔗 OS filha #${data.osNumber} criada a partir da OS #${data.parentOsNumber}`,
+                html: `<p>Uma nova OS <strong>#${data.osNumber} — ${data.osTitle}</strong> foi criada vinculada à OS <strong>#${data.parentOsNumber}</strong>.</p>`,
+            },
+            telegram: `🔗 <b>OS filha criada</b>\n\nOS <b>#${data.osNumber} — ${data.osTitle}</b> vinculada à OS <b>#${data.parentOsNumber}</b>.`,
+            ws: { event: EventType.OS_CHILD_CREATED, title: 'OS filha criada', body: `OS #${data.osNumber} vinculada à OS #${data.parentOsNumber}`, data },
+            companyId,
+            serviceOrderId,
         })
     }
 

@@ -598,6 +598,7 @@ export class MaintenanceService {
                         osNumber: txResult.osNumber,
                         equipmentName: schedule.equipment.name,
                         groupId: schedule.groupId,
+                        clientId: schedule.clientId,
                     },
                     { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
                 )

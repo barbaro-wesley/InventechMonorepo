@@ -718,6 +718,7 @@ export class ServiceOrdersService {
                     osNumber: os.number,
                     osTitle: os.title,
                     groupId: dto.groupId ?? null,
+                    clientId: clientId ?? null,
                     clientName: client?.name ?? '',
                     equipmentName: equipment?.name ?? '',
                     priority: os.priority,

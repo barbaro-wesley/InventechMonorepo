@@ -151,6 +151,7 @@ export const CONTEXTUAL_LABELS: Record<ContextualRecipient, string> = {
     [ContextualRecipient.OS_GROUP_TECHNICIANS]: 'Técnicos do grupo da OS',
     [ContextualRecipient.OS_CLIENT_ADMINS]: 'Admins do cliente da OS',
     [ContextualRecipient.OS_ASSIGNED_TECHNICIAN]: 'Técnico sendo designado',
+    [ContextualRecipient.OS_CLIENT_USERS]: 'Técnicos/usuários do cliente da OS',
 }
 
 @Injectable()
@@ -415,6 +416,20 @@ export class NotificationConfigsService {
                         companyId,
                         clientId: context.clientId,
                         role: UserRole.CLIENT_ADMIN,
+                        status: 'ACTIVE',
+                        deletedAt: null,
+                    },
+                    select,
+                })
+            }
+
+            case ContextualRecipient.OS_CLIENT_USERS: {
+                if (!context.clientId) return []
+                return this.prisma.user.findMany({
+                    where: {
+                        companyId,
+                        clientId: context.clientId,
+                        role: UserRole.CLIENT_USER,
                         status: 'ACTIVE',
                         deletedAt: null,
                     },
