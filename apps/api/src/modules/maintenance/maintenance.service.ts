@@ -598,6 +598,7 @@ export class MaintenanceService {
                         osNumber: txResult.osNumber,
                         equipmentName: schedule.equipment.name,
                         groupId: schedule.groupId,
+                        clientId: schedule.clientId,
                     },
                     { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
                 )
@@ -686,7 +687,11 @@ export class MaintenanceService {
         limit.setDate(limit.getDate() + daysAhead)
 
         const rows = await this.prisma.equipment.findMany({
-            where: { warrantyEnd: { gte: today, lte: limit } },
+            where: {
+                warrantyEnd: { gte: today, lte: limit },
+                deletedAt: null,
+                status: { notIn: ['INACTIVE', 'SCRAPPED'] },
+            },
         })
 
         return rows.map((eq) => ({

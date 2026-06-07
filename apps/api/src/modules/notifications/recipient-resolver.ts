@@ -29,6 +29,7 @@ export function extractContext(
 
     switch (event) {
         case EventType.OS_CREATED_NO_TECHNICIAN:
+        case EventType.OS_UNASSIGNED_ALERT:
             return { ...base, groupId: data.groupId, clientId: data.clientId }
 
         case EventType.OS_TECHNICIAN_ASSIGNED:
@@ -42,13 +43,10 @@ export function extractContext(
 
         case EventType.OS_APPROVED:
         case EventType.OS_REJECTED:
-            return { ...base }
-
-        case EventType.OS_UNASSIGNED_ALERT:
-            return { ...base, groupId: data.groupId, clientId: data.clientId }
+            return { ...base, requesterId: data.requesterId }
 
         case EventType.PREVENTIVE_GENERATED:
-            return { ...base, groupId: data.groupId }
+            return { ...base, groupId: data.groupId, clientId: data.clientId }
 
         case EventType.PREVENTIVE_UPCOMING: {
             const groupIds = Array.isArray(data.groupIds) ? data.groupIds : []
@@ -135,6 +133,19 @@ export async function resolveContextualRecipient(
             })
         }
 
+        case ContextualRecipient.OS_CLIENT_USERS: {
+            if (!context.clientId) return []
+            return prisma.user.findMany({
+                where: {
+                    clientId: context.clientId,
+                    role: UserRole.CLIENT_USER,
+                    status: 'ACTIVE',
+                    deletedAt: null,
+                },
+                select,
+            })
+        }
+
         default:
             return []
     }
@@ -149,6 +160,7 @@ export const CONTEXTUAL_LABELS: Record<ContextualRecipient, string> = {
     [ContextualRecipient.OS_GROUP_TECHNICIANS]:     'Técnicos do grupo da OS',
     [ContextualRecipient.OS_CLIENT_ADMINS]:         'Admins do cliente da OS',
     [ContextualRecipient.OS_ASSIGNED_TECHNICIAN]:   'Técnico sendo designado',
+    [ContextualRecipient.OS_CLIENT_USERS]:          'Técnicos/usuários do cliente da OS',
 }
 
 // ─────────────────────────────────────────
@@ -186,6 +198,9 @@ export const CONTEXTUAL_BY_EVENT: Partial<Record<EventType, ContextualRecipient[
     ],
     [EventType.PREVENTIVE_GENERATED]: [
         ContextualRecipient.OS_GROUP_TECHNICIANS,
+        ContextualRecipient.OS_REQUESTER,
+        ContextualRecipient.OS_CLIENT_ADMINS,
+        ContextualRecipient.OS_CLIENT_USERS,
     ],
     [EventType.PREVENTIVE_UPCOMING]: [
         ContextualRecipient.OS_GROUP_TECHNICIANS,

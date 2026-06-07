@@ -5,7 +5,8 @@ export type ContextualRecipient =
     | "OS_ASSIGNED_TECHNICIANS"
     | "OS_GROUP_TECHNICIANS"
     | "OS_CLIENT_ADMINS"
-    | "OS_ASSIGNED_TECHNICIAN";
+    | "OS_ASSIGNED_TECHNICIAN"
+    | "OS_CLIENT_USERS";
 
 export type NotificationChannel = "EMAIL" | "TELEGRAM" | "WEBSOCKET";
 
@@ -61,6 +62,7 @@ export const CONTEXTUAL_LABELS: Record<ContextualRecipient, string> = {
     OS_GROUP_TECHNICIANS: "Técnicos do grupo da OS",
     OS_CLIENT_ADMINS: "Admins do cliente da OS",
     OS_ASSIGNED_TECHNICIAN: "Técnico sendo designado",
+    OS_CLIENT_USERS: "Técnicos/usuários do cliente da OS",
 };
 
 export const ROLE_LABELS: Partial<Record<UserRole, string>> = {

@@ -1112,28 +1112,31 @@ function DetailSheet({
           </div>
         </SheetHeader>
 
-        {/* Action bar - More integrated */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 mt-6 p-1.5 bg-muted/40 rounded-xl border border-border/50">
+        {/* Action bar */}
+        <div className="flex flex-wrap items-center gap-2 mt-6 p-1.5 bg-muted/40 rounded-xl border border-border/50">
           {canEdit && (
-            <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => { handleClose(); onEdit(equipment); }}>
+            <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all flex-1 basis-[calc(50%-4px)] sm:flex-none justify-center" onClick={() => { handleClose(); onEdit(equipment); }}>
               <Pencil className="w-3.5 h-3.5 mr-1.5 text-blue-500" />Editar
             </Button>
           )}
           {canMove && equipment.status === "ACTIVE" && (
-            <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => { handleClose(); onMove(equipment); }}>
+            <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all flex-1 basis-[calc(50%-4px)] sm:flex-none justify-center" onClick={() => { handleClose(); onMove(equipment); }}>
               <ArrowRightLeft className="w-3.5 h-3.5 mr-1.5 text-amber-500" />Movimentar
             </Button>
           )}
-          <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => { handleClose(); onPrint(equipment); }}>
+          <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all flex-1 basis-[calc(50%-4px)] sm:flex-none justify-center" onClick={() => { handleClose(); onPrint(equipment); }}>
             <Printer className="w-3.5 h-3.5 mr-1.5 text-emerald-500" />QR Code
           </Button>
-          <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all justify-start sm:justify-center" onClick={() => window.open(equipmentService.getLifeCyclePdfUrl(equipment.id), "_blank")}>
+          <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all flex-1 basis-[calc(50%-4px)] sm:flex-none justify-center" onClick={() => window.open(equipmentService.getLifeCyclePdfUrl(equipment.id), "_blank")}>
             <FileText className="w-3.5 h-3.5 mr-1.5 text-violet-500" />Ficha Vida
+          </Button>
+          <Button size="sm" variant="ghost" className="h-9 sm:h-8 text-xs hover:bg-white hover:shadow-sm transition-all flex-1 basis-[calc(50%-4px)] sm:flex-none justify-center" onClick={() => setManualsOpen(true)}>
+            <BookOpen className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />Manuais
           </Button>
         </div>
 
-        {/* Tabs - Modernized and explicit */}
-        <div className="flex border-b border-border bg-white sticky top-0 z-10">
+        {/* Tabs */}
+        <div className="flex border-b border-border bg-white sticky top-0 z-10 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {[
             { id: "info", label: "Informações", short: "Info" },
             { id: "accessories", label: "Acessórios", short: "Acess." },
@@ -1145,7 +1148,7 @@ function DetailSheet({
             <button
               key={t.id}
               onClick={() => setTab(t.id as any)}
-              className={`flex items-center gap-1 px-2.5 sm:px-4 py-3 text-xs sm:text-sm border-b-2 transition-all whitespace-nowrap flex-1 sm:flex-none justify-center sm:justify-start ${tab === t.id
+              className={`flex items-center gap-1 px-3 sm:px-4 py-3 text-xs sm:text-sm border-b-2 transition-all whitespace-nowrap flex-shrink-0 justify-center ${tab === t.id
                 ? "border-primary text-primary font-semibold"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30"
                 }`}
@@ -1160,14 +1163,6 @@ function DetailSheet({
               )}
             </button>
           ))}
-          <button
-            onClick={() => setManualsOpen(true)}
-            className="flex items-center gap-1 px-2.5 sm:px-4 py-3 text-xs sm:text-sm border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all whitespace-nowrap flex-shrink-0"
-          >
-            <BookOpen className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-            <span className="sm:hidden">Manuais</span>
-            <span className="hidden sm:inline">Manuais</span>
-          </button>
         </div>
 
         {/* ── Info tab ── */}

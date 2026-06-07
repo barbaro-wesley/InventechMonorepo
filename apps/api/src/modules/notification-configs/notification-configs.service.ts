@@ -85,7 +85,11 @@ const DEFAULT_CONFIGS: Record<EventType, Pick<NotificationConfig, 'recipientRole
     // Eventos sem config fixa — sem destinatários por padrão
     [EventType.EQUIPMENT_CREATED]: { recipientRoles: [], recipientContextual: [], channels: [] },
     [EventType.EQUIPMENT_MOVED]: { recipientRoles: [], recipientContextual: [], channels: [] },
-    [EventType.EQUIPMENT_WARRANTY_EXPIRING]: { recipientRoles: [], recipientContextual: [], channels: [] },
+    [EventType.EQUIPMENT_WARRANTY_EXPIRING]: {
+        recipientRoles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER],
+        recipientContextual: [],
+        channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
+    },
     [EventType.MAINTENANCE_OVERDUE]: { recipientRoles: [], recipientContextual: [], channels: [] },
     [EventType.USER_CREATED]: { recipientRoles: [], recipientContextual: [], channels: [] },
     [EventType.USER_DEACTIVATED]: { recipientRoles: [], recipientContextual: [], channels: [] },
@@ -122,6 +126,7 @@ export const CONFIGURABLE_EVENTS: EventType[] = [
     EventType.PREVENTIVE_UPCOMING,
     EventType.STOCK_LOW_QUANTITY,
     EventType.DAILY_SUMMARY,
+    EventType.EQUIPMENT_WARRANTY_EXPIRING,
 ]
 
 export const EVENT_LABELS: Record<string, string> = {
@@ -137,6 +142,7 @@ export const EVENT_LABELS: Record<string, string> = {
     [EventType.PREVENTIVE_UPCOMING]: 'Preventivas próximas (30 dias)',
     [EventType.STOCK_LOW_QUANTITY]: 'Estoque abaixo do mínimo',
     [EventType.DAILY_SUMMARY]: 'Resumo diário',
+    [EventType.EQUIPMENT_WARRANTY_EXPIRING]: 'Garantia de equipamento vencendo',
 }
 
 export const CONTEXTUAL_LABELS: Record<ContextualRecipient, string> = {
@@ -145,6 +151,7 @@ export const CONTEXTUAL_LABELS: Record<ContextualRecipient, string> = {
     [ContextualRecipient.OS_GROUP_TECHNICIANS]: 'Técnicos do grupo da OS',
     [ContextualRecipient.OS_CLIENT_ADMINS]: 'Admins do cliente da OS',
     [ContextualRecipient.OS_ASSIGNED_TECHNICIAN]: 'Técnico sendo designado',
+    [ContextualRecipient.OS_CLIENT_USERS]: 'Técnicos/usuários do cliente da OS',
 }
 
 @Injectable()
@@ -409,6 +416,20 @@ export class NotificationConfigsService {
                         companyId,
                         clientId: context.clientId,
                         role: UserRole.CLIENT_ADMIN,
+                        status: 'ACTIVE',
+                        deletedAt: null,
+                    },
+                    select,
+                })
+            }
+
+            case ContextualRecipient.OS_CLIENT_USERS: {
+                if (!context.clientId) return []
+                return this.prisma.user.findMany({
+                    where: {
+                        companyId,
+                        clientId: context.clientId,
+                        role: UserRole.CLIENT_USER,
                         status: 'ACTIVE',
                         deletedAt: null,
                     },

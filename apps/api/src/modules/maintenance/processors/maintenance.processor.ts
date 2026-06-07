@@ -87,9 +87,10 @@ export class MaintenanceProcessor {
             osNumber: number
             equipmentName: string
             groupId: string | null
+            clientId: string | null
         }>,
     ) {
-        const { companyId, osId, osNumber, equipmentName, groupId, scheduleId } = job.data
+        const { companyId, osId, osNumber, equipmentName, groupId, clientId, scheduleId } = job.data
 
         this.logger.log(
             `Notificando geração de preventiva — Schedule: ${scheduleId} | OS #${osNumber}`,
@@ -103,6 +104,7 @@ export class MaintenanceProcessor {
                 osNumber,
                 equipmentName,
                 groupId,
+                clientId,
             },
         })
 

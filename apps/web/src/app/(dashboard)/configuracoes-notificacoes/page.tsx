@@ -72,6 +72,7 @@ const ALL_CONTEXTUAL: ContextualRecipient[] = [
     "OS_GROUP_TECHNICIANS",
     "OS_CLIENT_ADMINS",
     "OS_ASSIGNED_TECHNICIAN",
+    "OS_CLIENT_USERS",
 ];
 
 const ALL_CHANNELS: NotificationChannel[] = ["EMAIL", "TELEGRAM", "WEBSOCKET"];
