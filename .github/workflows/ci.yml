@@ -121,65 +121,61 @@ jobs:
           cache-to: type=gha,mode=max,scope=ocr-worker
 
   # ─────────────────────────────────────────
-  # Deploy — aciona o script no servidor
+  # Deploy — runner self-hosted no servidor de produção
   # ─────────────────────────────────────────
   deploy:
     name: Deploy para Produção
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, production]
     needs: build
-    # Deploy automático desabilitado temporariamente — porta 22 não acessível externamente
-    # Reativar quando o port forwarding ou Tailscale estiver configurado
-    if: false
     environment: production
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Copiar arquivos de infra para o servidor
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.prod.yml,apps/api/docker/minio/init-buckets.sh"
-          target: /opt/inventech
-          strip_components: 0
+      - name: Copiar arquivos de infra
+        run: |
+          sudo mkdir -p /opt/inventech/apps/api/docker/minio /opt/inventech/infra/nginx
+          sudo cp docker-compose.prod.yml /opt/inventech/
+          sudo cp apps/api/docker/minio/init-buckets.sh /opt/inventech/apps/api/docker/minio/
+          sudo cp infra/nginx/inventech.conf /opt/inventech/infra/nginx/
 
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: GITHUB_SHA,GITHUB_REPOSITORY
-          script: |
-            set -e
-            cd /opt/inventech
+      - name: Deploy
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -e
+          cd /opt/inventech
 
-            # Tag da imagem = SHA curto do commit
-            IMAGE_TAG=$(echo "$GITHUB_SHA" | cut -c1-7)
-            REPO_LOWER=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          REPO_LOWER=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
 
-            echo "→ Fazendo login no GHCR..."
-            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ github.repository_owner }}" --password-stdin
+          echo "→ Fazendo login no GHCR..."
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-            echo "→ Baixando novas imagens (tag: $IMAGE_TAG)..."
-            IMAGE_TAG=$IMAGE_TAG GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
-              docker compose -f docker-compose.prod.yml --env-file .env pull api web
+          echo "→ Baixando imagens (tag: $IMAGE_TAG)..."
+          IMAGE_TAG=$IMAGE_TAG GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+            docker compose -f docker-compose.prod.yml --env-file .env pull api web ocr-worker
 
-            echo "→ Rodando migrations do banco..."
+          echo "→ Rodando migrations do banco..."
+          GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
             docker compose -f docker-compose.prod.yml --env-file .env \
-              run --rm api sh -c "cd apps/api && npx prisma migrate deploy"
+            run --rm api sh -c "cd apps/api && npx prisma migrate deploy"
 
-            echo "→ Subindo serviços com zero downtime..."
-            IMAGE_TAG=$IMAGE_TAG GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
-              docker compose -f docker-compose.prod.yml --env-file .env \
-              up -d --no-build --remove-orphans
+          echo "→ Subindo todos os serviços..."
+          IMAGE_TAG=$IMAGE_TAG GITHUB_REPOSITORY_LOWER=$REPO_LOWER \
+            docker compose -f docker-compose.prod.yml --env-file .env \
+            up -d --no-build --remove-orphans
 
-            echo "→ Aguardando API ficar saudável..."
-            timeout 60 bash -c 'until docker inspect --format="{{.State.Health.Status}}" inventech_api 2>/dev/null | grep -q "healthy"; do sleep 3; done'
+          echo "→ Aguardando API ficar saudável..."
+          timeout 90 bash -c 'until docker inspect --format="{{.State.Health.Status}}" inventech_api 2>/dev/null | grep -q "healthy"; do sleep 3; done'
 
-            echo "→ Limpando imagens antigas..."
-            docker image prune -f
+          echo "→ Configurando Nginx..."
+          NGINX_CONF="/etc/nginx/sites-available/inventech.conf"
+          sudo cp /opt/inventech/infra/nginx/inventech.conf "$NGINX_CONF"
+          sudo ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/inventech.conf
+          sudo nginx -t && sudo systemctl reload nginx
 
-            echo "✓ Deploy concluído! Tag: $IMAGE_TAG"
+          echo "→ Limpando imagens antigas..."
+          docker image prune -f
+
+          echo "✓ Deploy de produção concluído! Tag: $IMAGE_TAG"
