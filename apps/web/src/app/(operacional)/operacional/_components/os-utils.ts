@@ -128,6 +128,18 @@ export function formatDuration(startStr: string, endStr?: string | null): string
   return `${diffHours}h ${diffMin}min`
 }
 
+// ─── Valid status transitions (mirrors backend rules) ────────────────────────
+
+export const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
+  AWAITING_PICKUP: ['IN_PROGRESS', 'CANCELLED'],
+  OPEN: ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: ['COMPLETED_APPROVED', 'COMPLETED_REJECTED'],
+  COMPLETED_APPROVED: [],
+  COMPLETED_REJECTED: ['OPEN'],
+  CANCELLED: [],
+}
+
 // ─── Kanban columns config ────────────────────────────────────
 
 export const KANBAN_COLUMNS: {
