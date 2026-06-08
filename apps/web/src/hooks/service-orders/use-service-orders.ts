@@ -16,6 +16,7 @@ import type {
   CreateCostItemDto,
   UpdateCostItemDto,
   AddOsMaterialDto,
+  ServiceOrderStatus,
 } from '@/services/service-orders/service-orders.types'
 
 export const serviceOrderKeys = {
@@ -360,6 +361,22 @@ export function useRemoveOsMaterial(clientId: string | null, osId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: serviceOrderKeys.materials(clientId, osId) })
       toast.success('Material removido e estoque revertido')
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+// ─────────────────────────────────────────
+// Atualizar status via drag-and-drop (params dinâmicos)
+// ─────────────────────────────────────────
+export function useUpdateStatusDnd() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ clientId, id, status }: { clientId: string | null; id: string; status: ServiceOrderStatus }) =>
+      serviceOrdersService.updateStatus(clientId, id, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      toast.success('Status atualizado')
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   })
