@@ -186,6 +186,21 @@ export class EquipmentService {
         return { data: data.map(normalizeEquipment), total, page, limit }
     }
 
+    async getNetworkStats(currentUser: AuthenticatedUser, subnet: string = '192.168.0') {
+        const { companyId } = await this.resolveScope(currentUser)
+
+        const usedIps = await this.prisma.equipment.findMany({
+            where: {
+                companyId,
+                deletedAt: null,
+                ipAddress: { startsWith: `${subnet}.` },
+            },
+            select: { id: true, ipAddress: true, name: true, status: true },
+        })
+
+        return { subnet, usedIps }
+    }
+
     async findOne(id: string, currentUser: AuthenticatedUser) {
         const { companyId, allowedTypeIds } = await this.resolveScope(currentUser)
 

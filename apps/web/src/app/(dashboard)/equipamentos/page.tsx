@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -35,6 +35,8 @@ import {
   MoreHorizontal,
   Printer,
   BookOpen,
+  Network,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +73,7 @@ import {
   useDeleteEquipment,
   useRecalculateDepreciation,
   useEquipmentServiceOrders,
+  useNetworkStats,
 } from "@/hooks/equipment/use-equipment";
 import { useMovements, useCreateMovement, useReturnEquipment } from "@/hooks/equipment/use-movements";
 import { useCustomFieldDefinitions } from "@/hooks/equipment/use-custom-fields";
@@ -1836,6 +1839,202 @@ function QRLabelModal({
   );
 }
 
+// ─── IP Network Panel ─────────────────────────────────────────────────────────
+
+const NETWORK_SUBNET = '192.168.0';
+const NETWORK_GATEWAY_IPS = new Set([1, 251]);
+const NETWORK_IP_RANGE = Array.from({ length: 254 }, (_, i) => i + 1);
+
+function IpNetworkPanel({ onFilterIp }: { onFilterIp: (ip: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const { data, isLoading } = useNetworkStats(NETWORK_SUBNET);
+
+  const usedMap = useMemo(() => {
+    const map = new Map<number, { name: string; status: EquipmentStatus }>();
+    (data?.usedIps ?? []).forEach((eq) => {
+      const parts = eq.ipAddress?.split('.');
+      if (!parts || parts.length < 4) return;
+      const oct = parseInt(parts[3], 10);
+      if (!isNaN(oct) && oct >= 1 && oct <= 254) {
+        map.set(oct, { name: eq.name, status: eq.status });
+      }
+    });
+    return map;
+  }, [data]);
+
+  const usedCount = [...usedMap.keys()].filter((k) => !NETWORK_GATEWAY_IPS.has(k)).length;
+  const freeCount = 252 - usedCount;
+  const pct = Math.round((usedCount / 252) * 100);
+
+  return (
+    <div className="rounded-xl border border-border bg-white dark:bg-zinc-950/50">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between p-4 hover:bg-muted/20 transition-colors rounded-xl"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+            <Network className="w-4 h-4 text-blue-600" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold">Mapa de IPs — {NETWORK_SUBNET}.0/24</p>
+            <p className="text-xs text-muted-foreground">
+              {isLoading
+                ? 'Carregando...'
+                : `${freeCount} livre${freeCount !== 1 ? 's' : ''} · ${usedCount} em uso · 2 reservados (gateway)`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          {!isLoading && (
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+                <span className="text-emerald-700 dark:text-emerald-400 font-medium">{freeCount}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
+                <span className="text-rose-700 dark:text-rose-400 font-medium">{usedCount}</span>
+              </div>
+              <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-rose-500 transition-all"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">{pct}%</span>
+            </div>
+          )}
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+          />
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-border/50 pt-3 space-y-3">
+          {isLoading ? (
+            <div className="h-24 bg-muted/50 animate-pulse rounded-lg" />
+          ) : (
+            <>
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 p-3 text-center">
+                  <p className="text-2xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">{freeCount}</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">IPs livres</p>
+                </div>
+                <div className="rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800 p-3 text-center">
+                  <p className="text-2xl font-bold tabular-nums text-rose-700 dark:text-rose-400">{usedCount}</p>
+                  <p className="text-xs text-rose-600 dark:text-rose-500 mt-0.5">Em uso</p>
+                </div>
+                <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 text-center">
+                  <p className="text-2xl font-bold tabular-nums text-amber-700 dark:text-amber-400">2</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">Reservados</p>
+                </div>
+              </div>
+
+              {/* IP grid */}
+              <div className="p-3 bg-zinc-50 dark:bg-zinc-900/40 rounded-lg">
+                <p className="text-[10px] text-muted-foreground mb-2 font-mono">
+                  {NETWORK_SUBNET}.1 → {NETWORK_SUBNET}.254
+                </p>
+                <div className="flex flex-wrap gap-[3px]">
+                  {NETWORK_IP_RANGE.map((octet) => {
+                    const isGateway = NETWORK_GATEWAY_IPS.has(octet);
+                    const eq = usedMap.get(octet);
+                    const isFree = !isGateway && !eq;
+
+                    return (
+                      <div key={octet} className="relative group">
+                        {/* Cell */}
+                        <div
+                          role={eq ? 'button' : undefined}
+                          tabIndex={eq ? 0 : undefined}
+                          onKeyDown={
+                            eq
+                              ? (e) => {
+                                  if (e.key === 'Enter' || e.key === ' ')
+                                    onFilterIp(`${NETWORK_SUBNET}.${octet}`);
+                                }
+                              : undefined
+                          }
+                          onClick={eq ? () => onFilterIp(`${NETWORK_SUBNET}.${octet}`) : undefined}
+                          className={[
+                            'w-3.5 h-3.5 rounded-[3px] transition-transform duration-150 group-hover:scale-125 group-hover:z-10 relative',
+                            isGateway
+                              ? 'bg-amber-400 dark:bg-amber-500 cursor-default'
+                              : eq
+                              ? 'bg-rose-500 dark:bg-rose-600 cursor-pointer'
+                              : 'bg-emerald-400 dark:bg-emerald-600 cursor-default',
+                            isFree ? 'opacity-50' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ')}
+                        />
+
+                        {/* Custom tooltip */}
+                        <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 origin-bottom">
+                          <div className={[
+                            'rounded-lg px-2.5 py-1.5 shadow-xl text-white text-[11px] whitespace-nowrap min-w-[100px]',
+                            isGateway
+                              ? 'bg-amber-600'
+                              : eq
+                              ? 'bg-zinc-900'
+                              : 'bg-emerald-700',
+                          ].join(' ')}>
+                            <p className="font-mono font-bold tracking-tight">
+                              {NETWORK_SUBNET}.{octet}
+                            </p>
+                            {isGateway && (
+                              <p className="text-amber-200 text-[10px] mt-0.5">Gateway reservado</p>
+                            )}
+                            {eq && (
+                              <p className="text-zinc-300 text-[10px] mt-0.5 max-w-[160px] truncate">
+                                {eq.name}
+                              </p>
+                            )}
+                            {isFree && (
+                              <p className="text-emerald-200 text-[10px] mt-0.5">Livre</p>
+                            )}
+                          </div>
+                          {/* Arrow */}
+                          <div className="flex justify-center -mt-px">
+                            <div className={[
+                              'w-2 h-2 rotate-45 translate-y-[-4px]',
+                              isGateway ? 'bg-amber-600' : eq ? 'bg-zinc-900' : 'bg-emerald-700',
+                            ].join(' ')} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-[3px] bg-emerald-400 opacity-60 inline-block" />
+                  Livre ({freeCount})
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-[3px] bg-rose-500 inline-block" />
+                  Em uso ({usedCount}) — clique para filtrar
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3 h-3 rounded-[3px] bg-amber-400 inline-block" />
+                  Gateway reservado (.1 e .251)
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function EquipamentosPage() {
@@ -1930,6 +2129,13 @@ export default function EquipamentosPage() {
           </Button>
         )}
       </div>
+
+      {/* IP Network Panel */}
+      <IpNetworkPanel
+        onFilterIp={(ip) => {
+          setSearch(ip);
+        }}
+      />
 
       {/* Filters */}
       <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-border p-4 space-y-3">

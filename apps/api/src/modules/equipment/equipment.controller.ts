@@ -33,6 +33,15 @@ export class EquipmentController {
     return this.equipmentService.findAll(cu, filters)
   }
 
+  @Get('network-stats')
+  @Permission('equipment:list')
+  getNetworkStats(
+    @Query('subnet') subnet: string,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.equipmentService.getNetworkStats(cu, subnet || '192.168.0')
+  }
+
   @Get(':id')
   @Permission('equipment:read')
   findOne(
