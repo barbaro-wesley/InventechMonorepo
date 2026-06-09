@@ -8,6 +8,7 @@ import {
   type ListEquipmentServiceOrdersParams,
   type CreateEquipmentDto,
   type UpdateEquipmentDto,
+  type NetworkStatsResponse,
 } from "@/services/equipment/equipment.service";
 
 export const equipmentKeys = {
@@ -88,6 +89,14 @@ export function useEquipmentServiceOrders(
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: !!id,
     staleTime: 30 * 1000,
+  });
+}
+
+export function useNetworkStats(subnet: string = '192.168.0') {
+  return useQuery<NetworkStatsResponse>({
+    queryKey: ['equipment', 'network-stats', subnet],
+    queryFn: () => equipmentService.getNetworkStats(subnet),
+    staleTime: 60 * 1000,
   });
 }
 

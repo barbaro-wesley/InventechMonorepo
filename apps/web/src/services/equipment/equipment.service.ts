@@ -133,6 +133,18 @@ export interface UpdateEquipmentDto extends Partial<CreateEquipmentDto> {
   status?: EquipmentStatus;
 }
 
+export interface NetworkStatEntry {
+  id: string;
+  ipAddress: string;
+  name: string;
+  status: EquipmentStatus;
+}
+
+export interface NetworkStatsResponse {
+  subnet: string;
+  usedIps: NetworkStatEntry[];
+}
+
 export interface EquipmentListResponse {
   data: Equipment[];
   total: number;
@@ -184,6 +196,11 @@ export const equipmentService = {
     params?: ListEquipmentServiceOrdersParams,
   ): Promise<EquipmentServiceOrdersResponse> {
     const { data } = await api.get(`/equipment/${id}/service-orders`, { params });
+    return data;
+  },
+
+  async getNetworkStats(subnet: string = '192.168.0'): Promise<NetworkStatsResponse> {
+    const { data } = await api.get(`/equipment/network-stats`, { params: { subnet } });
     return data;
   },
 
