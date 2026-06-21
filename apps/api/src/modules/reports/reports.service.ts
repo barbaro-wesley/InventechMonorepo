@@ -111,7 +111,8 @@ export class ReportsService {
     doc.rect(ML, TOP, W, 3).fill(template.primaryColor)
 
     const bodyTop = TOP + 3 + 10
-    const BODY_H = 80
+    const subParts = subtitle.split(/[·]/).map((s) => s.trim()).filter(Boolean)
+    const BODY_H = Math.max(80, 32 + Math.max(3, subParts.length) * 11 + 8)
     const LOGO_SIZE = 62
 
     // ── Proporções: 62% empresa · 38% painel relatório ──────
@@ -176,7 +177,6 @@ export class ReportsService {
       .text(title.toUpperCase(), pTextX, bodyTop + 14, { width: pTextW, lineBreak: true })
 
     // Subtítulo — quebramos por · e exibimos uma linha por item
-    const subParts = subtitle.split(/[·]/).map((s) => s.trim()).filter(Boolean)
     let sy = bodyTop + 14 + 18
     subParts.forEach((part) => {
       if (sy < bodyTop + BODY_H - 8) {
@@ -314,9 +314,12 @@ export class ReportsService {
   // ─────────────────────────────────────────
   async exportServiceOrdersExcel(companyId: string, filters: ReportFilters): Promise<Buffer> {
     const ExcelJS = await import('exceljs')
-    const [orders, template] = await Promise.all([
+    const [orders, template, technicianRec] = await Promise.all([
       this.getServiceOrdersData(companyId, filters),
       this.companiesService.getReportTemplate(companyId),
+      filters.technicianId
+        ? this.prisma.user.findUnique({ where: { id: filters.technicianId }, select: { name: true } })
+        : Promise.resolve(null),
     ])
 
     const workbook = new ExcelJS.default.Workbook()
@@ -553,6 +556,49 @@ export class ReportsService {
     totalRow.font = { bold: true, italic: true }
     totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
 
+    // ── Resumo de filtros aplicados ──
+    const excelFilterParts: string[] = []
+    if (filters.status) {
+      const vals = filters.status.split(',').map((s) => statusLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) excelFilterParts.push(`Status: ${vals.join(', ')}`)
+    }
+    if (filters.priority) {
+      const vals = filters.priority.split(',').map((s) => priorityLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) excelFilterParts.push(`Prioridade: ${vals.join(', ')}`)
+    }
+    if (filters.maintenanceType) {
+      const vals = filters.maintenanceType.split(',').map((s) => typeLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) excelFilterParts.push(`Tipo: ${vals.join(', ')}`)
+    }
+    if (filters.groupBy) {
+      const gbLabels: Record<string, string> = {
+        status: 'Status', priority: 'Prioridade', maintenanceType: 'Tipo',
+        client: 'Cliente', group: 'Grupo', technician: 'Técnico',
+      }
+      excelFilterParts.push(`Agrupado por: ${gbLabels[filters.groupBy] ?? filters.groupBy}`)
+    }
+    const excelClientName = filters.clientId ? orders.find((o) => o.client?.name)?.client?.name : null
+    if (excelClientName) excelFilterParts.push(`Cliente: ${excelClientName}`)
+    const excelGroupName = filters.groupId ? orders.find((o) => o.group?.name)?.group?.name : null
+    if (excelGroupName) excelFilterParts.push(`Grupo: ${excelGroupName}`)
+    if (technicianRec?.name) excelFilterParts.push(`Técnico: ${technicianRec.name}`)
+    if (filters.dateFrom || filters.dateTo) {
+      const dateFieldLabels: Record<string, string> = {
+        createdAt: 'Abertura', startedAt: 'Início', completedAt: 'Conclusão', approvedAt: 'Aprovação',
+      }
+      const fieldLabel = dateFieldLabels[filters.dateField ?? 'createdAt'] ?? 'Data'
+      const from = filters.dateFrom ? new Date(filters.dateFrom).toLocaleDateString('pt-BR') : null
+      const to = filters.dateTo ? new Date(filters.dateTo).toLocaleDateString('pt-BR') : null
+      excelFilterParts.push(`${fieldLabel}: ${[from && `de ${from}`, to && `até ${to}`].filter(Boolean).join(' ')}`)
+    }
+    if (excelFilterParts.length > 0) {
+      const fr = sheet.addRow([`Filtros aplicados: ${excelFilterParts.join('  ·  ')}`, '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+      fr.font = { italic: true, size: 8, color: { argb: 'FF475569' } }
+      fr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+      fr.height = 16
+      sheet.mergeCells(fr.number, 1, fr.number, 15)
+    }
+
     // ── Auto-filtro e freeze ──
     sheet.autoFilter = { from: 'A1', to: 'O1' }
     sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
@@ -567,9 +613,12 @@ export class ReportsService {
   // ─────────────────────────────────────────
   async exportServiceOrdersPdf(companyId: string, filters: ReportFilters): Promise<Buffer> {
     const PDFDocument = (await import('pdfkit')).default
-    const [orders, template] = await Promise.all([
+    const [orders, template, technicianRec] = await Promise.all([
       this.getServiceOrdersData(companyId, filters),
       this.companiesService.getReportTemplate(companyId),
+      filters.technicianId
+        ? this.prisma.user.findUnique({ where: { id: filters.technicianId }, select: { name: true } })
+        : Promise.resolve(null),
     ])
     const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
 
@@ -630,7 +679,41 @@ export class ReportsService {
       : orders
 
     // ── Cabeçalho ──
-    const subtitle = `Gerado em: ${dateStr}  ·  Total: ${orders.length} OS${groupBy ? `  ·  Quebra: ${groupBy}` : ''}`
+    const filterParts: string[] = []
+    if (filters.status) {
+      const vals = filters.status.split(',').map((s) => statusLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) filterParts.push(`Status: ${vals.join(', ')}`)
+    }
+    if (filters.priority) {
+      const vals = filters.priority.split(',').map((s) => priorityLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) filterParts.push(`Prioridade: ${vals.join(', ')}`)
+    }
+    if (filters.maintenanceType) {
+      const vals = filters.maintenanceType.split(',').map((s) => typeLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) filterParts.push(`Tipo: ${vals.join(', ')}`)
+    }
+    if (groupBy) {
+      const gbLabels: Record<string, string> = {
+        status: 'Status', priority: 'Prioridade', maintenanceType: 'Tipo',
+        client: 'Cliente', group: 'Grupo', technician: 'Técnico',
+      }
+      filterParts.push(`Agrupado por: ${gbLabels[groupBy] ?? groupBy}`)
+    }
+    const clientNameFilter = filters.clientId ? orders.find((o) => o.client?.name)?.client?.name : null
+    if (clientNameFilter) filterParts.push(`Cliente: ${clientNameFilter}`)
+    const groupNameFilter = filters.groupId ? orders.find((o) => o.group?.name)?.group?.name : null
+    if (groupNameFilter) filterParts.push(`Grupo: ${groupNameFilter}`)
+    if (technicianRec?.name) filterParts.push(`Técnico: ${technicianRec.name}`)
+    if (filters.dateFrom || filters.dateTo) {
+      const dateFieldLabels: Record<string, string> = {
+        createdAt: 'Abertura', startedAt: 'Início', completedAt: 'Conclusão', approvedAt: 'Aprovação',
+      }
+      const fieldLabel = dateFieldLabels[filters.dateField ?? 'createdAt'] ?? 'Data'
+      const from = filters.dateFrom ? new Date(filters.dateFrom).toLocaleDateString('pt-BR') : null
+      const to = filters.dateTo ? new Date(filters.dateTo).toLocaleDateString('pt-BR') : null
+      filterParts.push(`${fieldLabel}: ${[from && `de ${from}`, to && `até ${to}`].filter(Boolean).join(' ')}`)
+    }
+    const subtitle = `Gerado em: ${dateStr}  ·  Total: ${orders.length} OS${filterParts.length > 0 ? '  ·  ' + filterParts.join('  ·  ') : ''}`
     let y = this.drawPdfHeader(doc, template, template.headerTitle || 'Relatório de Ordens de Serviço', subtitle, logoBuffer)
 
     // ── Colunas da tabela ──
@@ -947,6 +1030,45 @@ export class ReportsService {
     totalRow.font = { bold: true, italic: true }
     totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondaryArgb } }
 
+    const eqExcelFilterParts: string[] = []
+    if (filters.status) {
+      const eqStatusLabels: Record<string, string> = {
+        ACTIVE: 'Ativo', INACTIVE: 'Inativo', UNDER_MAINTENANCE: 'Em manutenção', SCRAPPED: 'Descartado', BORROWED: 'Emprestado',
+      }
+      const vals = filters.status.split(',').map((s) => eqStatusLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) eqExcelFilterParts.push(`Status: ${vals.join(', ')}`)
+    }
+    if (filters.criticality) {
+      const eqCritLabels: Record<string, string> = { LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', CRITICAL: 'Crítica' }
+      const vals = filters.criticality.split(',').map((s) => eqCritLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) eqExcelFilterParts.push(`Criticidade: ${vals.join(', ')}`)
+    }
+    if (filters.typeId) {
+      const typeNames = [...new Set(items.map((eq) => eq.type?.name).filter(Boolean))]
+      if (typeNames.length) eqExcelFilterParts.push(`Tipo: ${typeNames.join(', ')}`)
+    }
+    if (filters.locationId) {
+      const locationNames = [...new Set(items.map((eq) => eq.location?.name).filter(Boolean))]
+      if (locationNames.length) eqExcelFilterParts.push(`Local: ${locationNames.join(', ')}`)
+    }
+    if (filters.costCenterId) {
+      const ccNames = [...new Set(items.map((eq) => eq.costCenter?.name).filter(Boolean))]
+      if (ccNames.length) eqExcelFilterParts.push(`Centro Custo: ${ccNames.join(', ')}`)
+    }
+    if (filters.groupBy && filters.groupBy !== 'none') {
+      const gbLabels: Record<string, string> = {
+        status: 'Status', criticality: 'Criticidade', type: 'Tipo', location: 'Local', costCenter: 'Centro Custo',
+      }
+      eqExcelFilterParts.push(`Agrupado por: ${gbLabels[filters.groupBy] ?? filters.groupBy}`)
+    }
+    if (eqExcelFilterParts.length > 0) {
+      const fr = sheet.addRow([`Filtros aplicados: ${eqExcelFilterParts.join('  ·  ')}`, ...Array(selectedKeys.length - 1).fill('')])
+      fr.font = { italic: true, size: 8, color: { argb: 'FF475569' } }
+      fr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+      fr.height = 16
+      sheet.mergeCells(fr.number, 1, fr.number, selectedKeys.length)
+    }
+
     const lastCol = String.fromCharCode(64 + selectedKeys.length)
     sheet.autoFilter = { from: 'A1', to: `${lastCol}1` }
     sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
@@ -1033,7 +1155,34 @@ export class ReportsService {
       }))
 
       // ── Header ──
-      const subtitle = `Gerado em: ${dateStr}  ·  Total: ${items.length} equipamento(s)`
+      const eqFilterParts: string[] = []
+      if (filters.status) {
+        const vals = filters.status.split(',').map((s) => statusLabels[s.trim()] ?? s.trim()).filter(Boolean)
+        if (vals.length) eqFilterParts.push(`Status: ${vals.join(', ')}`)
+      }
+      if (filters.criticality) {
+        const vals = filters.criticality.split(',').map((s) => critLabels[s.trim()] ?? s.trim()).filter(Boolean)
+        if (vals.length) eqFilterParts.push(`Criticidade: ${vals.join(', ')}`)
+      }
+      if (filters.typeId) {
+        const typeNames = [...new Set(items.map((eq) => eq.type?.name).filter(Boolean))]
+        if (typeNames.length) eqFilterParts.push(`Tipo: ${typeNames.join(', ')}`)
+      }
+      if (filters.locationId) {
+        const locationNames = [...new Set(items.map((eq) => eq.location?.name).filter(Boolean))]
+        if (locationNames.length) eqFilterParts.push(`Local: ${locationNames.join(', ')}`)
+      }
+      if (filters.costCenterId) {
+        const ccNames = [...new Set(items.map((eq) => eq.costCenter?.name).filter(Boolean))]
+        if (ccNames.length) eqFilterParts.push(`Centro Custo: ${ccNames.join(', ')}`)
+      }
+      if (filters.groupBy && filters.groupBy !== 'none') {
+        const gbLabels: Record<string, string> = {
+          status: 'Status', criticality: 'Criticidade', type: 'Tipo', location: 'Local', costCenter: 'Centro Custo',
+        }
+        eqFilterParts.push(`Agrupado por: ${gbLabels[filters.groupBy] ?? filters.groupBy}`)
+      }
+      const subtitle = `Gerado em: ${dateStr}  ·  Total: ${items.length} equipamento(s)${eqFilterParts.length > 0 ? '  ·  ' + eqFilterParts.join('  ·  ') : ''}`
       let y = this.drawPdfHeader(doc, template, template.headerTitle || 'Inventário de Equipamentos', subtitle, logoBuffer)
 
       let x = 40
@@ -1252,6 +1401,30 @@ export class ReportsService {
     totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
     if (overdueCount > 0) totalRow.getCell(1).font = { bold: true, color: { argb: 'FFDC2626' } }
 
+    const prevExcelFilterParts: string[] = []
+    if (filters.isActive !== undefined) {
+      prevExcelFilterParts.push(`Situação: ${filters.isActive ? 'Ativos' : 'Inativos'}`)
+    }
+    if (filters.recurrenceType) {
+      const vals = filters.recurrenceType.split(',').map((s) => recurrenceLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) prevExcelFilterParts.push(`Recorrência: ${vals.join(', ')}`)
+    }
+    if (filters.typeId) {
+      const typeNames = [...new Set(items.map((s) => s.equipment?.type?.name).filter(Boolean))]
+      if (typeNames.length) prevExcelFilterParts.push(`Tipo equip.: ${typeNames.join(', ')}`)
+    }
+    if (effectiveClientId) {
+      const clientName = items.find((s) => s.client?.name)?.client?.name
+      if (clientName) prevExcelFilterParts.push(`Cliente: ${clientName}`)
+    }
+    if (prevExcelFilterParts.length > 0) {
+      const fr = sheet.addRow([`Filtros aplicados: ${prevExcelFilterParts.join('  ·  ')}`, ...Array(12).fill('')])
+      fr.font = { italic: true, size: 8, color: { argb: 'FF475569' } }
+      fr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+      fr.height = 16
+      sheet.mergeCells(fr.number, 1, fr.number, 13)
+    }
+
     sheet.autoFilter = { from: 'A1', to: 'M1' }
     sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
 
@@ -1297,7 +1470,24 @@ export class ReportsService {
       return 'Em dia'
     }
 
-    const subtitle = `${dateStr}  ·  Total: ${items.length}  ·  Atrasadas: ${overdueCount}`
+    // ── Filtros aplicados ──
+    const prevFilterParts: string[] = []
+    if (filters.isActive !== undefined) {
+      prevFilterParts.push(`Situação: ${filters.isActive ? 'Ativos' : 'Inativos'}`)
+    }
+    if (filters.recurrenceType) {
+      const vals = filters.recurrenceType.split(',').map((s) => recurrenceLabels[s.trim()] ?? s.trim()).filter(Boolean)
+      if (vals.length) prevFilterParts.push(`Recorrência: ${vals.join(', ')}`)
+    }
+    if (filters.typeId) {
+      const typeNames = [...new Set(items.map((s) => s.equipment?.type?.name).filter(Boolean))]
+      if (typeNames.length) prevFilterParts.push(`Tipo equip.: ${typeNames.join(', ')}`)
+    }
+    if (effectiveClientId) {
+      const clientName = items.find((s) => s.client?.name)?.client?.name
+      if (clientName) prevFilterParts.push(`Cliente: ${clientName}`)
+    }
+    const subtitle = `${dateStr}  ·  Total: ${items.length}  ·  Atrasadas: ${overdueCount}${prevFilterParts.length > 0 ? '  ·  ' + prevFilterParts.join('  ·  ') : ''}`
     let y = this.drawPdfHeader(doc, template, 'Manutenções Preventivas', subtitle, logoBuffer)
 
     // Cols total ≈ 760 (landscape A4 - 80 margins)
