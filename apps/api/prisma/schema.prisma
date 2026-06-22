@@ -141,6 +141,7 @@ model User {
   laudosAsTechnician           Laudo[]                     @relation("LaudoTechnician")
   loginAttempts                LoginAttempt[]
   assignedMaintenanceSchedules MaintenanceSchedule[]       @relation("ScheduleAssignedTechnician")
+  createdMaintenanceSchedules  MaintenanceSchedule[]       @relation("ScheduleCreatedBy")
   maintenancesExecuted         Maintenance[]
   notifications                Notification[]
   passwordResets               PasswordReset[]
@@ -460,7 +461,9 @@ model MaintenanceSchedule {
   clientId             String?            @map("client_id")
   originServiceOrderId String?            @map("origin_service_order_id")
   checklistTemplateId  String?            @map("checklist_template_id")
+  createdById          String?            @map("created_by_id")
   assignedTechnician   User?              @relation("ScheduleAssignedTechnician", fields: [assignedTechnicianId], references: [id])
+  createdBy            User?              @relation("ScheduleCreatedBy", fields: [createdById], references: [id])
   checklistTemplate    ChecklistTemplate? @relation(fields: [checklistTemplateId], references: [id])
   client               Client?            @relation(fields: [clientId], references: [id])
   equipment            Equipment          @relation(fields: [equipmentId], references: [id])
