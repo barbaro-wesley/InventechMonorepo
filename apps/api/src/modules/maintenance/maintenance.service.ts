@@ -63,6 +63,7 @@ const SCHEDULE_SELECT = {
     isActive: true,
     createdAt: true,
     updatedAt: true,
+    createdById: true,
     equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true } },
     group: { select: { id: true, name: true, color: true } },
     client: { select: { id: true, name: true } },
@@ -325,6 +326,7 @@ export class MaintenanceService {
                 ...(dto.checklistTemplateId && {
                     checklistTemplateId: dto.checklistTemplateId,
                 }),
+                createdById: currentUser.sub,
             },
             select: SCHEDULE_SELECT,
         })
@@ -453,6 +455,7 @@ export class MaintenanceService {
                 groupId: true,
                 equipmentId: true,
                 checklistTemplateId: true,
+                createdById: true,
                 equipment: { select: { name: true } },
             },
         })
@@ -485,8 +488,10 @@ export class MaintenanceService {
                         ? ServiceOrderStatus.AWAITING_PICKUP
                         : ServiceOrderStatus.OPEN
 
-                    // Cria a OS
-                    const adminId = await this.getCompanyAdminId(schedule.companyId, tx)
+                    // Cria a OS — usa o criador do agendamento como solicitante;
+                    // fallback para o admin da empresa em agendamentos legados sem createdById.
+                    const requesterId = schedule.createdById
+                        ?? await this.getCompanyAdminId(schedule.companyId, tx)
 
                     const os = await tx.serviceOrder.create({
                         data: {
@@ -501,7 +506,7 @@ export class MaintenanceService {
                             isAvailable,
                             alertAfterHours: 4,
                             priority: 'MEDIUM',
-                            requesterId: adminId,
+                            requesterId,
                             ...(schedule.groupId && { groupId: schedule.groupId }),
                         },
                         select: { id: true, number: true },
@@ -522,7 +527,7 @@ export class MaintenanceService {
                         data: {
                             serviceOrderId: os.id,
                             toStatus: status,
-                            changedById: adminId,
+                            changedById: requesterId,
                             reason: `Gerada automaticamente pelo agendamento "${schedule.title}"`,
                         },
                     })
