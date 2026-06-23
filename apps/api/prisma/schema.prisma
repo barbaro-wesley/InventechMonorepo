@@ -617,6 +617,7 @@ model ServiceOrderStatusHistory {
 model ServiceOrderCostItem {
   id             String       @id @default(uuid())
   serviceOrderId String       @map("service_order_id")
+  stockItemId    String?      @map("stock_item_id")
   description    String
   type           CostItemType
   quantity       Decimal      @db.Decimal(10, 3)
@@ -626,8 +627,10 @@ model ServiceOrderCostItem {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
   serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  stockItem      StockItem?   @relation(fields: [stockItemId], references: [id])
 
   @@index([serviceOrderId])
+  @@index([stockItemId])
   @@map("service_order_cost_items")
 }
 
@@ -1755,25 +1758,26 @@ model StockCategory {
 }
 
 model StockItem {
-  id              String          @id @default(uuid())
-  companyId       String          @map("company_id")
-  stockPointId    String          @map("stock_point_id")
-  categoryId      String?         @map("category_id")
+  id              String                 @id @default(uuid())
+  companyId       String                 @map("company_id")
+  stockPointId    String                 @map("stock_point_id")
+  categoryId      String?                @map("category_id")
   code            String?
   name            String
   description     String?
-  unit            String          @default("UN")
+  unit            String                 @default("UN")
   brand           String?
-  minimumQuantity Decimal         @default(0) @map("minimum_quantity") @db.Decimal(15, 3)
-  currentQuantity Decimal         @default(0) @map("current_quantity") @db.Decimal(15, 3)
-  unitCost        Decimal?        @map("unit_cost") @db.Decimal(15, 2)
-  isActive        Boolean         @default(true) @map("is_active")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
-  category        StockCategory?  @relation(fields: [categoryId], references: [id])
-  company         Company         @relation(fields: [companyId], references: [id])
-  stockPoint      StockPoint      @relation(fields: [stockPointId], references: [id])
+  minimumQuantity Decimal                @default(0) @map("minimum_quantity") @db.Decimal(15, 3)
+  currentQuantity Decimal                @default(0) @map("current_quantity") @db.Decimal(15, 3)
+  unitCost        Decimal?               @map("unit_cost") @db.Decimal(15, 2)
+  isActive        Boolean                @default(true) @map("is_active")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  category        StockCategory?         @relation(fields: [categoryId], references: [id])
+  company         Company                @relation(fields: [companyId], references: [id])
+  stockPoint      StockPoint             @relation(fields: [stockPointId], references: [id])
   movements       StockMovement[]
+  costItems       ServiceOrderCostItem[]
 
   @@unique([stockPointId, code])
   @@index([companyId])
