@@ -24,6 +24,7 @@ const COST_ITEM_SELECT = {
 /** Converte campos Decimal do Prisma para number puro antes de retornar ao cliente */
 function normalizeItem(item: {
     id: string
+    stockItemId: string | null
     description: string
     type: string
     quantity: unknown
@@ -87,6 +88,24 @@ export class CostsService {
 
         const totalPrice = new Decimal(dto.quantity).mul(new Decimal(dto.unitPrice))
 
+        if (dto.stockItemId && dto.type === 'MATERIAL') {
+            const stockItem = await this.prisma.stockItem.findFirst({
+                where: { id: dto.stockItemId, companyId },
+                select: { stockPointId: true },
+            })
+            if (stockItem) {
+                await this.inventoryService.applyMovement(
+                    dto.stockItemId,
+                    companyId,
+                    userId,
+                    stockItem.stockPointId,
+                    'EXIT',
+                    dto.quantity,
+                    { unitCost: dto.unitPrice, reason: `Baixa automática via OS`, serviceOrderId },
+                )
+            }
+        }
+
         const item = await this.prisma.$transaction(async (tx) => {
             const created = await tx.serviceOrderCostItem.create({
                 data: {
@@ -106,24 +125,6 @@ export class CostsService {
 
             return created
         })
-
-        if (dto.stockItemId && dto.type === 'MATERIAL') {
-            const stockItem = await this.prisma.stockItem.findFirst({
-                where: { id: dto.stockItemId, companyId },
-                select: { stockPointId: true },
-            })
-            if (stockItem) {
-                await this.inventoryService.applyMovement(
-                    dto.stockItemId,
-                    companyId,
-                    userId,
-                    stockItem.stockPointId,
-                    'EXIT',
-                    dto.quantity,
-                    { unitCost: dto.unitPrice, reason: `Baixa automática via OS`, serviceOrderId },
-                )
-            }
-        }
 
         return normalizeItem(item)
     }
