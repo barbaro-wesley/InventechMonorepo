@@ -617,6 +617,7 @@ model ServiceOrderStatusHistory {
 model ServiceOrderCostItem {
   id             String       @id @default(uuid())
   serviceOrderId String       @map("service_order_id")
+  stockItemId    String?      @map("stock_item_id")
   description    String
   type           CostItemType
   quantity       Decimal      @db.Decimal(10, 3)
@@ -626,8 +627,10 @@ model ServiceOrderCostItem {
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")
   serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  stockItem      StockItem?   @relation(fields: [stockItemId], references: [id])
 
   @@index([serviceOrderId])
+  @@index([stockItemId])
   @@map("service_order_cost_items")
 }
 
@@ -1774,6 +1777,7 @@ model StockItem {
   company         Company         @relation(fields: [companyId], references: [id])
   stockPoint      StockPoint      @relation(fields: [stockPointId], references: [id])
   movements       StockMovement[]
+  costItems       ServiceOrderCostItem[]
 
   @@unique([stockPointId, code])
   @@index([companyId])
