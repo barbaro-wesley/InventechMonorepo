@@ -12,7 +12,14 @@
       "Bash(2>&1)",
       "Bash(npx nest *)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\felipe.tessaro\\\\Desktop\\\\InventechMonorepo\" -Directory)",
-      "PowerShell(head -30)"
+      "PowerShell(head -30)",
+      "Bash(PGPASSWORD='2026!' psql -h localhost -U manutencao_user -d manutencao_db -c \"SELECT column_name FROM information_schema.columns WHERE table_name='service_order_cost_items';\")",
+      "Bash(PGPASSWORD='2026!' psql -h localhost -U manutencao_user -d manutencao_db -c \"SELECT migration_name, finished_at, logs FROM _prisma_migrations WHERE migration_name LIKE '%stock_item_id_to_cost_items%';\")",
+      "Bash(node -e ' *)",
+      "Bash(npx turbo *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/api/v1/health)",
+      "Bash(curl -s http://localhost:3000/api/v1)",
+      "Bash(git restore *)"
     ]
   }
 }
