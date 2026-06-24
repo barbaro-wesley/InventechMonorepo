@@ -203,7 +203,7 @@ export default function PreventivasPage() {
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "linear-gradient(135deg, #10b981, #3b82f6)" }}>
               <CalendarClock className="w-4 h-4 text-white" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground">Preventivas (PMOC)</h1>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Preventivas</h1>
           </div>
           <p className="text-sm text-muted-foreground pl-10">
             Plano de Manutenção, Operação e Controle — agendamentos recorrentes de OS.
