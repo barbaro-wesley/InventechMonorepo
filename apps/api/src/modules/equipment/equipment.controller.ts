@@ -130,4 +130,21 @@ export class EquipmentController {
     })
     res.end(buffer)
   }
+
+  @Get(':id/label')
+  @ApiOperation({ summary: 'Etiqueta 50×30mm para impressora Zebra' })
+  @Permission('equipment:read')
+  async exportLabel(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() cu: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportsService.generateEquipmentLabel(cu.companyId!, id)
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline; filename="etiqueta.pdf"',
+      'Content-Length': buffer.length,
+    })
+    res.end(buffer)
+  }
 }

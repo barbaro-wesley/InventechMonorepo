@@ -94,7 +94,6 @@ import type { Equipment, EquipmentStatus, EquipmentCriticality, EquipmentService
 import type { InfiniteData } from "@tanstack/react-query";
 import type { Movement } from "@/services/equipment/movements.service";
 import { storageService } from "@/services/storage/storage.service";
-import QRCode from "react-qr-code";
 
 const STATUS_LABEL: Record<EquipmentStatus, string> = {
   ACTIVE: "Ativo",
@@ -1683,10 +1682,6 @@ function MovementSheet({
 
 // ─── QR Label Print ──────────────────────────────────────────────────────────
 
-const LABEL_SIZES = [
-  { id: "60x40", label: "50 × 30 mm (Zebra / Genérica)", w: 189, h: 113 },
-];
-
 function QRLabelModal({
   open,
   equipment,
@@ -1696,142 +1691,66 @@ function QRLabelModal({
   equipment: Equipment | null;
   onClose: () => void;
 }) {
-  const [sizeId, setSizeId] = React.useState("50x30");
-  const labelSize = LABEL_SIZES.find((s) => s.id === sizeId) ?? LABEL_SIZES[0];
-
   if (!equipment) return null;
 
-  const qrUrl =
-    typeof window !== "undefined"
-      ? `${window.location.host}/equipamentos?detail=${equipment.id}`
-      : `/equipamentos?detail=${equipment.id}`;
+  const typeLine = [equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(" › ");
 
   function handlePrint() {
-    if (!equipment) return;
-    const printWin = window.open("", "_blank", "width=800,height=600");
-    if (!printWin) return;
-
-    const svgEl = document.getElementById("qr-label-svg");
-    const svgHtml = svgEl ? svgEl.outerHTML.replace(/width="[^"]*"/, 'width="100%"').replace(/height="[^"]*"/, 'height="100%"') : "";
-
-    const labelHtml = `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <title></title>
-  <meta charset="UTF-8"/>
-  <style>
-    @page {
-      size: 50mm 30mm;
-      margin: 0;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html {
-      width: 50mm;
-      height: 30mm;
-      overflow: hidden;
-    }
-    body {
-      width: 50mm;
-      height: 30mm;
-      overflow: hidden;
-      background: #fff;
-      font-family: Arial, "Helvetica Neue", sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      page-break-after: avoid;
-      page-break-inside: avoid;
-    }
-    .qr-wrap {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      width: 18mm;
-      height: 18mm;
-      flex-shrink: 0;
-    }
-    .qr-wrap svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-    .pat {
-      font-size: 8pt;
-      font-weight: bold;
-      color: #000;
-      margin-bottom: 0.3mm;
-      text-align: center;
-      line-height: 1;
-      flex-shrink: 0;
-    }
-  </style>
-</head>
-<body>
-  ${equipment.patrimonyNumber ? `<div class="pat">PAT: ${equipment.patrimonyNumber}</div>` : ""}
-  <div class="qr-wrap">${svgHtml}</div>
-<script>
-  window.onload = () => {
-    setTimeout(() => {
-      window.print();
-      window.onafterprint = () => window.close();
-    }, 300);
-  }
-<\/script>
-</body></html>`;
-
-    printWin.document.open();
-    printWin.document.write(labelHtml);
-    printWin.document.close();
+    window.open(equipmentService.getLabelUrl(equipment!.id), "_blank");
+    onClose();
   }
 
   return (
     <AlertDialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <AlertDialogContent className="max-w-lg">
+      <AlertDialogContent className="max-w-sm">
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2">
             <Printer className="w-4 h-4" />
-            Imprimir etiqueta QR
+            Imprimir etiqueta
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Geração de etiqueta para impressora de etiquetas. Escaneie o QR para acessar os detalhes do equipamento.
+            PDF vertical 30 × 50 mm gerado pela API. Selecione a Zebra no diálogo de impressão.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        {/* Label preview */}
-        <div className="mt-2">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Prévia</p>
-          <div className="bg-gray-50 rounded-xl border border-border p-4 flex items-center justify-center">
-            <div
-              className="bg-white border border-gray-300 rounded flex flex-col items-center justify-center shadow-sm overflow-hidden"
-              style={{ width: labelSize.w, height: labelSize.h, padding: "4px" }}
-            >
-              {equipment.patrimonyNumber && (
-                <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "#000" }}>
-                  PAT: {equipment.patrimonyNumber}
-                </p>
-              )}
-              <div style={{ flexShrink: 0 }}>
-                <QRCode
-                  id="qr-label-svg"
-                  value={qrUrl}
-                  size={labelSize.h - 32}
-                  level="M"
-                  style={{ display: "block" }}
-                />
-              </div>
+        {/* Prévia da etiqueta vertical */}
+        <div className="flex justify-center py-2">
+          <div
+            className="bg-white border border-gray-300 shadow-sm rounded flex flex-col items-center overflow-hidden"
+            style={{ width: 90, height: 150, padding: 5, gap: 3 }}
+          >
+            {/* Logo placeholder */}
+            <div className="w-7 h-7 rounded border border-gray-200 bg-gray-50 flex-shrink-0" />
+            {/* Patrimônio */}
+            {equipment.patrimonyNumber && (
+              <p style={{ fontSize: 7, fontWeight: 800, color: "#000", textAlign: "center", lineHeight: 1.1, wordBreak: "break-all" }}>
+                N° {equipment.patrimonyNumber}
+              </p>
+            )}
+            {/* Tipo */}
+            {equipment.type?.name && (
+              <p style={{ fontSize: 5.5, color: "#111827", textAlign: "center", lineHeight: 1.1 }}>
+                {equipment.type.name}
+              </p>
+            )}
+            {/* Subtipo */}
+            {equipment.subtype?.name && (
+              <p style={{ fontSize: 5, color: "#6B7280", textAlign: "center", lineHeight: 1.1 }}>
+                {equipment.subtype.name}
+              </p>
+            )}
+            {/* QR placeholder */}
+            <div className="flex-1 w-full border border-gray-200 bg-gray-100 rounded flex items-center justify-center mt-auto">
+              <p style={{ fontSize: 5, color: "#9ca3af" }}>QR</p>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            A impressão abre em nova janela com formatação otimizada para a etiqueta selecionada.
-          </p>
         </div>
 
         <AlertDialogFooter>
           <AlertDialogCancel onClick={onClose}>Cancelar</AlertDialogCancel>
           <Button onClick={handlePrint} className="gap-2">
             <Printer className="w-4 h-4" />
-            Imprimir etiqueta
+            Abrir PDF e imprimir
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

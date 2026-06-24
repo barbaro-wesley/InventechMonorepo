@@ -2110,4 +2110,118 @@ export class ReportsService {
       doc.on('error', reject)
     })
   }
+
+  // ─────────────────────────────────────────
+  // Etiqueta vertical 30×50mm para Zebra
+  // Layout:
+  //   [Logo esq.] [Nome empresa]
+  //   N° Patrimônio (centralizado)
+  //   Tipo · Subtipo (centralizados)
+  //   QR Code (preenche restante)
+  // ─────────────────────────────────────────
+  async generateEquipmentLabel(companyId: string, equipmentId: string): Promise<Buffer> {
+    const PDFDocument = (await import('pdfkit')).default
+    const QRCodeLib  = await import('qrcode')
+
+    const equipment = await this.prisma.equipment.findFirst({
+      where: { id: equipmentId, companyId },
+      select: {
+        patrimonyNumber: true,
+        type:    { select: { name: true } },
+        subtype: { select: { name: true } },
+      },
+    })
+    if (!equipment) throw new Error('Equipamento não encontrado')
+
+    const template = await this.companiesService.getReportTemplate(companyId)
+    const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
+
+    // Vertical: 30mm × 50mm em pontos (1mm = 2.8346pt)
+    const W = 85.04   // 30mm
+    const H = 141.73  // 50mm
+    const PAD = 5
+    const CX = W / 2
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001'
+    const qrUrl = `${frontendUrl}/equipamentos?detail=${equipmentId}`
+    const qrPng = await QRCodeLib.toBuffer(qrUrl, {
+      type: 'png',
+      width: 300,
+      margin: 1,
+      errorCorrectionLevel: 'M',
+    })
+
+    const doc = new PDFDocument({
+      size: [W, H],
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      autoFirstPage: false,
+    })
+    doc.addPage({ size: [W, H], margins: { top: 0, bottom: 0, left: 0, right: 0 } })
+
+    const buffers: Buffer[] = []
+    doc.on('data', (c: Buffer) => buffers.push(c))
+
+    let y = PAD
+    const LOGO_PT = 20
+
+    // ── Cabeçalho: logo à esquerda + nome da empresa à direita ──
+    const hasHeader = logoBuffer || template.companyName
+    if (hasHeader) {
+      if (logoBuffer) {
+        try {
+          doc.image(logoBuffer, PAD, y, { fit: [LOGO_PT, LOGO_PT] })
+        } catch { /* formato não suportado */ }
+      }
+
+      if (template.companyName) {
+        const nameX  = logoBuffer ? PAD + LOGO_PT + 3 : PAD
+        const nameW  = W - nameX - PAD
+        const nameFz = template.companyName.length > 20 ? 5 : 5.5
+        const nameY  = y + (LOGO_PT - nameFz * 1.2 - (template.document ? 6 : 0)) / 2
+        doc.font('Helvetica-Bold').fontSize(nameFz).fillColor('#1a1a1a')
+        doc.text(template.companyName, nameX, nameY, { width: nameW, lineBreak: true, ellipsis: true })
+
+        if (template.document) {
+          doc.font('Helvetica').fontSize(4.5).fillColor('#6B7280')
+          doc.text(template.document, nameX, nameY + nameFz + 2, { width: nameW, lineBreak: false, ellipsis: true })
+        }
+      }
+
+      y += LOGO_PT + 5
+
+      // Linha separadora
+      doc.moveTo(PAD, y).lineTo(W - PAD, y).lineWidth(0.4).strokeColor('#d1d5db').stroke()
+      y += 4
+    }
+
+    // ── N° Patrimônio ─────────────────────────────
+    if (equipment.patrimonyNumber) {
+      const pat      = equipment.patrimonyNumber
+      const fontSize = pat.length > 16 ? 6 : 7
+      doc.font('Helvetica-Bold').fontSize(fontSize).fillColor('#000000')
+      doc.text(`N° ${pat}`, PAD, y, { width: W - PAD * 2, align: 'center', lineBreak: false, ellipsis: true })
+      y += fontSize + 6
+    }
+
+    // ── Tipo ou Subtipo (subtipo tem prioridade) ──
+    const categoryLabel = equipment.subtype?.name ?? equipment.type?.name
+    if (categoryLabel) {
+      doc.font('Helvetica').fontSize(6).fillColor('#111827')
+      doc.text(categoryLabel, PAD, y, { width: W - PAD * 2, align: 'center', lineBreak: false, ellipsis: true })
+      y += 11
+    }
+
+    // ── QR Code (preenche o restante, centralizado) ──
+    const qrAvail = H - y - PAD
+    const QR_PT   = Math.min(qrAvail, W - PAD * 2)
+    const qrX     = CX - QR_PT / 2
+    doc.image(qrPng, qrX, y + (qrAvail - QR_PT) / 2, { width: QR_PT, height: QR_PT })
+
+    doc.end()
+
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(buffers)))
+      doc.on('error', reject)
+    })
+  }
 }
