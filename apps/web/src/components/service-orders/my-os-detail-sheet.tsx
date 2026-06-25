@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import {
   Loader2, MessageSquare, CheckCircle2, XCircle,
-  Clock, ChevronRight, Send, Pencil, X,
+  Clock, ChevronRight, Send, Pencil, X, ExternalLink,
 } from 'lucide-react'
+import Link from 'next/link'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
@@ -159,9 +160,14 @@ export function MyOsDetailSheet({ osId, open, onClose }: MyOsDetailSheetProps) {
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-3xl overflow-y-auto flex flex-col gap-0 p-0">
         {isLoading || !os ? (
-          <div className="flex items-center justify-center h-40">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
+          <>
+            <SheetHeader className="sr-only">
+              <SheetTitle>Carregando ordem de serviço</SheetTitle>
+            </SheetHeader>
+            <div className="flex items-center justify-center h-40">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          </>
         ) : (
           <>
             {/* Header */}
@@ -239,7 +245,27 @@ export function MyOsDetailSheet({ osId, open, onClose }: MyOsDetailSheetProps) {
             <div className="flex-1 overflow-y-auto">
               {/* Info */}
               <div className="px-6 py-4 space-y-3 border-b border-border">
-                <InfoRow label="Equipamento" value={os.equipment?.name ?? '—'} />
+                <div className="flex items-center justify-between gap-4 text-sm">
+                  <span className="text-muted-foreground text-xs flex-shrink-0">Equipamento</span>
+                  {os.equipment ? (
+                    <Link
+                      href={`/equipamentos?detail=${os.equipment.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline text-right"
+                      onClick={onClose}
+                    >
+                      {os.equipment.name}
+                      <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                    </Link>
+                  ) : (
+                    <span className="text-xs font-medium">—</span>
+                  )}
+                </div>
+                {os.costCenter && (
+                  <InfoRow label="Centro de custo" value={os.costCenter.code ? `${os.costCenter.name} (${os.costCenter.code})` : os.costCenter.name} />
+                )}
+                {os.location && (
+                  <InfoRow label="Localização" value={os.location.name} />
+                )}
                 <InfoRow label="Prestador" value={os.client?.name ?? '—'} />
                 {os.group && <InfoRow label="Grupo" value={os.group.name} />}
                 {os.technicians?.length > 0 && (

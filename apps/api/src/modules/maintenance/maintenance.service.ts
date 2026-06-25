@@ -64,7 +64,17 @@ const SCHEDULE_SELECT = {
     createdAt: true,
     updatedAt: true,
     createdById: true,
-    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true } },
+    equipment: {
+        select: {
+            id: true,
+            name: true,
+            brand: true,
+            model: true,
+            patrimonyNumber: true,
+            costCenter: { select: { id: true, name: true, code: true } },
+            location: { select: { id: true, name: true } },
+        },
+    },
     group: { select: { id: true, name: true, color: true } },
     client: { select: { id: true, name: true } },
     assignedTechnician: { select: { id: true, name: true } },

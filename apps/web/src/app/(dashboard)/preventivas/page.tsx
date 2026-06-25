@@ -353,6 +353,11 @@ export default function PreventivasPage() {
                             Pat. {s.equipment.patrimonyNumber}
                           </p>
                         )}
+                        {(s.equipment.costCenter || s.equipment.location) && (
+                          <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate max-w-[220px]">
+                            {[s.equipment.costCenter?.name, s.equipment.location?.name].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
                         {isCompanyLevel && s.client && (
                           <p className="text-[10px] text-muted-foreground/60 mt-0.5">{s.client.name}</p>
                         )}

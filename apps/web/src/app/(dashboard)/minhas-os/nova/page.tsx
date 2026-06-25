@@ -19,16 +19,21 @@ import { cn } from '@/lib/utils'
 // ─── Opções ───────────────────────────────────────────────────────────────────
 
 const MAINTENANCE_TYPE_OPTIONS = [
-  { value: 'CORRECTIVE', label: 'Corretiva' },
-
+  { value: 'CORRECTIVE',         label: 'Corretiva' },
+  { value: 'INITIAL_ACCEPTANCE', label: 'Aceitação Inicial' },
+  { value: 'EXTERNAL_SERVICE',   label: 'Serviço Externo' },
+  { value: 'TECHNOVIGILANCE',    label: 'Tecnovigilância' },
+  { value: 'TRAINING',           label: 'Treinamento' },
+  { value: 'IMPROPER_USE',       label: 'Uso Indevido' },
+  { value: 'DEACTIVATION',       label: 'Desativação' },
 ]
 
 const PRIORITY_OPTIONS = [
-  { value: 'URGENT', emoji: '🔴', label: 'Muito Alta', desc: 'até 2h' },
-  { value: 'HIGH', emoji: '🟠', label: 'Alta', desc: 'até 4h' },
-  { value: 'MEDIUM', emoji: '🟡', label: 'Média', desc: 'até 8h' },
-  { value: 'LOW', emoji: '🟢', label: 'Baixa', desc: 'até 24h' },
-  { value: 'VERY_LOW', emoji: '🔵', label: 'Muito Baixa', desc: 'até 48h' },
+  { value: 'VERY_LOW', emoji: '🔵', label: 'Muito Baixa', desc: '10 dias úteis' },
+  { value: 'LOW',      emoji: '🟢', label: 'Baixa',       desc: '5 dias úteis'  },
+  { value: 'MEDIUM',   emoji: '🟡', label: 'Média',       desc: '3 dias úteis'  },
+  { value: 'HIGH',     emoji: '🟠', label: 'Alta',        desc: '1 dia útil'    },
+  { value: 'URGENT',   emoji: '🔴', label: 'Muito Alta',  desc: 'até 1 hora'    },
 ]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -207,7 +212,7 @@ export default function NovaOsPage() {
                   {...register('title', { required: 'Título obrigatório' })}
                   placeholder="Ex: Ar condicionado com vazamento na sala 02"
                   className={cn(
-                    'h-10 bg-muted/30',
+                    'h-11 bg-muted/30 text-sm',
                     errors.title && 'border-red-500/60 focus-visible:ring-red-500'
                   )}
                 />
@@ -217,9 +222,9 @@ export default function NovaOsPage() {
                 <Textarea
                   {...register('description', { required: 'Descrição obrigatória' })}
                   placeholder="Descreva o problema com detalhes..."
-                  rows={3}
+                  rows={4}
                   className={cn(
-                    'resize-y bg-muted/30 text-sm min-h-[80px]',
+                    'resize-y bg-muted/30 text-sm min-h-[100px]',
                     errors.description && 'border-red-500/60 focus-visible:ring-red-500'
                   )}
                 />
@@ -237,7 +242,7 @@ export default function NovaOsPage() {
                     name="maintenanceType"
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger className="h-10 bg-muted/30">
+                        <SelectTrigger className="h-11 bg-muted/30 text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -263,7 +268,7 @@ export default function NovaOsPage() {
                         onValueChange={(v) => field.onChange(v === '__none' ? '' : v)}
                         disabled={groups.length === 0}
                       >
-                        <SelectTrigger className="h-10 bg-muted/30">
+                        <SelectTrigger className="h-11 bg-muted/30 text-sm">
                           <SelectValue placeholder="Automático" />
                         </SelectTrigger>
                         <SelectContent>
@@ -290,7 +295,7 @@ export default function NovaOsPage() {
                         onValueChange={(v) => field.onChange(v === '__none' ? '' : v)}
                         disabled={locations.length === 0}
                       >
-                        <SelectTrigger className="h-10 bg-muted/30">
+                        <SelectTrigger className="h-11 bg-muted/30 text-sm">
                           <SelectValue placeholder="Opcional" />
                         </SelectTrigger>
                         <SelectContent>
@@ -317,7 +322,7 @@ export default function NovaOsPage() {
                         onValueChange={(v) => field.onChange(v === '__none' ? '' : v)}
                         disabled={costCenters.length === 0}
                       >
-                        <SelectTrigger className="h-10 bg-muted/30">
+                        <SelectTrigger className="h-11 bg-muted/30 text-sm">
                           <SelectValue placeholder="Opcional" />
                         </SelectTrigger>
                         <SelectContent>

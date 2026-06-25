@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common'
-import { Prisma, User } from '@prisma/client'
+import { Prisma, User, UserRole } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ListUsersDto } from './dto/list-users.dto'
+
+const ASSUME_OS_ROLES = [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER, UserRole.TECHNICIAN]
 
 // Campos seguros para retornar ao cliente — nunca expõe passwordHash
 export const USER_SAFE_SELECT = {
@@ -64,20 +66,39 @@ export class UsersRepository {
     companyId: string | null | undefined,
     filters: ListUsersDto,
   ): Promise<{ data: SafeUser[]; pagination: { total: number; page: number; limit: number; totalPages: number; hasNextPage: boolean; hasPrevPage: boolean } }> {
-    const { search, role, status, clientId, page = 1, limit = 20 } = filters
+    const { search, role, status, clientId, canAssumeOs, page = 1, limit = 20 } = filters
+
+    const andClauses: Prisma.UserWhereInput[] = []
+
+    // Filtra quem pode ser técnico de OS: role enum OU custom role com permissão
+    if (canAssumeOs) {
+      andClauses.push({
+        OR: [
+          { customRoleId: null, role: { in: ASSUME_OS_ROLES } },
+          { customRoleId: { not: null }, customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } } },
+        ],
+      })
+    }
+
+    if (clientId) {
+      andClauses.push({ clientId })
+    }
+
+    if (search) {
+      andClauses.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      })
+    }
 
     const where: Prisma.UserWhereInput = {
       ...(companyId !== undefined ? { companyId: companyId === '' ? null : companyId } : {}),
       deletedAt: null,
       ...(role && { role }),
       ...(status && { status }),
-      ...(clientId && { clientId }),
-      ...(search && {
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
-        ],
-      }),
+      ...(andClauses.length > 0 && { AND: andClauses }),
     }
 
     const [data, total] = await this.prisma.$transaction([

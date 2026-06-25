@@ -122,7 +122,14 @@ const OS_SELECT = {
     costCenterId: true,
     locationId: true,
     parentServiceOrderId: true,
-    equipment: { select: { id: true, name: true, brand: true, model: true, patrimonyNumber: true, serialNumber: true, currentValue: true, purchaseValue: true } },
+    equipment: {
+        select: {
+            id: true, name: true, brand: true, model: true,
+            patrimonyNumber: true, serialNumber: true, currentValue: true, purchaseValue: true,
+            costCenter: { select: { id: true, name: true, code: true } },
+            location: { select: { id: true, name: true } },
+        },
+    },
     costCenter: { select: { id: true, name: true, code: true } },
     location: { select: { id: true, name: true } },
     client: { select: { id: true, name: true, logoUrl: true } },
@@ -605,10 +612,9 @@ export class ServiceOrdersService {
                     deletedAt: null,
                     OR: [
                         { customRoleId: null, role: { in: assumeRoles } },
-                        {
-                            customRoleId: { not: null },
-                            customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } },
-                        },
+                        { customRoleId: { not: null }, customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } } },
+                        // Qualquer usuário diretamente vinculado ao prestador selecionado pode ser técnico
+                        ...(clientId ? [{ clientId }] : []),
                     ],
                 },
                 select: { id: true },

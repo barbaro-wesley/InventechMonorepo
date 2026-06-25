@@ -19,7 +19,10 @@ import {
   Activity,
   Wrench,
   Loader2,
+  MapPin,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import {
   Sheet,
   SheetContent,
@@ -328,6 +331,48 @@ export function ScheduleDetailSheet({
                     Última geração: {formatDate(schedule.lastRunAt)}
                   </p>
                 )}
+              </div>
+            </div>
+
+            {/* Equipamento */}
+            <div className="mt-4">
+              <SectionTitle>Equipamento</SectionTitle>
+              <div className="bg-white rounded-lg border border-border divide-y divide-border px-3">
+                <InfoRow icon={Wrench} label="Equipamento">
+                  <Link
+                    href={`/equipamentos?detail=${schedule.equipment.id}`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                    onClick={() => onClose()}
+                  >
+                    {schedule.equipment.name}
+                    {schedule.equipment.brand ? ` · ${schedule.equipment.brand}` : ""}
+                    <ExternalLink className="w-3 h-3 ml-0.5 flex-shrink-0" />
+                  </Link>
+                  {schedule.equipment.patrimonyNumber && (
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                      Pat. {schedule.equipment.patrimonyNumber}
+                    </p>
+                  )}
+                </InfoRow>
+                <InfoRow icon={Building2} label="Centro de custo">
+                  {schedule.equipment.costCenter ? (
+                    <span>
+                      {schedule.equipment.costCenter.name}
+                      {schedule.equipment.costCenter.code ? (
+                        <span className="ml-1.5 text-xs text-muted-foreground font-mono">
+                          ({schedule.equipment.costCenter.code})
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground/50 italic text-sm">Não definido</span>
+                  )}
+                </InfoRow>
+                <InfoRow icon={MapPin} label="Localização">
+                  {schedule.equipment.location?.name ?? (
+                    <span className="text-muted-foreground/50 italic text-sm">Não definida</span>
+                  )}
+                </InfoRow>
               </div>
             </div>
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip, GitBranch, ClipboardList } from 'lucide-react'
+import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip, GitBranch, ClipboardList, MapPin, Building2 } from 'lucide-react'
 import type { ServiceOrder } from '@/services/service-orders/service-orders.types'
 import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo } from './os-utils'
 
@@ -95,6 +95,18 @@ export function OsCard({ os, onClick }: OsCardProps) {
             <div className="flex items-center gap-1 text-[#6c7c93] dark:text-zinc-400 ">
               <Wrench className="h-3 w-3 shrink-0" />
               <span className="text-[11px] truncate">{os.equipment.name}</span>
+            </div>
+          )}
+          {os.costCenter && (
+            <div className="flex items-center gap-1 text-[#6c7c93] dark:text-zinc-400 ">
+              <Building2 className="h-3 w-3 shrink-0" />
+              <span className="text-[11px] truncate">{os.costCenter.name}</span>
+            </div>
+          )}
+          {os.location && (
+            <div className="flex items-center gap-1 text-[#6c7c93] dark:text-zinc-400 ">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="text-[11px] truncate">{os.location.name}</span>
             </div>
           )}
         </div>

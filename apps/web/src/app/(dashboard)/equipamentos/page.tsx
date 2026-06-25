@@ -810,10 +810,10 @@ function EquipmentCard({
             <span className="text-slate-700 dark:text-slate-300 truncate">{equipment.costCenter.name}</span>
           </div>
         )}
-        {equipment.currentLocation && (
+        {(equipment.currentLocation ?? equipment.location) && (
           <div className="flex items-center gap-2 text-xs">
             <span className="text-muted-foreground w-20 flex-shrink-0">Localização</span>
-            <span className="text-slate-700 dark:text-slate-300 truncate">{equipment.currentLocation.name}</span>
+            <span className="text-slate-700 dark:text-slate-300 truncate">{(equipment.currentLocation ?? equipment.location)!.name}</span>
           </div>
         )}
       </div>
@@ -876,25 +876,29 @@ function EquipmentCard({
 
 function DetailRow({ label, value, mono, fullWidth }: { label: string; value: string; mono?: boolean; fullWidth?: boolean }) {
   return (
-    <div className={`space-y-1 ${fullWidth ? "sm:col-span-2" : ""}`}>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">{label}</p>
-      <p className={`text-sm font-medium leading-none ${mono ? "font-mono text-[13px]" : ""}`} style={{ color: "var(--foreground)" }}>
-        {value}
-      </p>
+    <div className={`flex flex-col gap-1 ${fullWidth ? "sm:col-span-2" : ""}`}>
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/55">{label}</span>
+      {mono ? (
+        <code className="text-[12px] font-mono font-semibold bg-muted/60 border border-border/60 rounded-md px-2 py-0.5 w-fit max-w-full break-all" style={{ color: "var(--foreground)" }}>
+          {value}
+        </code>
+      ) : (
+        <span className="text-sm font-semibold leading-snug" style={{ color: "var(--foreground)" }}>{value}</span>
+      )}
     </div>
   );
 }
 
 function DetailSection({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 border-b border-border/50 pb-2">
-        <div className="p-1.5 rounded-md bg-primary/5 text-primary">
+    <div className="rounded-xl border border-border/70 bg-white dark:bg-slate-900/40 overflow-hidden">
+      <div className="flex items-center gap-2.5 px-4 py-2.5 bg-muted/40 border-b border-border/50">
+        <div className="p-1.5 rounded-lg bg-background border border-border/70 text-primary flex-shrink-0">
           <Icon className="w-3.5 h-3.5" />
         </div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+        <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">{title}</h3>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 px-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5 p-4">
         {children}
       </div>
     </div>
@@ -1169,32 +1173,62 @@ function DetailSheet({
 
         {/* ── Info tab ── */}
         {tab === "info" && (
-          <div className="mt-8 space-y-10 pb-8">
+          <div className="mt-5 space-y-3 pb-8">
+
+            {/* ── Identificadores primários ── */}
+            {(equipment.patrimonyNumber || equipment.serialNumber || equipment.anvisaNumber) && (
+              <div className="flex flex-wrap gap-2">
+                {equipment.patrimonyNumber && (
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-[110px] px-3.5 py-3 rounded-xl bg-primary/5 border border-primary/15">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-primary/60">Patrimônio</span>
+                    <span className="text-sm font-bold font-mono text-primary">{equipment.patrimonyNumber}</span>
+                  </div>
+                )}
+                {equipment.serialNumber && (
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-[110px] px-3.5 py-3 rounded-xl bg-muted/50 border border-border/70">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">Nº de Série</span>
+                    <span className="text-sm font-bold font-mono" style={{ color: "var(--foreground)" }}>{equipment.serialNumber}</span>
+                  </div>
+                )}
+                {equipment.anvisaNumber && (
+                  <div className="flex flex-col gap-0.5 flex-1 min-w-[110px] px-3.5 py-3 rounded-xl bg-muted/50 border border-border/70">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground/60">ANVISA</span>
+                    <span className="text-sm font-bold font-mono" style={{ color: "var(--foreground)" }}>{equipment.anvisaNumber}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── Identificação ── */}
-            <DetailSection title="Identificação" icon={Tag}>
-              {equipment.patrimonyNumber && <DetailRow label="Nº de Patrimônio" value={equipment.patrimonyNumber} mono />}
-              {equipment.serialNumber && <DetailRow label="Nº de Série" value={equipment.serialNumber} mono />}
-              {equipment.brand && <DetailRow label="Marca" value={equipment.brand} />}
-              {equipment.model && <DetailRow label="Modelo" value={equipment.model} />}
-              {equipment.anvisaNumber && <DetailRow label="Nº ANVISA" value={equipment.anvisaNumber} mono />}
-            </DetailSection>
+            {(equipment.brand || equipment.model) && (
+              <DetailSection title="Identificação" icon={Tag}>
+                {equipment.brand && <DetailRow label="Marca" value={equipment.brand} />}
+                {equipment.model && <DetailRow label="Modelo" value={equipment.model} />}
+              </DetailSection>
+            )}
 
             {/* ── Localização ── */}
-            <DetailSection title="Localização" icon={MapPin}>
-              {equipment.costCenter && (
-                <DetailRow
-                  label="Centro de Custo"
-                  fullWidth
-                  value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`}
-                />
-              )}
-              {equipment.currentLocation && (
-                <DetailRow label="Localização Atual" fullWidth value={equipment.currentLocation.name} />
-              )}
-            </DetailSection>
+            {(equipment.costCenter || equipment.currentLocation || equipment.location) && (
+              <DetailSection title="Localização" icon={MapPin}>
+                {equipment.costCenter && (
+                  <DetailRow
+                    label="Centro de Custo"
+                    fullWidth
+                    value={`${equipment.costCenter.name}${equipment.costCenter.code ? ` (${equipment.costCenter.code})` : ""}`}
+                  />
+                )}
+                {(equipment.currentLocation ?? equipment.location) && (
+                  <DetailRow
+                    label="Localização"
+                    fullWidth
+                    value={(equipment.currentLocation ?? equipment.location)!.name}
+                  />
+                )}
+              </DetailSection>
+            )}
 
             {/* ── Financeiro ── */}
-            {(equipment.purchaseValue != null || equipment.purchaseDate || equipment.warrantyEnd || equipment.depreciationRate != null) && (
+            {(equipment.purchaseValue != null || equipment.purchaseDate || equipment.warrantyEnd || equipment.depreciationRate != null || equipment.invoiceNumber) && (
               <DetailSection title="Financeiro" icon={DollarSign}>
                 {equipment.purchaseValue != null && (
                   <DetailRow label="Valor de Compra" value={`R$ ${equipment.purchaseValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
@@ -1209,12 +1243,13 @@ function DetailSheet({
                   <DetailRow label="Fim da Garantia" value={new Date(equipment.warrantyEnd).toLocaleDateString("pt-BR")} />
                 )}
                 {equipment.depreciationRate != null && (
-                  <DetailRow label="Taxa de Depreciação" value={`${equipment.depreciationRate}% /ano`} />
+                  <DetailRow label="Depreciação" value={`${equipment.depreciationRate}% /ano`} />
                 )}
-                {equipment.invoiceNumber && <DetailRow label="Nota Fiscal" value={equipment.invoiceNumber} mono />}
-
+                {equipment.invoiceNumber && (
+                  <DetailRow label="Nota Fiscal" value={equipment.invoiceNumber} mono />
+                )}
                 {equipment.purchaseValue != null && (
-                  <div className="col-span-2 pt-2">
+                  <div className="sm:col-span-2 pt-1">
                     <Button
                       size="sm" variant="outline" className="h-8 text-xs font-semibold px-4"
                       disabled={recalcDepreciation.isPending}
@@ -1239,24 +1274,34 @@ function DetailSheet({
               </DetailSection>
             )}
 
+            {/* ── Campos Personalizados ── */}
+            {(equipment.customFieldValues?.filter((cf) => cf.value).length ?? 0) > 0 && (
+              <DetailSection title="Campos Personalizados" icon={Tag}>
+                {equipment.customFieldValues!.filter((cf) => cf.value).map((cf) => (
+                  <DetailRow key={cf.definitionId} label={cf.definition.name} value={cf.value!} />
+                ))}
+              </DetailSection>
+            )}
+
             {/* ── Observações ── */}
             {equipment.observations && (
-              <div className="space-y-4 px-1">
-                <div className="flex items-center gap-2 border-b border-border/50 pb-2">
-                  <div className="p-1.5 rounded-md bg-primary/5 text-primary">
+              <div className="rounded-xl border border-border/70 bg-white dark:bg-slate-900/40 overflow-hidden">
+                <div className="flex items-center gap-2.5 px-4 py-2.5 bg-muted/40 border-b border-border/50">
+                  <div className="p-1.5 rounded-lg bg-background border border-border/70 text-primary flex-shrink-0">
                     <ClipboardList className="w-3.5 h-3.5" />
                   </div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Observações</h3>
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Observações</h3>
                 </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed bg-muted/20 p-4 rounded-xl border border-border/50">
+                <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap leading-relaxed p-4">
                   {equipment.observations}
                 </p>
               </div>
             )}
 
-            <div className="pt-8 border-t border-border/40 text-center">
-              <p className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-widest">
-                Registro criado em {new Date(equipment.createdAt).toLocaleDateString("pt-BR")} às {new Date(equipment.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            {/* ── Rodapé ── */}
+            <div className="pt-2 pb-1 text-center">
+              <p className="text-[11px] text-muted-foreground/50 uppercase tracking-widest font-medium">
+                Cadastrado em {new Date(equipment.createdAt).toLocaleDateString("pt-BR")} às {new Date(equipment.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
           </div>
