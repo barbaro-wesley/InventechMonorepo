@@ -380,6 +380,7 @@ export class EquipmentService {
                 }),
                 ...(dto.locationId !== undefined && {
                     location: dto.locationId ? { connect: { id: dto.locationId } } : { disconnect: true },
+                    currentLocation: dto.locationId ? { connect: { id: dto.locationId } } : { disconnect: true },
                 }),
                 ...(dto.costCenterId !== undefined && {
                     costCenter: dto.costCenterId ? { connect: { id: dto.costCenterId } } : { disconnect: true },

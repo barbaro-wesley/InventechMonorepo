@@ -65,6 +65,11 @@ export function OsList({ orders, onRowClick }: OsListProps) {
                           <span className="text-xs truncate max-w-[200px]">{os.equipment.name}</span>
                         </div>
                       )}
+                      {(os.costCenter || os.location) && (
+                        <p className="text-[11px] text-[#6c7c93]/70 dark:text-zinc-500 mt-0.5 truncate max-w-[200px]">
+                          {[os.costCenter?.name, os.location?.name].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </td>

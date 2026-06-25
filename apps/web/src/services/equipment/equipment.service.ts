@@ -208,4 +208,9 @@ export const equipmentService = {
     const baseUrl = api.defaults.baseURL || "http://localhost:3000/api/v1";
     return `${baseUrl}/equipment/${id}/lifecycle-pdf`;
   },
+
+  getLabelUrl(id: string): string {
+    const baseUrl = api.defaults.baseURL || "http://localhost:3000/api/v1";
+    return `${baseUrl}/equipment/${id}/label`;
+  },
 };

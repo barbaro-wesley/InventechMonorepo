@@ -1,5 +1,5 @@
-import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator'
-import { Type } from 'class-transformer'
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator'
+import { Transform, Type } from 'class-transformer'
 import { UserRole, UserStatus } from '@prisma/client'
 
 export class ListUsersDto {
@@ -22,6 +22,11 @@ export class ListUsersDto {
   @IsOptional()
   @IsUUID()
   companyId?: string  // Usado pelo SUPER_ADMIN para filtrar por empresa
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  canAssumeOs?: boolean  // Filtra apenas quem pode ser atribuído como técnico de OS
 
   @IsOptional()
   @Type(() => Number)

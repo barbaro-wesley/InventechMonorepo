@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn, FileText, CheckCircle2, GitBranch, CalendarClock } from 'lucide-react'
+import { Calendar, Clock, Wrench, User, Building2, Tag, Plus, X, Loader2, File as FileIcon, Download, Paperclip, ChevronLeft, ChevronRight, ZoomIn, FileText, CheckCircle2, GitBranch, CalendarClock, MapPin, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 import { storageService } from '@/services/storage/storage.service'
 import type { Attachment } from '@/services/storage/storage.service'
 import { Button } from '@/components/ui/button'
@@ -298,7 +299,18 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
 
           <InfoRow icon={Wrench} label="Equipamento">
             <div>
-              <p>{os.equipment?.name ?? '—'}</p>
+              {os.equipment ? (
+                <Link
+                  href={`/equipamentos?detail=${os.equipment.id}`}
+                  className="inline-flex items-center gap-1 text-[#0d4da5] dark:text-blue-400 hover:underline font-medium"
+                  target="_blank"
+                >
+                  {os.equipment.name}
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </Link>
+              ) : (
+                <p>—</p>
+              )}
               {os.equipment?.patrimonyNumber && (
                 <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400 ">Patrimônio: {os.equipment.patrimonyNumber}</p>
               )}
@@ -312,6 +324,25 @@ export function OsDetailTab({ os, clientId, osId, canManage }: OsDetailTabProps)
               )}
             </div>
           </InfoRow>
+
+          {os.equipment?.costCenter && (
+            <InfoRow icon={Building2} label="Centro de custo">
+              <span>
+                {os.equipment.costCenter.name}
+                {os.equipment.costCenter.code && (
+                  <span className="ml-1.5 text-[11px] text-[#6c7c93] dark:text-zinc-400 font-mono">
+                    ({os.equipment.costCenter.code})
+                  </span>
+                )}
+              </span>
+            </InfoRow>
+          )}
+
+          {os.equipment?.location && (
+            <InfoRow icon={MapPin} label="Localização">
+              <span>{os.equipment.location.name}</span>
+            </InfoRow>
+          )}
 
           {os.group && (
             <InfoRow icon={Tag} label="Grupo">
