@@ -2212,7 +2212,9 @@ export class ReportsService {
     }
 
     // ── QR Code (preenche o restante, centralizado) ──
-    const qrAvail = H - y - PAD
+    // BOTTOM_PAD maior que PAD para evitar corte em impressoras com margem física de ~3mm
+    const BOTTOM_PAD = 10
+    const qrAvail = H - y - BOTTOM_PAD
     const QR_PT   = Math.min(qrAvail, W - PAD * 2)
     const qrX     = CX - QR_PT / 2
     doc.image(qrPng, qrX, y + (qrAvail - QR_PT) / 2, { width: QR_PT, height: QR_PT })
