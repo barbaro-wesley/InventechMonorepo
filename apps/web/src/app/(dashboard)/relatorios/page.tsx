@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   FileSpreadsheet,
   FileText,
@@ -940,15 +940,39 @@ function PreventiveReport() {
   const isClientAdmin = currentUser?.role === "CLIENT_ADMIN";
 
   const { data: types = [] } = useEquipmentTypes({ limit: 100 } as any);
+  const { data: costCenters = [] } = useCostCenters({ limit: 100 } as any);
 
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [clientId, setClientId] = useState("");
   const [typeIds, setTypeIds] = useState<string[]>([]);
+  const [subtypeIds, setSubtypeIds] = useState<string[]>([]);
+  const [costCenterIds, setCostCenterIds] = useState<string[]>([]);
   const [recurrenceTypes, setRecurrenceTypes] = useState<RecurrenceType[]>([]);
   const [isActive, setIsActive] = useState("__all__");
+  const [nextRunFrom, setNextRunFrom] = useState("");
+  const [nextRunTo, setNextRunTo] = useState("");
+  const [startDateFrom, setStartDateFrom] = useState("");
+  const [startDateTo, setStartDateTo] = useState("");
+  const [groupBy, setGroupBy] = useState("");
+  const [orderBy, setOrderBy] = useState("nextRun");
   const [loading, setLoading] = useState<"excel" | "pdf" | null>(null);
 
-  // Load clients list for company admins
+  // Subtypes from selected types (all subtypes when no type is selected)
+  const subtypeOptions = useMemo(() => {
+    const allTypes = types as any[];
+    const source = typeIds.length > 0
+      ? allTypes.filter((t: any) => typeIds.includes(t.id))
+      : allTypes;
+    return source.flatMap((t: any) => t.subtypes ?? []).map((s: any) => ({ label: s.name, value: s.id }));
+  }, [types, typeIds]);
+
+  // Clear subtypes that no longer belong to selected types
+  useEffect(() => {
+    if (subtypeIds.length === 0) return;
+    const validIds = new Set(subtypeOptions.map((s) => s.value));
+    setSubtypeIds((prev) => prev.filter((id) => validIds.has(id)));
+  }, [subtypeOptions]);
+
   useEffect(() => {
     if (isClientAdmin) return;
     api.get("/clients", { params: { limit: 100 } }).then(({ data }) => {
@@ -962,8 +986,16 @@ function PreventiveReport() {
   const params: Record<string, string | string[] | undefined> = {
     ...(clientId && !isClientAdmin && { clientId }),
     ...(typeIds.length > 0 && { typeId: typeIds.join(",") }),
+    ...(subtypeIds.length > 0 && { subtypeId: subtypeIds.join(",") }),
+    ...(costCenterIds.length > 0 && { costCenterId: costCenterIds.join(",") }),
     ...(recurrenceTypes.length > 0 && { recurrenceType: recurrenceTypes.join(",") }),
     ...(isActive !== "__all__" && { isActive }),
+    ...(nextRunFrom && { nextRunFrom }),
+    ...(nextRunTo && { nextRunTo }),
+    ...(startDateFrom && { startDateFrom }),
+    ...(startDateTo && { startDateTo }),
+    ...(groupBy && { groupBy }),
+    ...(orderBy && orderBy !== "nextRun" && { orderBy }),
   };
 
   const handleDownload = async (format: "excel" | "pdf") => {
@@ -1001,31 +1033,48 @@ function PreventiveReport() {
             </div>
           </div>
 
-          {/* Cliente (company admin only) + Tipo + Status */}
-          <div className={`grid grid-cols-1 gap-3 ${isClientAdmin ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3 lg:grid-cols-4"}`}>
-            {!isClientAdmin && (
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Prestador</Label>
-                <Select value={clientId || "__all__"} onValueChange={(v) => setClientId(v === "__all__" ? "" : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos os prestadores" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__all__">Todos os prestadores</SelectItem>
-                    {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          {/* Prestador — apenas company admin */}
+          {!isClientAdmin && (
+            <div className="max-w-xs space-y-1">
+              <Label className="text-xs text-muted-foreground">Prestador</Label>
+              <Select value={clientId || "__all__"} onValueChange={(v) => setClientId(v === "__all__" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os prestadores" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos os prestadores</SelectItem>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
+          {/* Tipo + Subtipo + Centro de Custo + Status */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <MultiSelect
               label="Tipo de equipamento"
               placeholder="Todos os tipos"
               options={(types as any[]).map((t: any) => ({ label: t.name, value: t.id }))}
               selectedValues={typeIds}
               onChange={setTypeIds}
+            />
+
+            <MultiSelect
+              label="Subtipo"
+              placeholder="Todos os subtipos"
+              options={subtypeOptions}
+              selectedValues={subtypeIds}
+              onChange={setSubtypeIds}
+            />
+
+            <MultiSelect
+              label="Centro de Custo / Setor"
+              placeholder="Todos os centros"
+              options={(costCenters as any[]).map((c: any) => ({ label: c.name, value: c.id }))}
+              selectedValues={costCenterIds}
+              onChange={setCostCenterIds}
             />
 
             <div className="space-y-1">
@@ -1038,6 +1087,84 @@ function PreventiveReport() {
                   <SelectItem value="__all__">Todos</SelectItem>
                   <SelectItem value="true">Apenas ativos</SelectItem>
                   <SelectItem value="false">Apenas inativos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Período da próxima OS + Vigência */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Período da próxima OS</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={nextRunFrom}
+                  onChange={(e) => setNextRunFrom(e.target.value)}
+                  className="text-xs"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">até</span>
+                <Input
+                  type="date"
+                  value={nextRunTo}
+                  onChange={(e) => setNextRunTo(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Vigência</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={startDateFrom}
+                  onChange={(e) => setStartDateFrom(e.target.value)}
+                  className="text-xs"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">até</span>
+                <Input
+                  type="date"
+                  value={startDateTo}
+                  onChange={(e) => setStartDateTo(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Agrupamento & Ordenação */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Agrupar por (quebras)</Label>
+              <Select value={groupBy || "__none__"} onValueChange={(v) => setGroupBy(v === "__none__" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem agrupamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem agrupamento</SelectItem>
+                  <SelectItem value="costCenter">Centro de Custo / Setor</SelectItem>
+                  <SelectItem value="type">Tipo de Equipamento</SelectItem>
+                  <SelectItem value="recurrence">Recorrência</SelectItem>
+                  <SelectItem value="situation">Situação (Em dia / Atrasada)</SelectItem>
+                  <SelectItem value="client">Prestador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Ordenar por</Label>
+              <Select value={orderBy} onValueChange={setOrderBy}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nextRun">Próxima OS (mais próxima)</SelectItem>
+                  <SelectItem value="nextRunDesc">Próxima OS (mais atrasada)</SelectItem>
+                  <SelectItem value="situation">Situação (atrasadas primeiro)</SelectItem>
+                  <SelectItem value="equipment">Nome do equipamento</SelectItem>
+                  <SelectItem value="costCenter">Setor</SelectItem>
+                  <SelectItem value="title">Título</SelectItem>
                 </SelectContent>
               </Select>
             </div>

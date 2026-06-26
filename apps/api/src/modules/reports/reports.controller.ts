@@ -54,7 +54,17 @@ class EquipmentFiltersDto {
 class PreventiveFiltersDto {
   @IsOptional() @IsUUID() clientId?: string
   @IsOptional() @IsString() typeId?: string
+  @IsOptional() @IsString() subtypeId?: string
   @IsOptional() @IsString() recurrenceType?: string
+  @IsOptional() @IsString() costCenterId?: string
+  @IsOptional() @IsString() nextRunFrom?: string
+  @IsOptional() @IsString() nextRunTo?: string
+  @IsOptional() @IsString() startDateFrom?: string
+  @IsOptional() @IsString() startDateTo?: string
+  /** 'costCenter' | 'type' | 'recurrence' | 'situation' | 'client' */
+  @IsOptional() @IsString() groupBy?: string
+  /** 'nextRun' | 'nextRunDesc' | 'situation' | 'equipment' | 'costCenter' | 'title' */
+  @IsOptional() @IsString() orderBy?: string
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
