@@ -15,10 +15,22 @@ import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.in
 import { LoginSecurityService } from './security/login-security.service'
 import { TwoFactorService } from './security/two-factor.service'
 import { DEFAULT_PERMISSIONS } from '../permissions/permissions.defaults'
+import { getSecuritySettings } from '../companies/company-security-settings'
 
 @Injectable()
 export class AuthService {
     private readonly logger = new Logger(AuthService.name)
+
+    /** Carrega os parâmetros de segurança da empresa (com defaults). */
+    private async loadSecuritySettings(companyId: string | null | undefined) {
+        const company = companyId
+            ? await this.prisma.company.findUnique({
+                where: { id: companyId },
+                select: { settings: true },
+            })
+            : null
+        return getSecuritySettings(company?.settings)
+    }
 
     constructor(
         private prisma: PrismaService,
@@ -468,9 +480,10 @@ export class AuthService {
             throw new UnauthorizedException('Operação não permitida')
         }
 
-        // 5. Valida comprimento mínimo da nova senha
-        if (newPassword.length < 6) {
-            throw new BadRequestException('A nova senha deve ter no mínimo 6 caracteres')
+        // 5. Valida comprimento mínimo da nova senha (conforme política da empresa)
+        const { passwordMinLength } = await this.loadSecuritySettings(record.user.companyId)
+        if (newPassword.length < passwordMinLength) {
+            throw new BadRequestException(`A nova senha deve ter no mínimo ${passwordMinLength} caracteres`)
         }
 
         const passwordHash = await bcrypt.hash(newPassword, 10)

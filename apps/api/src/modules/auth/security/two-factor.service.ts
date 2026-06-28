@@ -11,6 +11,7 @@ import { NotificationsService } from '../../notifications/notifications.service'
 import { buildTwoFactorCodeEmail } from './templates/two-factor-code.template'
 import { buildEmailVerificationEmail } from './templates/email-verification.template'
 import { buildPasswordResetEmail } from './templates/password-reset.template'
+import { getSecuritySettings } from '../../companies/company-security-settings'
 
 const CODE_EXPIRY_MINUTES = 10        // Código 2FA expira em 10 min
 const TOKEN_EXPIRY_HOURS = 24         // Token de email/reset expira em 24h
@@ -235,6 +236,16 @@ export class TwoFactorService {
 
         if (!validRecord) {
             throw new BadRequestException('Token inválido ou expirado. Solicite um novo link.')
+        }
+
+        // Valida o comprimento mínimo conforme a política da empresa do usuário
+        const user = await this.prisma.user.findUnique({
+            where: { id: validRecord.userId },
+            select: { company: { select: { settings: true } } },
+        })
+        const { passwordMinLength } = getSecuritySettings(user?.company?.settings)
+        if (newPassword.length < passwordMinLength) {
+            throw new BadRequestException(`A nova senha deve ter no mínimo ${passwordMinLength} caracteres`)
         }
 
         const passwordHash = await bcrypt.hash(newPassword, 10)

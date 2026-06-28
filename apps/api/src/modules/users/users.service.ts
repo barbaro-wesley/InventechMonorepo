@@ -18,6 +18,8 @@ import { TwoFactorService } from '../auth/security/two-factor.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
+import { getSecuritySettings } from '../companies/company-security-settings'
+import { DEFAULT_SECURITY_SETTINGS } from '@inventech/shared-types'
 
 const COMPANY_ROLES = [
   UserRole.COMPANY_ADMIN,
@@ -90,16 +92,20 @@ export class UsersService {
       throw new BadRequestException('clientId é obrigatório para usuários do tipo cliente')
     }
 
+    // Parâmetros de segurança configuráveis por empresa
+    const security = await this.loadSecuritySettings(companyId)
+    await this.assertPasswordLength(dto.password, companyId)
+
     const passwordHash = await bcrypt.hash(dto.password, 10)
 
-    // ✅ Cria com status UNVERIFIED — não pode logar antes de verificar o email
+    // Status inicial conforme a política de verificação de email da empresa
     const user = await this.usersRepository.create({
       name: dto.name,
       email: dto.email,
       passwordHash,
       role,
-      status: UserStatus.UNVERIFIED,  // ← era ACTIVE antes
-      mustChangePassword: true,         // ← admin definiu a senha; usuário deve trocar no 1º login
+      status: security.requireEmailVerification ? UserStatus.UNVERIFIED : UserStatus.ACTIVE,
+      mustChangePassword: security.forcePasswordChangeOnFirstLogin,
       phone: dto.phone,
       telegramChatId: dto.telegramChatId,
       company: companyId ? { connect: { id: companyId } } : undefined,
@@ -107,11 +113,13 @@ export class UsersService {
       ...(dto.customRoleId && { customRole: { connect: { id: dto.customRoleId } } }),
     })
 
-    // ✅ Envia email de verificação automaticamente
-    try {
-      await this.twoFactorService.sendEmailVerification(user.id)
-    } catch (error) {
-      // Não falha o cadastro se o email não chegar — o usuário pode solicitar reenvio
+    // Envia email de verificação somente se a política exigir
+    if (security.requireEmailVerification) {
+      try {
+        await this.twoFactorService.sendEmailVerification(user.id)
+      } catch (error) {
+        // Não falha o cadastro se o email não chegar — o usuário pode solicitar reenvio
+      }
     }
 
     // Dispara evento para regras de alerta dinâmicas
@@ -159,6 +167,7 @@ export class UsersService {
     }
 
     if (dto.password) {
+      await this.assertPasswordLength(dto.password, existing.companyId)
       data.passwordHash = await bcrypt.hash(dto.password, 10)
       data.mustChangePassword = true  // ← força troca na próxima sessão
     }
@@ -256,6 +265,24 @@ export class UsersService {
   private ensureCompanyScope(user: AuthenticatedUser) {
     if (user.role !== UserRole.SUPER_ADMIN && !user.companyId) {
       throw new ForbiddenException('Acesso sem escopo de empresa')
+    }
+  }
+
+  /** Carrega os parâmetros de segurança da empresa (com defaults). */
+  private async loadSecuritySettings(companyId: string | null | undefined) {
+    if (!companyId) return DEFAULT_SECURITY_SETTINGS
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { settings: true },
+    })
+    return getSecuritySettings(company?.settings)
+  }
+
+  /** Valida o tamanho da senha contra o mínimo configurado para a empresa. */
+  private async assertPasswordLength(password: string, companyId: string | null | undefined) {
+    const { passwordMinLength } = await this.loadSecuritySettings(companyId)
+    if (password.length < passwordMinLength) {
+      throw new BadRequestException(`A senha deve ter no mínimo ${passwordMinLength} caracteres`)
     }
   }
 

@@ -18,6 +18,7 @@ import type  { AuthenticatedUser } from '../../common/interfaces/authenticated-u
 import { StorageService } from '../storage/storage.service'
 import { LicenseService, SuspendCompanyDto, SetLicenseDto, SetTrialDto } from './license.service'
 import { UpdateReportSettingsDto } from './dto/update-report-settings.dto'
+import { UpdateSecuritySettingsDto } from './dto/update-security-settings.dto'
 @ApiTags('Companies')
 @ApiBearerAuth('JWT')
 @Controller('companies')
@@ -110,6 +111,25 @@ export class CompaniesController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.companiesService.updateReportSettings(id, dto, currentUser)
+  }
+
+  // ─────────────────────────────────────────
+  // PATCH /companies/:id/security-settings
+  // Parâmetros de segurança (2FA, verificação de email, senha, bloqueio)
+  // ─────────────────────────────────────────
+  @Patch(':id/security-settings')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @ApiOperation({
+    summary: 'Configurar parâmetros de segurança',
+    description: 'Define 2FA obrigatório, verificação de email, troca de senha no 1º login, ' +
+      'tamanho mínimo de senha e tentativas até bloqueio. Valores fora dos limites são rejeitados.',
+  })
+  updateSecuritySettings(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSecuritySettingsDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.companiesService.updateSecuritySettings(id, dto, currentUser)
   }
 
   // ─────────────────────────────────────────

@@ -84,7 +84,7 @@ describe('UsersService — mustChangePassword', () => {
                 UsersService,
                 { provide: UsersRepository,      useValue: repoMock },
                 { provide: TwoFactorService,     useValue: makeTwoFactorMock() },
-                { provide: PrismaService,        useValue: {} },
+                { provide: PrismaService,        useValue: { company: { findUnique: jest.fn().mockResolvedValue(null) } } },
                 { provide: NotificationsService, useValue: makeNotificationsMock() },
             ],
         }).compile()
