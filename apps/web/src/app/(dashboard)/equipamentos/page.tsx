@@ -1096,7 +1096,9 @@ function DetailSheet({
   return (
     <>
     <Sheet open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
-      <SheetContent className="overflow-y-auto" style={{ maxWidth: "680px", width: "100%" }}>
+      <SheetContent className="gap-0" style={{ maxWidth: "680px", width: "100%" }}>
+        {/* Fixed top section: header + action bar + tabs — never scrolls */}
+        <div className="flex-shrink-0">
         <SheetHeader className="pb-4 border-b">
           <div className="flex items-start gap-4 min-w-0">
             <div
@@ -1142,7 +1144,7 @@ function DetailSheet({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border bg-white sticky top-0 z-10 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex border-b border-border bg-white overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {[
             { id: "info", label: "Informações", short: "Info" },
             { id: "accessories", label: "Acessórios", short: "Acess." },
@@ -1170,6 +1172,10 @@ function DetailSheet({
             </button>
           ))}
         </div>
+        </div>{/* end fixed section */}
+
+        {/* Scrollable tab content */}
+        <div className="flex-1 overflow-y-auto min-h-0">
 
         {/* ── Info tab ── */}
         {tab === "info" && (
@@ -1477,6 +1483,7 @@ function DetailSheet({
             )}
           </div>
         )}
+        </div>{/* end scrollable section */}
       </SheetContent>
     </Sheet>
 

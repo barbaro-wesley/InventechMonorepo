@@ -7,6 +7,7 @@ import type {
     CreateCompanyResponse,
     UpdateCompanyDto,
     UpdateReportSettingsDto,
+    UpdateSecuritySettingsDto,
     ListCompaniesParams,
     License,
 } from "@/types/company";
@@ -90,6 +91,14 @@ export const companiesService = {
         dto: UpdateReportSettingsDto
     ): Promise<void> {
         await api.patch(`/companies/${companyId}/report-settings`, dto);
+    },
+
+    async updateSecuritySettings(
+        companyId: string,
+        dto: UpdateSecuritySettingsDto
+    ): Promise<Company> {
+        const { data } = await api.patch(`/companies/${companyId}/security-settings`, dto);
+        return data;
     },
 
     async getEquipmentByType(companyId: string): Promise<{

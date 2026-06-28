@@ -19,7 +19,9 @@
       "Bash(npx turbo *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/api/v1/health)",
       "Bash(curl -s http://localhost:3000/api/v1)",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(git -C \"c:/Users/Wesley.Barbaro/Documents/Inventech/InventechMonorepo\" log --oneline -20 -- \"apps/web/src/app/\\(dashboard\\)/equipamentos/page.tsx\")",
+      "Bash(git -C \"c:/Users/Wesley.Barbaro/Documents/Inventech/InventechMonorepo\" show c8c2f4b:apps/web/src/app/\\\\\\(dashboard\\\\\\)/equipamentos/page.tsx)"
     ]
   }
 }

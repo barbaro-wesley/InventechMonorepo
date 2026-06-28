@@ -5,12 +5,14 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
+import { Prisma, UserRole } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
 import { CompaniesRepository } from './companies.repository'
 import { CreateCompanyDto } from './dto/create-company.dto'
 import { UpdateCompanyDto } from './dto/update-company.dto'
+import { UpdateSecuritySettingsDto } from './dto/update-security-settings.dto'
 import { ListCompaniesDto } from './dto/list-companies.dto'
+import { clampSecuritySettings, getSecuritySettings } from './company-security-settings'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ConfigService } from '@nestjs/config'
@@ -57,7 +59,10 @@ export class CompaniesService {
       throw new NotFoundException('Empresa não encontrada')
     }
 
-    return company
+    return {
+      ...company,
+      securitySettings: getSecuritySettings(company.settings),
+    }
   }
 
   async create(dto: CreateCompanyDto) {
@@ -200,7 +205,55 @@ export class CompaniesService {
       ...(dto.reportSecondaryColor !== undefined && { reportSecondaryColor: dto.reportSecondaryColor }),
       ...(dto.reportHeaderTitle !== undefined && { reportHeaderTitle: dto.reportHeaderTitle }),
       ...(dto.reportFooterText !== undefined && { reportFooterText: dto.reportFooterText }),
+      // Segurança
+      ...(dto.enforce2FAForAll !== undefined && { enforce2FAForAll: dto.enforce2FAForAll }),
     })
+  }
+
+  // ─────────────────────────────────────────
+  // Atualiza os parâmetros de segurança da empresa.
+  // `enforce2FAForAll` vai para a coluna dedicada; os demais para settings.security.
+  // COMPANY_ADMIN só pode alterar a própria empresa.
+  // ─────────────────────────────────────────
+  async updateSecuritySettings(
+    id: string,
+    dto: UpdateSecuritySettingsDto,
+    currentUser: AuthenticatedUser,
+  ) {
+    if (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.companyId !== id) {
+      throw new ForbiddenException('Acesso negado a esta empresa')
+    }
+
+    const company = await this.companiesRepository.findById(id)
+    if (!company) {
+      throw new NotFoundException('Empresa não encontrada')
+    }
+
+    // Mescla com os valores atuais e aplica os limites de guard-rail
+    const current = getSecuritySettings(company.settings)
+    const merged = clampSecuritySettings({
+      requireEmailVerification: dto.requireEmailVerification ?? current.requireEmailVerification,
+      forcePasswordChangeOnFirstLogin:
+        dto.forcePasswordChangeOnFirstLogin ?? current.forcePasswordChangeOnFirstLogin,
+      passwordMinLength: dto.passwordMinLength ?? current.passwordMinLength,
+      maxLoginAttempts: dto.maxLoginAttempts ?? current.maxLoginAttempts,
+    })
+
+    // Preserva outras chaves de settings que não sejam `security`
+    const existingSettings =
+      company.settings && typeof company.settings === 'object' && !Array.isArray(company.settings)
+        ? (company.settings as Record<string, unknown>)
+        : {}
+
+    const updated = await this.companiesRepository.update(id, {
+      ...(dto.enforce2FAForAll !== undefined && { enforce2FAForAll: dto.enforce2FAForAll }),
+      settings: { ...existingSettings, security: merged } as unknown as Prisma.InputJsonValue,
+    })
+
+    return {
+      ...updated,
+      securitySettings: getSecuritySettings(updated.settings),
+    }
   }
 
   async remove(id: string) {

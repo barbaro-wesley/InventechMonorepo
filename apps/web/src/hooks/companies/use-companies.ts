@@ -7,6 +7,7 @@ import type {
   CreateCompanyDto,
   UpdateCompanyDto,
   UpdateReportSettingsDto,
+  UpdateSecuritySettingsDto,
   ListCompaniesParams,
 } from "@/types/company";
 
@@ -170,6 +171,22 @@ export function useUpdateReportSettings(companyId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: companyKeys.all });
       toast.success("Configurações de relatório salvas!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useUpdateSecuritySettings(companyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: UpdateSecuritySettingsDto) =>
+      companiesService.updateSecuritySettings(companyId, dto),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: companyKeys.all });
+      queryClient.invalidateQueries({ queryKey: companyKeys.detail(companyId) });
+      toast.success("Configurações de segurança salvas!");
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));

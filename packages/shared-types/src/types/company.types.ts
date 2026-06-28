@@ -1,5 +1,38 @@
 import type { CompanyStatus } from '../enums/company.enum';
 
+/**
+ * Parâmetros de segurança configuráveis por empresa.
+ * Persistidos em `Company.settings.security` (JSON), exceto `enforce2FAForAll`
+ * que tem coluna dedicada em `Company.enforce2FAForAll`.
+ */
+export interface CompanySecuritySettings {
+  /** Exige verificação de email ao criar usuário (status nasce UNVERIFIED). */
+  requireEmailVerification: boolean;
+  /** Força troca de senha no primeiro login. */
+  forcePasswordChangeOnFirstLogin: boolean;
+  /** Tamanho mínimo de senha (piso 6, teto 32). */
+  passwordMinLength: number;
+  /** Tentativas de login falhas antes de bloquear a conta (entre 3 e 10). */
+  maxLoginAttempts: number;
+}
+
+export const SECURITY_SETTINGS_LIMITS = {
+  passwordMinLength: { min: 6, max: 32 },
+  maxLoginAttempts: { min: 3, max: 10 },
+} as const;
+
+export const DEFAULT_SECURITY_SETTINGS: CompanySecuritySettings = {
+  requireEmailVerification: true,
+  forcePasswordChangeOnFirstLogin: true,
+  passwordMinLength: 6,
+  maxLoginAttempts: 5,
+};
+
+/** Payload do PATCH /companies/:id/security-settings. */
+export interface UpdateSecuritySettingsDto extends Partial<CompanySecuritySettings> {
+  enforce2FAForAll?: boolean;
+}
+
 export interface Company {
   id: string;
   platformId: string;
@@ -25,6 +58,8 @@ export interface Company {
   status: CompanyStatus;
   trialEndsAt?: string | null;
   settings?: Record<string, unknown> | null;
+  /** Derivado de `settings.security` mesclado com os defaults. */
+  securitySettings?: CompanySecuritySettings | null;
   createdAt: string;
   updatedAt: string;
   _count?: {

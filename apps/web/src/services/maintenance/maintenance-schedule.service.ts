@@ -84,11 +84,14 @@ export interface UpdateMaintenanceScheduleDto {
 
 export interface ListSchedulesParams {
   search?: string
+  patrimonyNumber?: string
   equipmentId?: string
   maintenanceType?: MaintenanceType
   recurrenceType?: RecurrenceType
   groupId?: string
   isActive?: boolean
+  nextRunFrom?: string
+  nextRunTo?: string
   page?: number
   limit?: number
 }

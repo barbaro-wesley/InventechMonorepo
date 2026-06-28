@@ -2,9 +2,10 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import axios from 'axios'
 import { PrismaService } from '../../../prisma/prisma.service'
+import { getSecuritySettings } from '../../companies/company-security-settings'
 
 // Configurações de bloqueio
-const MAX_ATTEMPTS = 5                  // Tentativas antes de bloquear
+// O número de tentativas até bloquear é configurável por empresa (settings.security.maxLoginAttempts)
 const BLOCK_DURATION_MINUTES = 15       // Tempo de bloqueio em minutos
 const ATTEMPT_WINDOW_MINUTES = 10       // Janela de tempo para contar tentativas
 const MAX_IP_ATTEMPTS = 20              // Tentativas por IP antes de bloquear o IP
@@ -130,15 +131,23 @@ export class LoginSecurityService {
     private async checkAndBlockIfNeeded(userId: string, ipAddress: string): Promise<void> {
         const windowStart = new Date(Date.now() - ATTEMPT_WINDOW_MINUTES * 60 * 1000)
 
-        const recentFailures = await this.prisma.loginAttempt.count({
-            where: {
-                userId,
-                success: false,
-                createdAt: { gte: windowStart },
-            },
-        })
+        const [recentFailures, user] = await Promise.all([
+            this.prisma.loginAttempt.count({
+                where: {
+                    userId,
+                    success: false,
+                    createdAt: { gte: windowStart },
+                },
+            }),
+            this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { company: { select: { settings: true } } },
+            }),
+        ])
 
-        if (recentFailures >= MAX_ATTEMPTS) {
+        const { maxLoginAttempts } = getSecuritySettings(user?.company?.settings)
+
+        if (recentFailures >= maxLoginAttempts) {
             const expiresAt = new Date(Date.now() + BLOCK_DURATION_MINUTES * 60 * 1000)
 
             // Cria bloqueio

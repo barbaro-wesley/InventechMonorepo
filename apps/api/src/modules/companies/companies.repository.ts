@@ -27,6 +27,7 @@ export const COMPANY_SELECT = {
   status: true,
   trialEndsAt: true,
   settings: true,
+  enforce2FAForAll: true,
   createdAt: true,
   updatedAt: true,
   // Conta clientes e usuários para exibir no painel do SUPER_ADMIN
