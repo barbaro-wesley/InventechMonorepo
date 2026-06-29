@@ -12,6 +12,7 @@ import type {
   CreateTaskDto,
   UpdateTaskDto,
   CreateServiceOrderDto,
+  CreateBatchServiceOrderDto,
   CreateChildServiceOrderDto,
   CreateCostItemDto,
   UpdateCostItemDto,
@@ -122,6 +123,22 @@ export function useCreateServiceOrder() {
     onSuccess: (os) => {
       qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
       toast.success(`OS #${os.number} criada com sucesso`)
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+// ─────────────────────────────────────────
+// Criar OS em Lote
+// ─────────────────────────────────────────
+export function useCreateBatchServiceOrders(clientId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (dto: CreateBatchServiceOrderDto) =>
+      serviceOrdersService.createBatch(clientId, dto),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      toast.success(`${result.created} OS criadas em lote com sucesso`)
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   })

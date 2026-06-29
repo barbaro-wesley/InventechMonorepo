@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, LayoutGrid, List, User, Archive, Loader2 } from 'lucide-react'
+import { Search, LayoutGrid, List, User, Archive, Loader2, Layers } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -35,6 +35,7 @@ interface CommandBarProps {
   onMyOrdersChange: (v: boolean) => void
   showClosed: boolean
   onShowClosedChange: (v: boolean) => void
+  onBatchCreate?: () => void
 }
 
 export function CommandBar({
@@ -57,6 +58,7 @@ export function CommandBar({
   onMyOrdersChange,
   showClosed,
   onShowClosedChange,
+  onBatchCreate,
 }: CommandBarProps) {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-950 border-b border-[#e0e5eb] dark:border-zinc-800 flex-wrap">
@@ -172,6 +174,17 @@ export function CommandBar({
         <Archive className="h-3.5 w-3.5" />
         Encerradas
       </button>
+
+      {/* Botão OS em Lote */}
+      {onBatchCreate && (
+        <button
+          onClick={onBatchCreate}
+          className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-colors border bg-[#f3f4f7] dark:bg-zinc-800 text-[#6c7c93] dark:text-zinc-400 border-transparent hover:text-[#1d2530] dark:hover:text-zinc-100 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:border-amber-300 dark:hover:border-amber-700"
+        >
+          <Layers className="h-3.5 w-3.5" />
+          OS em Lote
+        </button>
+      )}
 
       <div className="hidden sm:block flex-1" />
 

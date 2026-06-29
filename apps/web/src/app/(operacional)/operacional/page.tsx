@@ -11,6 +11,7 @@ import { CommandBar, type ViewMode } from './_components/command-bar'
 import { OsBoard } from './_components/os-board'
 import { OsList } from './_components/os-list'
 import { OsDetailDrawer } from './_components/os-detail-drawer'
+import { OsBatchCreateSheet } from '@/components/service-orders/os-batch-create-sheet'
 import type { ServiceOrder, ServiceOrderStatus, ServiceOrderPriority } from '@/services/service-orders/service-orders.types'
 
 const ACTIVE_STATUSES: ServiceOrderStatus[] = ['AWAITING_PICKUP', 'OPEN', 'IN_PROGRESS', 'COMPLETED']
@@ -36,6 +37,7 @@ export default function OperacionalPage() {
   const [boardPage, setBoardPage] = useState(1)
   const [allBoardOrders, setAllBoardOrders] = useState<ServiceOrder[]>([])
   const [selectedOs, setSelectedOs] = useState<{ id: string; clientId: string } | null>(null)
+  const [batchSheetOpen, setBatchSheetOpen] = useState(false)
 
   // Debounce para busca server-side em ambas as views
   const debouncedSearch = useDebounce(filters.search, 350)
@@ -51,6 +53,9 @@ export default function OperacionalPage() {
   const clients = clientsData?.data ?? []
   const groups = groupsData ?? []
 
+  // Para o batch sheet, usa o primeiro cliente disponível ou o clientId do filtro
+  const batchClientId = filters.clientId || clients[0]?.id || ''
+
   // Params base dos filtros (compartilhado entre board e list)
   const filterParams = hydrated ? {
     search: debouncedSearch || undefined,
@@ -61,9 +66,6 @@ export default function OperacionalPage() {
   } : {}
 
   // ── Board ────────────────────────────────────────────────────────────────────
-  // Limita aos status ativos por padrão para não desperdiçar slots com encerradas.
-  // Remove o filtro quando: usuário busca algo (pesquisa cruza todos os status),
-  // showClosed está ligado, ou um status específico foi selecionado.
   const boardStatuses = !filters.status && !filters.showClosed && !debouncedSearch ? ACTIVE_STATUSES : undefined
 
   const { data: boardResponse, isLoading: boardLoading, isFetching: boardFetching } = useServiceOrders(
@@ -72,7 +74,6 @@ export default function OperacionalPage() {
       : null
   )
 
-  // Acumula ordens do board ao paginar; reseta quando chega nova página 1
   useEffect(() => {
     if (!boardResponse?.data) return
     const responsePage = boardResponse.pagination?.page ?? 1
@@ -100,7 +101,6 @@ export default function OperacionalPage() {
   const listTotal = listResponse?.pagination?.total ?? 0
   const listTotalPages = listResponse?.pagination?.totalPages ?? 1
 
-  // Filtro client-side no board — apenas "Minhas OS" (busca é server-side)
   const filteredBoard = useMemo(() => {
     if (!filters.myOrders || !user) return allBoardOrders
     return allBoardOrders.filter((os) =>
@@ -140,6 +140,7 @@ export default function OperacionalPage() {
         onMyOrdersChange={(v) => set('myOrders', v)}
         showClosed={filters.showClosed}
         onShowClosedChange={(v) => set('showClosed', v)}
+        onBatchCreate={() => setBatchSheetOpen(true)}
       />
 
       {/* Board */}
@@ -148,7 +149,6 @@ export default function OperacionalPage() {
           ? <BoardSkeleton />
           : (
             <div className="flex flex-col flex-1 overflow-hidden">
-              {/* Barra de loading sutil ao refetching */}
               {boardFetching && !boardLoading && (
                 <div className="shrink-0 h-0.5 w-full bg-[#e0e5eb] dark:bg-zinc-800 overflow-hidden">
                   <div className="h-full w-1/2 bg-[#0d4da5] dark:bg-blue-500 rounded-full animate-pulse" />
@@ -156,7 +156,6 @@ export default function OperacionalPage() {
               )}
               <OsBoard orders={filteredBoard} showClosed={filters.showClosed || !!debouncedSearch} onCardClick={handleCardClick} />
 
-              {/* Footer do board: total + carregar mais */}
               {(boardHasMore || boardFetching) ? (
                 <div className="shrink-0 flex items-center justify-center gap-3 py-2 border-t border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950">
                   <span className="text-xs text-[#6c7c93] dark:text-zinc-400">
@@ -185,7 +184,6 @@ export default function OperacionalPage() {
           ? <ListSkeleton />
           : (
             <div className="flex-1 overflow-hidden bg-white dark:bg-zinc-950 mx-4 my-4 rounded-xl border border-[#e0e5eb] dark:border-zinc-800 shadow-sm flex flex-col">
-              {/* Barra de info + loading sutil */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-[#f0f0f0] dark:border-zinc-800 bg-[#fafafa] dark:bg-zinc-900/50 shrink-0">
                 <span className="text-xs text-[#6c7c93] dark:text-zinc-400">
                   {listFetching && !listFirstLoad
@@ -205,7 +203,6 @@ export default function OperacionalPage() {
                 onRowClick={handleCardClick}
               />
 
-              {/* Paginação */}
               {listTotalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2.5 border-t border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0">
                   <span className="text-xs text-[#6c7c93] dark:text-zinc-400">
@@ -258,6 +255,12 @@ export default function OperacionalPage() {
         clientId={selectedOs?.clientId ?? null}
         open={!!selectedOs}
         onClose={() => setSelectedOs(null)}
+      />
+
+      <OsBatchCreateSheet
+        open={batchSheetOpen}
+        onClose={() => setBatchSheetOpen(false)}
+        clientId={batchClientId}
       />
     </div>
   )
