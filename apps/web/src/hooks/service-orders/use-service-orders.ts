@@ -45,7 +45,7 @@ export function useServiceOrders(params?: ListServiceOrdersParams | null) {
     queryKey: serviceOrderKeys.company(params ?? undefined),
     queryFn: () => serviceOrdersService.listCompany(params ?? undefined),
     enabled: params !== null,
-    placeholderData: (prev) => prev,   // mantém dados anteriores visíveis ao trocar de página/filtro
+    placeholderData: (prev) => prev,
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
@@ -72,7 +72,7 @@ export function useMyOsStats() {
 }
 
 // ─────────────────────────────────────────
-// Atualizar OS (título, descrição, prioridade, resolução)
+// Atualizar OS
 // ─────────────────────────────────────────
 export function useUpdateServiceOrder(clientId: string | null, id: string) {
   const qc = useQueryClient()
@@ -89,7 +89,7 @@ export function useUpdateServiceOrder(clientId: string | null, id: string) {
 }
 
 // ─────────────────────────────────────────
-// Detalhes de uma OS (com tarefas, comentários, histórico)
+// Detalhes de uma OS
 // ─────────────────────────────────────────
 export function useServiceOrder(clientId: string | null, id: string) {
   return useQuery({
@@ -131,10 +131,10 @@ export function useCreateServiceOrder() {
 // ─────────────────────────────────────────
 // Criar OS em Lote
 // ─────────────────────────────────────────
-export function useCreateBatchServiceOrders(clientId: string) {
+export function useCreateBatchServiceOrders() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (dto: CreateBatchServiceOrderDto) =>
+    mutationFn: ({ clientId, dto }: { clientId: string; dto: CreateBatchServiceOrderDto }) =>
       serviceOrdersService.createBatch(clientId, dto),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
@@ -384,7 +384,7 @@ export function useRemoveOsMaterial(clientId: string | null, osId: string) {
 }
 
 // ─────────────────────────────────────────
-// Atualizar status via drag-and-drop (params dinâmicos)
+// Atualizar status via drag-and-drop
 // ─────────────────────────────────────────
 export function useUpdateStatusDnd() {
   const qc = useQueryClient()

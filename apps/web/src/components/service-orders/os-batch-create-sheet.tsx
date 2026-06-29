@@ -49,6 +49,7 @@ const PRIORITY_OPTIONS = [
 ]
 
 type FormData = {
+  clientId: string
   equipmentTypeId: string
   equipmentSubtypeId?: string
   locationId?: string
@@ -90,26 +91,28 @@ function Field({
 
 export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipment }: OsBatchCreateSheetProps) {
   const currentUser = useCurrentUser()
-  const { canAccess } = usePermissions()
+  const { isCompanyLevel, canAccess } = usePermissions()
   const hasPreselected = !!preselectedEquipment?.length
-  const canChooseClient = !clientId && canAccess('client', 'list')
-  const fixedClientId = clientId ?? (canChooseClient ? null : currentUser?.clientId ?? null)
+  const canChooseClient = !clientId && (isCompanyLevel || canAccess('client', 'list'))
+  const fixedClientId = clientId ?? (canChooseClient ? null : (currentUser?.clientId ?? null))
 
+  const [clients, setClients] = useState<SimpleOption[]>([])
   const [equipmentTypes, setEquipmentTypes] = useState<SimpleOption[]>([])
   const [equipmentSubtypes, setEquipmentSubtypes] = useState<SimpleOption[]>([])
   const [locations, setLocations] = useState<SimpleOption[]>([])
   const [costCenters, setCostCenters] = useState<SimpleOption[]>([])
   const [groups, setGroups] = useState<SimpleOption[]>([])
   const [result, setResult] = useState<BatchServiceOrderResult | null>(null)
-  const [clients, setClients] = useState<SimpleOption[]>([])
-  const [selectedClientId, setSelectedClientId] = useState<string>(fixedClientId ?? '')
 
-  const createBatch = useCreateBatchServiceOrders(selectedClientId)
+  const createBatch = useCreateBatchServiceOrders()
+
+  const defaultClientId = fixedClientId ?? currentUser?.clientId ?? ''
 
   const form = useForm<FormData>({
     defaultValues: {
       priority: 'MEDIUM',
       maintenanceType: 'CORRECTIVE',
+      clientId: defaultClientId,
     },
   })
 
@@ -119,8 +122,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
   useEffect(() => {
     if (!open) return
     setResult(null)
-    setSelectedClientId(fixedClientId ?? '')
-    form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE' })
+    form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE', clientId: defaultClientId })
     setEquipmentSubtypes([])
 
     if (canChooseClient) {
@@ -146,7 +148,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
     api.get('/maintenance-groups', { params: { limit: 100 } })
       .then(({ data }) => setGroups((data?.data ?? []).map((g: any) => ({ id: g.id, name: g.name }))))
       .catch(() => {})
-  }, [open, hasPreselected, canChooseClient, fixedClientId])
+  }, [open, hasPreselected, canChooseClient, defaultClientId])
 
   useEffect(() => {
     if (!watchedTypeId) { setEquipmentSubtypes([]); return }
@@ -161,31 +163,30 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
   }
 
   async function onSubmit(values: FormData) {
-    if (!selectedClientId) {
+    if (!values.clientId) {
       toast.error('Selecione o prestador responsável pela OS')
       return
     }
     createBatch.mutate(
       {
-        ...(hasPreselected
-          ? { equipmentIds: preselectedEquipment!.map((e) => e.id) }
-          : {
-              equipmentTypeId: values.equipmentTypeId,
-              equipmentSubtypeId: values.equipmentSubtypeId || undefined,
-              locationId: values.locationId || undefined,
-              costCenterId: values.costCenterId || undefined,
-            }),
-        maintenanceType: values.maintenanceType as any,
-        priority: values.priority,
-        title: values.title,
-        description: values.description,
-        groupId: values.groupId || undefined,
-      },
-      {
-        onSuccess: (res) => {
-          setResult(res)
+        clientId: values.clientId,
+        dto: {
+          ...(hasPreselected
+            ? { equipmentIds: preselectedEquipment!.map((e) => e.id) }
+            : {
+                equipmentTypeId: values.equipmentTypeId,
+                equipmentSubtypeId: values.equipmentSubtypeId || undefined,
+                locationId: values.locationId || undefined,
+                costCenterId: values.costCenterId || undefined,
+              }),
+          maintenanceType: values.maintenanceType as any,
+          priority: values.priority,
+          title: values.title,
+          description: values.description,
+          groupId: values.groupId || undefined,
         },
       },
+      { onSuccess: (res) => setResult(res) },
     )
   }
 
@@ -251,7 +252,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
                 Fechar
               </Button>
               <Button
-                onClick={() => { setResult(null); form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE' }) }}
+                onClick={() => { setResult(null); form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE', clientId: defaultClientId }) }}
                 className="flex-1 h-11 font-semibold"
               >
                 Criar Novo Lote
@@ -262,14 +263,19 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto min-h-0">
 
-              {/* ── Seção: Prestador ──────────────────────────────────── */}
-              {canChooseClient && (
-                <div className="px-6 py-5 border-b border-border/60">
-                  <SectionHeader>Prestador</SectionHeader>
-                  <div className="mt-3">
-                    <Field label="Prestador" required>
-                      <Select value={selectedClientId} onValueChange={(v) => setSelectedClientId(v)}>
-                        <SelectTrigger className="h-11 text-sm">
+              {/* ── Seção: Encaminhamento (prestador + grupo) ─────────── */}
+              <div className="px-6 py-5 border-b border-border/60">
+                <SectionHeader>Encaminhamento</SectionHeader>
+                <div className="mt-3 space-y-4">
+                  {fixedClientId ? (
+                    <input type="hidden" {...form.register('clientId')} value={fixedClientId} />
+                  ) : (
+                    <Field label="Prestador" required error={form.formState.errors.clientId?.message}>
+                      <Select
+                        defaultValue={defaultClientId || undefined}
+                        onValueChange={(v) => form.setValue('clientId', v)}
+                      >
+                        <SelectTrigger className={cn('h-11 text-sm', form.formState.errors.clientId && 'border-red-500')}>
                           <SelectValue placeholder="Selecione o prestador" />
                         </SelectTrigger>
                         <SelectContent>
@@ -279,9 +285,25 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
                         </SelectContent>
                       </Select>
                     </Field>
-                  </div>
+                  )}
+
+                  {groups.length > 0 && (
+                    <Field label="Grupo de Manutenção">
+                      <Select onValueChange={(v) => form.setValue('groupId', v === 'none' ? undefined : v)}>
+                        <SelectTrigger className="h-11 text-sm">
+                          <SelectValue placeholder="Sem grupo definido" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem grupo definido</SelectItem>
+                          {groups.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* ── Seção: Equipamentos selecionados ─────────────────── */}
               {hasPreselected ? (
@@ -297,94 +319,72 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
                   </div>
                 </div>
               ) : (
-              <div className="px-6 py-5 border-b border-border/60">
-                <SectionHeader>Filtros de Equipamento</SectionHeader>
-                <div className="mt-3 space-y-4">
-                  <Field label="Tipo de Equipamento" required error={form.formState.errors.equipmentTypeId?.message}>
-                    <Select
-                      onValueChange={(v) => {
-                        form.setValue('equipmentTypeId', v)
-                        form.setValue('equipmentSubtypeId', undefined)
-                      }}
-                    >
-                      <SelectTrigger className={cn('h-11 text-sm', form.formState.errors.equipmentTypeId && 'border-red-500')}>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {equipmentTypes.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  {equipmentSubtypes.length > 0 && (
-                    <Field label="Subtipo">
-                      <Select onValueChange={(v) => form.setValue('equipmentSubtypeId', v === 'all' ? undefined : v)}>
-                        <SelectTrigger className="h-11 text-sm">
-                          <SelectValue placeholder="Todos os subtipos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos os subtipos</SelectItem>
-                          {equipmentSubtypes.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Setor / Local">
-                      <Select onValueChange={(v) => form.setValue('locationId', v === 'all' ? undefined : v)}>
-                        <SelectTrigger className="h-11 text-sm">
-                          <SelectValue placeholder="Todos os setores" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos os setores</SelectItem>
-                          {locations.map((l) => (
-                            <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
-                    <Field label="Centro de Custo">
-                      <Select onValueChange={(v) => form.setValue('costCenterId', v === 'all' ? undefined : v)}>
-                        <SelectTrigger className="h-11 text-sm">
-                          <SelectValue placeholder="Todos" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          {costCenters.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-              </div>
-              )}
-
-              {/* ── Seção: Encaminhamento ────────────────────────────── */}
-              {groups.length > 0 && (
                 <div className="px-6 py-5 border-b border-border/60">
-                  <SectionHeader>Encaminhamento</SectionHeader>
-                  <div className="mt-3">
-                    <Field label="Grupo de Manutenção">
-                      <Select onValueChange={(v) => form.setValue('groupId', v === 'none' ? undefined : v)}>
-                        <SelectTrigger className="h-11 text-sm">
-                          <SelectValue placeholder="Sem grupo definido" />
+                  <SectionHeader>Filtros de Equipamento</SectionHeader>
+                  <div className="mt-3 space-y-4">
+                    <Field label="Tipo de Equipamento" required error={form.formState.errors.equipmentTypeId?.message}>
+                      <Select
+                        onValueChange={(v) => {
+                          form.setValue('equipmentTypeId', v)
+                          form.setValue('equipmentSubtypeId', undefined)
+                        }}
+                      >
+                        <SelectTrigger className={cn('h-11 text-sm', form.formState.errors.equipmentTypeId && 'border-red-500')}>
+                          <SelectValue placeholder="Selecione o tipo" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">Sem grupo definido</SelectItem>
-                          {groups.map((g) => (
-                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          {equipmentTypes.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </Field>
+
+                    {equipmentSubtypes.length > 0 && (
+                      <Field label="Subtipo">
+                        <Select onValueChange={(v) => form.setValue('equipmentSubtypeId', v === 'all' ? undefined : v)}>
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Todos os subtipos" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos os subtipos</SelectItem>
+                            {equipmentSubtypes.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Field label="Setor / Local">
+                        <Select onValueChange={(v) => form.setValue('locationId', v === 'all' ? undefined : v)}>
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Todos os setores" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos os setores</SelectItem>
+                            {locations.map((l) => (
+                              <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+
+                      <Field label="Centro de Custo">
+                        <Select onValueChange={(v) => form.setValue('costCenterId', v === 'all' ? undefined : v)}>
+                          <SelectTrigger className="h-11 text-sm">
+                            <SelectValue placeholder="Todos" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            {costCenters.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </div>
                   </div>
                 </div>
               )}

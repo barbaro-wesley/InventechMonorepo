@@ -39,24 +39,17 @@ export default function OperacionalPage() {
   const [selectedOs, setSelectedOs] = useState<{ id: string; clientId: string } | null>(null)
   const [batchSheetOpen, setBatchSheetOpen] = useState(false)
 
-  // Debounce para busca server-side em ambas as views
   const debouncedSearch = useDebounce(filters.search, 350)
   const isTyping = filters.search !== debouncedSearch
 
-  // Reseta paginação quando filtros mudam
   useEffect(() => { setPage(1) }, [debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId])
   useEffect(() => { setBoardPage(1) }, [debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId])
 
-  // Dados para os dropdowns
   const { data: clientsData } = useClients({ limit: 100 })
   const { data: groupsData } = useMaintenanceGroups({ isActive: true })
   const clients = clientsData?.data ?? []
   const groups = groupsData ?? []
 
-  // Para o batch sheet, usa o primeiro cliente disponível ou o clientId do filtro
-  const batchClientId = filters.clientId || clients[0]?.id || ''
-
-  // Params base dos filtros (compartilhado entre board e list)
   const filterParams = hydrated ? {
     search: debouncedSearch || undefined,
     status: filters.status || undefined,
@@ -65,7 +58,6 @@ export default function OperacionalPage() {
     groupId: filters.groupId || undefined,
   } : {}
 
-  // ── Board ────────────────────────────────────────────────────────────────────
   const boardStatuses = !filters.status && !filters.showClosed && !debouncedSearch ? ACTIVE_STATUSES : undefined
 
   const { data: boardResponse, isLoading: boardLoading, isFetching: boardFetching } = useServiceOrders(
@@ -90,7 +82,6 @@ export default function OperacionalPage() {
   const boardTotal = boardResponse?.pagination?.total ?? 0
   const boardHasMore = !isTyping && !boardFetching && allBoardOrders.length < boardTotal
 
-  // ── Lista ─────────────────────────────────────────────────────────────────────
   const { data: listResponse, isLoading: listFirstLoad, isFetching: listFetching } = useServiceOrders(
     filters.view === 'list'
       ? { ...filterParams, limit: LIST_PAGE_SIZE, page }
@@ -260,7 +251,6 @@ export default function OperacionalPage() {
       <OsBatchCreateSheet
         open={batchSheetOpen}
         onClose={() => setBatchSheetOpen(false)}
-        clientId={batchClientId}
       />
     </div>
   )
