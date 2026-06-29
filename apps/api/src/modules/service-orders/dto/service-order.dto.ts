@@ -59,8 +59,14 @@ export class CreateServiceOrderDto {
 }
 
 export class CreateBatchServiceOrderDto {
+    @IsOptional()
     @IsUUID()
-    equipmentTypeId: string
+    equipmentTypeId?: string
+
+    @IsOptional()
+    @IsArray()
+    @IsUUID('4', { each: true })
+    equipmentIds?: string[]
 
     @IsOptional()
     @IsUUID()

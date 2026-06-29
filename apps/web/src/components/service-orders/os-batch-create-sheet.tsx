@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Loader2, Layers, CheckCircle2, ClipboardList } from 'lucide-react'
+import { toast } from 'sonner'
+import { Loader2, Layers, CheckCircle2, ClipboardList, Wrench } from 'lucide-react'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { useCreateBatchServiceOrders } from '@/hooks/service-orders/use-service-orders'
 import { useCurrentUser } from '@/store/auth.store'
+import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { BatchServiceOrderResult } from '@/services/service-orders/service-orders.types'
@@ -24,7 +26,8 @@ interface SimpleOption { id: string; name: string }
 interface OsBatchCreateSheetProps {
   open: boolean
   onClose: () => void
-  clientId: string
+  clientId?: string
+  preselectedEquipment?: { id: string; name: string }[]
 }
 
 const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
@@ -85,8 +88,12 @@ function Field({
   )
 }
 
-export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateSheetProps) {
+export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipment }: OsBatchCreateSheetProps) {
   const currentUser = useCurrentUser()
+  const { canAccess } = usePermissions()
+  const hasPreselected = !!preselectedEquipment?.length
+  const canChooseClient = !clientId && canAccess('client', 'list')
+  const fixedClientId = clientId ?? (canChooseClient ? null : currentUser?.clientId ?? null)
 
   const [equipmentTypes, setEquipmentTypes] = useState<SimpleOption[]>([])
   const [equipmentSubtypes, setEquipmentSubtypes] = useState<SimpleOption[]>([])
@@ -94,8 +101,10 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
   const [costCenters, setCostCenters] = useState<SimpleOption[]>([])
   const [groups, setGroups] = useState<SimpleOption[]>([])
   const [result, setResult] = useState<BatchServiceOrderResult | null>(null)
+  const [clients, setClients] = useState<SimpleOption[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<string>(fixedClientId ?? '')
 
-  const createBatch = useCreateBatchServiceOrders(clientId)
+  const createBatch = useCreateBatchServiceOrders(selectedClientId)
 
   const form = useForm<FormData>({
     defaultValues: {
@@ -110,25 +119,34 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
   useEffect(() => {
     if (!open) return
     setResult(null)
+    setSelectedClientId(fixedClientId ?? '')
     form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE' })
     setEquipmentSubtypes([])
 
-    api.get('/equipment-types', { params: { limit: 200 } })
-      .then(({ data }) => setEquipmentTypes((data?.data ?? data ?? []).map((t: any) => ({ id: t.id, name: t.name }))))
-      .catch(() => {})
+    if (canChooseClient) {
+      api.get('/clients', { params: { limit: 100 } })
+        .then(({ data }) => setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name }))))
+        .catch(() => {})
+    }
 
-    api.get('/locations', { params: { limit: 200 } })
-      .then(({ data }) => setLocations((data?.data ?? []).map((l: any) => ({ id: l.id, name: l.name }))))
-      .catch(() => {})
+    if (!hasPreselected) {
+      api.get('/equipment-types', { params: { limit: 200 } })
+        .then(({ data }) => setEquipmentTypes((data?.data ?? data ?? []).map((t: any) => ({ id: t.id, name: t.name }))))
+        .catch(() => {})
 
-    api.get('/cost-centers', { params: { limit: 100 } })
-      .then(({ data }) => setCostCenters((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name }))))
-      .catch(() => {})
+      api.get('/locations', { params: { limit: 200 } })
+        .then(({ data }) => setLocations((data?.data ?? []).map((l: any) => ({ id: l.id, name: l.name }))))
+        .catch(() => {})
+
+      api.get('/cost-centers', { params: { limit: 100 } })
+        .then(({ data }) => setCostCenters((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name }))))
+        .catch(() => {})
+    }
 
     api.get('/maintenance-groups', { params: { limit: 100 } })
       .then(({ data }) => setGroups((data?.data ?? []).map((g: any) => ({ id: g.id, name: g.name }))))
       .catch(() => {})
-  }, [open])
+  }, [open, hasPreselected, canChooseClient, fixedClientId])
 
   useEffect(() => {
     if (!watchedTypeId) { setEquipmentSubtypes([]); return }
@@ -143,12 +161,20 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
   }
 
   async function onSubmit(values: FormData) {
+    if (!selectedClientId) {
+      toast.error('Selecione o prestador responsável pela OS')
+      return
+    }
     createBatch.mutate(
       {
-        equipmentTypeId: values.equipmentTypeId,
-        equipmentSubtypeId: values.equipmentSubtypeId || undefined,
-        locationId: values.locationId || undefined,
-        costCenterId: values.costCenterId || undefined,
+        ...(hasPreselected
+          ? { equipmentIds: preselectedEquipment!.map((e) => e.id) }
+          : {
+              equipmentTypeId: values.equipmentTypeId,
+              equipmentSubtypeId: values.equipmentSubtypeId || undefined,
+              locationId: values.locationId || undefined,
+              costCenterId: values.costCenterId || undefined,
+            }),
         maintenanceType: values.maintenanceType as any,
         priority: values.priority,
         title: values.title,
@@ -177,7 +203,11 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
             </div>
             <div className="min-w-0">
               <SheetTitle className="text-base font-semibold leading-tight">Criação de OS em Lote</SheetTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Cria OS para todos os equipamentos ativos do tipo selecionado</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {hasPreselected
+                  ? `Cria uma OS para cada um dos ${preselectedEquipment!.length} equipamentos selecionados`
+                  : 'Cria OS para todos os equipamentos ativos do tipo selecionado'}
+              </p>
             </div>
           </div>
         </SheetHeader>
@@ -232,7 +262,41 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto min-h-0">
 
-              {/* ── Seção: Filtros de Equipamento ────────────────────── */}
+              {/* ── Seção: Prestador ──────────────────────────────────── */}
+              {canChooseClient && (
+                <div className="px-6 py-5 border-b border-border/60">
+                  <SectionHeader>Prestador</SectionHeader>
+                  <div className="mt-3">
+                    <Field label="Prestador" required>
+                      <Select value={selectedClientId} onValueChange={(v) => setSelectedClientId(v)}>
+                        <SelectTrigger className="h-11 text-sm">
+                          <SelectValue placeholder="Selecione o prestador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Seção: Equipamentos selecionados ─────────────────── */}
+              {hasPreselected ? (
+                <div className="px-6 py-5 border-b border-border/60">
+                  <SectionHeader>Equipamentos selecionados ({preselectedEquipment!.length})</SectionHeader>
+                  <div className="mt-3 rounded-xl border border-border overflow-hidden divide-y divide-border/60 max-h-48 overflow-y-auto">
+                    {preselectedEquipment!.map((eq) => (
+                      <div key={eq.id} className="flex items-center gap-2.5 px-4 py-2.5 bg-card">
+                        <Wrench className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm truncate">{eq.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
               <div className="px-6 py-5 border-b border-border/60">
                 <SectionHeader>Filtros de Equipamento</SectionHeader>
                 <div className="mt-3 space-y-4">
@@ -301,6 +365,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
                   </div>
                 </div>
               </div>
+              )}
 
               {/* ── Seção: Encaminhamento ────────────────────────────── */}
               {groups.length > 0 && (

@@ -246,7 +246,8 @@ export interface CreateServiceOrderDto {
 }
 
 export interface CreateBatchServiceOrderDto {
-  equipmentTypeId: string
+  equipmentTypeId?: string
+  equipmentIds?: string[]
   equipmentSubtypeId?: string
   locationId?: string
   costCenterId?: string

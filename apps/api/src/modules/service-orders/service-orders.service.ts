@@ -723,16 +723,27 @@ export class ServiceOrdersService {
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
+        if (!dto.equipmentIds?.length && !dto.equipmentTypeId) {
+            throw new BadRequestException('Informe os equipamentos ou um tipo de equipamento para o lote')
+        }
+
         const equipmentList = await this.prisma.equipment.findMany({
-            where: {
-                companyId,
-                typeId: dto.equipmentTypeId,
-                deletedAt: null,
-                status: EquipmentStatus.ACTIVE,
-                ...(dto.equipmentSubtypeId && { subtypeId: dto.equipmentSubtypeId }),
-                ...(dto.locationId && { locationId: dto.locationId }),
-                ...(dto.costCenterId && { costCenterId: dto.costCenterId }),
-            },
+            where: dto.equipmentIds?.length
+                ? {
+                    companyId,
+                    id: { in: dto.equipmentIds },
+                    deletedAt: null,
+                    status: EquipmentStatus.ACTIVE,
+                }
+                : {
+                    companyId,
+                    typeId: dto.equipmentTypeId,
+                    deletedAt: null,
+                    status: EquipmentStatus.ACTIVE,
+                    ...(dto.equipmentSubtypeId && { subtypeId: dto.equipmentSubtypeId }),
+                    ...(dto.locationId && { locationId: dto.locationId }),
+                    ...(dto.costCenterId && { costCenterId: dto.costCenterId }),
+                },
             select: { id: true, name: true },
         })
 
