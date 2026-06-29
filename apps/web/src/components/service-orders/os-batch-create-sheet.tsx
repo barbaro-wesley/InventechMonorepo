@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { useCreateBatchServiceOrders } from '@/hooks/service-orders/use-service-orders'
 import { useCurrentUser } from '@/store/auth.store'
+import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { BatchServiceOrderResult } from '@/services/service-orders/service-orders.types'
@@ -24,7 +25,6 @@ interface SimpleOption { id: string; name: string }
 interface OsBatchCreateSheetProps {
   open: boolean
   onClose: () => void
-  clientId: string
 }
 
 const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
@@ -46,6 +46,7 @@ const PRIORITY_OPTIONS = [
 ]
 
 type FormData = {
+  clientId: string
   equipmentTypeId: string
   equipmentSubtypeId?: string
   locationId?: string
@@ -85,9 +86,13 @@ function Field({
   )
 }
 
-export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateSheetProps) {
+export function OsBatchCreateSheet({ open, onClose }: OsBatchCreateSheetProps) {
   const currentUser = useCurrentUser()
+  const { isCompanyLevel, canAccess } = usePermissions()
+  const canChooseClient = isCompanyLevel || canAccess('client', 'list')
+  const fixedClientId = canChooseClient ? null : (currentUser?.clientId ?? null)
 
+  const [clients, setClients] = useState<SimpleOption[]>([])
   const [equipmentTypes, setEquipmentTypes] = useState<SimpleOption[]>([])
   const [equipmentSubtypes, setEquipmentSubtypes] = useState<SimpleOption[]>([])
   const [locations, setLocations] = useState<SimpleOption[]>([])
@@ -95,12 +100,15 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
   const [groups, setGroups] = useState<SimpleOption[]>([])
   const [result, setResult] = useState<BatchServiceOrderResult | null>(null)
 
-  const createBatch = useCreateBatchServiceOrders(clientId)
+  const createBatch = useCreateBatchServiceOrders()
+
+  const defaultClientId = fixedClientId ?? currentUser?.clientId ?? ''
 
   const form = useForm<FormData>({
     defaultValues: {
       priority: 'MEDIUM',
       maintenanceType: 'CORRECTIVE',
+      clientId: defaultClientId,
     },
   })
 
@@ -110,8 +118,14 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
   useEffect(() => {
     if (!open) return
     setResult(null)
-    form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE' })
+    form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE', clientId: defaultClientId })
     setEquipmentSubtypes([])
+
+    if (canChooseClient) {
+      api.get('/clients', { params: { limit: 100 } })
+        .then(({ data }) => setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name }))))
+        .catch(() => {})
+    }
 
     api.get('/equipment-types', { params: { limit: 200 } })
       .then(({ data }) => setEquipmentTypes((data?.data ?? data ?? []).map((t: any) => ({ id: t.id, name: t.name }))))
@@ -145,21 +159,20 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
   async function onSubmit(values: FormData) {
     createBatch.mutate(
       {
-        equipmentTypeId: values.equipmentTypeId,
-        equipmentSubtypeId: values.equipmentSubtypeId || undefined,
-        locationId: values.locationId || undefined,
-        costCenterId: values.costCenterId || undefined,
-        maintenanceType: values.maintenanceType as any,
-        priority: values.priority,
-        title: values.title,
-        description: values.description,
-        groupId: values.groupId || undefined,
-      },
-      {
-        onSuccess: (res) => {
-          setResult(res)
+        clientId: values.clientId,
+        dto: {
+          equipmentTypeId: values.equipmentTypeId,
+          equipmentSubtypeId: values.equipmentSubtypeId || undefined,
+          locationId: values.locationId || undefined,
+          costCenterId: values.costCenterId || undefined,
+          maintenanceType: values.maintenanceType as any,
+          priority: values.priority,
+          title: values.title,
+          description: values.description,
+          groupId: values.groupId || undefined,
         },
       },
+      { onSuccess: (res) => setResult(res) },
     )
   }
 
@@ -221,7 +234,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
                 Fechar
               </Button>
               <Button
-                onClick={() => { setResult(null); form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE' }) }}
+                onClick={() => { setResult(null); form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE', clientId: defaultClientId }) }}
                 className="flex-1 h-11 font-semibold"
               >
                 Criar Novo Lote
@@ -231,6 +244,48 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
         ) : (
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto min-h-0">
+
+              {/* ── Seção: Encaminhamento (prestador + grupo) ─────────── */}
+              <div className="px-6 py-5 border-b border-border/60">
+                <SectionHeader>Encaminhamento</SectionHeader>
+                <div className="mt-3 space-y-4">
+                  {fixedClientId ? (
+                    <input type="hidden" {...form.register('clientId')} value={fixedClientId} />
+                  ) : (
+                    <Field label="Prestador" required error={form.formState.errors.clientId?.message}>
+                      <Select
+                        defaultValue={defaultClientId || undefined}
+                        onValueChange={(v) => form.setValue('clientId', v)}
+                      >
+                        <SelectTrigger className={cn('h-11 text-sm', form.formState.errors.clientId && 'border-red-500')}>
+                          <SelectValue placeholder="Selecione o prestador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
+
+                  {groups.length > 0 && (
+                    <Field label="Grupo de Manutenção">
+                      <Select onValueChange={(v) => form.setValue('groupId', v === 'none' ? undefined : v)}>
+                        <SelectTrigger className="h-11 text-sm">
+                          <SelectValue placeholder="Sem grupo definido" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem grupo definido</SelectItem>
+                          {groups.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
+                </div>
+              </div>
 
               {/* ── Seção: Filtros de Equipamento ────────────────────── */}
               <div className="px-6 py-5 border-b border-border/60">
@@ -301,28 +356,6 @@ export function OsBatchCreateSheet({ open, onClose, clientId }: OsBatchCreateShe
                   </div>
                 </div>
               </div>
-
-              {/* ── Seção: Encaminhamento ────────────────────────────── */}
-              {groups.length > 0 && (
-                <div className="px-6 py-5 border-b border-border/60">
-                  <SectionHeader>Encaminhamento</SectionHeader>
-                  <div className="mt-3">
-                    <Field label="Grupo de Manutenção">
-                      <Select onValueChange={(v) => form.setValue('groupId', v === 'none' ? undefined : v)}>
-                        <SelectTrigger className="h-11 text-sm">
-                          <SelectValue placeholder="Sem grupo definido" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sem grupo definido</SelectItem>
-                          {groups.map((g) => (
-                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-                </div>
-              )}
 
               {/* ── Seção: Detalhes ──────────────────────────────────── */}
               <div className="px-6 py-5 border-b border-border/60">
