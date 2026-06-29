@@ -58,6 +58,44 @@ export class CreateServiceOrderDto {
     alertAfterHours?: number
 }
 
+export class CreateBatchServiceOrderDto {
+    @IsUUID()
+    equipmentTypeId: string
+
+    @IsOptional()
+    @IsUUID()
+    equipmentSubtypeId?: string
+
+    @IsOptional()
+    @IsUUID()
+    locationId?: string
+
+    @IsOptional()
+    @IsUUID()
+    costCenterId?: string
+
+    @IsEnum(MaintenanceType)
+    maintenanceType: MaintenanceType
+
+    @IsString()
+    title: string
+
+    @IsString()
+    description: string
+
+    @IsOptional()
+    @IsEnum(ServiceOrderPriority)
+    priority?: ServiceOrderPriority
+
+    @IsOptional()
+    @IsUUID()
+    groupId?: string
+
+    @IsOptional()
+    @IsString()
+    scheduledFor?: string
+}
+
 export class UpdateServiceOrderDto {
     @IsOptional()
     @IsString()
