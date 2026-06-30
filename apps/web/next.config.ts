@@ -39,8 +39,8 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       // Estilos inline usados pelo Tailwind/shadcn
       "style-src 'self' 'unsafe-inline'",
-      // Imagens: self + data URIs (avatares base64)
-      "img-src 'self' data: blob:",
+      // Imagens: self + data URIs + MinIO/S3 público (avatares e logos)
+      `img-src 'self' data: blob: ${process.env.NEXT_PUBLIC_STORAGE_URL ?? "http://localhost:9000"}`,
       // Fontes locais
       "font-src 'self'",
       // API backend (ajuste a porta/domínio conforme ambiente)

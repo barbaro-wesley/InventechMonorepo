@@ -1,5 +1,5 @@
 import {
-    IsBoolean, IsDateString, IsEnum, IsInt,
+    IsArray, IsBoolean, IsDateString, IsEnum, IsInt,
     IsOptional, IsString, IsUUID, Max, Min,
 } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -134,6 +134,54 @@ export class CreateScheduleDto {
     assignedTechnicianId?: string
 
     // Grupo responsável pelas OS geradas
+    @IsOptional()
+    @IsUUID()
+    groupId?: string
+
+    @IsDateString()
+    startDate: string
+
+    @IsOptional()
+    @IsDateString()
+    endDate?: string
+
+    @IsOptional()
+    @IsUUID()
+    checklistTemplateId?: string
+}
+
+export class CreateBatchScheduleDto {
+    @IsArray()
+    @IsUUID('4', { each: true })
+    equipmentIds: string[]
+
+    @IsString()
+    title: string
+
+    @IsOptional()
+    @IsString()
+    description?: string
+
+    @IsEnum(MaintenanceType)
+    maintenanceType: MaintenanceType
+
+    @IsEnum(RecurrenceType)
+    recurrenceType: RecurrenceType
+
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    customIntervalDays?: number
+
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    estimatedDurationMin?: number
+
+    @IsOptional()
+    @IsUUID()
+    assignedTechnicianId?: string
+
     @IsOptional()
     @IsUUID()
     groupId?: string

@@ -55,6 +55,11 @@ export const EVENT_VARIABLE_REGISTRY: Record<EventType, VariableDefinition[]> = 
         { key: 'osNumber',       label: 'Número da OS filha', type: 'number' },
         { key: 'osTitle',        label: 'Título da OS filha', type: 'string' },
     ],
+    [EventType.OS_BATCH_CREATED]: [
+        { key: 'createdCount',   label: 'Qtd. de OS criadas', type: 'number' },
+        { key: 'equipmentNames', label: 'Equipamentos',        type: 'string' },
+        { key: 'numbers',        label: 'Números das OS',      type: 'string' },
+    ],
     [EventType.EQUIPMENT_CREATED]: [
         { key: 'equipmentName', label: 'Equipamento',  type: 'string' },
         { key: 'brand',         label: 'Marca',         type: 'string' },

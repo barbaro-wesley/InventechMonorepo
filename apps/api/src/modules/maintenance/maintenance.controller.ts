@@ -10,6 +10,7 @@ import {
     UpdateMaintenanceDto,
     ListMaintenancesDto,
     CreateScheduleDto,
+    CreateBatchScheduleDto,
     UpdateScheduleDto,
     ListSchedulesDto,
     ToggleScheduleDto,
@@ -164,6 +165,17 @@ export class ScheduleController {
     ) {
         this.assertClientAccess(cu, clientId)
         return this.maintenanceService.createSchedule(dto, clientId, cu.companyId!, cu)
+    }
+
+    @Post('batch')
+    @Permission('maintenance-schedule:create')
+    createBatch(
+        @Param('clientId', ParseUUIDPipe) clientId: string,
+        @Body() dto: CreateBatchScheduleDto,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        this.assertClientAccess(cu, clientId)
+        return this.maintenanceService.createBatchSchedule(dto, clientId, cu.companyId!, cu)
     }
 
     @Patch(':id')

@@ -281,8 +281,7 @@ export class StorageService implements OnModuleInit {
       'Content-Type': file.mimetype,
     })
 
-    // URL proxy via API — MinIO não é acessível externamente em produção
-    const url = this.buildAvatarProxyUrl(userId)
+    const url = this.buildPublicUrl(bucket, key)
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -299,33 +298,50 @@ export class StorageService implements OnModuleInit {
   // ─────────────────────────────────────────
   async streamAvatar(userId: string) {
     const bucket = 'avatars'
-    const prefix = `${userId}/avatar`
+    const candidates: Array<{ ext: string; mime: string }> = [
+      { ext: '.jpg',  mime: 'image/jpeg' },
+      { ext: '.jpeg', mime: 'image/jpeg' },
+      { ext: '.png',  mime: 'image/png' },
+      { ext: '.webp', mime: 'image/webp' },
+      { ext: '.gif',  mime: 'image/gif' },
+    ]
 
-    const key = await new Promise<string | null>((resolve, reject) => {
-      let found: string | null = null
-      const stream = this.client.listObjects(bucket, prefix, false)
-      stream.on('data', (obj) => { if (obj.name && !found) found = obj.name })
-      stream.on('end', () => resolve(found))
-      stream.on('error', reject)
-    })
-
-    if (!key) throw new NotFoundException('Avatar não encontrado')
-
-    const ext = key.substring(key.lastIndexOf('.')).toLowerCase()
-    const mimeTypes: Record<string, string> = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.webp': 'image/webp',
-      '.gif': 'image/gif',
+    for (const { ext, mime } of candidates) {
+      try {
+        const fileStream = await this.client.getObject(bucket, `${userId}/avatar${ext}`)
+        return { stream: fileStream, mimeType: mime }
+      } catch {
+        // tenta próxima extensão
+      }
     }
 
-    try {
-      const fileStream = await this.client.getObject(bucket, key)
-      return { stream: fileStream, mimeType: mimeTypes[ext] ?? 'image/jpeg' }
-    } catch {
-      throw new InternalServerErrorException('Erro ao carregar avatar')
+    throw new NotFoundException('Avatar não encontrado')
+  }
+
+  // ─────────────────────────────────────────
+  // Serve o logo da empresa via stream — proxy do MinIO,
+  // nunca exposto diretamente ao browser.
+  // ─────────────────────────────────────────
+  async streamLogo(companyId: string) {
+    const bucket = 'avatars'
+    const candidates: Array<{ ext: string; mime: string }> = [
+      { ext: '.png',  mime: 'image/png' },
+      { ext: '.jpg',  mime: 'image/jpeg' },
+      { ext: '.jpeg', mime: 'image/jpeg' },
+      { ext: '.webp', mime: 'image/webp' },
+      { ext: '.svg',  mime: 'image/svg+xml' },
+    ]
+
+    for (const { ext, mime } of candidates) {
+      try {
+        const fileStream = await this.client.getObject(bucket, `logos/${companyId}/logo${ext}`)
+        return { stream: fileStream, mimeType: mime }
+      } catch {
+        // tenta próxima extensão
+      }
     }
+
+    throw new NotFoundException('Logo não encontrado')
   }
 
   // ─────────────────────────────────────────

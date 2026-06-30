@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Loader2, Wrench, AlertTriangle, Paperclip, X, ClipboardList, Check } from 'lucide-react'
+import { Loader2, Wrench, AlertTriangle, Paperclip, X, ClipboardList, Layers } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateServiceOrder } from '@/hooks/service-orders/use-service-orders'
+import { useCreateServiceOrder, useCreateBatchServiceOrders } from '@/hooks/service-orders/use-service-orders'
 import { useCurrentUser } from '@/store/auth.store'
 import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
@@ -48,6 +48,7 @@ const PRIORITY_OPTIONS = [
 type FormData = {
   clientId: string
   technicianId?: string
+  groupId?: string
   title: string
   description: string
   maintenanceType: string
@@ -75,7 +76,8 @@ function getAvatarColor(name: string) {
 }
 
 interface EquipmentOsCreateSheetProps {
-  equipment: Equipment | null
+  equipment?: Equipment | null
+  batchEquipment?: { id: string; name: string }[]
   open: boolean
   onClose: () => void
 }
@@ -114,14 +116,17 @@ function Field({
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOsCreateSheetProps) {
+export function EquipmentOsCreateSheet({ equipment, batchEquipment, open, onClose }: EquipmentOsCreateSheetProps) {
   const currentUser = useCurrentUser()
   const { canAccess } = usePermissions()
+  const isBatch = !!batchEquipment?.length
+
   const [clients, setClients] = useState<SimpleOption[]>([])
   const [loadingClients, setLoadingClients] = useState(false)
   const [technicians, setTechnicians] = useState<SimpleOption[]>([])
   const [selectedTechnician, setSelectedTechnician] = useState<SimpleOption | null>(null)
   const [loadingTechnicians, setLoadingTechnicians] = useState(false)
+  const [groups, setGroups] = useState<SimpleOption[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>('')
   const [selectedClient, setSelectedClient] = useState<SimpleOption | null>(null)
   const [editingClient, setEditingClient] = useState(false)
@@ -130,6 +135,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const createOs = useCreateServiceOrder()
+  const createBatch = useCreateBatchServiceOrders()
 
   const equipmentGroup = equipment?.type?.group ?? null
   const canChooseClient = canAccess('client', 'list')
@@ -167,9 +173,15 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
         .then(({ data }) => setClients((data?.data ?? []).map((c: any) => ({ id: c.id, name: c.name }))))
         .finally(() => setLoadingClients(false))
     }
+    if (isBatch) {
+      api.get('/maintenance-groups', { params: { limit: 100 } })
+        .then(({ data }) => setGroups((data?.data ?? []).map((g: any) => ({ id: g.id, name: g.name }))))
+        .catch(() => {})
+    }
   }, [open])
 
   useEffect(() => {
+    if (isBatch) return
     setSelectedTechnician(null)
     setEditingTechnician(false)
     form.setValue('technicianId', undefined)
@@ -195,33 +207,57 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
   }
 
   const onSubmit = (values: FormData) => {
-    if (!equipment) return
-    createOs.mutate(
-      {
-        clientId: values.clientId,
-        equipmentId: equipment.id,
-        title: values.title,
-        description: values.description,
-        maintenanceType: values.maintenanceType as any,
-        priority: values.priority,
-        groupId: equipmentGroup?.id ?? undefined,
-        technicianId: values.technicianId || undefined,
-        alertAfterHours: values.alertAfterHours,
-      },
-      {
-        onSuccess: async (os) => {
-          if (files.length > 0) {
-            await Promise.allSettled(
-              files.map((file) => storageService.upload(file, 'SERVICE_ORDER', os.id))
-            )
-          }
-          form.reset()
-          setFiles([])
-          onClose()
+    if (isBatch) {
+      createBatch.mutate(
+        {
+          clientId: values.clientId,
+          dto: {
+            equipmentIds: batchEquipment!.map((e) => e.id),
+            maintenanceType: values.maintenanceType as any,
+            priority: values.priority,
+            title: values.title,
+            description: values.description,
+            groupId: values.groupId || undefined,
+          },
         },
-      },
-    )
+        {
+          onSuccess: () => {
+            form.reset()
+            onClose()
+          },
+        },
+      )
+    } else {
+      if (!equipment) return
+      createOs.mutate(
+        {
+          clientId: values.clientId,
+          equipmentId: equipment.id,
+          title: values.title,
+          description: values.description,
+          maintenanceType: values.maintenanceType as any,
+          priority: values.priority,
+          groupId: equipmentGroup?.id ?? undefined,
+          technicianId: values.technicianId || undefined,
+          alertAfterHours: values.alertAfterHours,
+        },
+        {
+          onSuccess: async (os) => {
+            if (files.length > 0) {
+              await Promise.allSettled(
+                files.map((file) => storageService.upload(file, 'SERVICE_ORDER', os.id))
+              )
+            }
+            form.reset()
+            setFiles([])
+            onClose()
+          },
+        },
+      )
+    }
   }
+
+  const isPending = createOs.isPending || createBatch.isPending
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
@@ -233,11 +269,20 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
         <SheetHeader className="px-6 py-4 border-b border-border bg-muted/20 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <ClipboardList className="w-5 h-5 text-primary" />
+              {isBatch
+                ? <Layers className="w-5 h-5 text-primary" />
+                : <ClipboardList className="w-5 h-5 text-primary" />
+              }
             </div>
             <div className="min-w-0">
-              <SheetTitle className="text-base font-semibold leading-tight">Nova Ordem de Serviço</SheetTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">Preencha os dados para registrar a solicitação</p>
+              <SheetTitle className="text-base font-semibold leading-tight">
+                {isBatch ? 'Criação de OS em Lote' : 'Nova Ordem de Serviço'}
+              </SheetTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isBatch
+                  ? `Cria uma OS para cada um dos ${batchEquipment!.length} equipamentos selecionados`
+                  : 'Preencha os dados para registrar a solicitação'}
+              </p>
             </div>
           </div>
         </SheetHeader>
@@ -247,41 +292,56 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
 
           <div className="flex-1 overflow-y-auto min-h-0">
 
-            {/* ── Seção: Equipamento ───────────────────────────────── */}
+            {/* ── Seção: Equipamento(s) ────────────────────────────── */}
             <div className="px-6 py-5 border-b border-border/60">
-              <SectionHeader>Equipamento</SectionHeader>
+              <SectionHeader>
+                {isBatch ? `Equipamentos (${batchEquipment!.length})` : 'Equipamento'}
+              </SectionHeader>
               <div className="mt-3 space-y-3">
-                {equipment && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5">
-                    <div
-                      className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #3b82f6, #f97316)' }}
-                    >
-                      <Wrench className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{equipment.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                        {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(' › ') || 'Equipamento selecionado'}
-                      </p>
-                    </div>
-                    {equipmentGroup && (
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium shrink-0">
-                        {equipmentGroup.name}
-                      </span>
+                {isBatch ? (
+                  <div className="rounded-xl border border-border overflow-hidden divide-y divide-border/60 max-h-48 overflow-y-auto">
+                    {batchEquipment!.map((eq) => (
+                      <div key={eq.id} className="flex items-center gap-2.5 px-4 py-2.5 bg-card">
+                        <Wrench className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm truncate">{eq.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    {equipment && (
+                      <div className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #3b82f6, #f97316)' }}
+                        >
+                          <Wrench className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{equipment.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {[equipment.type?.name, equipment.subtype?.name].filter(Boolean).join(' › ') || 'Equipamento selecionado'}
+                          </p>
+                        </div>
+                        {equipmentGroup && (
+                          <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium shrink-0">
+                            {equipmentGroup.name}
+                          </span>
+                        )}
+                      </div>
                     )}
-                  </div>
-                )}
 
-                {equipment && !equipmentGroup && (
-                  <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs">
-                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                    <p>
-                      O tipo deste equipamento não tem grupo de manutenção vinculado.
-                      A OS será criada sem grupo e qualquer técnico poderá assumir.
-                      Configure o grupo no cadastro de tipos para rotear corretamente.
-                    </p>
-                  </div>
+                    {equipment && !equipmentGroup && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs">
+                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                        <p>
+                          O tipo deste equipamento não tem grupo de manutenção vinculado.
+                          A OS será criada sem grupo e qualquer técnico poderá assumir.
+                          Configure o grupo no cadastro de tipos para rotear corretamente.
+                        </p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -293,7 +353,7 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
                 <Field label="Título" required error={form.formState.errors.title?.message}>
                   <Input
                     {...form.register('title', { required: 'Título obrigatório' })}
-                    placeholder="Ex: Falha no compressor do ar condicionado"
+                    placeholder={isBatch ? 'Ex: Manutenção preventiva anual' : 'Ex: Falha no compressor do ar condicionado'}
                     className={cn('h-11 text-sm', form.formState.errors.title && 'border-red-500')}
                   />
                 </Field>
@@ -301,7 +361,9 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
                 <Field label="Descrição" required error={form.formState.errors.description?.message}>
                   <Textarea
                     {...form.register('description', { required: 'Descrição obrigatória' })}
-                    placeholder="Descreva o problema ou serviço a ser realizado..."
+                    placeholder={isBatch
+                      ? 'Descreva o serviço a ser realizado em todos os equipamentos do lote...'
+                      : 'Descreva o problema ou serviço a ser realizado...'}
                     rows={4}
                     className={cn(
                       'text-sm resize-none min-h-[100px]',
@@ -368,70 +430,93 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
                   </div>
                 )}
 
-                {/* ── Técnico ────────────────────────────────────────── */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Técnico Responsável</Label>
-
-                  {!selectedClientId ? (
-                    <div className="p-2.5 rounded-lg border border-dashed border-border/60 bg-muted/10 h-[42px] flex items-center">
-                      <p className="text-xs text-muted-foreground">Selecione o prestador primeiro</p>
-                    </div>
-                  ) : selectedTechnician && !editingTechnician ? (
-                    <div className="flex items-center gap-2 p-2.5 rounded-lg border border-primary/20 bg-primary/5">
-                      <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0', getAvatarColor(selectedTechnician.name))}>
-                        {getInitials(selectedTechnician.name)}
+                {/* ── Técnico (OS única) ou Grupo (lote) ─────────────── */}
+                {isBatch ? (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Grupo de Manutenção</Label>
+                    {groups.length === 0 ? (
+                      <div className="p-2.5 rounded-lg border border-dashed border-border/60 bg-muted/10 h-[42px] flex items-center">
+                        <p className="text-xs text-muted-foreground">Nenhum grupo cadastrado</p>
                       </div>
-                      <span className="flex-1 text-xs font-semibold truncate">{selectedTechnician.name}</span>
-                      <button type="button" onClick={() => setEditingTechnician(true)}
-                        className="text-xs text-primary hover:underline shrink-0 font-medium">
-                        Trocar
-                      </button>
-                    </div>
-                  ) : loadingTechnicians ? (
-                    <div className="flex flex-col gap-1">
-                      {[1, 2].map((i) => (
-                        <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg border border-border/40 bg-muted/20 animate-pulse">
-                          <div className="w-7 h-7 rounded-full bg-muted/60 shrink-0" />
-                          <div className="h-2.5 w-16 rounded-full bg-muted/60" />
+                    ) : (
+                      <Select onValueChange={(v) => form.setValue('groupId', v === 'none' ? undefined : v)}>
+                        <SelectTrigger className="h-11 text-sm">
+                          <SelectValue placeholder="Sem grupo definido" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem grupo definido</SelectItem>
+                          {groups.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Técnico Responsável</Label>
+
+                    {!selectedClientId ? (
+                      <div className="p-2.5 rounded-lg border border-dashed border-border/60 bg-muted/10 h-[42px] flex items-center">
+                        <p className="text-xs text-muted-foreground">Selecione o prestador primeiro</p>
+                      </div>
+                    ) : selectedTechnician && !editingTechnician ? (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg border border-primary/20 bg-primary/5">
+                        <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0', getAvatarColor(selectedTechnician.name))}>
+                          {getInitials(selectedTechnician.name)}
                         </div>
-                      ))}
-                    </div>
-                  ) : technicians.length === 0 ? (
-                    <div className="p-2.5 rounded-lg border border-dashed border-border/60 bg-muted/10 h-[42px] flex items-center">
-                      <p className="text-xs text-muted-foreground">Nenhum usuário encontrado</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
-                      <button
-                        type="button"
-                        onClick={() => { setSelectedTechnician(null); form.setValue('technicianId', undefined); setEditingTechnician(false) }}
-                        className="flex items-center gap-2 p-2.5 rounded-lg border border-border/60 bg-card hover:bg-muted/40 hover:border-border text-left transition-all duration-150 w-full"
-                      >
-                        <div className="w-7 h-7 rounded-full bg-muted/50 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">—</div>
-                        <span className="text-xs text-muted-foreground">Sem técnico</span>
-                      </button>
-                      {technicians.map((t) => (
+                        <span className="flex-1 text-xs font-semibold truncate">{selectedTechnician.name}</span>
+                        <button type="button" onClick={() => setEditingTechnician(true)}
+                          className="text-xs text-primary hover:underline shrink-0 font-medium">
+                          Trocar
+                        </button>
+                      </div>
+                    ) : loadingTechnicians ? (
+                      <div className="flex flex-col gap-1">
+                        {[1, 2].map((i) => (
+                          <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg border border-border/40 bg-muted/20 animate-pulse">
+                            <div className="w-7 h-7 rounded-full bg-muted/60 shrink-0" />
+                            <div className="h-2.5 w-16 rounded-full bg-muted/60" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : technicians.length === 0 ? (
+                      <div className="p-2.5 rounded-lg border border-dashed border-border/60 bg-muted/10 h-[42px] flex items-center">
+                        <p className="text-xs text-muted-foreground">Nenhum usuário encontrado</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
                         <button
-                          key={t.id}
                           type="button"
-                          onClick={() => { setSelectedTechnician(t); form.setValue('technicianId', t.id); setEditingTechnician(false) }}
+                          onClick={() => { setSelectedTechnician(null); form.setValue('technicianId', undefined); setEditingTechnician(false) }}
                           className="flex items-center gap-2 p-2.5 rounded-lg border border-border/60 bg-card hover:bg-muted/40 hover:border-border text-left transition-all duration-150 w-full"
                         >
-                          <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0', getAvatarColor(t.name))}>
-                            {getInitials(t.name)}
-                          </div>
-                          <span className="flex-1 text-xs font-medium truncate">{t.name}</span>
+                          <div className="w-7 h-7 rounded-full bg-muted/50 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">—</div>
+                          <span className="text-xs text-muted-foreground">Sem técnico</span>
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        {technicians.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => { setSelectedTechnician(t); form.setValue('technicianId', t.id); setEditingTechnician(false) }}
+                            className="flex items-center gap-2 p-2.5 rounded-lg border border-border/60 bg-card hover:bg-muted/40 hover:border-border text-left transition-all duration-150 w-full"
+                          >
+                            <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0', getAvatarColor(t.name))}>
+                              {getInitials(t.name)}
+                            </div>
+                            <span className="flex-1 text-xs font-medium truncate">{t.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
               </div>
             </div>
 
             {/* ── Seção: Classificação ─────────────────────────────── */}
-            <div className="px-6 py-5 border-b border-border/60">
+            <div className={cn('px-6 py-5', !isBatch && 'border-b border-border/60')}>
               <SectionHeader>Classificação</SectionHeader>
               <div className="mt-3 space-y-5">
                 <Field label="Tipo de Manutenção" required error={form.formState.errors.maintenanceType?.message}>
@@ -482,77 +567,81 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
               </div>
             </div>
 
-            {/* ── Seção: Configuração ──────────────────────────────── */}
-            <div className="px-6 py-5 border-b border-border/60">
-              <SectionHeader>Configuração</SectionHeader>
-              <div className="mt-3">
-                <Field
-                  label="Alertar após (horas sem técnico)"
-                  hint="Notificação enviada caso nenhum técnico assuma a OS no prazo"
-                >
-                  <Input
-                    type="number"
-                    min={1}
-                    max={72}
-                    {...form.register('alertAfterHours', { valueAsNumber: true })}
-                    className="h-11 text-sm w-36"
-                  />
-                </Field>
-              </div>
-            </div>
-
-            {/* ── Seção: Anexos ────────────────────────────────────── */}
-            <div className="px-6 py-5">
-              <SectionHeader>
-                Anexos
-                <span className="ml-1.5 font-normal normal-case text-muted-foreground/50">(opcional)</span>
-              </SectionHeader>
-              <div className="mt-3 space-y-2">
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => fileInputRef.current?.click()}
-                  onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
-                  className="flex items-center gap-3 px-4 py-4 rounded-xl border border-dashed border-border/80 bg-muted/10 cursor-pointer hover:bg-muted/30 hover:border-primary/40 transition-all group"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-                    <Paperclip className="w-4 h-4 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Adicionar arquivos</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Imagens, PDF, Word, Excel · máx 10 · 20MB cada</p>
-                  </div>
+            {/* ── Seção: Configuração (OS única) ───────────────────── */}
+            {!isBatch && (
+              <div className="px-6 py-5 border-b border-border/60">
+                <SectionHeader>Configuração</SectionHeader>
+                <div className="mt-3">
+                  <Field
+                    label="Alertar após (horas sem técnico)"
+                    hint="Notificação enviada caso nenhum técnico assuma a OS no prazo"
+                  >
+                    <Input
+                      type="number"
+                      min={1}
+                      max={72}
+                      {...form.register('alertAfterHours', { valueAsNumber: true })}
+                      className="h-11 text-sm w-36"
+                    />
+                  </Field>
                 </div>
-
-                {files.length > 0 && (
-                  <div className="space-y-1.5 pt-1">
-                    {files.map((f, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/50 bg-card">
-                        <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <span className="flex-1 text-sm truncate">{f.name}</span>
-                        <span className="text-xs text-muted-foreground shrink-0">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
-                        <button
-                          type="button"
-                          onClick={() => removeFile(i)}
-                          className="w-6 h-6 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors shrink-0"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                  className="hidden"
-                  onChange={handleFileAdd}
-                />
               </div>
-            </div>
+            )}
+
+            {/* ── Seção: Anexos (OS única) ─────────────────────────── */}
+            {!isBatch && (
+              <div className="px-6 py-5">
+                <SectionHeader>
+                  Anexos
+                  <span className="ml-1.5 font-normal normal-case text-muted-foreground/50">(opcional)</span>
+                </SectionHeader>
+                <div className="mt-3 space-y-2">
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                    className="flex items-center gap-3 px-4 py-4 rounded-xl border border-dashed border-border/80 bg-muted/10 cursor-pointer hover:bg-muted/30 hover:border-primary/40 transition-all group"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+                      <Paperclip className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Adicionar arquivos</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Imagens, PDF, Word, Excel · máx 10 · 20MB cada</p>
+                    </div>
+                  </div>
+
+                  {files.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      {files.map((f, i) => (
+                        <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border/50 bg-card">
+                          <Paperclip className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="flex-1 text-sm truncate">{f.name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(i)}
+                            className="w-6 h-6 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex items-center justify-center transition-colors shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    className="hidden"
+                    onChange={handleFileAdd}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Footer ────────────────────────────────────────────────── */}
@@ -562,11 +651,11 @@ export function EquipmentOsCreateSheet({ equipment, open, onClose }: EquipmentOs
             </Button>
             <Button
               type="submit"
-              disabled={createOs.isPending}
+              disabled={isPending}
               className="flex-1 h-11 font-semibold shadow-sm"
             >
-              {createOs.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Criar Ordem de Serviço
+              {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {isBatch ? 'Criar OS em Lote' : 'Criar Ordem de Serviço'}
             </Button>
           </div>
         </form>

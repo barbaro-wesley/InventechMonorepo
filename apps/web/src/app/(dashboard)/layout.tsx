@@ -299,6 +299,7 @@ export default function DashboardLayout({
     const user = useCurrentUser();
     const permissions = usePermissions();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [avatarError, setAvatarError] = useState(false);
 
     // Route guard: bloqueia acesso direto por URL a rotas sem permissão.
     // Não inclui `permissions` nas dependências — usePermissions() retorna um
@@ -567,8 +568,8 @@ export default function DashboardLayout({
                                         </span>
                                     </div>
                                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 border border-border bg-muted">
-                                        {user?.avatarUrl ? (
-                                            <img src={user.avatarUrl} alt={user.name ?? ""} className="w-full h-full object-cover" />
+                                        {user?.avatarUrl && !avatarError ? (
+                                            <img src={user.avatarUrl} alt={user.name ?? ""} className="w-full h-full object-cover" onError={() => setAvatarError(true)} />
                                         ) : (
                                             <div
                                                 className="w-full h-full flex items-center justify-center text-white text-xs font-semibold"

@@ -68,10 +68,31 @@ export class StorageController {
     @Param('userId', ParseUUIDPipe) userId: string,
     @Res() res: Response,
   ) {
-    const { stream, mimeType } = await this.storageService.streamAvatar(userId)
-    res.setHeader('Content-Type', mimeType)
-    res.setHeader('Cache-Control', 'public, max-age=86400, immutable')
-    stream.pipe(res)
+    try {
+      const { stream, mimeType } = await this.storageService.streamAvatar(userId)
+      res.setHeader('Content-Type', mimeType)
+      res.setHeader('Cache-Control', 'public, max-age=86400, immutable')
+      stream.pipe(res)
+    } catch {
+      res.status(204).end()
+    }
+  }
+
+  // Serve o logo da empresa via proxy da API — o MinIO não é exposto publicamente em produção
+  @Public()
+  @Get('logo/:companyId')
+  async getLogo(
+    @Param('companyId', ParseUUIDPipe) companyId: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const { stream, mimeType } = await this.storageService.streamLogo(companyId)
+      res.setHeader('Content-Type', mimeType)
+      res.setHeader('Cache-Control', 'public, max-age=86400, immutable')
+      stream.pipe(res)
+    } catch {
+      res.status(204).end()
+    }
   }
 
   // Upload de avatar — qualquer usuário autenticado (sem @Permission = aberto a autenticados)

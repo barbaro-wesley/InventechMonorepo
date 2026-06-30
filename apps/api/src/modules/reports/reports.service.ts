@@ -2346,26 +2346,17 @@ export class ReportsService {
   //   Tipo · Subtipo (centralizados)
   //   QR Code (preenche restante)
   // ─────────────────────────────────────────
-  async generateEquipmentLabel(companyId: string, equipmentId: string): Promise<Buffer> {
-    const PDFDocument = (await import('pdfkit')).default
-    const QRCodeLib  = await import('qrcode')
+  private async drawEquipmentLabelPage(
+    doc: any,
+    equipmentId: string,
+    equipment: { patrimonyNumber?: string | null; type?: { name: string } | null; subtype?: { name: string } | null },
+    logoBuffer: Buffer | null,
+    template: ReportTemplate,
+  ): Promise<void> {
+    const QRCodeLib = await import('qrcode')
 
-    const equipment = await this.prisma.equipment.findFirst({
-      where: { id: equipmentId, companyId },
-      select: {
-        patrimonyNumber: true,
-        type:    { select: { name: true } },
-        subtype: { select: { name: true } },
-      },
-    })
-    if (!equipment) throw new Error('Equipamento não encontrado')
-
-    const template = await this.companiesService.getReportTemplate(companyId)
-    const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
-
-    // Vertical: 30mm × 50mm em pontos (1mm = 2.8346pt)
-    const W = 85.04   // 30mm
-    const H = 141.73  // 50mm
+    const W = 85.04
+    const H = 141.73
     const PAD = 5
     const CX = W / 2
 
@@ -2378,20 +2369,11 @@ export class ReportsService {
       errorCorrectionLevel: 'M',
     })
 
-    const doc = new PDFDocument({
-      size: [W, H],
-      margins: { top: 0, bottom: 0, left: 0, right: 0 },
-      autoFirstPage: false,
-    })
     doc.addPage({ size: [W, H], margins: { top: 0, bottom: 0, left: 0, right: 0 } })
-
-    const buffers: Buffer[] = []
-    doc.on('data', (c: Buffer) => buffers.push(c))
 
     let y = PAD
     const LOGO_PT = 20
 
-    // ── Cabeçalho: logo à esquerda + nome da empresa à direita ──
     const hasHeader = logoBuffer || template.companyName
     if (hasHeader) {
       if (logoBuffer) {
@@ -2415,13 +2397,10 @@ export class ReportsService {
       }
 
       y += LOGO_PT + 5
-
-      // Linha separadora
       doc.moveTo(PAD, y).lineTo(W - PAD, y).lineWidth(0.4).strokeColor('#d1d5db').stroke()
       y += 4
     }
 
-    // ── N° Patrimônio ─────────────────────────────
     if (equipment.patrimonyNumber) {
       const pat      = equipment.patrimonyNumber
       const fontSize = pat.length > 16 ? 6 : 7
@@ -2430,7 +2409,6 @@ export class ReportsService {
       y += fontSize + 6
     }
 
-    // ── Tipo ou Subtipo (subtipo tem prioridade) ──
     const categoryLabel = equipment.subtype?.name ?? equipment.type?.name
     if (categoryLabel) {
       doc.font('Helvetica').fontSize(6).fillColor('#111827')
@@ -2438,13 +2416,82 @@ export class ReportsService {
       y += 11
     }
 
-    // ── QR Code (preenche o restante, centralizado) ──
-    // BOTTOM_PAD maior que PAD para evitar corte em impressoras com margem física de ~3mm
     const BOTTOM_PAD = 10
     const qrAvail = H - y - BOTTOM_PAD
     const QR_PT   = Math.min(qrAvail, W - PAD * 2)
     const qrX     = CX - QR_PT / 2
     doc.image(qrPng, qrX, y + (qrAvail - QR_PT) / 2, { width: QR_PT, height: QR_PT })
+  }
+
+  async generateEquipmentLabel(companyId: string, equipmentId: string): Promise<Buffer> {
+    const PDFDocument = (await import('pdfkit')).default
+
+    const equipment = await this.prisma.equipment.findFirst({
+      where: { id: equipmentId, companyId },
+      select: {
+        patrimonyNumber: true,
+        type:    { select: { name: true } },
+        subtype: { select: { name: true } },
+      },
+    })
+    if (!equipment) throw new Error('Equipamento não encontrado')
+
+    const template = await this.companiesService.getReportTemplate(companyId)
+    const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
+
+    const W = 85.04
+    const H = 141.73
+
+    const doc = new PDFDocument({
+      size: [W, H],
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      autoFirstPage: false,
+    })
+
+    const buffers: Buffer[] = []
+    doc.on('data', (c: Buffer) => buffers.push(c))
+
+    await this.drawEquipmentLabelPage(doc, equipmentId, equipment, logoBuffer, template)
+
+    doc.end()
+
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(buffers)))
+      doc.on('error', reject)
+    })
+  }
+
+  async generateEquipmentLabelsBatch(companyId: string, equipmentIds: string[]): Promise<Buffer> {
+    const PDFDocument = (await import('pdfkit')).default
+
+    const equipments = await this.prisma.equipment.findMany({
+      where: { id: { in: equipmentIds }, companyId },
+      select: {
+        id: true,
+        patrimonyNumber: true,
+        type:    { select: { name: true } },
+        subtype: { select: { name: true } },
+      },
+    })
+
+    const template = await this.companiesService.getReportTemplate(companyId)
+    const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
+
+    const W = 85.04
+    const H = 141.73
+
+    const doc = new PDFDocument({
+      size: [W, H],
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      autoFirstPage: false,
+    })
+
+    const buffers: Buffer[] = []
+    doc.on('data', (c: Buffer) => buffers.push(c))
+
+    for (const eq of equipments) {
+      await this.drawEquipmentLabelPage(doc, eq.id, eq, logoBuffer, template)
+    }
 
     doc.end()
 

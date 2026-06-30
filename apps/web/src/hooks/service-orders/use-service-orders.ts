@@ -12,6 +12,7 @@ import type {
   CreateTaskDto,
   UpdateTaskDto,
   CreateServiceOrderDto,
+  CreateBatchServiceOrderDto,
   CreateChildServiceOrderDto,
   CreateCostItemDto,
   UpdateCostItemDto,
@@ -44,7 +45,7 @@ export function useServiceOrders(params?: ListServiceOrdersParams | null) {
     queryKey: serviceOrderKeys.company(params ?? undefined),
     queryFn: () => serviceOrdersService.listCompany(params ?? undefined),
     enabled: params !== null,
-    placeholderData: (prev) => prev,   // mantém dados anteriores visíveis ao trocar de página/filtro
+    placeholderData: (prev) => prev,
     staleTime: 30_000,
     refetchInterval: 60_000,
   })
@@ -71,7 +72,7 @@ export function useMyOsStats() {
 }
 
 // ─────────────────────────────────────────
-// Atualizar OS (título, descrição, prioridade, resolução)
+// Atualizar OS
 // ─────────────────────────────────────────
 export function useUpdateServiceOrder(clientId: string | null, id: string) {
   const qc = useQueryClient()
@@ -88,7 +89,7 @@ export function useUpdateServiceOrder(clientId: string | null, id: string) {
 }
 
 // ─────────────────────────────────────────
-// Detalhes de uma OS (com tarefas, comentários, histórico)
+// Detalhes de uma OS
 // ─────────────────────────────────────────
 export function useServiceOrder(clientId: string | null, id: string) {
   return useQuery({
@@ -122,6 +123,22 @@ export function useCreateServiceOrder() {
     onSuccess: (os) => {
       qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
       toast.success(`OS #${os.number} criada com sucesso`)
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
+}
+
+// ─────────────────────────────────────────
+// Criar OS em Lote
+// ─────────────────────────────────────────
+export function useCreateBatchServiceOrders() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ clientId, dto }: { clientId: string; dto: CreateBatchServiceOrderDto }) =>
+      serviceOrdersService.createBatch(clientId, dto),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      toast.success(`${result.created} OS criadas em lote com sucesso`)
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   })
@@ -367,7 +384,7 @@ export function useRemoveOsMaterial(clientId: string | null, osId: string) {
 }
 
 // ─────────────────────────────────────────
-// Atualizar status via drag-and-drop (params dinâmicos)
+// Atualizar status via drag-and-drop
 // ─────────────────────────────────────────
 export function useUpdateStatusDnd() {
   const qc = useQueryClient()

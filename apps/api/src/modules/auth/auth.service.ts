@@ -219,10 +219,16 @@ export class AuthService {
             throw new UnauthorizedException('Sessão inválida. Faça login novamente')
         }
 
-        await this.prisma.refreshToken.update({
-            where: { id: validTokenRecord.id },
-            data: { revokedAt: new Date() },
-        })
+        await Promise.all([
+            this.prisma.refreshToken.update({
+                where: { id: validTokenRecord.id },
+                data: { revokedAt: new Date() },
+            }),
+            this.prisma.user.update({
+                where: { id: userId },
+                data: { lastLoginAt: new Date() },
+            }),
+        ])
 
         const user = await this.prisma.user.findUnique({ where: { id: userId } })
         if (!user || user.status !== UserStatus.ACTIVE) {

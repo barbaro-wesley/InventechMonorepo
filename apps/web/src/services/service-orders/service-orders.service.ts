@@ -7,6 +7,8 @@ import type {
   ListServiceOrdersParams,
   MyOsStats,
   CreateServiceOrderDto,
+  CreateBatchServiceOrderDto,
+  BatchServiceOrderResult,
   CreateChildServiceOrderDto,
   UpdateServiceOrderStatusDto,
   AssignTechnicianDto,
@@ -91,6 +93,14 @@ async function create(dto: CreateServiceOrderDto): Promise<ServiceOrder> {
   const { clientId, ...body } = dto
   const url = clientId ? `/clients/${clientId}/service-orders` : `/service-orders`
   const { data } = await api.post(url, body)
+  return data
+}
+
+async function createBatch(
+  clientId: string,
+  dto: CreateBatchServiceOrderDto,
+): Promise<BatchServiceOrderResult> {
+  const { data } = await api.post(`/clients/${clientId}/service-orders/batch`, dto)
   return data
 }
 
@@ -306,6 +316,7 @@ export const serviceOrdersService = {
   getById,
   getByIdCompany,
   create,
+  createBatch,
   createChild,
   update,
   updateStatus,

@@ -67,6 +67,11 @@ const DEFAULT_CONFIGS: Record<EventType, Pick<NotificationConfig, 'recipientRole
         recipientContextual: [ContextualRecipient.OS_ASSIGNED_TECHNICIANS],
         channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
     },
+    [EventType.OS_BATCH_CREATED]: {
+        recipientRoles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER],
+        recipientContextual: [],
+        channels: [NotificationChannel.EMAIL, NotificationChannel.WEBSOCKET],
+    },
     [EventType.PREVENTIVE_GENERATED]: {
         recipientRoles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER],
         recipientContextual: [ContextualRecipient.OS_GROUP_TECHNICIANS],
