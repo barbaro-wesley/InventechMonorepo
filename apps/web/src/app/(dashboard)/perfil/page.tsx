@@ -88,6 +88,7 @@ export default function PerfilPage() {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [avatarError, setAvatarError] = useState(false);
     const [showCurrent, setShowCurrent] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -138,7 +139,7 @@ export default function PerfilPage() {
 
     if (!user) return null;
 
-    const avatarSrc = avatarPreview ?? user.avatarUrl ?? null;
+    const avatarSrc = avatarPreview ?? (!avatarError ? user.avatarUrl : null) ?? null;
     const statusConfig = STATUS_CONFIG[user.status] ?? STATUS_CONFIG.ACTIVE;
 
     return (
@@ -172,6 +173,7 @@ export default function PerfilPage() {
                                         src={avatarSrc}
                                         alt={user.name}
                                         className="w-full h-full object-cover"
+                                        onError={() => { setAvatarError(true); setAvatarPreview(null); }}
                                     />
                                 ) : (
                                     <div

@@ -268,7 +268,7 @@ function PointSheet({ open, editTarget, onClose }: {
   const create = useCreateStockPoint();
   const update = useUpdateStockPoint();
   const assignClients = useAssignStockPointClients();
-  const { data: clientsData } = useClients({ limit: 200 });
+  const { data: clientsData } = useClients({ limit: 100 });
   const clients = clientsData?.data ?? [];
   const isPending = create.isPending || update.isPending || assignClients.isPending;
 

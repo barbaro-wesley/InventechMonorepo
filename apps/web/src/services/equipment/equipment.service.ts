@@ -213,4 +213,15 @@ export const equipmentService = {
     const baseUrl = api.defaults.baseURL || "http://localhost:3000/api/v1";
     return `${baseUrl}/equipment/${id}/label`;
   },
+
+  async openBatchLabels(equipmentIds: string[]): Promise<void> {
+    const { data } = await api.post(
+      '/equipment/labels-batch',
+      { equipmentIds },
+      { responseType: 'blob' },
+    )
+    const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  },
 };

@@ -37,7 +37,13 @@ import {
   BookOpen,
   Network,
   ChevronDown,
+  Layers,
+  CheckSquare,
+  Square,
+  XCircle,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -740,6 +746,9 @@ function EquipmentCard({
   onPrint,
   onCreateOs,
   onCreateSchedule,
+  selectionMode,
+  selected,
+  onToggleSelect,
 }: {
   equipment: Equipment;
   onView: (e: Equipment) => void;
@@ -749,6 +758,9 @@ function EquipmentCard({
   onPrint: (e: Equipment) => void;
   onCreateOs: (e: Equipment) => void;
   onCreateSchedule: (e: Equipment) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (e: Equipment) => void;
 }) {
   const { canAccess } = usePermissions();
   const canEdit = canAccess("equipment", "update");
@@ -757,15 +769,32 @@ function EquipmentCard({
   const canCreateOs = canAccess("service-order", "create");
   const canSchedule = canAccess("maintenance-schedule", "create");
   return (
-    <div className="flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+    <div
+      className={`flex flex-col bg-white dark:bg-slate-900 rounded-2xl border overflow-hidden transition-colors ${
+        selectionMode && selected
+          ? "border-primary ring-1 ring-primary/30"
+          : "border-slate-200 dark:border-slate-800"
+      } ${selectionMode ? "cursor-pointer" : ""}`}
+      onClick={selectionMode ? () => onToggleSelect?.(equipment) : undefined}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-5 pb-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
-        >
-          <Wrench className="w-5 h-5 text-white" />
-        </div>
+        {selectionMode ? (
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0">
+            {selected ? (
+              <CheckSquare className="w-6 h-6 text-primary" />
+            ) : (
+              <Square className="w-6 h-6 text-slate-300 dark:text-slate-700" />
+            )}
+          </div>
+        ) : (
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "linear-gradient(135deg, #3b82f6, #f97316)" }}
+          >
+            <Wrench className="w-5 h-5 text-white" />
+          </div>
+        )}
         <StatusBadge status={equipment.status} />
       </div>
 
@@ -819,6 +848,7 @@ function EquipmentCard({
       </div>
 
       {/* Actions */}
+      {!selectionMode && (
       <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-shrink-0">
         {canEdit && (
           <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
@@ -868,6 +898,7 @@ function EquipmentCard({
           </DropdownMenu>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -2033,6 +2064,17 @@ export default function EquipamentosPage() {
   const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
   const [osSheet, setOsSheet] = useState<Equipment | null>(null);
   const [scheduleSheet, setScheduleSheet] = useState<Equipment | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchSheet, setBatchSheet] = useState<{ open: boolean; equipment: { id: string; name: string }[] }>({
+    open: false,
+    equipment: [],
+  });
+  const [schedBatchSheet, setSchedBatchSheet] = useState<{ open: boolean; equipment: { id: string; name: string }[] }>({
+    open: false,
+    equipment: [],
+  });
+  const [printingLabels, setPrintingLabels] = useState(false);
 
   const searchParams = useSearchParams();
   const detailId = searchParams.get("detail");
@@ -2080,6 +2122,50 @@ export default function EquipamentosPage() {
   }
 
   const remove = useDeleteEquipment();
+  const canCreateOs = canAccess("service-order", "create");
+
+  function toggleSelectionMode() {
+    setSelectionMode((v) => !v);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelect(e: Equipment) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(e.id)) next.delete(e.id);
+      else next.add(e.id);
+      return next;
+    });
+  }
+
+  function handleOpenBatchSheet() {
+    const selected = equipments.filter((e) => selectedIds.has(e.id));
+    if (selected.length === 0) return;
+    setBatchSheet({
+      open: true,
+      equipment: selected.map((e) => ({ id: e.id, name: e.name })),
+    });
+  }
+
+  function handleOpenScheduleBatch() {
+    const selected = equipments.filter((e) => selectedIds.has(e.id));
+    if (selected.length === 0) return;
+    setSchedBatchSheet({
+      open: true,
+      equipment: selected.map((e) => ({ id: e.id, name: e.name })),
+    });
+  }
+
+  async function handlePrintLabels() {
+    setPrintingLabels(true);
+    try {
+      await equipmentService.openBatchLabels([...selectedIds]);
+    } catch {
+      toast.error("Erro ao gerar etiquetas");
+    } finally {
+      setPrintingLabels(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -2093,12 +2179,27 @@ export default function EquipamentosPage() {
             Gerencie o parque de equipamentos.
           </p>
         </div>
-        {canCreateEquipment && (
-          <Button className="w-full sm:w-auto" onClick={() => setFormSheet({ open: true, target: null })}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo equipamento
-          </Button>
-        )}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {canCreateOs && (
+            <Button
+              variant={selectionMode ? "secondary" : "outline"}
+              className="flex-1 sm:flex-none"
+              onClick={toggleSelectionMode}
+            >
+              {selectionMode ? (
+                <><XCircle className="w-4 h-4 mr-2" />Cancelar seleção</>
+              ) : (
+                <><Layers className="w-4 h-4 mr-2" />Ações em lote</>
+              )}
+            </Button>
+          )}
+          {canCreateEquipment && !selectionMode && (
+            <Button className="flex-1 sm:flex-none" onClick={() => setFormSheet({ open: true, target: null })}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo equipamento
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* IP Network Panel */}
@@ -2260,6 +2361,9 @@ export default function EquipamentosPage() {
                 onPrint={setQrTarget}
                 onCreateOs={setOsSheet}
                 onCreateSchedule={setScheduleSheet}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(eq.id)}
+                onToggleSelect={toggleSelect}
               />
             ))}
           </div>
@@ -2354,6 +2458,61 @@ export default function EquipamentosPage() {
         open={!!scheduleSheet}
         onClose={() => setScheduleSheet(null)}
       />
+
+      <EquipmentOsCreateSheet
+        batchEquipment={batchSheet.equipment}
+        open={batchSheet.open}
+        onClose={() => {
+          setBatchSheet({ open: false, equipment: [] });
+          setSelectionMode(false);
+          setSelectedIds(new Set());
+        }}
+      />
+
+      <EquipmentScheduleCreateSheet
+        batchEquipment={schedBatchSheet.equipment}
+        open={schedBatchSheet.open}
+        onClose={() => {
+          setSchedBatchSheet({ open: false, equipment: [] });
+          setSelectionMode(false);
+          setSelectedIds(new Set());
+        }}
+      />
+
+      {/* ── Toolbar flutuante de seleção ── */}
+      {selectionMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900 dark:bg-slate-800 text-white rounded-2xl shadow-xl px-5 py-3">
+          <span className="text-sm font-medium">{selectedIds.size} selecionado(s)</span>
+          <Button size="sm" variant="ghost" className="text-white hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
+            Limpar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+            onClick={handleOpenScheduleBatch}
+          >
+            <CalendarClock className="w-4 h-4 mr-2" />
+            Agendar Preventiva
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+            onClick={handlePrintLabels}
+            disabled={printingLabels}
+          >
+            {printingLabels
+              ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              : <Printer className="w-4 h-4 mr-2" />}
+            Imprimir Etiquetas
+          </Button>
+          <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleOpenBatchSheet}>
+            <Layers className="w-4 h-4 mr-2" />
+            Criar OS em Lote
+          </Button>
+        </div>
+      )}
 
       {/* ── Delete ── */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>

@@ -17,7 +17,7 @@ import {
   CreateServiceOrderDto, UpdateServiceOrderDto,
   UpdateServiceOrderStatusDto, AssignTechnicianDto,
   ListServiceOrdersDto, ListAvailableServiceOrdersDto,
-  CreateChildServiceOrderDto,
+  CreateChildServiceOrderDto, CreateBatchServiceOrderDto,
 } from './dto/service-order.dto'
 import { CreateCommentDto, UpdateCommentDto } from './comments/dto/comment.dto'
 import { CreateTaskDto, UpdateTaskDto, ReorderTasksDto } from './tasks/dto/task.dto'
@@ -101,6 +101,17 @@ export class ServiceOrdersController {
       )
     }
     return os
+  }
+
+  @Post('batch')
+  @HttpCode(HttpStatus.CREATED)
+  @Permission('service-order:create')
+  createBatch(
+    @Param('clientId', ParseUUIDPipe) clientId: string,
+    @Body() dto: CreateBatchServiceOrderDto,
+    @CurrentUser() cu: AuthenticatedUser,
+  ) {
+    return this.serviceOrdersService.createBatch(dto, clientId, cu.companyId!, cu)
   }
 
   @Post(':id/children')
@@ -313,7 +324,7 @@ export class ServiceOrdersController {
     return this.tasksService.remove(taskId)
   }
 
-  // ── Custos ──────────────────────────────────────────────────────────────
+  // ── Custos ──────────────────────────────────────────────────────────────────
 
   @Get(':id/costs')
   @Permission('service-order:read')

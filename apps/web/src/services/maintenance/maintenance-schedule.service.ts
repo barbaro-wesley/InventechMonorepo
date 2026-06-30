@@ -184,11 +184,28 @@ async function listUpcoming(daysAhead = 30): Promise<UpcomingSchedule[]> {
   return data.data ?? data
 }
 
+export interface CreateBatchMaintenanceScheduleDto
+  extends Omit<CreateMaintenanceScheduleDto, 'equipmentId'> {
+  equipmentIds: string[]
+}
+
+export interface BatchScheduleResult {
+  created: number
+  results: { equipmentId: string; equipmentName: string; scheduleId: string }[]
+}
+
+async function createBatch(dto: CreateBatchMaintenanceScheduleDto): Promise<BatchScheduleResult> {
+  const { clientId, ...body } = dto
+  const { data } = await api.post(`/clients/${clientId}/maintenance-schedules/batch`, body)
+  return data.data ?? data
+}
+
 export const maintenanceScheduleService = {
   listAll,
   listByClient,
   getById,
   create,
+  createBatch,
   update,
   toggle,
   trigger,

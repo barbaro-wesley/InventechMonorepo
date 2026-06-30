@@ -27,6 +27,7 @@ import {
     ListServiceOrdersDto,
     ListAvailableServiceOrdersDto,
     CreateChildServiceOrderDto,
+    CreateBatchServiceOrderDto,
 } from './dto/service-order.dto'
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
@@ -61,7 +62,6 @@ const APPROVER_ROLES: UserRole[] = [
     UserRole.CLIENT_ADMIN,
 ]
 
-// Tipos de OS filha permitidos por tipo de OS pai
 const CHILD_ALLOWED_TYPES: Record<MaintenanceType, MaintenanceType[]> = {
     [MaintenanceType.CORRECTIVE]: [
         MaintenanceType.PREVENTIVE,
@@ -220,9 +220,6 @@ export class ServiceOrdersService {
         return { data, total, page, limit }
     }
 
-    // ─────────────────────────────────────────
-    // Painel pessoal — apenas OS do solicitante
-    // ─────────────────────────────────────────
     async findMine(
         companyId: string,
         filters: ListServiceOrdersDto,
@@ -287,7 +284,6 @@ export class ServiceOrdersService {
         return result
     }
 
-    // Visão company-wide — painel operacional (sem clientId)
     async findAllForCompany(
         companyId: string,
         filters: ListServiceOrdersDto,
@@ -314,7 +310,6 @@ export class ServiceOrdersService {
             }),
             ...(search && {
                 OR: [
-                    // Busca por número da OS (campo Int — só aplica se o termo for numérico)
                     ...(!isNaN(Number(search)) && search.trim() !== ''
                         ? [{ number: { equals: Number(search) } }]
                         : []
@@ -331,10 +326,8 @@ export class ServiceOrdersService {
 
         if (currentUser.role === UserRole.TECHNICIAN) {
             if (currentUser.clientId) {
-                // Técnico vinculado a um cliente vê todas as OS do seu cliente
                 where.clientId = currentUser.clientId
             } else {
-                // Técnico de empresa sem cliente fixo vê apenas as OS que assumiu
                 where.technicians = {
                     some: { technicianId: currentUser.sub, releasedAt: null },
                 }
@@ -525,10 +518,7 @@ export class ServiceOrdersService {
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
 
         if (currentUser.role === UserRole.TECHNICIAN) {
-            // Técnico vinculado a um prestador pode ver qualquer OS do seu prestador
-            // (a query já está filtrada por clientId)
             if (!currentUser.clientId) {
-                // Técnico interno: só vê OS em que está vinculado ou que estão disponíveis
                 const isLinked = os.technicians.some((t) => t.technician.id === currentUser.sub)
                 if (!isLinked && !os.isAvailable) {
                     throw new ForbiddenException('Acesso negado a esta OS')
@@ -552,16 +542,12 @@ export class ServiceOrdersService {
         }
     }
 
-    // ─────────────────────────────────────────
-    // Criar OS + disparar notificação
-    // ─────────────────────────────────────────
     async create(
         dto: CreateServiceOrderDto,
         clientId: string | null,
         companyId: string,
         currentUser: AuthenticatedUser,
     ) {
-        // ── Validar equipamento (opcional) ────────────────────────
         let equipment: { id: string; name: string; type: { id: string; name: string; groupId: string | null } | null } | null = null
 
         if (dto.equipmentId) {
@@ -585,7 +571,6 @@ export class ServiceOrdersService {
             if (!group) throw new BadRequestException('Grupo de manutenção não encontrado')
             groupName = group.name
 
-            // Valida grupo vs. tipo do equipamento (somente quando há equipamento)
             if (equipment) {
                 const equipmentGroupId = equipment.type?.groupId
                 if (!equipmentGroupId) {
@@ -613,7 +598,6 @@ export class ServiceOrdersService {
                     OR: [
                         { customRoleId: null, role: { in: assumeRoles } },
                         { customRoleId: { not: null }, customRole: { permissions: { some: { resource: 'service-order', action: 'assume' } } } },
-                        // Qualquer usuário diretamente vinculado ao prestador selecionado pode ser técnico
                         ...(clientId ? [{ clientId }] : []),
                     ],
                 },
@@ -632,10 +616,8 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const os = await this.prisma.$transaction(async (tx) => {
-            // Advisory lock por empresa para evitar race condition na geração do número sequencial
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
 
-            // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
             const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
                 SELECT COALESCE(MAX(number), 0) AS max_number
                 FROM service_orders
@@ -683,7 +665,6 @@ export class ServiceOrdersService {
                 },
             })
 
-            // Incrementa contador de OS e marca equipamento como em manutenção (se vinculado)
             if (dto.equipmentId) {
                 await tx.equipment.update({
                     where: { id: dto.equipmentId },
@@ -698,9 +679,7 @@ export class ServiceOrdersService {
             return created
         })
 
-        // ── Notificações ──────────────────────────────────────────
         if (dto.technicianId) {
-            // Técnico designado na criação
             await this.notificationsService.notify({
                 event: EventType.OS_TECHNICIAN_ASSIGNED,
                 companyId,
@@ -715,7 +694,6 @@ export class ServiceOrdersService {
                 },
             })
         } else {
-            // OS sem técnico → vai para o painel
             await this.notificationsService.notify({
                 event: EventType.OS_CREATED_NO_TECHNICIAN,
                 companyId,
@@ -737,8 +715,128 @@ export class ServiceOrdersService {
     }
 
     // ─────────────────────────────────────────
-    // Técnico assume OS + notifica
+    // Criar OS em lote para múltiplos equipamentos
     // ─────────────────────────────────────────
+    async createBatch(
+        dto: CreateBatchServiceOrderDto,
+        clientId: string | null,
+        companyId: string,
+        currentUser: AuthenticatedUser,
+    ) {
+        if (!dto.equipmentIds?.length && !dto.equipmentTypeId) {
+            throw new BadRequestException('Informe os equipamentos ou um tipo de equipamento para o lote')
+        }
+
+        const equipmentList = await this.prisma.equipment.findMany({
+            where: dto.equipmentIds?.length
+                ? {
+                    companyId,
+                    id: { in: dto.equipmentIds },
+                    deletedAt: null,
+                    status: EquipmentStatus.ACTIVE,
+                }
+                : {
+                    companyId,
+                    typeId: dto.equipmentTypeId,
+                    deletedAt: null,
+                    status: EquipmentStatus.ACTIVE,
+                    ...(dto.equipmentSubtypeId && { subtypeId: dto.equipmentSubtypeId }),
+                    ...(dto.locationId && { locationId: dto.locationId }),
+                    ...(dto.costCenterId && { costCenterId: dto.costCenterId }),
+                },
+            select: { id: true, name: true },
+        })
+
+        if (equipmentList.length === 0) {
+            throw new BadRequestException('Nenhum equipamento ativo encontrado com os filtros informados')
+        }
+
+        const initialStatus = ServiceOrderStatus.AWAITING_PICKUP
+
+        const createdOrders = await this.prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
+
+            const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
+                SELECT COALESCE(MAX(number), 0) AS max_number
+                FROM service_orders
+                WHERE company_id = ${companyId}
+            `
+            let nextNumber = Number(max_number) + 1
+            const orders: Array<{ id: string; number: number; equipmentId: string; equipmentName: string }> = []
+
+            for (const equip of equipmentList) {
+                const number = nextNumber++
+
+                const created = await tx.serviceOrder.create({
+                    data: {
+                        companyId,
+                        clientId,
+                        number,
+                        title: dto.title,
+                        description: dto.description,
+                        maintenanceType: dto.maintenanceType,
+                        priority: dto.priority ?? ServiceOrderPriority.MEDIUM,
+                        status: initialStatus,
+                        isAvailable: true,
+                        alertAfterHours: 2,
+                        scheduledFor: dto.scheduledFor ? new Date(dto.scheduledFor) : null,
+                        equipmentId: equip.id,
+                        requesterId: currentUser.sub,
+                        ...(dto.groupId && { groupId: dto.groupId }),
+                    },
+                    select: { id: true, number: true },
+                })
+
+                await tx.serviceOrderStatusHistory.create({
+                    data: {
+                        serviceOrderId: created.id,
+                        toStatus: initialStatus,
+                        changedById: currentUser.sub,
+                        reason: 'Criada via criação em lote',
+                    },
+                })
+
+                await tx.equipment.update({
+                    where: { id: equip.id },
+                    data: { totalServiceOrders: { increment: 1 } },
+                })
+                await tx.equipment.updateMany({
+                    where: { id: equip.id, status: EquipmentStatus.ACTIVE },
+                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                })
+
+                orders.push({ id: created.id, number: created.number, equipmentId: equip.id, equipmentName: equip.name })
+            }
+
+            return orders
+        })
+
+        await this.notificationsService.notify({
+            event: EventType.OS_BATCH_CREATED,
+            companyId,
+            data: {
+                createdCount: createdOrders.length,
+                groupId: dto.groupId ?? null,
+                equipmentNames: createdOrders.map((o) => o.equipmentName),
+                numbers: createdOrders.map((o) => o.number),
+            },
+        })
+
+        this.logger.log(`Lote de OS criado: ${createdOrders.length} OS | ${currentUser.email}`)
+
+        return {
+            total: createdOrders.length,
+            created: createdOrders.length,
+            skipped: 0,
+            results: createdOrders.map((o) => ({
+                equipmentId: o.equipmentId,
+                equipmentName: o.equipmentName,
+                serviceOrderId: o.id,
+                number: o.number,
+            })),
+        }
+    }
+
     async assumeServiceOrder(
         id: string,
         clientId: string | null,
@@ -764,7 +862,6 @@ export class ServiceOrdersService {
             throw new ConflictException('Esta OS não está disponível para ser assumida')
         }
 
-        // Admins/gestores têm acesso amplo — não precisam de vínculo com o grupo
         const hasGlobalAccess = (
             [UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER] as UserRole[]
         ).includes(currentUser.role)
@@ -773,14 +870,12 @@ export class ServiceOrdersService {
             let authorized = false
 
             if (currentUser.clientId) {
-                // Usuário vinculado a um prestador: verifica se o prestador atende esse grupo
                 const clientGroup = await this.prisma.clientMaintenanceGroup.findFirst({
                     where: { clientId: currentUser.clientId, groupId: os.groupId, isActive: true },
                     select: { id: true },
                 })
                 authorized = !!clientGroup
             } else {
-                // Usuário interno: verifica vínculo direto com o grupo
                 const techGroup = await this.prisma.technicianGroup.findFirst({
                     where: { userId: currentUser.sub, groupId: os.groupId, isActive: true },
                     select: { id: true },
@@ -834,13 +929,12 @@ export class ServiceOrdersService {
             return result
         })
 
-        // ── Notificação ───────────────────────────────────────────
         await this.notificationsService.notify({
             event: EventType.OS_TECHNICIAN_ASSUMED,
             companyId,
             serviceOrderId: id,
             data: {
-                technicianName: currentUser.email, // será enriquecido no service de notificações
+                technicianName: currentUser.email,
                 requesterId: os.requesterId,
                 osNumber: os.number,
                 osTitle: os.title,
@@ -905,7 +999,6 @@ export class ServiceOrdersService {
                 data: { serviceOrderId: id, technicianId: dto.technicianId, role },
             })
 
-        // ── Notificação ───────────────────────────────────────────
         const osData = await this.prisma.serviceOrder.findUnique({
             where: { id },
             select: {
@@ -1011,9 +1104,6 @@ export class ServiceOrdersService {
         })
     }
 
-    // ─────────────────────────────────────────
-    // Mudar status + disparar notificação correta
-    // ─────────────────────────────────────────
     async updateStatus(
         id: string,
         dto: UpdateServiceOrderStatusDto,
@@ -1051,7 +1141,6 @@ export class ServiceOrdersService {
             }
         }
 
-        // Bloqueia conclusão de OS preventiva com checklist pendente
         if (dto.status === ServiceOrderStatus.COMPLETED && os.maintenanceType === MaintenanceType.PREVENTIVE) {
             const checklist = await this.prisma.serviceOrderChecklist.findUnique({
                 where: { serviceOrderId: id },
@@ -1088,7 +1177,6 @@ export class ServiceOrdersService {
             }
         }
 
-        // Busca dados para notificação antes da transação
         const osDetails = await this.prisma.serviceOrder.findUnique({
             where: { id },
             select: {
@@ -1121,7 +1209,6 @@ export class ServiceOrdersService {
                 },
             })
 
-            // Cascade cancel: cancela filhas não-terminais quando pai é cancelada
             if (finalStatus === ServiceOrderStatus.CANCELLED) {
                 const children = await tx.serviceOrder.findMany({
                     where: {
@@ -1156,17 +1243,14 @@ export class ServiceOrdersService {
                 })
             }
 
-            // Se OS chegou a estado terminal, atualiza status do equipamento
             const TERMINAL: ServiceOrderStatus[] = [ServiceOrderStatus.COMPLETED_APPROVED, ServiceOrderStatus.CANCELLED]
             if (TERMINAL.includes(finalStatus) && os.equipmentId) {
-                // OS de desativação aprovada → inativar o equipamento diretamente
                 if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED && os.maintenanceType === MaintenanceType.DEACTIVATION) {
                     await tx.equipment.updateMany({
                         where: { id: os.equipmentId },
                         data: { status: EquipmentStatus.INACTIVE, lastMaintenanceAt: new Date() },
                     })
                 } else {
-                    // Demais casos: reverter para ACTIVE apenas se não houver mais OS ativas
                     const activeOsCount = await tx.serviceOrder.count({
                         where: {
                             equipmentId: os.equipmentId,
@@ -1191,7 +1275,6 @@ export class ServiceOrdersService {
             return result
         })
 
-        // ── Notificações por status ───────────────────────────────
         const notifyData = {
             osNumber: osDetails?.number,
             osTitle: osDetails?.title,
@@ -1229,9 +1312,6 @@ export class ServiceOrdersService {
         return updated
     }
 
-    // ─────────────────────────────────────────
-    // Criar OS filha ou agendamento recorrente
-    // ─────────────────────────────────────────
     async createChild(
         parentId: string,
         dto: CreateChildServiceOrderDto,
@@ -1287,7 +1367,6 @@ export class ServiceOrdersService {
 
         const effectiveGroupId = dto.groupId ?? parent.groupId ?? undefined
 
-        // ── Agendamento recorrente (MaintenanceSchedule) ──────────
         if (dto.childType === 'MAINTENANCE_SCHEDULE') {
             if (!parent.equipmentId) {
                 throw new BadRequestException(
@@ -1327,7 +1406,6 @@ export class ServiceOrdersService {
             return { childType: 'MAINTENANCE_SCHEDULE' as const, schedule }
         }
 
-        // ── OS filha avulsa (ServiceOrder) ────────────────────────
         const assumeRoles = [
             UserRole.SUPER_ADMIN,
             UserRole.COMPANY_ADMIN,
@@ -1359,10 +1437,8 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const os = await this.prisma.$transaction(async (tx) => {
-            // Advisory lock por empresa para evitar race condition na geração do número sequencial
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
 
-            // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
             const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
                 SELECT COALESCE(MAX(number), 0) AS max_number
                 FROM service_orders

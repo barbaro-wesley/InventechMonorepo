@@ -245,6 +245,34 @@ export interface CreateServiceOrderDto {
   alertAfterHours?: number
 }
 
+export interface CreateBatchServiceOrderDto {
+  equipmentTypeId?: string
+  equipmentIds?: string[]
+  equipmentSubtypeId?: string
+  locationId?: string
+  costCenterId?: string
+  maintenanceType: MaintenanceType
+  title: string
+  description: string
+  priority?: ServiceOrderPriority
+  groupId?: string
+  scheduledFor?: string
+}
+
+export interface BatchServiceOrderResultItem {
+  equipmentId: string
+  equipmentName: string
+  serviceOrderId: string
+  number: number
+}
+
+export interface BatchServiceOrderResult {
+  total: number
+  created: number
+  skipped: number
+  results: BatchServiceOrderResultItem[]
+}
+
 export interface UpdateServiceOrderStatusDto {
   status: ServiceOrderStatus
   resolution?: string

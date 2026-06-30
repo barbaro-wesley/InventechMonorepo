@@ -45,6 +45,7 @@ export interface UpdateUserDto {
   status?: UserStatus;
   role?: UserRole;
   require2FA?: boolean;
+  customRoleId?: string | null;
 }
 
 export interface ListUsersParams {

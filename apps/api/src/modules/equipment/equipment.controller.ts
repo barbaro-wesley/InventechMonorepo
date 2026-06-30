@@ -147,4 +147,21 @@ export class EquipmentController {
     })
     res.end(buffer)
   }
+
+  @Post('labels-batch')
+  @ApiOperation({ summary: 'PDF com etiquetas 50×30mm para múltiplos equipamentos' })
+  @Permission('equipment:read')
+  async exportLabelsBatch(
+    @Body() dto: { equipmentIds: string[] },
+    @CurrentUser() cu: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const buffer = await this.reportsService.generateEquipmentLabelsBatch(cu.companyId!, dto.equipmentIds)
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'inline; filename="etiquetas.pdf"',
+      'Content-Length': buffer.length,
+    })
+    res.end(buffer)
+  }
 }

@@ -14,6 +14,7 @@ import {
     UpdateMaintenanceDto,
     ListMaintenancesDto,
     CreateScheduleDto,
+    CreateBatchScheduleDto,
     UpdateScheduleDto,
     ListSchedulesDto,
 } from './dto/maintenance.dto'
@@ -349,6 +350,40 @@ export class MaintenanceService {
         return schedule
     }
 
+    async createBatchSchedule(
+        dto: CreateBatchScheduleDto,
+        clientId: string | null,
+        companyId: string,
+        currentUser: AuthenticatedUser,
+    ) {
+        if (dto.recurrenceType === RecurrenceType.CUSTOM && !dto.customIntervalDays) {
+            throw new BadRequestException(
+                'customIntervalDays é obrigatório para recorrência CUSTOM',
+            )
+        }
+
+        const equipmentList = await this.prisma.equipment.findMany({
+            where: { id: { in: dto.equipmentIds }, companyId, deletedAt: null },
+            select: { id: true, name: true },
+        })
+        if (!equipmentList.length) {
+            throw new BadRequestException('Nenhum equipamento encontrado')
+        }
+
+        const results: { equipmentId: string; equipmentName: string; scheduleId: string }[] = []
+        for (const equip of equipmentList) {
+            const schedule = await this.createSchedule(
+                { ...dto, equipmentId: equip.id },
+                clientId,
+                companyId,
+                currentUser,
+            )
+            results.push({ equipmentId: equip.id, equipmentName: equip.name, scheduleId: schedule.id })
+        }
+
+        return { created: results.length, results }
+    }
+
     async updateSchedule(
         id: string,
         dto: UpdateScheduleDto,
@@ -485,6 +520,32 @@ export class MaintenanceService {
                     // Advisory lock por empresa para evitar race condition na geração do número sequencial
                     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${schedule.companyId})::bigint)`
 
+                    // Evita gerar uma nova OS se já existe uma OS não-terminal para este agendamento
+                    const TERMINAL_OS = [ServiceOrderStatus.COMPLETED_APPROVED, ServiceOrderStatus.CANCELLED]
+                    const existingOs = await tx.serviceOrder.findFirst({
+                        where: {
+                            scheduleId: schedule.id,
+                            deletedAt: null,
+                            status: { notIn: TERMINAL_OS },
+                        },
+                        select: { id: true, number: true },
+                    })
+                    if (existingOs) {
+                        this.logger.warn(
+                            `Schedule "${schedule.title}" (${schedule.id}): OS #${existingOs.number} ainda ativa. Avançando nextRunAt sem gerar nova OS.`,
+                        )
+                        const nextRunAt = calculateNextRunAt(
+                            schedule.recurrenceType,
+                            now,
+                            schedule.customIntervalDays ?? undefined,
+                        )
+                        await tx.maintenanceSchedule.update({
+                            where: { id: schedule.id },
+                            data: { lastRunAt: now, nextRunAt },
+                        })
+                        return null
+                    }
+
                     // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
                     const [{ max_number }] = await tx.$queryRaw<[{ max_number: number }]>`
                         SELECT COALESCE(MAX(number), 0) AS max_number
@@ -508,6 +569,7 @@ export class MaintenanceService {
                             companyId: schedule.companyId,
                             ...(schedule.clientId && { clientId: schedule.clientId }),
                             equipmentId: schedule.equipmentId,
+                            scheduleId: schedule.id,
                             number,
                             title: `[PREVENTIVA] ${schedule.title}`,
                             description: schedule.description ?? `Manutenção preventiva gerada automaticamente`,
@@ -600,6 +662,8 @@ export class MaintenanceService {
 
                     return { osId: os.id, osNumber: number }
                 })
+
+                if (!txResult) continue
 
                 generated++
 
