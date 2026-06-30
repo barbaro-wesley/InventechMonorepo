@@ -25,7 +25,9 @@
       "Bash(node activate_user_tmp.js)",
       "Bash(npx tsc *)",
       "Bash(tee /tmp/tscout.txt)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git fetch *)",
+      "Bash(xargs grep -l \"last_login\")"
     ]
   }
 }
