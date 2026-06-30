@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import {
   maintenanceScheduleService,
   type CreateMaintenanceScheduleDto,
+  type CreateBatchMaintenanceScheduleDto,
   type UpdateMaintenanceScheduleDto,
   type ListSchedulesParams,
 } from '@/services/maintenance/maintenance-schedule.service'
@@ -45,6 +46,22 @@ export function useCreateMaintenanceSchedule() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scheduleKeys.all })
       toast.success('Agendamento de preventiva criado com sucesso')
+    },
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
+    },
+  })
+}
+
+export function useCreateBatchMaintenanceSchedule() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (dto: CreateBatchMaintenanceScheduleDto) =>
+      maintenanceScheduleService.createBatch(dto),
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all })
+      toast.success(`${r.created} preventiva${r.created !== 1 ? 's' : ''} agendada${r.created !== 1 ? 's' : ''} com sucesso`)
     },
     onError: (err) => {
       toast.error(getErrorMessage(err))

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
-import { Loader2, Layers, CheckCircle2, ClipboardList, Wrench } from 'lucide-react'
+import { Loader2, Layers, Wrench } from 'lucide-react'
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet'
@@ -19,7 +19,6 @@ import { useCurrentUser } from '@/store/auth.store'
 import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import type { BatchServiceOrderResult } from '@/services/service-orders/service-orders.types'
 
 interface SimpleOption { id: string; name: string }
 
@@ -102,8 +101,6 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
   const [locations, setLocations] = useState<SimpleOption[]>([])
   const [costCenters, setCostCenters] = useState<SimpleOption[]>([])
   const [groups, setGroups] = useState<SimpleOption[]>([])
-  const [result, setResult] = useState<BatchServiceOrderResult | null>(null)
-
   const createBatch = useCreateBatchServiceOrders()
 
   const defaultClientId = fixedClientId ?? currentUser?.clientId ?? ''
@@ -121,7 +118,6 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
 
   useEffect(() => {
     if (!open) return
-    setResult(null)
     form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE', clientId: defaultClientId })
     setEquipmentSubtypes([])
 
@@ -132,11 +128,11 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
     }
 
     if (!hasPreselected) {
-      api.get('/equipment-types', { params: { limit: 200 } })
+      api.get('/equipment-types', { params: { limit: 100 } })
         .then(({ data }) => setEquipmentTypes((data?.data ?? data ?? []).map((t: any) => ({ id: t.id, name: t.name }))))
         .catch(() => {})
 
-      api.get('/locations', { params: { limit: 200 } })
+      api.get('/locations', { params: { limit: 100 } })
         .then(({ data }) => setLocations((data?.data ?? []).map((l: any) => ({ id: l.id, name: l.name }))))
         .catch(() => {})
 
@@ -152,13 +148,12 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
 
   useEffect(() => {
     if (!watchedTypeId) { setEquipmentSubtypes([]); return }
-    api.get('/equipment-subtypes', { params: { typeId: watchedTypeId, limit: 200 } })
+    api.get('/equipment-subtypes', { params: { typeId: watchedTypeId, limit: 100 } })
       .then(({ data }) => setEquipmentSubtypes((data?.data ?? data ?? []).map((s: any) => ({ id: s.id, name: s.name }))))
       .catch(() => setEquipmentSubtypes([]))
   }, [watchedTypeId])
 
   function handleClose() {
-    setResult(null)
     onClose()
   }
 
@@ -186,7 +181,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
           groupId: values.groupId || undefined,
         },
       },
-      { onSuccess: (res) => setResult(res) },
+      { onSuccess: handleClose },
     )
   }
 
@@ -213,54 +208,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
           </div>
         </SheetHeader>
 
-        {/* ── Resultado ─────────────────────────────────────────────── */}
-        {result ? (
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5 space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-                    {result.created} OS criadas com sucesso
-                  </p>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-                    Todos os equipamentos ativos foram colocados em manutenção
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                  Equipamentos com OS criada
-                </p>
-                <div className="rounded-xl border border-border overflow-hidden divide-y divide-border/60">
-                  {result.results.map((item) => (
-                    <div key={item.serviceOrderId} className="flex items-center justify-between px-4 py-2.5 bg-card">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <ClipboardList className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-sm truncate">{item.equipmentName}</span>
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground shrink-0 ml-3">OS #{item.number}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 px-6 py-4 border-t border-border bg-muted/10 flex-shrink-0">
-              <Button variant="outline" onClick={handleClose} className="flex-1 h-11">
-                Fechar
-              </Button>
-              <Button
-                onClick={() => { setResult(null); form.reset({ priority: 'MEDIUM', maintenanceType: 'CORRECTIVE', clientId: defaultClientId }) }}
-                className="flex-1 h-11 font-semibold"
-              >
-                Criar Novo Lote
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
             <div className="flex-1 overflow-y-auto min-h-0">
 
               {/* ── Seção: Encaminhamento (prestador + grupo) ─────────── */}
@@ -479,8 +427,7 @@ export function OsBatchCreateSheet({ open, onClose, clientId, preselectedEquipme
                 Criar OS em Lote
               </Button>
             </div>
-          </form>
-        )}
+        </form>
       </SheetContent>
     </Sheet>
   )

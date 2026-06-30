@@ -796,12 +796,13 @@ export class ServiceOrdersService {
                     },
                 })
 
+                await tx.equipment.update({
+                    where: { id: equip.id },
+                    data: { totalServiceOrders: { increment: 1 } },
+                })
                 await tx.equipment.updateMany({
                     where: { id: equip.id, status: EquipmentStatus.ACTIVE },
-                    data: {
-                        totalServiceOrders: { increment: 1 },
-                        status: EquipmentStatus.UNDER_MAINTENANCE,
-                    },
+                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
                 })
 
                 orders.push({ id: created.id, number: created.number, equipmentId: equip.id, equipmentName: equip.name })

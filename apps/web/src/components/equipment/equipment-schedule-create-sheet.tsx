@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Loader2, CalendarClock, AlertTriangle } from 'lucide-react'
+import { Loader2, CalendarClock, AlertTriangle, Wrench } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -21,7 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useCreateMaintenanceSchedule } from '@/hooks/maintenance/use-maintenance-schedule'
+import {
+  useCreateMaintenanceSchedule,
+  useCreateBatchMaintenanceSchedule,
+} from '@/hooks/maintenance/use-maintenance-schedule'
 import { useCurrentUser } from '@/store/auth.store'
 import { api } from '@/lib/api'
 import type { Equipment } from '@/services/equipment/equipment.service'
@@ -53,20 +56,27 @@ interface SimpleOption {
 }
 
 interface EquipmentScheduleCreateSheetProps {
-  equipment: Equipment | null
+  equipment?: Equipment | null
+  batchEquipment?: { id: string; name: string }[]
   open: boolean
   onClose: () => void
 }
 
 export function EquipmentScheduleCreateSheet({
   equipment,
+  batchEquipment,
   open,
   onClose,
 }: EquipmentScheduleCreateSheetProps) {
   const currentUser = useCurrentUser()
   const [clients, setClients] = useState<SimpleOption[]>([])
 
+  const isBatch = !!batchEquipment?.length
+
   const createSchedule = useCreateMaintenanceSchedule()
+  const createBatchSchedule = useCreateBatchMaintenanceSchedule()
+
+  const isPending = isBatch ? createBatchSchedule.isPending : createSchedule.isPending
 
   const equipmentGroup = equipment?.type?.group ?? null
   const fixedClientId = currentUser?.clientId ?? null
@@ -99,41 +109,65 @@ export function EquipmentScheduleCreateSheet({
   }, [open])
 
   const onSubmit = (values: FormData) => {
-    if (!equipment) return
-    createSchedule.mutate(
-      {
-        clientId: values.clientId,
-        equipmentId: equipment.id,
-        title: values.title,
-        description: values.description,
-        maintenanceType: 'PREVENTIVE',
-        recurrenceType: values.recurrenceType as any,
-        ...(values.recurrenceType === 'CUSTOM' && {
-          customIntervalDays: Number(values.customIntervalDays),
-        }),
-        estimatedDurationMin: Number(values.estimatedDurationMin),
-        groupId: equipmentGroup?.id ?? undefined,
-        startDate: values.startDate,
-      },
-      {
-        onSuccess: () => {
-          form.reset()
-          onClose()
+    const commonFields = {
+      clientId: values.clientId,
+      title: values.title,
+      description: values.description,
+      maintenanceType: 'PREVENTIVE' as const,
+      recurrenceType: values.recurrenceType as any,
+      ...(values.recurrenceType === 'CUSTOM' && {
+        customIntervalDays: Number(values.customIntervalDays),
+      }),
+      estimatedDurationMin: Number(values.estimatedDurationMin),
+      startDate: values.startDate,
+    }
+
+    if (isBatch) {
+      createBatchSchedule.mutate(
+        {
+          ...commonFields,
+          equipmentIds: batchEquipment!.map((e) => e.id),
         },
-      },
-    )
+        {
+          onSuccess: () => {
+            form.reset()
+            onClose()
+          },
+        },
+      )
+    } else {
+      if (!equipment) return
+      createSchedule.mutate(
+        {
+          ...commonFields,
+          equipmentId: equipment.id,
+          groupId: equipmentGroup?.id ?? undefined,
+        },
+        {
+          onSuccess: () => {
+            form.reset()
+            onClose()
+          },
+        },
+      )
+    }
   }
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent side="right" className="overflow-y-auto p-6" style={{ width: '100%', maxWidth: '520px' }}>
         <SheetHeader>
-          <SheetTitle>Agendar Preventiva</SheetTitle>
+          <SheetTitle>{isBatch ? 'Agendar Preventiva em Lote' : 'Agendar Preventiva'}</SheetTitle>
+          {isBatch && (
+            <p className="text-xs text-muted-foreground">
+              Cria um agendamento para cada um dos {batchEquipment!.length} equipamentos selecionados
+            </p>
+          )}
         </SheetHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5 mt-6 pb-6">
-          {/* Equipment info */}
-          {equipment && (
+          {/* Equipment info — single mode */}
+          {!isBatch && equipment && (
             <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
               <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -155,7 +189,19 @@ export function EquipmentScheduleCreateSheet({
             </div>
           )}
 
-          {equipment && !equipmentGroup && (
+          {/* Equipment list — batch mode */}
+          {isBatch && (
+            <div className="rounded-xl border border-border overflow-hidden divide-y divide-border/60 max-h-48 overflow-y-auto">
+              {batchEquipment!.map((eq) => (
+                <div key={eq.id} className="flex items-center gap-2.5 px-4 py-2.5 bg-card">
+                  <Wrench className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <span className="text-sm truncate">{eq.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!isBatch && equipment && !equipmentGroup && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
               <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
               <p>
@@ -284,9 +330,9 @@ export function EquipmentScheduleCreateSheet({
             <Button type="button" variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createSchedule.isPending}>
-              {createSchedule.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Agendar
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {isBatch ? 'Agendar em Lote' : 'Agendar'}
             </Button>
           </SheetFooter>
         </form>

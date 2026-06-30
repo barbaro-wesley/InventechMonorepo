@@ -43,9 +43,12 @@ export const STATUS_CONFIG = {
   BLOCKED:    { label: "Bloqueado",       className: "bg-red-50 text-red-700 border-red-200" },
 };
 
+const ALL_ROLE_VALUES = new Set(ALL_ROLE_OPTIONS.map((o) => o.value as string));
+
 function EditUserForm({
   user,
   roleOptions,
+  customRoles,
   canEditEmail,
   isPending,
   onSave,
@@ -53,6 +56,7 @@ function EditUserForm({
 }: {
   user: User;
   roleOptions: { value: Role; label: string }[];
+  customRoles: { id: string; name: string }[];
   canEditEmail: boolean;
   isPending: boolean;
   onSave: (dto: UpdateUserDto) => void;
@@ -62,7 +66,7 @@ function EditUserForm({
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone ?? "");
   const [status, setStatus] = useState<UpdateUserDto["status"]>(user.status);
-  const [role, setRole] = useState<Role>(user.role as Role);
+  const [papel, setPapel] = useState<string>(user.customRoleId ?? (user.role as string));
   const [require2FA, setRequire2FA] = useState(user.require2FA ?? false);
 
   useEffect(() => {
@@ -70,7 +74,7 @@ function EditUserForm({
     setEmail(user.email);
     setPhone(user.phone ?? "");
     setStatus(user.status);
-    setRole(user.role as Role);
+    setPapel(user.customRoleId ?? (user.role as string));
     setRequire2FA(user.require2FA ?? false);
   }, [user]);
 
@@ -112,17 +116,25 @@ function EditUserForm({
         </div>
         <div>
           <Label>Papel de sistema</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+          <Select value={papel} onValueChange={setPapel}>
             <SelectTrigger className="mt-1.5">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {!roleOptions.find((o) => o.value === role) && (
-                <SelectItem value={role}>{ROLE_LABELS[role as keyof typeof ROLE_LABELS]}</SelectItem>
+              {!roleOptions.find((o) => o.value === papel) && !customRoles.find((r) => r.id === papel) && (
+                <SelectItem value={papel}>{ROLE_LABELS[papel as keyof typeof ROLE_LABELS] ?? papel}</SelectItem>
               )}
               {roleOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
+              {customRoles.length > 0 && (
+                <>
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground border-t mt-1 pt-2">Papéis personalizados</div>
+                  {customRoles.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </>
+              )}
             </SelectContent>
           </Select>
         </div>
@@ -151,14 +163,19 @@ function EditUserForm({
         <Button
           disabled={isPending || !name.trim() || (canEditEmail && !email.trim())}
           className="flex-1"
-          onClick={() => onSave({
-            name,
-            ...(canEditEmail && email !== user.email ? { email } : {}),
-            phone: phone || undefined,
-            status,
-            role,
-            require2FA,
-          })}
+          onClick={() => {
+            const isCustomRole = !ALL_ROLE_VALUES.has(papel);
+            onSave({
+              name,
+              ...(canEditEmail && email !== user.email ? { email } : {}),
+              phone: phone || undefined,
+              status,
+              ...(isCustomRole
+                ? { customRoleId: papel }
+                : { role: papel as Role, customRoleId: null }),
+              require2FA,
+            });
+          }}
         >
           {isPending ? "Salvando..." : "Salvar"}
         </Button>
@@ -194,6 +211,7 @@ export function UserManagementSheets({
 
   const effectiveCompanyId = assignRoleUser?.companyId || editUser?.companyId || currentUser?.companyId || "";
   const { data: customRoles = [] } = useCustomRoles(effectiveCompanyId);
+  const activeCustomRoles = customRoles.filter((r) => r.isActive);
 
   const roleOptions = ALL_ROLE_OPTIONS.filter(
     (opt) => permissions.role && opt.forRoles.includes(permissions.role as Role)
@@ -212,6 +230,7 @@ export function UserManagementSheets({
             <EditUserForm
               user={editUser}
               roleOptions={roleOptions}
+              customRoles={activeCustomRoles}
               canEditEmail={permissions.isCompanyLevel || permissions.canAccess('user', 'update')}
               isPending={updateUser.isPending}
               onSave={(dto) => updateUser.mutate(dto, { onSuccess: () => onEditUserChange(null) })}

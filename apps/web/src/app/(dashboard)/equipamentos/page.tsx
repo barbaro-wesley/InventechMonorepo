@@ -41,6 +41,7 @@ import {
   CheckSquare,
   Square,
   XCircle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,6 @@ import { useAttachments, useDeleteAttachment, useUploadAttachment } from "@/hook
 import { useMaintenanceSchedules, useToggleSchedule } from "@/hooks/maintenance/use-maintenance-schedule";
 import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-schedule.service";
 import { EquipmentOsCreateSheet } from "@/components/equipment/equipment-os-create-sheet";
-import { OsBatchCreateSheet } from "@/components/service-orders/os-batch-create-sheet";
 import { EquipmentScheduleCreateSheet } from "@/components/equipment/equipment-schedule-create-sheet";
 import { EquipmentManualsSheet } from "@/components/equipment/equipment-manuals-sheet";
 import { EquipmentAccessoriesTab } from "@/components/equipment/equipment-accessories-tab";
@@ -2066,11 +2066,15 @@ export default function EquipamentosPage() {
   const [scheduleSheet, setScheduleSheet] = useState<Equipment | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [batchSheet, setBatchSheet] = useState<{ open: boolean; clientId: string; equipment: { id: string; name: string }[] }>({
+  const [batchSheet, setBatchSheet] = useState<{ open: boolean; equipment: { id: string; name: string }[] }>({
     open: false,
-    clientId: "",
     equipment: [],
   });
+  const [schedBatchSheet, setSchedBatchSheet] = useState<{ open: boolean; equipment: { id: string; name: string }[] }>({
+    open: false,
+    equipment: [],
+  });
+  const [printingLabels, setPrintingLabels] = useState(false);
 
   const searchParams = useSearchParams();
   const detailId = searchParams.get("detail");
@@ -2139,9 +2143,28 @@ export default function EquipamentosPage() {
     if (selected.length === 0) return;
     setBatchSheet({
       open: true,
-      clientId: "",
       equipment: selected.map((e) => ({ id: e.id, name: e.name })),
     });
+  }
+
+  function handleOpenScheduleBatch() {
+    const selected = equipments.filter((e) => selectedIds.has(e.id));
+    if (selected.length === 0) return;
+    setSchedBatchSheet({
+      open: true,
+      equipment: selected.map((e) => ({ id: e.id, name: e.name })),
+    });
+  }
+
+  async function handlePrintLabels() {
+    setPrintingLabels(true);
+    try {
+      await equipmentService.openBatchLabels([...selectedIds]);
+    } catch {
+      toast.error("Erro ao gerar etiquetas");
+    } finally {
+      setPrintingLabels(false);
+    }
   }
 
   return (
@@ -2166,7 +2189,7 @@ export default function EquipamentosPage() {
               {selectionMode ? (
                 <><XCircle className="w-4 h-4 mr-2" />Cancelar seleção</>
               ) : (
-                <><Layers className="w-4 h-4 mr-2" />OS em lote</>
+                <><Layers className="w-4 h-4 mr-2" />Ações em lote</>
               )}
             </Button>
           )}
@@ -2436,12 +2459,21 @@ export default function EquipamentosPage() {
         onClose={() => setScheduleSheet(null)}
       />
 
-      <OsBatchCreateSheet
+      <EquipmentOsCreateSheet
+        batchEquipment={batchSheet.equipment}
         open={batchSheet.open}
-        clientId={batchSheet.clientId}
-        preselectedEquipment={batchSheet.equipment}
         onClose={() => {
-          setBatchSheet({ open: false, clientId: "", equipment: [] });
+          setBatchSheet({ open: false, equipment: [] });
+          setSelectionMode(false);
+          setSelectedIds(new Set());
+        }}
+      />
+
+      <EquipmentScheduleCreateSheet
+        batchEquipment={schedBatchSheet.equipment}
+        open={schedBatchSheet.open}
+        onClose={() => {
+          setSchedBatchSheet({ open: false, equipment: [] });
           setSelectionMode(false);
           setSelectedIds(new Set());
         }}
@@ -2453,6 +2485,27 @@ export default function EquipamentosPage() {
           <span className="text-sm font-medium">{selectedIds.size} selecionado(s)</span>
           <Button size="sm" variant="ghost" className="text-white hover:bg-white/10" onClick={() => setSelectedIds(new Set())}>
             Limpar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+            onClick={handleOpenScheduleBatch}
+          >
+            <CalendarClock className="w-4 h-4 mr-2" />
+            Agendar Preventiva
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-white hover:bg-white/10"
+            onClick={handlePrintLabels}
+            disabled={printingLabels}
+          >
+            {printingLabels
+              ? <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              : <Printer className="w-4 h-4 mr-2" />}
+            Imprimir Etiquetas
           </Button>
           <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={handleOpenBatchSheet}>
             <Layers className="w-4 h-4 mr-2" />
