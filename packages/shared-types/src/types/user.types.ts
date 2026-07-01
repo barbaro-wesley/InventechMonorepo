@@ -30,7 +30,8 @@ export interface User {
 export interface CreateUserDto {
   name: string;
   email: string;
-  password: string;
+  /** Opcional — se omitida, o usuário herda a senha padrão de primeiro acesso da empresa. */
+  password?: string;
   role: UserRole;
   phone?: string;
   companyId?: string;

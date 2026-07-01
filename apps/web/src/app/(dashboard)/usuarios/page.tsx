@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, MoreHorizontal, Loader2, Clock, Users, Eye, EyeOff } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Loader2, Clock, Users } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/users/use-users";
+import { useUsers, useCreateUser, useDeleteUser, useResetUserPassword } from "@/hooks/users/use-users";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { useCustomRoles } from "@/hooks/permissions/use-permissions";
 import { useCurrentUser } from "@/store/auth.store";
@@ -88,7 +88,6 @@ const FIXED_ROLE_VALUES = new Set(FIXED_CREATE_ROLES.map((r) => r.value as strin
 const createUserSchema = z.object({
     name:     z.string().min(1, "Nome obrigatório"),
     email:    z.email("E-mail inválido"),
-    password: z.string().min(6, "Mínimo 6 caracteres"),
     papel:    z.string().min(1, "Informe o papel do usuário"),
     phone:    z.string().optional(),
 });
@@ -185,10 +184,10 @@ export default function UsuariosPage() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [page, setPage] = useState(1);
     const [createOpen, setCreateOpen] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
     const [editUser, setEditUser] = useState<User | null>(null);
     const [deleteUser, setDeleteUser] = useState<User | null>(null);
     const [assignRoleUser, setAssignRoleUser] = useState<User | null>(null);
+    const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
 
     const { data, isLoading } = useUsers({
         page,
@@ -199,6 +198,11 @@ export default function UsuariosPage() {
     });
     const createUser        = useCreateUser();
     const deleteUserMutation = useDeleteUser();
+    const resetPasswordMutation = useResetUserPassword();
+
+    // Reset de senha — restrito ao papel de sistema COMPANY_ADMIN (espelha @Roles no backend).
+    // Nunca liberado via permissões personalizadas.
+    const canResetPassword = permissions.isCompanyAdmin || permissions.isSuperAdmin;
 
     const { data: customRoles = [] } = useCustomRoles(currentUser?.companyId ?? "");
     const activeCustomRoles = customRoles.filter((r) => r.isActive);
@@ -213,14 +217,19 @@ export default function UsuariosPage() {
 
     const form = useForm<CreateUserForm>({
         resolver: zodResolver(createUserSchema),
-        defaultValues: { name: "", email: "", password: "", phone: "", papel: "" },
+        defaultValues: { name: "", email: "", phone: "", papel: "" },
     });
 
     function handleCreate(formData: CreateUserForm) {
         const { papel, ...rest } = formData;
         const isFixedRole = FIXED_ROLE_VALUES.has(papel);
         createUser.mutate(
-            { ...rest, ...(isFixedRole ? { role: papel } : { customRoleId: papel }) } as any,
+            {
+                ...rest,
+                // Sem campo de senha na UI — sempre herda a senha padrão de
+                // primeiro acesso configurada em Configurações > Segurança
+                ...(isFixedRole ? { role: papel } : { customRoleId: papel }),
+            } as any,
             { onSuccess: () => { setCreateOpen(false); form.reset(); } }
         );
     }
@@ -228,6 +237,11 @@ export default function UsuariosPage() {
     function handleDelete() {
         if (!deleteUser) return;
         deleteUserMutation.mutate(deleteUser.id, { onSuccess: () => setDeleteUser(null) });
+    }
+
+    function handleResetPassword() {
+        if (!resetPasswordUser) return;
+        resetPasswordMutation.mutate(resetPasswordUser.id, { onSuccess: () => setResetPasswordUser(null) });
     }
 
     const total      = data?.pagination?.total      ?? 0;
@@ -464,6 +478,11 @@ export default function UsuariosPage() {
                                                             <DropdownMenuItem onClick={() => setEditUser(user)}>
                                                                 Editar
                                                             </DropdownMenuItem>
+                                                            {canResetPassword && user.id !== currentUser?.id && (
+                                                                <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
+                                                                    Resetar senha
+                                                                </DropdownMenuItem>
+                                                            )}
                                                             <DropdownMenuItem
                                                                 className="text-red-600 focus:text-red-600"
                                                                 onClick={() => setDeleteUser(user)}
@@ -515,7 +534,7 @@ export default function UsuariosPage() {
                 open={createOpen}
                 onOpenChange={(open) => {
                     setCreateOpen(open);
-                    if (!open) { form.reset(); setShowPassword(false); }
+                    if (!open) { form.reset(); }
                 }}
             >
                 <DrawerContent>
@@ -593,38 +612,10 @@ export default function UsuariosPage() {
                                     Acesso e permissões
                                 </legend>
 
-                                {/* Senha com toggle */}
-                                <div>
-                                    <Label htmlFor="password">Senha de acesso</Label>
-                                    <div className="relative mt-1.5">
-                                        <Input
-                                            id="password"
-                                            type={showPassword ? "text" : "password"}
-                                            placeholder="Mínimo 6 caracteres"
-                                            className="pr-10"
-                                            {...form.register("password")}
-                                        />
-                                        <button
-                                            type="button"
-                                            tabIndex={-1}
-                                            onClick={() => setShowPassword((v) => !v)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                                        >
-                                            {showPassword
-                                                ? <EyeOff className="w-4 h-4" />
-                                                : <Eye className="w-4 h-4" />}
-                                        </button>
-                                    </div>
-                                    {form.formState.errors.password ? (
-                                        <p className="mt-1 text-xs text-red-500">
-                                            {form.formState.errors.password.message}
-                                        </p>
-                                    ) : (
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            O usuário pode alterar a senha após o primeiro acesso.
-                                        </p>
-                                    )}
-                                </div>
+                                <p className="text-xs text-muted-foreground -mt-1">
+                                    O usuário receberá a senha padrão de primeiro acesso configurada em
+                                    Configurações → Segurança e será obrigado a trocá-la no primeiro login.
+                                </p>
 
                                 {/* Papel */}
                                 <div>
@@ -738,6 +729,33 @@ export default function UsuariosPage() {
                                 <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                                 "Remover"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ── Confirmação de reset de senha ── */}
+            <AlertDialog
+                open={!!resetPasswordUser}
+                onOpenChange={(open: boolean) => !open && setResetPasswordUser(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Resetar senha</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            <strong>{resetPasswordUser?.name}</strong> receberá a senha padrão de
+                            primeiro acesso da empresa e será obrigado a trocá-la no próximo login.
+                            As sessões ativas deste usuário serão encerradas.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleResetPassword}>
+                            {resetPasswordMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                "Resetar senha"
                             )}
                         </AlertDialogAction>
                     </AlertDialogFooter>

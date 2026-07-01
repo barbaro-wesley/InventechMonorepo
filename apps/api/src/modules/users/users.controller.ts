@@ -11,6 +11,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common'
+import { UserRole } from '@prisma/client'
 import { UsersService } from './users.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
@@ -18,6 +19,7 @@ import { UpdateOwnProfileDto, ChangePasswordDto } from './dto/update-own-profile
 import { ListUsersDto } from './dto/list-users.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
+import { Roles } from '../../common/decorators/roles.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @Controller('users')
@@ -83,6 +85,20 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
   ) {
     return this.usersService.update(id, dto, currentUser)
+  }
+
+  // Reset de senha pelo admin — devolve o usuário à senha padrão da empresa.
+  // Intencionalmente usa @Roles (não @Permission): nunca deve ser concedível
+  // a papéis personalizados, só ao papel de sistema COMPANY_ADMIN
+  // (SUPER_ADMIN sempre passa via bypass do PermissionGuard).
+  @Patch(':id/reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.COMPANY_ADMIN)
+  resetPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ) {
+    return this.usersService.resetPassword(id, currentUser)
   }
 
   @Delete(':id')

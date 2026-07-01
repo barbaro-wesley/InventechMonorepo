@@ -65,6 +65,21 @@ export function useDeleteUser() {
     });
 }
 
+export function useResetUserPassword() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (id: string) => usersService.resetPassword(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: userKeys.all });
+            toast.success("Senha redefinida para o padrão da empresa!");
+        },
+        onError: (error) => {
+            toast.error(getErrorMessage(error));
+        },
+    });
+}
+
 export function useUpdateProfile() {
     const setUser = useAuthStore((s) => s.setUser);
 

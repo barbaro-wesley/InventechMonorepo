@@ -13,12 +13,12 @@ export default function AuthLayout({
       <div className="hidden lg:flex flex-col justify-between relative overflow-hidden bg-zinc-950 w-full lg:w-[52%] xl:w-1/2 p-12 xl:p-16">
 
         {/* Glows */}
-        <div className="absolute top-1/4 -left-20 w-[420px] h-[420px] rounded-full bg-indigo-600/20 blur-[100px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full bg-violet-600/15 blur-[90px] pointer-events-none translate-x-1/3" />
+        <div className="absolute top-1/4 -left-20 w-[420px] h-[420px] rounded-full bg-brand-primary/25 blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-0 w-[300px] h-[300px] rounded-full bg-brand-accent/15 blur-[90px] pointer-events-none translate-x-1/3" />
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/30">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center gradient-brand shadow-brand">
             <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
               <path d="M9 2L15.5 5.5V12.5L9 16L2.5 12.5V5.5L9 2Z" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
             </svg>
@@ -33,7 +33,7 @@ export default function AuthLayout({
           <div>
             <h1 className="text-3xl xl:text-[2.6rem] font-bold text-white leading-tight tracking-tight mb-3">
               Gestão inteligente<br />
-              <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-blue-400 bg-clip-text text-transparent">
+              <span className="text-gradient-brand">
                 de ativos e manutenções
               </span>
             </h1>
@@ -45,42 +45,42 @@ export default function AuthLayout({
           {/* Módulos em destaque */}
           <div className="grid grid-cols-2 gap-3">
             {/* Preventivas */}
-            <div className="bg-indigo-500/10 border border-indigo-500/25 rounded-2xl p-4 space-y-3">
+            <div className="bg-brand-primary/10 border border-brand-primary/25 rounded-2xl p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-500/20 border border-indigo-500/30">
-                  <Settings2 className="w-3.5 h-3.5 text-indigo-400" />
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-brand-primary/20 border border-brand-primary/30">
+                  <Settings2 className="w-3.5 h-3.5 text-brand-secondary" />
                 </div>
-                <span className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Preventivas</span>
+                <span className="text-xs font-semibold text-brand-secondary uppercase tracking-wider">Preventivas</span>
               </div>
               <div>
                 <p className="text-2xl font-bold text-white leading-none">12</p>
-                <p className="text-xs text-indigo-400/80 mt-1">agendadas este mês</p>
+                <p className="text-xs text-brand-secondary/80 mt-1">agendadas este mês</p>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-1 flex-1 rounded-full bg-indigo-500/20 overflow-hidden">
-                  <div className="h-full w-[75%] rounded-full bg-indigo-400" />
+                <div className="h-1 flex-1 rounded-full bg-brand-primary/20 overflow-hidden">
+                  <div className="h-full w-[75%] rounded-full bg-brand-secondary" />
                 </div>
-                <span className="text-[10px] text-indigo-400 font-medium">75%</span>
+                <span className="text-[10px] text-brand-secondary font-medium">75%</span>
               </div>
             </div>
 
             {/* Ordens de Serviço */}
-            <div className="bg-violet-500/10 border border-violet-500/25 rounded-2xl p-4 space-y-3">
+            <div className="bg-brand-accent/10 border border-brand-accent/25 rounded-2xl p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-violet-500/20 border border-violet-500/30">
-                  <ClipboardList className="w-3.5 h-3.5 text-violet-400" />
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-brand-accent/20 border border-brand-accent/30">
+                  <ClipboardList className="w-3.5 h-3.5 text-brand-accent" />
                 </div>
-                <span className="text-xs font-semibold text-violet-300 uppercase tracking-wider">Ordens</span>
+                <span className="text-xs font-semibold text-brand-accent uppercase tracking-wider">Ordens</span>
               </div>
               <div>
                 <p className="text-2xl font-bold text-white leading-none">8</p>
-                <p className="text-xs text-violet-400/80 mt-1">abertas em andamento</p>
+                <p className="text-xs text-brand-accent/80 mt-1">abertas em andamento</p>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-1 flex-1 rounded-full bg-violet-500/20 overflow-hidden">
-                  <div className="h-full w-[62%] rounded-full bg-violet-400" />
+                <div className="h-1 flex-1 rounded-full bg-brand-accent/20 overflow-hidden">
+                  <div className="h-full w-[62%] rounded-full bg-brand-accent" />
                 </div>
-                <span className="text-[10px] text-violet-400 font-medium">62%</span>
+                <span className="text-[10px] text-brand-accent font-medium">62%</span>
               </div>
             </div>
           </div>
@@ -151,8 +151,8 @@ export default function AuthLayout({
       </div>
 
       {/* ── Painel Direito — Formulário ── */}
-      <div className="relative flex flex-col items-center justify-center flex-1 min-h-screen lg:min-h-0 p-6 sm:p-10 bg-zinc-50 dark:bg-zinc-900">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-50/60 via-transparent to-transparent dark:from-indigo-950/20 pointer-events-none" />
+      <div className="relative flex flex-col items-center justify-center flex-1 min-h-screen lg:min-h-0 p-6 sm:p-10 bg-muted/40 dark:bg-background">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-brand-primary/[0.06] via-transparent to-transparent dark:from-brand-primary/10 pointer-events-none" />
         <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
           <ThemeToggle />
         </div>

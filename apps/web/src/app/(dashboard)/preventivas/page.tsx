@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  CalendarClock, Search, CheckCircle2, AlertTriangle,
+  CalendarClock, CalendarX, Search, CheckCircle2, AlertTriangle,
   Clock, XCircle, ChevronLeft, ChevronRight, Plus, X,
   LayoutGrid, User,
 } from "lucide-react";
@@ -68,10 +68,11 @@ function relativeTime(iso: string | null): string | null {
 function StatusBadge({ schedule }: { schedule: MaintenanceSchedule }) {
   const status = getScheduleStatus(schedule);
   const cfgs = {
-    overdue:  { label: "Vencido",     cls: "bg-red-50 text-red-700 ring-1 ring-red-200",              Icon: AlertTriangle },
-    due_soon: { label: "Esta semana", cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",         Icon: Clock },
-    active:   { label: "Em dia",      cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",   Icon: CheckCircle2 },
-    inactive: { label: "Inativo",     cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200",           Icon: XCircle },
+    overdue:  { label: "Vencido",             cls: "bg-red-50 text-red-700 ring-1 ring-red-200",              Icon: AlertTriangle },
+    due_soon: { label: "Esta semana",         cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",         Icon: Clock },
+    active:   { label: "Em dia",              cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",   Icon: CheckCircle2 },
+    inactive: { label: "Inativo",             cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200",           Icon: XCircle },
+    expired:  { label: "Vigência encerrada",  cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200",           Icon: CalendarX },
   };
   const { label, cls, Icon } = cfgs[status];
   return (
@@ -167,9 +168,7 @@ export default function PreventivasPage() {
   const in7days = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
   const isActiveFilter =
-    statusFilter === "inactive" ? false
-    : statusFilter === "active" || statusFilter === "overdue" || statusFilter === "due_soon" ? true
-    : undefined;
+    statusFilter === "active" || statusFilter === "overdue" || statusFilter === "due_soon" ? true : undefined;
 
   // For date-based card filters: bump limit so client-side filter covers more records
   const needsBuffer = statusFilter === "overdue" || statusFilter === "due_soon" || !!patrimonyNumber;
@@ -205,7 +204,6 @@ export default function PreventivasPage() {
   // Card counts: use pagination total when a server-side filter is active (accurate);
   // otherwise count from the fetched records (reflects what's visible).
   const cntActive   = statusFilter === "active"   ? total : schedules.filter((s) => s.isActive).length;
-  const cntInactive = statusFilter === "inactive" ? total : schedules.filter((s) => !s.isActive).length;
   const cntOverdue  = statusFilter === "overdue"  ? filtered.length : schedules.filter((s) => getScheduleStatus(s) === "overdue").length;
   const cntDueSoon  = statusFilter === "due_soon" ? filtered.length : schedules.filter((s) => getScheduleStatus(s) === "due_soon").length;
 
@@ -244,15 +242,13 @@ export default function PreventivasPage() {
       </div>
 
       {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard label="Ativos" value={cntActive} icon={LayoutGrid} color="blue"
           active={statusFilter === "active"} onClick={() => toggleStatusFilter("active")} />
         <StatCard label="Vencidos" value={cntOverdue} icon={AlertTriangle} color="red"
           active={statusFilter === "overdue"} onClick={() => toggleStatusFilter("overdue")} />
         <StatCard label="Esta semana" value={cntDueSoon} icon={Clock} color="amber"
           active={statusFilter === "due_soon"} onClick={() => toggleStatusFilter("due_soon")} />
-        <StatCard label="Inativos" value={cntInactive} icon={XCircle} color="gray"
-          active={statusFilter === "inactive"} onClick={() => toggleStatusFilter("inactive")} />
       </div>
 
       {/* ── Filters ── */}
@@ -410,15 +406,11 @@ export default function PreventivasPage() {
                         )}
                         {/* Badges: checklist + vigência — relevantes para auditoria ANVISA */}
                         <div className="flex flex-wrap gap-1 mt-1.5">
-                          {s.checklistTemplate ? (
+                          {s.checklistTemplate && (
                             <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 px-1.5 py-0.5 rounded">
                               ✓ Checklist
                             </span>
-                          ) : s.isActive ? (
-                            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 ring-1 ring-amber-200 px-1.5 py-0.5 rounded">
-                              ! Sem checklist
-                            </span>
-                          ) : null}
+                          )}
                           {endDiff !== null && endDiff < 0 && (
                             <span className="text-[10px] font-semibold text-red-700 bg-red-50 ring-1 ring-red-200 px-1.5 py-0.5 rounded">
                               Plano expirado
