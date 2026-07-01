@@ -524,7 +524,7 @@ export class MaintenanceService {
                     const TERMINAL_OS = [ServiceOrderStatus.COMPLETED_APPROVED, ServiceOrderStatus.CANCELLED]
                     const existingOs = await tx.serviceOrder.findFirst({
                         where: {
-                            scheduleId: schedule.id,
+                            maintenance: { scheduleId: schedule.id },
                             deletedAt: null,
                             status: { notIn: TERMINAL_OS },
                         },
@@ -569,7 +569,6 @@ export class MaintenanceService {
                             companyId: schedule.companyId,
                             ...(schedule.clientId && { clientId: schedule.clientId }),
                             equipmentId: schedule.equipmentId,
-                            scheduleId: schedule.id,
                             number,
                             title: `[PREVENTIVA] ${schedule.title}`,
                             description: schedule.description ?? `Manutenção preventiva gerada automaticamente`,
@@ -611,7 +610,7 @@ export class MaintenanceService {
                     })
 
                     // Cria registro de manutenção vinculado à OS
-                    await tx.maintenance.create({
+                    const maintenance = await tx.maintenance.create({
                         data: {
                             companyId: schedule.companyId,
                             equipmentId: schedule.equipmentId,
@@ -623,6 +622,12 @@ export class MaintenanceService {
                                 technicianId: schedule.assignedTechnicianId,
                             }),
                         },
+                    })
+
+                    // Vincula a OS ao registro de manutenção recém-criado
+                    await tx.serviceOrder.update({
+                        where: { id: os.id },
+                        data: { maintenanceId: maintenance.id },
                     })
 
                     // Cria checklist se o agendamento tem template vinculado
