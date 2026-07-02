@@ -83,6 +83,25 @@ const SCHEDULE_SELECT = {
     _count: { select: { maintenances: true } },
 } satisfies Prisma.MaintenanceScheduleSelect
 
+const PREVENTIVE_SCHEDULE_SELECT = {
+    id: true,
+    companyId: true,
+    clientId: true,
+    title: true,
+    description: true,
+    maintenanceType: true,
+    recurrenceType: true,
+    customIntervalDays: true,
+    assignedTechnicianId: true,
+    groupId: true,
+    equipmentId: true,
+    checklistTemplateId: true,
+    createdById: true,
+    equipment: { select: { name: true } },
+} satisfies Prisma.MaintenanceScheduleSelect
+
+type PreventiveScheduleRow = Prisma.MaintenanceScheduleGetPayload<{ select: typeof PREVENTIVE_SCHEDULE_SELECT }>
+
 @Injectable()
 export class MaintenanceService {
     private readonly logger = new Logger(MaintenanceService.name)
@@ -457,16 +476,43 @@ export class MaintenanceService {
     }
 
     // ─────────────────────────────────────────
-    // Dispara manualmente a geração de OS
-    // preventivas (útil para testes)
+    // Dispara manualmente a geração de OS preventiva
+    // para UM agendamento específico (botão "Forçar
+    // geração de OS agora"). Roda de forma síncrona e
+    // ignora o nextRunAt, já que é uma ação explícita
+    // do usuário — assim o retorno reflete o que
+    // realmente aconteceu (OS criada, já existente, etc).
     // ─────────────────────────────────────────
-    async triggerGeneration() {
-        const job = await this.maintenanceQueue.add(
-            MAINTENANCE_JOBS.GENERATE_PREVENTIVE,
-            {},
-            { priority: 1 },
-        )
-        return { message: 'Geração iniciada', jobId: job.id }
+    async forceGenerateForSchedule(scheduleId: string, companyId: string) {
+        const schedule = await this.prisma.maintenanceSchedule.findFirst({
+            where: { id: scheduleId, companyId },
+            select: PREVENTIVE_SCHEDULE_SELECT,
+        })
+        if (!schedule) throw new NotFoundException('Agendamento não encontrado')
+
+        const result = await this.generateOsFromSchedule(schedule, new Date())
+
+        if (result === 'already-active') {
+            throw new BadRequestException(
+                'Já existe uma OS ativa para este agendamento. Verifique a lista de OS.',
+            )
+        }
+
+        this.maintenanceQueue.add(
+            MAINTENANCE_JOBS.NOTIFY_PREVENTIVE_GENERATED,
+            {
+                scheduleId: schedule.id,
+                companyId: schedule.companyId,
+                osId: result.osId,
+                osNumber: result.osNumber,
+                equipmentName: schedule.equipment.name,
+                groupId: schedule.groupId,
+                clientId: schedule.clientId,
+            },
+            { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+        ).catch((error) => this.logger.error(`Falha ao enfileirar notificação: ${error.message}`))
+
+        return { message: `OS #${result.osNumber} gerada com sucesso`, osId: result.osId, osNumber: result.osNumber }
     }
 
     // ─────────────────────────────────────────
@@ -487,22 +533,7 @@ export class MaintenanceService {
                     { endDate: { gte: now } },
                 ],
             },
-            select: {
-                id: true,
-                companyId: true,
-                clientId: true,
-                title: true,
-                description: true,
-                maintenanceType: true,
-                recurrenceType: true,
-                customIntervalDays: true,
-                assignedTechnicianId: true,
-                groupId: true,
-                equipmentId: true,
-                checklistTemplateId: true,
-                createdById: true,
-                equipment: { select: { name: true } },
-            },
+            select: PREVENTIVE_SCHEDULE_SELECT,
         })
 
         if (dueSchedules.length === 0) {
@@ -516,7 +547,46 @@ export class MaintenanceService {
 
         for (const schedule of dueSchedules) {
             try {
-                const txResult = await this.prisma.$transaction(async (tx) => {
+                const result = await this.generateOsFromSchedule(schedule, now)
+                if (result === 'already-active') continue
+
+                generated++
+
+                // Enfileira notificação para cada OS gerada com dados enriquecidos
+                await this.maintenanceQueue.add(
+                    MAINTENANCE_JOBS.NOTIFY_PREVENTIVE_GENERATED,
+                    {
+                        scheduleId: schedule.id,
+                        companyId: schedule.companyId,
+                        osId: result.osId,
+                        osNumber: result.osNumber,
+                        equipmentName: schedule.equipment.name,
+                        groupId: schedule.groupId,
+                        clientId: schedule.clientId,
+                    },
+                    { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
+                )
+            } catch (error) {
+                this.logger.error(
+                    `Erro ao gerar OS para schedule ${schedule.id}: ${error.message}`,
+                )
+            }
+        }
+
+        return generated
+    }
+
+    // ─────────────────────────────────────────
+    // Cria a OS preventiva para um único schedule dentro
+    // de uma transação. Retorna 'already-active' se já
+    // houver uma OS não-terminal vinculada ao agendamento
+    // (e avança o nextRunAt sem duplicar a OS).
+    // ─────────────────────────────────────────
+    private async generateOsFromSchedule(
+        schedule: PreventiveScheduleRow,
+        now: Date,
+    ): Promise<{ osId: string; osNumber: number } | 'already-active'> {
+        return this.prisma.$transaction(async (tx) => {
                     // Advisory lock por empresa para evitar race condition na geração do número sequencial
                     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${schedule.companyId})::bigint)`
 
@@ -543,7 +613,7 @@ export class MaintenanceService {
                             where: { id: schedule.id },
                             data: { lastRunAt: now, nextRunAt },
                         })
-                        return null
+                        return 'already-active' as const
                     }
 
                     // Usa raw SQL para ignorar o middleware de soft delete e pegar o MAX real (incluindo deletadas)
@@ -666,34 +736,7 @@ export class MaintenanceService {
                     )
 
                     return { osId: os.id, osNumber: number }
-                })
-
-                if (!txResult) continue
-
-                generated++
-
-                // Enfileira notificação para cada OS gerada com dados enriquecidos
-                await this.maintenanceQueue.add(
-                    MAINTENANCE_JOBS.NOTIFY_PREVENTIVE_GENERATED,
-                    {
-                        scheduleId: schedule.id,
-                        companyId: schedule.companyId,
-                        osId: txResult.osId,
-                        osNumber: txResult.osNumber,
-                        equipmentName: schedule.equipment.name,
-                        groupId: schedule.groupId,
-                        clientId: schedule.clientId,
-                    },
-                    { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
-                )
-            } catch (error) {
-                this.logger.error(
-                    `Erro ao gerar OS para schedule ${schedule.id}: ${error.message}`,
-                )
-            }
-        }
-
-        return generated
+        })
     }
 
     // ─────────────────────────────────────────

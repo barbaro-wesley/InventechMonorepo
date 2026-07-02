@@ -170,8 +170,8 @@ async function toggle(id: string, isActive: boolean): Promise<MaintenanceSchedul
   return data.data ?? data
 }
 
-async function trigger(clientId: string): Promise<{ message: string; jobId: string | number }> {
-  const { data } = await api.post(`/clients/${clientId}/maintenance-schedules/trigger`)
+async function trigger(clientId: string, id: string): Promise<{ message: string; osId: string; osNumber: number }> {
+  const { data } = await api.post(`/clients/${clientId}/maintenance-schedules/${id}/trigger`)
   return data.data ?? data
 }
 

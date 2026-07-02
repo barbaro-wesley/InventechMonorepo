@@ -27,7 +27,16 @@
       "Bash(tee /tmp/tscout.txt)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(git fetch *)",
-      "Bash(xargs grep -l \"last_login\")"
+      "Bash(xargs grep -l \"last_login\")",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(xargs grep -l \"minio\\\\|Minio\")",
+      "Bash(powershell -Command \"Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Start-Process 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe'\")",
+      "Bash(break)",
+      "Bash(tasklist //FI \"PID eq 21172\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001)"
     ]
   }
 }

@@ -10,6 +10,7 @@ import {
   type ListSchedulesParams,
 } from '@/services/maintenance/maintenance-schedule.service'
 import { maintenanceGroupsService } from '@/services/maintenance-groups/maintenance-groups.service'
+import { serviceOrderKeys } from '@/hooks/service-orders/use-service-orders'
 import { getErrorMessage } from '@/lib/api'
 
 export const scheduleKeys = {
@@ -112,10 +113,12 @@ export function useTriggerSchedule() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (clientId: string) => maintenanceScheduleService.trigger(clientId),
-    onSuccess: () => {
+    mutationFn: ({ clientId, id }: { clientId: string; id: string }) =>
+      maintenanceScheduleService.trigger(clientId, id),
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: scheduleKeys.all })
-      toast.success('Geração de OS preventivas iniciada!')
+      queryClient.invalidateQueries({ queryKey: serviceOrderKeys.all })
+      toast.success(result.message ?? `OS #${result.osNumber} gerada com sucesso!`)
     },
     onError: (err) => {
       toast.error(getErrorMessage(err))
