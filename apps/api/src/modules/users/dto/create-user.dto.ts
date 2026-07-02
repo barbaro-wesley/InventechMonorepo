@@ -16,9 +16,12 @@ export class CreateUserDto {
   @IsEmail({}, { message: 'Email inválido' })
   email: string
 
+  // Opcional — se omitida, o usuário herda a senha padrão de primeiro
+  // acesso configurada para a empresa (ver UsersService.create)
+  @IsOptional()
   @IsString()
   @MinLength(6, { message: 'Senha deve ter no mínimo 6 caracteres' })
-  password: string
+  password?: string
 
   @IsOptional()
   @IsEnum(UserRole, { message: 'Papel inválido' })

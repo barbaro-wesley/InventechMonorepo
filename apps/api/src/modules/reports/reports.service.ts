@@ -1393,15 +1393,16 @@ export class ReportsService {
     const fmt = (d: Date | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
     const now = new Date()
 
-    const situacao = (s: { isActive: boolean; nextRunAt: Date | null }) => {
+    const situacao = (s: { isActive: boolean; nextRunAt: Date | null; endDate: Date | null }) => {
       if (!s.isActive) return 'Inativo'
+      if (s.endDate && s.endDate < now) return 'Encerrada'
       if (s.nextRunAt && s.nextRunAt < now) return 'Atrasada'
       return 'Em dia'
     }
 
     // ── Agrupamento e ordenação em memória ──
     const groupByKey = filters.groupBy
-    const situationOrder: Record<string, number> = { 'Atrasada': 0, 'Em dia': 1, 'Inativo': 2 }
+    const situationOrder: Record<string, number> = { 'Atrasada': 0, 'Em dia': 1, 'Encerrada': 2, 'Inativo': 3 }
 
     const getGroupKey = (s: typeof items[0]): string => {
       switch (groupByKey) {
@@ -1503,7 +1504,7 @@ export class ReportsService {
 
     if (groupByKey && currentGroup !== '') addGroupSubtotal(currentGroup, groupCount, groupOverdueCount)
 
-    const overdueCount = items.filter((s) => s.isActive && s.nextRunAt && s.nextRunAt < now).length
+    const overdueCount = items.filter((s) => situacao(s) === 'Atrasada').length
 
     const totalRow = sheet.addRow([
       `${template.companyName} — Total: ${items.length} | Atrasadas: ${overdueCount}`,
@@ -1596,18 +1597,19 @@ export class ReportsService {
     const blue = template.primaryColor
     const dateStr = new Date().toLocaleDateString('pt-BR')
     const now = new Date()
-    const overdueCount = items.filter((s) => s.isActive && s.nextRunAt && s.nextRunAt < now).length
 
     const recurrenceLabels: Record<string, string> = {
       DAILY: 'Diária', WEEKLY: 'Semanal', BIWEEKLY: 'Quinzenal', MONTHLY: 'Mensal',
       QUARTERLY: 'Trimestral', SEMIANNUAL: 'Semestral', ANNUAL: 'Anual', CUSTOM: 'Custom',
     }
     const fmt = (d: Date | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
-    const situacao = (s: { isActive: boolean; nextRunAt: Date | null }) => {
+    const situacao = (s: { isActive: boolean; nextRunAt: Date | null; endDate: Date | null }) => {
       if (!s.isActive) return 'Inativo'
+      if (s.endDate && s.endDate < now) return 'Encerrada'
       if (s.nextRunAt && s.nextRunAt < now) return 'Atrasada'
       return 'Em dia'
     }
+    const overdueCount = items.filter((s) => situacao(s) === 'Atrasada').length
 
     // ── Filtros aplicados ──
     const prevFilterParts: string[] = []
@@ -1681,7 +1683,7 @@ export class ReportsService {
 
     // ── Agrupamento e ordenação em memória ──
     const groupByKey = filters.groupBy
-    const pdfSituationOrder: Record<string, number> = { 'Atrasada': 0, 'Em dia': 1, 'Inativo': 2 }
+    const pdfSituationOrder: Record<string, number> = { 'Atrasada': 0, 'Em dia': 1, 'Encerrada': 2, 'Inativo': 3 }
 
     const getPdfGroupKey = (s: typeof items[0]): string => {
       switch (groupByKey) {

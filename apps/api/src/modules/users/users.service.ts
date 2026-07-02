@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common'
 import { UserRole, UserStatus } from '@prisma/client'
 import * as bcrypt from 'bcrypt'
@@ -18,7 +19,7 @@ import { TwoFactorService } from '../auth/security/two-factor.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
-import { getSecuritySettings } from '../companies/company-security-settings'
+import { getDefaultFirstAccessPasswordHash, getSecuritySettings } from '../companies/company-security-settings'
 import { DEFAULT_SECURITY_SETTINGS } from '@inventech/shared-types'
 
 const COMPANY_ROLES = [
@@ -36,6 +37,8 @@ const CLIENT_ROLES = [
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name)
+
   constructor(
     private usersRepository: UsersRepository,
     private twoFactorService: TwoFactorService,
@@ -94,9 +97,25 @@ export class UsersService {
 
     // Parâmetros de segurança configuráveis por empresa
     const security = await this.loadSecuritySettings(companyId)
-    await this.assertPasswordLength(dto.password, companyId)
 
-    const passwordHash = await bcrypt.hash(dto.password, 10)
+    let passwordHash: string
+    let mustChangePassword: boolean
+    if (dto.password) {
+      await this.assertPasswordLength(dto.password, companyId)
+      passwordHash = await bcrypt.hash(dto.password, 10)
+      mustChangePassword = security.forcePasswordChangeOnFirstLogin
+    } else {
+      // Sem senha informada — herda a senha padrão de primeiro acesso da empresa.
+      // Uma senha compartilhada nunca pode ficar ativa sem troca obrigatória.
+      const defaultHash = await this.loadDefaultFirstAccessPasswordHash(companyId)
+      if (!defaultHash) {
+        throw new BadRequestException(
+          'Informe uma senha ou configure a senha padrão de primeiro acesso da empresa em Configurações > Segurança',
+        )
+      }
+      passwordHash = defaultHash
+      mustChangePassword = true
+    }
 
     // Status inicial conforme a política de verificação de email da empresa
     const user = await this.usersRepository.create({
@@ -105,7 +124,7 @@ export class UsersService {
       passwordHash,
       role,
       status: security.requireEmailVerification ? UserStatus.UNVERIFIED : UserStatus.ACTIVE,
-      mustChangePassword: security.forcePasswordChangeOnFirstLogin,
+      mustChangePassword,
       phone: dto.phone,
       telegramChatId: dto.telegramChatId,
       company: companyId ? { connect: { id: companyId } } : undefined,
@@ -188,6 +207,51 @@ export class UsersService {
     }
 
     return updated
+  }
+
+  // ─────────────────────────────────────────
+  // Reset de senha pelo admin — devolve o usuário à senha padrão de primeiro
+  // acesso da empresa. Restrito a COMPANY_ADMIN via @Roles no controller
+  // (nunca exposto à grade de permissões de papéis personalizados).
+  // ─────────────────────────────────────────
+  async resetPassword(id: string, currentUser: AuthenticatedUser) {
+    this.ensureCompanyScope(currentUser)
+
+    if (id === currentUser.sub) {
+      throw new ForbiddenException('Use a troca de senha do seu perfil para alterar a própria senha')
+    }
+
+    const companyScope = currentUser.role === UserRole.SUPER_ADMIN ? undefined : currentUser.companyId!
+    const existing = await this.usersRepository.findById(id, companyScope)
+    if (!existing) throw new NotFoundException('Usuário não encontrado')
+
+    this.validateRoleHierarchy(existing.role as UserRole, currentUser)
+
+    if (!existing.companyId) {
+      throw new BadRequestException('Usuário sem empresa vinculada não pode receber a senha padrão')
+    }
+
+    const defaultHash = await this.loadDefaultFirstAccessPasswordHash(existing.companyId)
+    if (!defaultHash) {
+      throw new BadRequestException(
+        'Configure a senha padrão de primeiro acesso da empresa em Configurações > Segurança antes de resetar senhas',
+      )
+    }
+
+    await this.usersRepository.update(id, {
+      passwordHash: defaultHash,
+      mustChangePassword: true,
+    })
+
+    // A senha mudou — sessões ativas do usuário-alvo não devem sobreviver
+    await this.prisma.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    })
+
+    this.logger.log(`Senha resetada para o padrão da empresa: ${existing.email} | por: ${currentUser.email}`)
+
+    return { message: 'Senha redefinida para o padrão da empresa. O usuário deverá trocá-la no próximo login.' }
   }
 
   async remove(id: string, currentUser: AuthenticatedUser) {
@@ -276,6 +340,16 @@ export class UsersService {
       select: { settings: true },
     })
     return getSecuritySettings(company?.settings)
+  }
+
+  /** Lê o hash da senha padrão de primeiro acesso configurada para a empresa (ou null). */
+  private async loadDefaultFirstAccessPasswordHash(companyId: string | null | undefined) {
+    if (!companyId) return null
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { settings: true },
+    })
+    return getDefaultFirstAccessPasswordHash(company?.settings)
   }
 
   /** Valida o tamanho da senha contra o mínimo configurado para a empresa. */

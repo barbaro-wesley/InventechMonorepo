@@ -200,3 +200,129 @@ describe('UsersService — mustChangePassword', () => {
         })
     })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Senha padrão de primeiro acesso + reset de senha pelo admin
+// ─────────────────────────────────────────────────────────────────────────────
+describe('UsersService — senha padrão de primeiro acesso', () => {
+    let service: UsersService
+    let repoMock: ReturnType<typeof makeRepoMock>
+    let prismaMock: {
+        company: { findUnique: jest.Mock }
+        refreshToken: { updateMany: jest.Mock }
+    }
+
+    const COMPANY_WITH_DEFAULT_PASSWORD = {
+        settings: {
+            security: { defaultFirstAccessPasswordHash: '$2b$10$default_password_hash' },
+        },
+    }
+
+    beforeEach(async () => {
+        jest.clearAllMocks()
+        repoMock = makeRepoMock()
+        prismaMock = {
+            company: { findUnique: jest.fn().mockResolvedValue(null) },
+            refreshToken: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+        }
+
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                UsersService,
+                { provide: UsersRepository,      useValue: repoMock },
+                { provide: TwoFactorService,     useValue: makeTwoFactorMock() },
+                { provide: PrismaService,        useValue: prismaMock },
+                { provide: NotificationsService, useValue: makeNotificationsMock() },
+            ],
+        }).compile()
+
+        service = module.get(UsersService)
+    })
+
+    describe('create() sem senha informada', () => {
+        const CREATE_DTO_NO_PASSWORD = {
+            name: 'Novo User',
+            email: 'novo@test.com',
+            role: UserRole.TECHNICIAN,
+        }
+
+        it('usa o hash da senha padrão da empresa e força mustChangePassword=true', async () => {
+            prismaMock.company.findUnique.mockResolvedValue(COMPANY_WITH_DEFAULT_PASSWORD)
+
+            await service.create(CREATE_DTO_NO_PASSWORD as any, COMPANY_ADMIN)
+
+            expect(bcrypt.hash).not.toHaveBeenCalled()
+            expect(repoMock.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    passwordHash: '$2b$10$default_password_hash',
+                    mustChangePassword: true,
+                }),
+            )
+        })
+
+        it('lança BadRequestException quando a empresa não tem senha padrão configurada', async () => {
+            prismaMock.company.findUnique.mockResolvedValue({ settings: null })
+
+            await expect(
+                service.create(CREATE_DTO_NO_PASSWORD as any, COMPANY_ADMIN),
+            ).rejects.toThrow(BadRequestException)
+            expect(repoMock.create).not.toHaveBeenCalled()
+        })
+    })
+
+    describe('resetPassword()', () => {
+        const TARGET_USER = {
+            ...SAFE_USER_FIELDS,
+            id: 'target-user-uuid',
+            role: UserRole.TECHNICIAN,
+        }
+
+        beforeEach(() => {
+            repoMock.findById.mockResolvedValue(TARGET_USER)
+            prismaMock.company.findUnique.mockResolvedValue(COMPANY_WITH_DEFAULT_PASSWORD)
+        })
+
+        it('atualiza passwordHash para o padrão da empresa e força mustChangePassword=true', async () => {
+            await service.resetPassword('target-user-uuid', COMPANY_ADMIN)
+
+            expect(repoMock.update).toHaveBeenCalledWith('target-user-uuid', {
+                passwordHash: '$2b$10$default_password_hash',
+                mustChangePassword: true,
+            })
+        })
+
+        it('revoga os refresh tokens ativos do usuário-alvo', async () => {
+            await service.resetPassword('target-user-uuid', COMPANY_ADMIN)
+
+            expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
+                where: { userId: 'target-user-uuid', revokedAt: null },
+                data: { revokedAt: expect.any(Date) },
+            })
+        })
+
+        it('bloqueia o admin de resetar a própria senha por essa via', async () => {
+            await expect(
+                service.resetPassword(COMPANY_ADMIN.sub, COMPANY_ADMIN),
+            ).rejects.toThrow(ForbiddenException)
+            expect(repoMock.update).not.toHaveBeenCalled()
+        })
+
+        it('respeita a hierarquia de papéis — bloqueia reset em usuário de papel igual/superior', async () => {
+            repoMock.findById.mockResolvedValue({ ...TARGET_USER, role: UserRole.COMPANY_ADMIN })
+
+            await expect(
+                service.resetPassword('target-user-uuid', COMPANY_ADMIN),
+            ).rejects.toThrow(ForbiddenException)
+            expect(repoMock.update).not.toHaveBeenCalled()
+        })
+
+        it('lança BadRequestException quando a empresa não tem senha padrão configurada', async () => {
+            prismaMock.company.findUnique.mockResolvedValue({ settings: null })
+
+            await expect(
+                service.resetPassword('target-user-uuid', COMPANY_ADMIN),
+            ).rejects.toThrow(BadRequestException)
+            expect(repoMock.update).not.toHaveBeenCalled()
+        })
+    })
+})

@@ -222,7 +222,7 @@ export class AnalyticsPreventiveService {
   }
 
   // ─────────────────────────────────────────
-  // Preventivas atrasadas (nextRunAt < agora)
+  // Preventivas atrasadas (nextRunAt < agora e dentro da vigência)
   // ─────────────────────────────────────────
   async getOverdue(companyId: string, filters: PreventiveBaseQueryDto) {
     const clientF = filters.clientId    ? Prisma.sql`AND ms.client_id    = ${filters.clientId}::uuid`    : Prisma.empty
@@ -275,6 +275,7 @@ export class AnalyticsPreventiveService {
         WHERE ms.company_id  = ${companyId}
           AND ms.is_active   = true
           AND ms.next_run_at < NOW()
+          AND (ms.end_date IS NULL OR ms.end_date >= NOW())
           ${clientF}
           ${groupF}
           ${equipF}
@@ -318,7 +319,8 @@ export class AnalyticsPreventiveService {
         SELECT
           ms.recurrence_type,
           COUNT(*)::int                                                                         AS total,
-          COUNT(*) FILTER (WHERE ms.next_run_at < NOW())::int                                  AS overdue,
+          COUNT(*) FILTER (WHERE ms.next_run_at < NOW()
+            AND (ms.end_date IS NULL OR ms.end_date >= NOW()))::int                             AS overdue,
           COUNT(*) FILTER (WHERE ms.next_run_at >= NOW()
             AND ms.next_run_at <= NOW() + INTERVAL '7 days')::int                              AS due_this_week,
           COUNT(*) FILTER (WHERE ms.next_run_at >= NOW()

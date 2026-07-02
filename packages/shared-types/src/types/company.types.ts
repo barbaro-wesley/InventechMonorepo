@@ -14,6 +14,8 @@ export interface CompanySecuritySettings {
   passwordMinLength: number;
   /** Tentativas de login falhas antes de bloquear a conta (entre 3 e 10). */
   maxLoginAttempts: number;
+  /** Indica se a empresa tem uma senha padrão de primeiro acesso configurada. Nunca expõe a senha/hash em si. */
+  hasDefaultFirstAccessPassword: boolean;
 }
 
 export const SECURITY_SETTINGS_LIMITS = {
@@ -26,11 +28,16 @@ export const DEFAULT_SECURITY_SETTINGS: CompanySecuritySettings = {
   forcePasswordChangeOnFirstLogin: true,
   passwordMinLength: 6,
   maxLoginAttempts: 5,
+  hasDefaultFirstAccessPassword: false,
 };
 
 /** Payload do PATCH /companies/:id/security-settings. */
 export interface UpdateSecuritySettingsDto extends Partial<CompanySecuritySettings> {
   enforce2FAForAll?: boolean;
+  /** Texto puro, write-only — define/atualiza a senha padrão de primeiro acesso. Nunca retornada pela API. */
+  defaultFirstAccessPassword?: string;
+  /** Remove a senha padrão de primeiro acesso configurada. */
+  clearDefaultFirstAccessPassword?: boolean;
 }
 
 export interface Company {

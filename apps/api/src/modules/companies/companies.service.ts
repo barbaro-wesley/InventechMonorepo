@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
   Logger,
 } from '@nestjs/common'
 import { Prisma, UserRole } from '@prisma/client'
@@ -12,7 +13,12 @@ import { CreateCompanyDto } from './dto/create-company.dto'
 import { UpdateCompanyDto } from './dto/update-company.dto'
 import { UpdateSecuritySettingsDto } from './dto/update-security-settings.dto'
 import { ListCompaniesDto } from './dto/list-companies.dto'
-import { clampSecuritySettings, getSecuritySettings } from './company-security-settings'
+import {
+  clampSecuritySettings,
+  getDefaultFirstAccessPasswordHash,
+  getSecuritySettings,
+  redactCompanySettings,
+} from './company-security-settings'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { PrismaService } from '../../prisma/prisma.service'
 import { ConfigService } from '@nestjs/config'
@@ -39,8 +45,24 @@ export class CompaniesService {
     private notificationConfigs: NotificationConfigsService,
   ) { }
 
+  // ─────────────────────────────────────────
+  // Nunca deixa o hash da senha padrão de primeiro acesso vazar no `settings`
+  // bruto devolvido ao cliente — usar sempre antes de responder um `Company`.
+  // ─────────────────────────────────────────
+  private toClientCompany<T extends { settings: Prisma.JsonValue | null }>(company: T) {
+    return {
+      ...company,
+      settings: redactCompanySettings(company.settings),
+      securitySettings: getSecuritySettings(company.settings),
+    }
+  }
+
   async findAll(filters: ListCompaniesDto) {
-    return this.companiesRepository.findMany(filters)
+    const result = await this.companiesRepository.findMany(filters)
+    return {
+      ...result,
+      data: result.data.map((company) => this.toClientCompany(company)),
+    }
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser) {
@@ -59,10 +81,7 @@ export class CompaniesService {
       throw new NotFoundException('Empresa não encontrada')
     }
 
-    return {
-      ...company,
-      securitySettings: getSecuritySettings(company.settings),
-    }
+    return this.toClientCompany(company)
   }
 
   async create(dto: CreateCompanyDto) {
@@ -148,7 +167,7 @@ export class CompaniesService {
     )
 
     return {
-      company: result.company,
+      company: this.toClientCompany(result.company),
       admin: result.admin,
     }
   }
@@ -182,7 +201,7 @@ export class CompaniesService {
       }
     }
 
-    return this.companiesRepository.update(id, {
+    const updated = await this.companiesRepository.update(id, {
       ...(dto.name && { name: dto.name }),
       ...(dto.document !== undefined && { document: dto.document }),
       ...(dto.email !== undefined && { email: dto.email }),
@@ -208,6 +227,8 @@ export class CompaniesService {
       // Segurança
       ...(dto.enforce2FAForAll !== undefined && { enforce2FAForAll: dto.enforce2FAForAll }),
     })
+
+    return this.toClientCompany(updated)
   }
 
   // ─────────────────────────────────────────
@@ -239,21 +260,37 @@ export class CompaniesService {
       maxLoginAttempts: dto.maxLoginAttempts ?? current.maxLoginAttempts,
     })
 
+    // Senha padrão de primeiro acesso — nunca persistida em texto puro
+    let defaultFirstAccessPasswordHash = getDefaultFirstAccessPasswordHash(company.settings)
+    if (dto.clearDefaultFirstAccessPassword) {
+      defaultFirstAccessPasswordHash = null
+    } else if (dto.defaultFirstAccessPassword) {
+      if (dto.defaultFirstAccessPassword.length < merged.passwordMinLength) {
+        throw new BadRequestException(
+          `A senha padrão deve ter no mínimo ${merged.passwordMinLength} caracteres`,
+        )
+      }
+      defaultFirstAccessPasswordHash = await bcrypt.hash(dto.defaultFirstAccessPassword, 10)
+    }
+
     // Preserva outras chaves de settings que não sejam `security`
     const existingSettings =
       company.settings && typeof company.settings === 'object' && !Array.isArray(company.settings)
         ? (company.settings as Record<string, unknown>)
         : {}
 
+    // `hasDefaultFirstAccessPassword` é derivado do hash — não persistido, sempre recalculado na leitura
+    const { hasDefaultFirstAccessPassword: _hasDefault, ...persistedSecurity } = merged
+
     const updated = await this.companiesRepository.update(id, {
       ...(dto.enforce2FAForAll !== undefined && { enforce2FAForAll: dto.enforce2FAForAll }),
-      settings: { ...existingSettings, security: merged } as unknown as Prisma.InputJsonValue,
+      settings: {
+        ...existingSettings,
+        security: { ...persistedSecurity, defaultFirstAccessPasswordHash },
+      } as unknown as Prisma.InputJsonValue,
     })
 
-    return {
-      ...updated,
-      securitySettings: getSecuritySettings(updated.settings),
-    }
+    return this.toClientCompany(updated)
   }
 
   async remove(id: string) {

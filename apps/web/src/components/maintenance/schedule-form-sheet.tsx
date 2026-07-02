@@ -8,6 +8,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -276,6 +277,11 @@ export function ScheduleFormSheet({
               {mode === "create" ? "Nova Preventiva" : "Editar Agendamento"}
             </SheetTitle>
           </div>
+          <SheetDescription className="sr-only">
+            {mode === "create"
+              ? "Formulário para criar um novo agendamento de manutenção preventiva."
+              : "Formulário para editar o agendamento de manutenção preventiva."}
+          </SheetDescription>
         </SheetHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
