@@ -37,7 +37,8 @@
       "Bash(npx --no-install playwright --version)",
       "Bash(timeout 60 bash -c 'until curl -sf http://localhost:3001/login >/dev/null; do sleep 1; done')",
       "Bash(curl -s http://localhost:3001/login)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/usuarios)"
     ]
   }
 }
