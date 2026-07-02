@@ -1,12 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, MoreHorizontal, Loader2, Clock, Users, Eye, EyeOff } from "lucide-react";
-import { useForm } from "react-hook-form";
+import {
+    Plus,
+    Search,
+    MoreHorizontal,
+    Loader2,
+    Clock,
+    Users,
+    User as UserIcon,
+    Mail,
+    ShieldCheck,
+    Info,
+} from "lucide-react";
+import { useForm, type UseFormRegister } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-import { useUsers, useCreateUser, useDeleteUser } from "@/hooks/users/use-users";
+import { useUsers, useCreateUser, useDeleteUser, useResetUserPassword } from "@/hooks/users/use-users";
 import { usePermissions } from "@/hooks/auth/use-permissions";
 import { useCustomRoles } from "@/hooks/permissions/use-permissions";
 import { useCurrentUser } from "@/store/auth.store";
@@ -88,7 +99,6 @@ const FIXED_ROLE_VALUES = new Set(FIXED_CREATE_ROLES.map((r) => r.value as strin
 const createUserSchema = z.object({
     name:     z.string().min(1, "Nome obrigatório"),
     email:    z.email("E-mail inválido"),
-    password: z.string().min(6, "Mínimo 6 caracteres"),
     papel:    z.string().min(1, "Informe o papel do usuário"),
     phone:    z.string().optional(),
 });
@@ -118,56 +128,96 @@ const FIXED_ROLE_DESCRIPTIONS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// PapelCallout — descrição contextual após a seleção do papel
+// FormSection — agrupa campos com ícone + título + descrição, dando
+// hierarquia visual clara às seções de um formulário (mesmo padrão do
+// SectionCard usado em Configurações).
 // ---------------------------------------------------------------------------
 
-function PapelCallout({
-    papel,
-    fixedRoleValues,
-    customRoles,
+function FormSection({
+    icon: Icon,
+    title,
+    description,
+    children,
 }: {
-    papel: string;
-    fixedRoleValues: Set<string>;
-    customRoles: { id: string; name: string; description?: string | null; permissions: { resource: string; action: string }[] }[];
+    icon: React.ComponentType<{ className?: string }>;
+    title: string;
+    description?: string;
+    children: React.ReactNode;
 }) {
-    if (!papel) return null;
-
-    if (fixedRoleValues.has(papel)) {
-        const desc = FIXED_ROLE_DESCRIPTIONS[papel];
-        if (!desc) return null;
-        return (
-            <div className="mt-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5">
-                <p className="text-xs text-slate-600 dark:text-slate-400">{desc}</p>
-            </div>
-        );
-    }
-
-    const custom = customRoles.find((r) => r.id === papel);
-    if (!custom) return null;
-
     return (
-        <div className="mt-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/40 px-3 py-2.5 space-y-2">
-            {custom.description && (
-                <p className="text-xs text-slate-600 dark:text-slate-400">{custom.description}</p>
-            )}
-            {custom.permissions.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                    {custom.permissions.slice(0, 10).map((p) => (
-                        <span
-                            key={`${p.resource}:${p.action}`}
-                            className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium"
-                        >
-                            {p.resource}:{p.action}
-                        </span>
-                    ))}
-                    {custom.permissions.length > 10 && (
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                            +{custom.permissions.length - 10}
-                        </span>
-                    )}
+        <div className="space-y-4">
+            <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md flex items-center justify-center bg-primary/10 text-primary flex-shrink-0">
+                    <Icon className="w-3.5 h-3.5" />
                 </div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">
+                    {title}
+                </h3>
+            </div>
+            {description && (
+                <p className="text-xs text-muted-foreground -mt-2">{description}</p>
             )}
+            {children}
         </div>
+    );
+}
+
+// ---------------------------------------------------------------------------
+// RoleOptionCard — cartão selecionável (radio) para escolha do papel.
+// Substitui o combo "dropdown + callout separado" por uma lista onde a
+// descrição (e, para papéis personalizados, as permissões) já aparece
+// junto da opção, sem precisar abrir nada.
+// ---------------------------------------------------------------------------
+
+function RoleOptionCard({
+    value,
+    register,
+    label,
+    description,
+    tags,
+}: {
+    value: string;
+    register: UseFormRegister<CreateUserForm>;
+    label: string;
+    description?: string | null;
+    tags?: { resource: string; action: string }[];
+}) {
+    return (
+        <label
+            className={cn(
+                "group relative flex items-start gap-3 rounded-lg border border-border bg-background px-3.5 py-3",
+                "cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/30",
+                "has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:ring-1 has-[:checked]:ring-primary/30"
+            )}
+        >
+            <input type="radio" value={value} className="sr-only" {...register("papel")} />
+            <span className="mt-0.5 w-4 h-4 rounded-full border-2 border-border flex-shrink-0 transition-colors group-has-[:checked]:border-primary group-has-[:checked]:bg-primary" />
+            <span className="flex-1 min-w-0 space-y-1">
+                <span className="block text-sm font-medium text-foreground">{label}</span>
+                {description && (
+                    <span className="block text-xs text-muted-foreground leading-relaxed">
+                        {description}
+                    </span>
+                )}
+                {tags && tags.length > 0 && (
+                    <span className="hidden group-has-[:checked]:flex flex-wrap gap-1 pt-1">
+                        {tags.slice(0, 10).map((p) => (
+                            <span
+                                key={`${p.resource}:${p.action}`}
+                                className="text-[11px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium"
+                            >
+                                {p.resource}:{p.action}
+                            </span>
+                        ))}
+                        {tags.length > 10 && (
+                            <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                +{tags.length - 10}
+                            </span>
+                        )}
+                    </span>
+                )}
+            </span>
+        </label>
     );
 }
 
@@ -185,10 +235,10 @@ export default function UsuariosPage() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [page, setPage] = useState(1);
     const [createOpen, setCreateOpen] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
     const [editUser, setEditUser] = useState<User | null>(null);
     const [deleteUser, setDeleteUser] = useState<User | null>(null);
     const [assignRoleUser, setAssignRoleUser] = useState<User | null>(null);
+    const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
 
     const { data, isLoading } = useUsers({
         page,
@@ -199,6 +249,11 @@ export default function UsuariosPage() {
     });
     const createUser        = useCreateUser();
     const deleteUserMutation = useDeleteUser();
+    const resetPasswordMutation = useResetUserPassword();
+
+    // Reset de senha — restrito ao papel de sistema COMPANY_ADMIN (espelha @Roles no backend).
+    // Nunca liberado via permissões personalizadas.
+    const canResetPassword = permissions.isCompanyAdmin || permissions.isSuperAdmin;
 
     const { data: customRoles = [] } = useCustomRoles(currentUser?.companyId ?? "");
     const activeCustomRoles = customRoles.filter((r) => r.isActive);
@@ -213,14 +268,19 @@ export default function UsuariosPage() {
 
     const form = useForm<CreateUserForm>({
         resolver: zodResolver(createUserSchema),
-        defaultValues: { name: "", email: "", password: "", phone: "", papel: "" },
+        defaultValues: { name: "", email: "", phone: "", papel: "" },
     });
 
     function handleCreate(formData: CreateUserForm) {
         const { papel, ...rest } = formData;
         const isFixedRole = FIXED_ROLE_VALUES.has(papel);
         createUser.mutate(
-            { ...rest, ...(isFixedRole ? { role: papel } : { customRoleId: papel }) } as any,
+            {
+                ...rest,
+                // Sem campo de senha na UI — sempre herda a senha padrão de
+                // primeiro acesso configurada em Configurações > Segurança
+                ...(isFixedRole ? { role: papel } : { customRoleId: papel }),
+            } as any,
             { onSuccess: () => { setCreateOpen(false); form.reset(); } }
         );
     }
@@ -228,6 +288,11 @@ export default function UsuariosPage() {
     function handleDelete() {
         if (!deleteUser) return;
         deleteUserMutation.mutate(deleteUser.id, { onSuccess: () => setDeleteUser(null) });
+    }
+
+    function handleResetPassword() {
+        if (!resetPasswordUser) return;
+        resetPasswordMutation.mutate(resetPasswordUser.id, { onSuccess: () => setResetPasswordUser(null) });
     }
 
     const total      = data?.pagination?.total      ?? 0;
@@ -464,6 +529,11 @@ export default function UsuariosPage() {
                                                             <DropdownMenuItem onClick={() => setEditUser(user)}>
                                                                 Editar
                                                             </DropdownMenuItem>
+                                                            {canResetPassword && user.id !== currentUser?.id && (
+                                                                <DropdownMenuItem onClick={() => setResetPasswordUser(user)}>
+                                                                    Resetar senha
+                                                                </DropdownMenuItem>
+                                                            )}
                                                             <DropdownMenuItem
                                                                 className="text-red-600 focus:text-red-600"
                                                                 onClick={() => setDeleteUser(user)}
@@ -515,40 +585,44 @@ export default function UsuariosPage() {
                 open={createOpen}
                 onOpenChange={(open) => {
                     setCreateOpen(open);
-                    if (!open) { form.reset(); setShowPassword(false); }
+                    if (!open) { form.reset(); }
                 }}
             >
                 <DrawerContent>
                     <DrawerHeader>
-                        <DrawerTitle>Novo usuário</DrawerTitle>
-                        <DrawerDescription>
-                            Preencha os dados para criar e dar acesso a um novo usuário.
-                        </DrawerDescription>
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/10 text-primary flex-shrink-0">
+                                <UserIcon className="w-4.5 h-4.5" />
+                            </div>
+                            <div>
+                                <DrawerTitle>Novo usuário</DrawerTitle>
+                                <DrawerDescription>
+                                    Preencha os dados para criar e dar acesso a um novo usuário.
+                                </DrawerDescription>
+                            </div>
+                        </div>
                     </DrawerHeader>
 
                     <DrawerBody>
                         <form
                             id="create-user-form"
                             onSubmit={form.handleSubmit(handleCreate)}
-                            className="space-y-6"
+                            className="space-y-7"
                         >
                             {/* ── Seção: Identificação ── */}
-                            <fieldset className="space-y-4">
-                                <legend className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                    Identificação
-                                </legend>
-
+                            <FormSection icon={UserIcon} title="Identificação">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="col-span-2">
                                         <Label htmlFor="name">Nome completo</Label>
                                         <Input
                                             id="name"
                                             placeholder="Ex: João Silva"
+                                            aria-invalid={!!form.formState.errors.name}
                                             className="mt-1.5"
                                             {...form.register("name")}
                                         />
                                         {form.formState.errors.name && (
-                                            <p className="mt-1 text-xs text-red-500">
+                                            <p className="mt-1 text-xs font-medium text-destructive">
                                                 {form.formState.errors.name.message}
                                             </p>
                                         )}
@@ -556,15 +630,19 @@ export default function UsuariosPage() {
 
                                     <div className="col-span-2">
                                         <Label htmlFor="email">E-mail</Label>
-                                        <Input
-                                            id="email"
-                                            type="email"
-                                            placeholder="email@empresa.com"
-                                            className="mt-1.5"
-                                            {...form.register("email")}
-                                        />
+                                        <div className="relative mt-1.5">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                                            <Input
+                                                id="email"
+                                                type="email"
+                                                placeholder="email@empresa.com"
+                                                aria-invalid={!!form.formState.errors.email}
+                                                className="pl-9"
+                                                {...form.register("email")}
+                                            />
+                                        </div>
                                         {form.formState.errors.email && (
-                                            <p className="mt-1 text-xs text-red-500">
+                                            <p className="mt-1 text-xs font-medium text-destructive">
                                                 {form.formState.errors.email.message}
                                             </p>
                                         )}
@@ -583,106 +661,69 @@ export default function UsuariosPage() {
                                         />
                                     </div>
                                 </div>
-                            </fieldset>
+                            </FormSection>
 
-                            <div className="border-t border-slate-100 dark:border-slate-800" />
+                            <div className="border-t border-border" />
 
                             {/* ── Seção: Acesso e permissões ── */}
-                            <fieldset className="space-y-4">
-                                <legend className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                                    Acesso e permissões
-                                </legend>
-
-                                {/* Senha com toggle */}
-                                <div>
-                                    <Label htmlFor="password">Senha de acesso</Label>
-                                    <div className="relative mt-1.5">
-                                        <Input
-                                            id="password"
-                                            type={showPassword ? "text" : "password"}
-                                            placeholder="Mínimo 6 caracteres"
-                                            className="pr-10"
-                                            {...form.register("password")}
-                                        />
-                                        <button
-                                            type="button"
-                                            tabIndex={-1}
-                                            onClick={() => setShowPassword((v) => !v)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                                        >
-                                            {showPassword
-                                                ? <EyeOff className="w-4 h-4" />
-                                                : <Eye className="w-4 h-4" />}
-                                        </button>
-                                    </div>
-                                    {form.formState.errors.password ? (
-                                        <p className="mt-1 text-xs text-red-500">
-                                            {form.formState.errors.password.message}
-                                        </p>
-                                    ) : (
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                            O usuário pode alterar a senha após o primeiro acesso.
-                                        </p>
-                                    )}
+                            <FormSection icon={ShieldCheck} title="Acesso e permissões">
+                                <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2.5">
+                                    <Info className="w-3.5 h-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                        O usuário receberá a senha padrão de primeiro acesso configurada em
+                                        Configurações → Segurança e será obrigado a trocá-la no primeiro login.
+                                    </p>
                                 </div>
 
                                 {/* Papel */}
                                 <div>
                                     <Label>Papel</Label>
-                                    <Select
-                                        value={form.watch("papel")}
-                                        onValueChange={(v) =>
-                                            form.setValue("papel", v, { shouldValidate: true })
-                                        }
-                                    >
-                                        <SelectTrigger className="mt-1.5">
-                                            <SelectValue placeholder="Selecione o papel" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {allowedFixedRoles.length > 0 && (
-                                                <SelectGroup>
-                                                    <SelectLabel>Papéis fixos</SelectLabel>
+                                    <div className="mt-1.5 space-y-3">
+                                        {allowedFixedRoles.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                    Papéis fixos
+                                                </p>
+                                                <div className="space-y-2">
                                                     {allowedFixedRoles.map((opt) => (
-                                                        <SelectItem key={opt.value} value={opt.value}>
-                                                            {opt.label}
-                                                        </SelectItem>
+                                                        <RoleOptionCard
+                                                            key={opt.value}
+                                                            value={opt.value}
+                                                            register={form.register}
+                                                            label={opt.label}
+                                                            description={FIXED_ROLE_DESCRIPTIONS[opt.value]}
+                                                        />
                                                     ))}
-                                                </SelectGroup>
-                                            )}
-                                            {activeCustomRoles.length > 0 && (
-                                                <>
-                                                    {allowedFixedRoles.length > 0 && <SelectSeparator />}
-                                                    <SelectGroup>
-                                                        <SelectLabel>Papéis personalizados</SelectLabel>
-                                                        {activeCustomRoles.map((role) => (
-                                                            <SelectItem key={role.id} value={role.id}>
-                                                                {role.name}
-                                                                {role.description && (
-                                                                    <span className="text-xs text-muted-foreground ml-1.5">
-                                                                        — {role.description}
-                                                                    </span>
-                                                                )}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectGroup>
-                                                </>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {activeCustomRoles.length > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                    Papéis personalizados
+                                                </p>
+                                                <div className="space-y-2">
+                                                    {activeCustomRoles.map((role) => (
+                                                        <RoleOptionCard
+                                                            key={role.id}
+                                                            value={role.id}
+                                                            register={form.register}
+                                                            label={role.name}
+                                                            description={role.description}
+                                                            tags={role.permissions}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                     {form.formState.errors.papel && (
-                                        <p className="mt-1 text-xs text-red-500">
+                                        <p className="mt-2 text-xs font-medium text-destructive">
                                             {form.formState.errors.papel.message}
                                         </p>
                                     )}
-
-                                    {/* Callout: descrição do papel selecionado */}
-                                    <PapelCallout
-                                        papel={form.watch("papel")}
-                                        fixedRoleValues={FIXED_ROLE_VALUES}
-                                        customRoles={activeCustomRoles}
-                                    />
                                 </div>
-                            </fieldset>
+                            </FormSection>
                         </form>
                     </DrawerBody>
 
@@ -738,6 +779,33 @@ export default function UsuariosPage() {
                                 <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                                 "Remover"
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ── Confirmação de reset de senha ── */}
+            <AlertDialog
+                open={!!resetPasswordUser}
+                onOpenChange={(open: boolean) => !open && setResetPasswordUser(null)}
+            >
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Resetar senha</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            <strong>{resetPasswordUser?.name}</strong> receberá a senha padrão de
+                            primeiro acesso da empresa e será obrigado a trocá-la no próximo login.
+                            As sessões ativas deste usuário serão encerradas.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleResetPassword}>
+                            {resetPasswordMutation.isPending ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                "Resetar senha"
                             )}
                         </AlertDialogAction>
                     </AlertDialogFooter>

@@ -1,4 +1,4 @@
-import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator'
+import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 import { SECURITY_SETTINGS_LIMITS } from '@inventech/shared-types'
 
@@ -24,4 +24,12 @@ export class UpdateSecuritySettingsDto {
   @ApiPropertyOptional({ minimum: ATTEMPTS.min, maximum: ATTEMPTS.max, description: 'Tentativas de login antes de bloquear' })
   @IsOptional() @IsInt() @Min(ATTEMPTS.min) @Max(ATTEMPTS.max)
   maxLoginAttempts?: number
+
+  @ApiPropertyOptional({ description: 'Define/atualiza a senha padrão de primeiro acesso (texto puro, write-only — nunca retornada pela API)' })
+  @IsOptional() @IsString()
+  defaultFirstAccessPassword?: string
+
+  @ApiPropertyOptional({ description: 'Remove a senha padrão de primeiro acesso configurada' })
+  @IsOptional() @IsBoolean()
+  clearDefaultFirstAccessPassword?: boolean
 }

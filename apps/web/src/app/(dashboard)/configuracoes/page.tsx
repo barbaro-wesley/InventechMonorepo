@@ -9,6 +9,9 @@ import {
     Loader2,
     Save,
     Upload,
+    Eye,
+    EyeOff,
+    KeyRound,
 } from "lucide-react";
 
 import { useCurrentUser } from "@/store/auth.store";
@@ -29,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -98,9 +102,13 @@ function SecurityTab({
         enforce2FAForAll,
         ...settings,
     });
+    const [defaultPassword, setDefaultPassword] = useState("");
+    const [showDefaultPassword, setShowDefaultPassword] = useState(false);
 
     useEffect(() => {
         setForm({ enforce2FAForAll, ...settings });
+        setDefaultPassword("");
+        setShowDefaultPassword(false);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [companyId]);
 
@@ -117,7 +125,12 @@ function SecurityTab({
             forcePasswordChangeOnFirstLogin: form.forcePasswordChangeOnFirstLogin,
             passwordMinLength: clamp(form.passwordMinLength, pwd.min, pwd.max, DEFAULT_SECURITY_SETTINGS.passwordMinLength),
             maxLoginAttempts: clamp(form.maxLoginAttempts, att.min, att.max, DEFAULT_SECURITY_SETTINGS.maxLoginAttempts),
-        });
+            ...(defaultPassword ? { defaultFirstAccessPassword: defaultPassword } : {}),
+        }, { onSuccess: () => { setDefaultPassword(""); setShowDefaultPassword(false); } });
+    }
+
+    function handleClearDefaultPassword() {
+        update.mutate({ clearDefaultFirstAccessPassword: true });
     }
 
     return (
@@ -186,6 +199,65 @@ function SecurityTab({
                         </p>
                     </div>
                 </div>
+            </SectionCard>
+
+            <SectionCard
+                title="Senha padrão de primeiro acesso"
+                description="Usuários criados sem senha herdam esta senha e são obrigados a trocá-la no primeiro login."
+            >
+                <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">Status atual:</span>
+                    {settings.hasDefaultFirstAccessPassword ? (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                            Configurada
+                        </Badge>
+                    ) : (
+                        <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200">
+                            Não configurada
+                        </Badge>
+                    )}
+                </div>
+
+                <div>
+                    <Label htmlFor="defaultFirstAccessPassword">
+                        {settings.hasDefaultFirstAccessPassword ? "Atualizar senha padrão" : "Definir senha padrão"}
+                    </Label>
+                    <div className="relative mt-1.5">
+                        <Input
+                            id="defaultFirstAccessPassword"
+                            type={showDefaultPassword ? "text" : "password"}
+                            placeholder={`Mínimo ${form.passwordMinLength} caracteres`}
+                            className="pr-10"
+                            value={defaultPassword}
+                            onChange={(e) => setDefaultPassword(e.target.value)}
+                        />
+                        <button
+                            type="button"
+                            tabIndex={-1}
+                            onClick={() => setShowDefaultPassword((v) => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        >
+                            {showDefaultPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Por segurança, a senha nunca é exibida após salva. Digite um novo valor
+                        aqui e clique em &quot;Salvar segurança&quot; para atualizá-la.
+                    </p>
+                </div>
+
+                {settings.hasDefaultFirstAccessPassword && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearDefaultPassword}
+                        disabled={update.isPending}
+                    >
+                        Remover senha padrão
+                    </Button>
+                )}
             </SectionCard>
 
             <div className="flex justify-end">

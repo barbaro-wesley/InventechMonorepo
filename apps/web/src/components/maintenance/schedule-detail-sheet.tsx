@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   CalendarClock,
+  CalendarX,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -28,6 +29,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,12 +49,13 @@ import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-sch
 
 // ─── Types & helpers ──────────────────────────────────────────────────────────
 
-type ScheduleStatus = "overdue" | "due_soon" | "active" | "inactive";
+type ScheduleStatus = "overdue" | "due_soon" | "active" | "inactive" | "expired";
 
 export function getScheduleStatus(s: MaintenanceSchedule): ScheduleStatus {
   if (!s.isActive) return "inactive";
-  const next = new Date(s.nextRunAt);
   const now = new Date();
+  if (s.endDate && new Date(s.endDate) < now) return "expired";
+  const next = new Date(s.nextRunAt);
   const sevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   if (next < now) return "overdue";
   if (next <= sevenDays) return "due_soon";
@@ -200,6 +203,7 @@ function StatusBadge({ schedule }: { schedule: MaintenanceSchedule }) {
     due_soon: { label: "Esta semana", cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200", Icon: Clock },
     active: { label: "Em dia", cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", Icon: CheckCircle2 },
     inactive: { label: "Inativo", cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200", Icon: XCircle },
+    expired: { label: "Vigência encerrada", cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200", Icon: CalendarX },
   };
   const { label, cls, Icon } = cfgs[status];
   return (
@@ -289,6 +293,9 @@ export function ScheduleDetailSheet({
                   <SheetTitle className="text-base font-bold leading-tight truncate">
                     {schedule.title}
                   </SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Detalhes do agendamento de manutenção preventiva {schedule.title}
+                  </SheetDescription>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     {schedule.equipment.name}
                     {schedule.equipment.brand && ` · ${schedule.equipment.brand}`}
