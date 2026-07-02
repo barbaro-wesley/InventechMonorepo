@@ -200,10 +200,15 @@ export class ScheduleController {
         return this.maintenanceService.removeSchedule(id, cu.companyId!)
     }
 
-    @Post('trigger')
+    @Post(':id/trigger')
     @HttpCode(HttpStatus.CREATED)
     @Permission('maintenance-schedule:trigger')
-    triggerGeneration() {
-        return this.maintenanceService.triggerGeneration()
+    triggerGeneration(
+        @Param('clientId', ParseUUIDPipe) clientId: string,
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentUser() cu: AuthenticatedUser,
+    ) {
+        this.assertClientAccess(cu, clientId)
+        return this.maintenanceService.forceGenerateForSchedule(id, cu.companyId!)
     }
 }

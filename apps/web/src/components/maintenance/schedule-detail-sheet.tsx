@@ -255,7 +255,10 @@ export function ScheduleDetailSheet({
 
   function handleTrigger() {
     if (!schedule?.clientId) return;
-    triggerGen.mutate(schedule.clientId, { onSuccess: () => setConfirmTrigger(false) });
+    triggerGen.mutate(
+      { clientId: schedule.clientId, id: schedule.id },
+      { onSuccess: () => setConfirmTrigger(false) }
+    );
   }
 
   function handleDelete() {

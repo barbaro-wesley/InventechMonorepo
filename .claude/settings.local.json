@@ -28,6 +28,15 @@
       "Bash(echo \"EXIT:$?\")",
       "Bash(git fetch *)",
       "Bash(xargs grep -l \"last_login\")",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(xargs grep -l \"minio\\\\|Minio\")",
+      "Bash(powershell -Command \"Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Start-Process 'C:\\\\Program Files\\\\Docker\\\\Docker\\\\Docker Desktop.exe'\")",
+      "Bash(break)",
+      "Bash(tasklist //FI \"PID eq 21172\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001)",
       "Bash(npx jest *)",
       "Bash(git check-ignore *)",
       "Bash(npx eslint *)",
@@ -38,7 +47,11 @@
       "Bash(timeout 60 bash -c 'until curl -sf http://localhost:3001/login >/dev/null; do sleep 1; done')",
       "Bash(curl -s http://localhost:3001/login)",
       "Read(//tmp/**)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/usuarios)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3001/usuarios)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('.claude/settings.local.json','utf8'\\)\\); console.log\\('valid json'\\)\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
