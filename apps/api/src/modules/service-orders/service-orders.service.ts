@@ -1519,11 +1519,31 @@ export class ServiceOrdersService {
     }
 
     async remove(id: string, clientId: string | null, companyId: string) {
-        await this.findExisting(id, clientId, companyId)
-        await this.prisma.serviceOrder.update({
-            where: { id },
-            data: { deletedAt: new Date() },
+        const os = await this.findExisting(id, clientId, companyId)
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.serviceOrder.update({
+                where: { id },
+                data: { deletedAt: new Date() },
+            })
+
+            if (os.equipmentId) {
+                const activeOsCount = await tx.serviceOrder.count({
+                    where: {
+                        equipmentId: os.equipmentId,
+                        deletedAt: null,
+                        status: { notIn: TERMINAL_STATUSES },
+                    },
+                })
+                if (activeOsCount === 0) {
+                    await tx.equipment.updateMany({
+                        where: { id: os.equipmentId, status: EquipmentStatus.UNDER_MAINTENANCE },
+                        data: { status: EquipmentStatus.ACTIVE },
+                    })
+                }
+            }
         })
+
         return { message: 'Ordem de serviço excluída com sucesso' }
     }
 
