@@ -4,7 +4,7 @@ import {
     ConflictException,
     ForbiddenException,
 } from '@nestjs/common'
-import { Prisma, AttachmentEntity } from '@prisma/client'
+import { Prisma, AttachmentEntity, EquipmentStatus, ServiceOrderStatus } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto, ListEquipmentServiceOrdersDto } from './dto/equipment.dto'
@@ -563,5 +563,38 @@ export class EquipmentService {
             : null
 
         return { data, nextCursor, hasMore }
+    }
+
+    // ─────────────────────────────────────────
+    // Corrige equipamentos presos em "Em Manutenção" sem
+    // nenhuma OS ativa vinculada (ex: quando a OS que motivou
+    // a manutenção foi excluída em vez de aprovada/cancelada).
+    // Chamado periodicamente por EquipmentCronJobs.
+    // ─────────────────────────────────────────
+    async reconcileUnderMaintenanceStatus(): Promise<{ updated: number; equipmentIds: string[] }> {
+        const stuck = await this.prisma.equipment.findMany({
+            where: {
+                status: EquipmentStatus.UNDER_MAINTENANCE,
+                serviceOrders: {
+                    none: {
+                        deletedAt: null,
+                        status: {
+                            notIn: [ServiceOrderStatus.COMPLETED_APPROVED, ServiceOrderStatus.CANCELLED],
+                        },
+                    },
+                },
+            },
+            select: { id: true },
+        })
+
+        if (stuck.length === 0) return { updated: 0, equipmentIds: [] }
+
+        const equipmentIds = stuck.map((e) => e.id)
+        await this.prisma.equipment.updateMany({
+            where: { id: { in: equipmentIds }, status: EquipmentStatus.UNDER_MAINTENANCE },
+            data: { status: EquipmentStatus.ACTIVE },
+        })
+
+        return { updated: equipmentIds.length, equipmentIds }
     }
 }
