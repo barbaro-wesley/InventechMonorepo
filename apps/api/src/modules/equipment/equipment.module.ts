@@ -28,6 +28,9 @@ import { ManualsController } from './manuals/manuals.controller'
 import { CustomFieldsService } from './custom-fields/custom-fields.service'
 import { CustomFieldsController } from './custom-fields/custom-fields.controller'
 
+// Cron jobs
+import { EquipmentCronJobs } from './equipment-cron.jobs'
+
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { ReportsModule } from '../reports/reports.module'
@@ -51,6 +54,7 @@ import { ReportsModule } from '../reports/reports.module'
         MovementsService,
         ManualsService,
         CustomFieldsService,
+        EquipmentCronJobs,
     ],
     exports: [EquipmentService],
 })
