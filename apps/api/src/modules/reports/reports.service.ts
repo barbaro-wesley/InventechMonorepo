@@ -1803,6 +1803,7 @@ export class ReportsService {
         type: { select: { name: true } },
         subtype: { select: { name: true } },
         serviceOrders: {
+          where: { deletedAt: null },
           orderBy: { createdAt: 'desc' },
           select: {
             number: true,
