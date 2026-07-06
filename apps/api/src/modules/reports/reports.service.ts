@@ -219,19 +219,56 @@ export class ReportsService {
   // Contraste automático de texto (WCAG)
   // ─────────────────────────────────────────
 
-  /** Retorna '#FFFFFF' para fundos escuros e '#1F2937' para fundos claros. */
-  private getContrastColor(hex: string): string {
-    const h = hex.replace('#', '')
-    if (h.length !== 6) return '#FFFFFF'
-    const r = parseInt(h.slice(0, 2), 16)
-    const g = parseInt(h.slice(2, 4), 16)
-    const b = parseInt(h.slice(4, 6), 16)
+  /** Aceita '#RGB', '#RRGGBB' ou sem '#'; retorna null se não for um hex válido. */
+  private parseHexColor(hex: string): { r: number; g: number; b: number } | null {
+    let h = (hex ?? '').trim().replace(/^#/, '')
+    if (/^[0-9a-fA-F]{3}$/.test(h)) h = h.split('').map((c) => c + c).join('')
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+    }
+  }
+
+  private relativeLuminance(r: number, g: number, b: number): number {
     const toLinear = (c: number) => {
       const s = c / 255
       return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
     }
-    const L = 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+    return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
+  }
+
+  /** Retorna '#FFFFFF' para fundos escuros e '#1F2937' para fundos claros. */
+  private getContrastColor(hex: string): string {
+    const rgb = this.parseHexColor(hex)
+    if (!rgb) return '#1F2937'
+    const L = this.relativeLuminance(rgb.r, rgb.g, rgb.b)
     return L > 0.179 ? '#1F2937' : '#FFFFFF'
+  }
+
+  /**
+   * Cor de texto para uso direto sobre o fundo branco da página (títulos de seção/tabela).
+   * Se a cor da empresa for clara demais (ou inválida) para leitura sobre branco, cai
+   * para um cinza-escuro neutro em vez de deixar o texto ilegível.
+   */
+  private getReadableOnWhite(hex: string, fallback = '#1F2937'): string {
+    const rgb = this.parseHexColor(hex)
+    if (!rgb) return fallback
+    const L = this.relativeLuminance(rgb.r, rgb.g, rgb.b)
+    return L > 0.55 ? fallback : this.normalizeHex(hex, fallback)
+  }
+
+  /**
+   * Normaliza uma cor para '#RRGGBB'. O PDFKit não reconhece hex sem '#' (renderiza preto
+   * silenciosamente), então qualquer cor vinda do template precisa passar por aqui antes
+   * de ser usada em fillColor/.fill().
+   */
+  private normalizeHex(hex: string, fallback: string): string {
+    const rgb = this.parseHexColor(hex)
+    if (!rgb) return fallback
+    const toHex = (c: number) => c.toString(16).padStart(2, '0')
+    return `#${toHex(rgb.r)}${toHex(rgb.g)}${toHex(rgb.b)}`
   }
 
   /** Versão ARGB para ExcelJS (ex: 'FFFFFFFF' ou 'FF1F2937'). */
@@ -1884,8 +1921,11 @@ export class ReportsService {
     doc.on('data', (c: Buffer) => buffers.push(c))
 
     const W = doc.page.width - 80
-    const blue = template.primaryColor
-    const secondaryBlue = template.secondaryColor || '#E0E7FF'
+    // Normaliza para '#RRGGBB': hex sem '#' ou mal formatado faz o PDFKit preencher em preto
+    const blue = this.normalizeHex(template.primaryColor, '#1E40AF')
+    const secondaryBlue = this.normalizeHex(template.secondaryColor, '#E0E7FF')
+    // Cor da marca só é usada nos títulos se tiver contraste suficiente sobre o fundo branco
+    const titleColor = this.getReadableOnWhite(blue)
 
     const fmtDate = (d: Date | null | undefined) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
     const fmtDateTime = (d: Date | null | undefined) => d ? new Date(d).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : '-'
@@ -1896,7 +1936,7 @@ export class ReportsService {
     let y = this.drawPdfHeader(doc, template, 'Ficha de Vida do Equipamento', subtitle, logoBuffer)
 
     // ── 1. Dados Técnicos e Cadastrais ──
-    doc.fillColor(blue).fontSize(12).font('Helvetica-Bold').text('Dados Cadastrais e Técnicos', 40, y + 10)
+    doc.fillColor(titleColor).fontSize(12).font('Helvetica-Bold').text('Dados Cadastrais e Técnicos', 40, y + 10)
     doc.rect(40, y + 25, W, 1).fill(secondaryBlue)
     y += 35
     
@@ -1959,7 +1999,7 @@ export class ReportsService {
 
     // ── Bloco financeiro / depreciação (condicional) ──
     if (equipment.currentValue || equipment.depreciationRate) {
-      doc.fillColor(blue).fontSize(10).font('Helvetica-Bold').text('Dados Financeiros / Depreciação', 40, y + 8)
+      doc.fillColor(titleColor).fontSize(10).font('Helvetica-Bold').text('Dados Financeiros / Depreciação', 40, y + 8)
       doc.rect(40, y + 21, W, 1).fill(secondaryBlue)
       y += 28
       const finFields = [
@@ -1980,7 +2020,7 @@ export class ReportsService {
 
     // ── Bloco técnico elétrico (condicional) ──
     if (equipment.voltage || equipment.power || equipment.btus) {
-      doc.fillColor(blue).fontSize(10).font('Helvetica-Bold').text('Dados Técnicos', 40, y + 8)
+      doc.fillColor(titleColor).fontSize(10).font('Helvetica-Bold').text('Dados Técnicos', 40, y + 8)
       doc.rect(40, y + 21, W, 1).fill(secondaryBlue)
       y += 28
       const techFields = [
@@ -2003,7 +2043,7 @@ export class ReportsService {
     // Função auxiliar genérica para cabeçalho de tabela
     // columns = { w, label }
     const drawTableHeader = (title: string, tableCols: any, localY: number) => {
-      doc.fillColor(blue).fontSize(12).font('Helvetica-Bold').text(title, 40, localY)
+      doc.fillColor(titleColor).fontSize(12).font('Helvetica-Bold').text(title, 40, localY)
       let tableY = localY + 20
       doc.rect(40, tableY, W, 20).fill(secondaryBlue)
       doc.fillColor(this.getContrastColor(secondaryBlue)).fontSize(8).font('Helvetica-Bold')
