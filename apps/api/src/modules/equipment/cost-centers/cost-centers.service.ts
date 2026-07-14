@@ -125,23 +125,52 @@ export class CostCentersService {
     async remove(id: string, companyId: string) {
         const cc = await this.prisma.costCenter.findFirst({
             where: { id, companyId },
-            select: { id: true, name: true, _count: { select: { equipments: true, locations: true } } },
+            select: { id: true, locations: { select: { id: true } } },
         })
         if (!cc) throw new NotFoundException('Centro de custo não encontrado')
 
-        if (cc._count.equipments > 0) {
-            throw new ConflictException(
-                `Não é possível remover — ${cc._count.equipments} equipamento(s) vinculado(s)`,
-            )
+        const locationIds = cc.locations.map((l) => l.id)
+
+        try {
+            await this.prisma.$transaction(async (tx) => {
+                // Desvincula os equipamentos do centro de custo
+                await tx.equipment.updateMany({
+                    where: { costCenterId: id },
+                    data: { costCenterId: null },
+                })
+
+                if (locationIds.length > 0) {
+                    // Desvincula os equipamentos das localizações (atual e de lotação)
+                    await tx.equipment.updateMany({
+                        where: { locationId: { in: locationIds } },
+                        data: { locationId: null },
+                    })
+                    await tx.equipment.updateMany({
+                        where: { currentLocationId: { in: locationIds } },
+                        data: { currentLocationId: null },
+                    })
+
+                    // Remove as localizações (parent_id é ON DELETE SET NULL,
+                    // então sublocalizações não bloqueiam a exclusão em lote)
+                    await tx.location.deleteMany({
+                        where: { id: { in: locationIds }, companyId },
+                    })
+                }
+
+                await tx.costCenter.delete({ where: { id } })
+            })
+        } catch (e) {
+            if (
+                e instanceof Prisma.PrismaClientKnownRequestError &&
+                e.code === 'P2003'
+            ) {
+                throw new ConflictException(
+                    'Não é possível remover — existem registros de movimentação vinculados às localizações deste centro de custo',
+                )
+            }
+            throw e
         }
 
-        if (cc._count.locations > 0) {
-            throw new ConflictException(
-                `Não é possível remover — ${cc._count.locations} localização(ões) vinculada(s)`,
-            )
-        }
-
-        await this.prisma.costCenter.delete({ where: { id } })
-        return { message: 'Centro de custo removido com sucesso' }
+        return { message: 'Centro de custo e localizações removidos com sucesso' }
     }
 }

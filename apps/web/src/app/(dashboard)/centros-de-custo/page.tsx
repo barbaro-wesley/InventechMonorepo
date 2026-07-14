@@ -413,8 +413,7 @@ function CostCenterCard({
             <Button
               variant="ghost" size="sm" className="h-8 w-8 p-0"
               onClick={() => onDeleteCc(cc)}
-              disabled={cc._count.equipments > 0 || cc._count.locations > 0}
-              title={cc._count.locations > 0 ? "Remova as localizações antes" : "Remover"}
+              title="Remover centro de custo"
             >
               <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
             </Button>
@@ -580,7 +579,13 @@ export default function CostCentersPage() {
             <AlertDialogTitle>Remover centro de custo</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja remover <strong>{deleteCc?.name}</strong>?
-              Remova as localizações vinculadas antes de excluir.
+              {(deleteCc?._count.locations ?? 0) > 0 && (
+                <> As <strong>{deleteCc?._count.locations} localização(ões)</strong> deste centro de custo também serão excluídas.</>
+              )}
+              {(deleteCc?._count.equipments ?? 0) > 0 && (
+                <> Os <strong>{deleteCc?._count.equipments} equipamento(s)</strong> vinculado(s) serão desvinculados (não serão excluídos).</>
+              )}
+              {" "}Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
