@@ -467,13 +467,14 @@ export class MaintenanceService {
         })
         if (!schedule) throw new NotFoundException('Agendamento não encontrado')
 
-        // Desativa em vez de deletar — preserva histórico
-        await this.prisma.maintenanceSchedule.update({
+        // Exclui o agendamento definitivamente.
+        // As manutenções já geradas têm scheduleId opcional (SetNull),
+        // então o histórico é preservado — apenas desvinculado do agendamento.
+        await this.prisma.maintenanceSchedule.delete({
             where: { id },
-            data: { isActive: false },
         })
 
-        return { message: `Agendamento "${schedule.title}" desativado com sucesso` }
+        return { message: `Agendamento "${schedule.title}" excluído com sucesso` }
     }
 
     // ─────────────────────────────────────────
