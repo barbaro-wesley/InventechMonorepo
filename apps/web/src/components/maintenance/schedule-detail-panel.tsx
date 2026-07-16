@@ -457,8 +457,8 @@ export function ScheduleDetailPanel({ schedule, onClose, onEdit }: ScheduleDetai
             <AlertDialogDescription>
               Tem certeza que deseja excluir{" "}
               <strong>{schedule.title}</strong>?{" "}
-              O agendamento será desativado e não gerará mais OS preventivas automaticamente.
-              O histórico de OS já geradas será preservado.
+              O agendamento será removido definitivamente e não gerará mais OS preventivas.
+              O histórico de OS já geradas será preservado. Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
