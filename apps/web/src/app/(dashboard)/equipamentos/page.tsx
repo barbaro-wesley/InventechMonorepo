@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -2041,6 +2041,7 @@ function IpNetworkPanel({ onFilterIp }: { onFilterIp: (ip: string) => void }) {
 
 export default function EquipamentosPage() {
   const { canAccess } = usePermissions();
+  const router = useRouter();
   const canCreateEquipment = canAccess("equipment", "create");
   const [search, setSearch] = useState("");
   const [ipFilter, setIpFilter] = useState("");
@@ -2354,7 +2355,7 @@ export default function EquipamentosPage() {
               <EquipmentCard
                 key={eq.id}
                 equipment={eq}
-                onView={setDetailSheet}
+                onView={(e) => router.push(`/equipamentos/${e.id}`)}
                 onEdit={(e) => setFormSheet({ open: true, target: e })}
                 onMove={setMoveSheet}
                 onDelete={setDeleteTarget}
