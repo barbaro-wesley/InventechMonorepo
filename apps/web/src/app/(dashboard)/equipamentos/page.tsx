@@ -95,6 +95,8 @@ import { EquipmentAccessoriesTab } from "@/components/equipment/equipment-access
 import { OsDetailDrawer } from "@/app/(operacional)/operacional/_components/os-detail-drawer";
 
 import { usePermissions } from "@/hooks/auth/use-permissions";
+import { usePersistedEquipmentStatus } from "@/hooks/use-persisted-equipment-status";
+import { useCurrentUser } from "@/store/auth.store";
 import { equipmentService } from "@/services/equipment/equipment.service";
 import type { Equipment, EquipmentStatus, EquipmentCriticality, EquipmentServiceOrdersResponse } from "@/services/equipment/equipment.service";
 import type { InfiniteData } from "@tanstack/react-query";
@@ -2042,11 +2044,12 @@ function IpNetworkPanel({ onFilterIp }: { onFilterIp: (ip: string) => void }) {
 export default function EquipamentosPage() {
   const { canAccess } = usePermissions();
   const router = useRouter();
+  const user = useCurrentUser();
   const canCreateEquipment = canAccess("equipment", "create");
   const [search, setSearch] = useState("");
   const [ipFilter, setIpFilter] = useState("");
   const [patrimonyFilter, setPatrimonyFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<EquipmentStatus | "">("");
+  const { status: statusFilter, setStatus: setStatusFilter } = usePersistedEquipmentStatus(user?.id);
   const [criticalityFilter, setCriticalityFilter] = useState<EquipmentCriticality | "">("");
   const [typeFilter, setTypeFilter] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
