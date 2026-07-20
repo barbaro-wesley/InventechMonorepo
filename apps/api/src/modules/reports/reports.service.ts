@@ -1871,6 +1871,7 @@ export class ReportsService {
           },
         },
         schedules: {
+          where: { isActive: true },
           orderBy: { nextRunAt: 'asc' },
           select: {
             title: true,
@@ -1878,7 +1879,6 @@ export class ReportsService {
             recurrenceType: true,
             nextRunAt: true,
             lastRunAt: true,
-            isActive: true,
             assignedTechnician: { select: { name: true } },
           },
         },
@@ -2322,13 +2322,12 @@ export class ReportsService {
     }
 
     const schCols = [
-      { label: 'Título',        w: 105 },
-      { label: 'Tipo',          w: 75 },
-      { label: 'Recorrência',   w: 70 },
+      { label: 'Título',        w: 130 },
+      { label: 'Tipo',          w: 85 },
+      { label: 'Recorrência',   w: 80 },
       { label: 'Última exec.',  w: 65 },
       { label: 'Próxima exec.', w: 65 },
-      { label: 'Técnico',       w: 80 },
-      { label: 'Status',        w: 55 },
+      { label: 'Técnico',       w: 90 },
     ]
 
     y = drawTableHeader(`Agendamentos de Manutenção Preventiva (${equipment.schedules.length})`, schCols, y)
@@ -2357,7 +2356,6 @@ export class ReportsService {
           fmtDate(sch.lastRunAt),
           fmtDate(sch.nextRunAt),
           (sch.assignedTechnician as { name: string } | null)?.name || '-',
-          sch.isActive ? 'Ativo' : 'Inativo',
         ]
 
         let cx = 40
