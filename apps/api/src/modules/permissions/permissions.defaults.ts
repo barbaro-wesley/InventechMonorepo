@@ -183,6 +183,14 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'notification-config:list':    [SA, CA, CM],
   'notification-config:update':  [SA, CA, CM],
 
+  // ── LABEL TEMPLATE (etiquetas QR) ──────────────────────────────────────────
+  'label-template:browse':       [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'label-template:list':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'label-template:read':         [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'label-template:create':       [SA, CA, CM],
+  'label-template:update':       [SA, CA, CM],
+  'label-template:delete':       [SA, CA],
+
   // ── LAUDO TEMPLATE ─────────────────────────────────────────────────────────
   'laudo-template:browse':       [SA, CA, CM, TEC, CLA, CLU, CLV],
   'laudo-template:list':         [SA, CA, CM, TEC, CLA, CLU, CLV],
@@ -327,6 +335,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'alert-rule':           ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'notification-config':  ['browse', 'list', 'update'],
   'laudo-template':       ['browse', 'list', 'read', 'create', 'update', 'delete'],
+  'label-template':       ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'laudo':                ['browse', 'list', 'read', 'create', 'update', 'approve', 'delete', 'export-pdf', 'sign'],
   'checklist-template':   ['browse', 'list', 'read', 'create', 'update', 'delete', 'clone'],
   'checklist':            ['read', 'fill', 'complete', 'reopen'],

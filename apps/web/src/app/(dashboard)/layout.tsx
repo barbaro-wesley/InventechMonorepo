@@ -31,6 +31,7 @@ import {
     ScanLine,
     Package,
     Cable,
+    QrCode,
 } from "lucide-react";
 
 import { useAuth } from "@/hooks/auth/use-auth";
@@ -144,6 +145,13 @@ const navSections: NavSection[] = [
                 icon: ClipboardCheck,
                 roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
                 permission: "checklist-template:browse",
+            },
+            {
+                label: "Etiquetas QR",
+                href: "/etiquetas",
+                icon: QrCode,
+                roles: ["COMPANY_ADMIN", "COMPANY_MANAGER", "TECHNICIAN"],
+                permission: "label-template:browse",
             },
             {
                 label: "Impressoras",
