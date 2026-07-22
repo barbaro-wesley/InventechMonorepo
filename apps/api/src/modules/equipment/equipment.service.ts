@@ -399,25 +399,38 @@ export class EquipmentService {
     async remove(id: string, companyId: string) {
         const equipment = await this.prisma.equipment.findFirst({
             where: { id, companyId, deletedAt: null },
-            select: {
-                id: true, name: true,
-                _count: { select: { serviceOrders: true } },
-            },
+            select: { id: true, name: true },
         })
         if (!equipment) throw new NotFoundException('Equipamento não encontrado')
 
-        if (equipment._count.serviceOrders > 0) {
-            throw new ConflictException(
-                `Não é possível remover — ${equipment._count.serviceOrders} OS vinculada(s)`,
-            )
-        }
+        // Soft delete em cascata: inativa o equipamento junto com as OS
+        // vinculadas ainda ativas. Antes havia uma restrição que impedia a
+        // remoção quando existiam OS vinculadas; agora, como as OS podem ter
+        // sido criadas por engano ou o equipamento apresentar problema de
+        // cadastro, permitimos remover ambos (soft delete, reversível via
+        // deletedAt no banco).
+        const now = new Date()
 
-        await this.prisma.equipment.update({
-            where: { id },
-            data: { deletedAt: new Date() },
+        const { removedServiceOrders } = await this.prisma.$transaction(async (tx) => {
+            const { count } = await tx.serviceOrder.updateMany({
+                where: { equipmentId: id, companyId, deletedAt: null },
+                data: { deletedAt: now },
+            })
+
+            await tx.equipment.update({
+                where: { id },
+                data: { deletedAt: now },
+            })
+
+            return { removedServiceOrders: count }
         })
 
-        return { message: 'Equipamento removido com sucesso' }
+        return {
+            message:
+                removedServiceOrders > 0
+                    ? `Equipamento removido com sucesso — ${removedServiceOrders} OS vinculada(s) também removida(s)`
+                    : 'Equipamento removido com sucesso',
+        }
     }
 
     // ── Cálculo de depreciação ─────────────────────────

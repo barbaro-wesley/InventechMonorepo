@@ -437,11 +437,10 @@ export default function EquipmentDetailPage() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
-                    disabled={eq._count.serviceOrders > 0}
                     onClick={() => setDeleteOpen(true)}
                   >
                     <Trash2 className="w-4 h-4 mr-2" />
-                    {eq._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
+                    Remover
                   </DropdownMenuItem>
                 </>
               )}
@@ -1020,7 +1019,12 @@ export default function EquipmentDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remover equipamento</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{eq.name}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja remover <strong>{eq.name}</strong>?
+              {eq._count.serviceOrders > 0 && (
+                <>
+                  {" "}As <strong>{eq._count.serviceOrders} OS vinculada(s)</strong> também serão removidas.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
