@@ -889,11 +889,10 @@ function EquipmentCard({
               {canDelete && (
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
-                  disabled={equipment._count.serviceOrders > 0}
                   onClick={() => onDelete(equipment)}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-2" />
-                  {equipment._count.serviceOrders > 0 ? "Possui OS vinculadas" : "Remover"}
+                  Remover
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -2525,7 +2524,11 @@ export default function EquipamentosPage() {
             <AlertDialogTitle>Remover equipamento</AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja remover <strong>{deleteTarget?.name}</strong>?
-              Esta ação não pode ser desfeita.
+              {!!deleteTarget && deleteTarget._count.serviceOrders > 0 && (
+                <>
+                  {" "}As <strong>{deleteTarget._count.serviceOrders} OS vinculada(s)</strong> também serão removidas.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
