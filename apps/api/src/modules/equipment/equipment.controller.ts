@@ -14,14 +14,19 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { ALLOWED_MIME_LIST } from '../storage/storage.constants'
+import { LabelReferenceType } from '@prisma/client'
 
 import { ReportsService } from '../reports/reports.service'
+import { LabelTemplatesService } from '../label-templates/services/label-templates.service'
+import { LabelPdfService } from '../label-templates/services/label-pdf.service'
 
 @Controller('equipment')
 export class EquipmentController {
   constructor(
     private readonly equipmentService: EquipmentService,
-    private readonly reportsService: ReportsService
+    private readonly reportsService: ReportsService,
+    private readonly labelTemplatesService: LabelTemplatesService,
+    private readonly labelPdfService: LabelPdfService,
   ) {}
 
   @Get()
@@ -132,14 +137,15 @@ export class EquipmentController {
   }
 
   @Get(':id/label')
-  @ApiOperation({ summary: 'Etiqueta 50×30mm para impressora Zebra' })
+  @ApiOperation({ summary: 'Etiqueta do equipamento (via template configurável ou padrão)' })
   @Permission('equipment:read')
   async exportLabel(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() cu: AuthenticatedUser,
     @Res() res: Response,
+    @Query('templateId') templateId?: string,
   ) {
-    const buffer = await this.reportsService.generateEquipmentLabel(cu.companyId!, id)
+    const buffer = await this.renderEquipmentLabels(cu.companyId!, [id], templateId)
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'inline; filename="etiqueta.pdf"',
@@ -149,19 +155,42 @@ export class EquipmentController {
   }
 
   @Post('labels-batch')
-  @ApiOperation({ summary: 'PDF com etiquetas 50×30mm para múltiplos equipamentos' })
+  @ApiOperation({ summary: 'PDF com etiquetas para múltiplos equipamentos' })
   @Permission('equipment:read')
   async exportLabelsBatch(
-    @Body() dto: { equipmentIds: string[] },
+    @Body() dto: { equipmentIds: string[]; templateId?: string },
     @CurrentUser() cu: AuthenticatedUser,
     @Res() res: Response,
   ) {
-    const buffer = await this.reportsService.generateEquipmentLabelsBatch(cu.companyId!, dto.equipmentIds)
+    const buffer = await this.renderEquipmentLabels(cu.companyId!, dto.equipmentIds, dto.templateId)
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'inline; filename="etiquetas.pdf"',
       'Content-Length': buffer.length,
     })
     res.end(buffer)
+  }
+
+  /**
+   * Gera as etiquetas de equipamento:
+   *  1) com `templateId` → renderiza esse template;
+   *  2) sem template → usa o template padrão (isDefault) de EQUIPMENT da empresa;
+   *  3) sem padrão → cai na etiqueta 30×50mm hardcoded (compatibilidade).
+   */
+  private async renderEquipmentLabels(
+    companyId: string,
+    equipmentIds: string[],
+    templateId?: string,
+  ): Promise<Buffer> {
+    const template = templateId
+      ? await this.labelTemplatesService.findOne(templateId, companyId)
+      : await this.labelTemplatesService.findDefaultFor(companyId, LabelReferenceType.EQUIPMENT)
+
+    if (template)
+      return this.labelPdfService.render(companyId, template, equipmentIds)
+
+    return equipmentIds.length === 1
+      ? this.reportsService.generateEquipmentLabel(companyId, equipmentIds[0])
+      : this.reportsService.generateEquipmentLabelsBatch(companyId, equipmentIds)
   }
 }

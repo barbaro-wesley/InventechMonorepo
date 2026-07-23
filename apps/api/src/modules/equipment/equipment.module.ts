@@ -34,9 +34,10 @@ import { EquipmentCronJobs } from './equipment-cron.jobs'
 import { StorageModule } from '../storage/storage.module'
 import { NotificationsModule } from '../notifications/notifications.module'
 import { ReportsModule } from '../reports/reports.module'
+import { LabelTemplatesModule } from '../label-templates/label-templates.module'
 
 @Module({
-    imports: [StorageModule, NotificationsModule, ReportsModule],
+    imports: [StorageModule, NotificationsModule, ReportsModule, LabelTemplatesModule],
     controllers: [
         EquipmentController,
         LocationsController,

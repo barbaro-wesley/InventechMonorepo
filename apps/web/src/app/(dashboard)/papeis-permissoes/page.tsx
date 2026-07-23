@@ -75,6 +75,7 @@ const RESOURCE_LABEL: Record<string, string> = {
   "report": "Relatórios",
   "permission": "Permissões",
   "custom-role": "Papéis Personalizados",
+  "label-template": "Etiquetas QR",
 };
 
 const ACTION_LABEL: Record<string, string> = {
