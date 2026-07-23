@@ -8,7 +8,7 @@ import { LabelReferenceType } from '@prisma/client'
 // ─── Layout types (stored as JSON in LabelTemplate.layout) ─────────────────────
 // Todas as coordenadas/dimensões estão em milímetros (mm), relativas à etiqueta.
 
-export type LabelElementType = 'text' | 'qrcode' | 'image'
+export type LabelElementType = 'text' | 'qrcode' | 'image' | 'table'
 
 export interface LabelElementBase {
   id: string
@@ -18,6 +18,15 @@ export interface LabelElementBase {
   width: number
   height: number
   rotation?: number
+}
+
+/** Colunas disponíveis na tabela de OS preventivas. */
+export type LabelTableColumnKey = 'number' | 'createdAt' | 'description' | 'status'
+
+export interface LabelTableColumn {
+  key: LabelTableColumnKey
+  label: string
+  width: number // peso relativo da coluna
 }
 
 export interface LabelTextElement extends LabelElementBase {
@@ -42,7 +51,24 @@ export interface LabelImageElement extends LabelElementBase {
   fit?: 'contain' | 'cover'
 }
 
-export type LabelElement = LabelTextElement | LabelQrElement | LabelImageElement
+/** Tabela desenhada com as OS preventivas do equipamento. */
+export interface LabelTableElement extends LabelElementBase {
+  type: 'table'
+  source: 'preventive_os'
+  columns: LabelTableColumn[]
+  fontSize: number // pt
+  headerBold?: boolean
+  showHeader?: boolean
+  showBorders?: boolean
+  maxRows?: number
+  color?: string
+}
+
+export type LabelElement =
+  | LabelTextElement
+  | LabelQrElement
+  | LabelImageElement
+  | LabelTableElement
 
 export interface LabelLayout {
   width: number

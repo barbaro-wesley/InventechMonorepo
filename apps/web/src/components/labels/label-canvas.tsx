@@ -170,6 +170,58 @@ function ElementContent({ el, scale }: { el: LabelElement; scale: number }) {
     );
   }
 
+  if (el.type === "table") {
+    const cols = el.columns ?? [];
+    const fontPx = Math.max(3, el.fontSize * PT_TO_MM * scale);
+    const showHeader = el.showHeader !== false;
+    const showBorders = el.showBorders !== false;
+    const sample: Record<string, string> = {
+      number: "45",
+      createdAt: "15/03/2026",
+      description: "Descrição da OS…",
+      status: "Concluída",
+    };
+    const cellStyle = (key: string): React.CSSProperties => ({
+      padding: "0 2px",
+      borderTop: showBorders ? "0.5px solid #999" : undefined,
+      borderRight: showBorders ? "0.5px solid #999" : undefined,
+      textAlign: key === "number" ? "center" : "left",
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      textOverflow: "ellipsis",
+    });
+    return (
+      <div
+        className="h-full w-full overflow-hidden"
+        style={{ color: el.color || "#000000", fontSize: fontPx, lineHeight: 1.5 }}
+      >
+        <div
+          className="grid h-full w-full"
+          style={{
+            gridTemplateColumns: cols.map((c) => `${c.width}fr`).join(" "),
+            gridAutoRows: "min-content",
+            borderLeft: showBorders ? "0.5px solid #999" : undefined,
+            borderBottom: showBorders ? "0.5px solid #999" : undefined,
+          }}
+        >
+          {showHeader &&
+            cols.map((c) => (
+              <div key={`h-${c.key}`} style={{ ...cellStyle(c.key), fontWeight: 700 }}>
+                {c.label}
+              </div>
+            ))}
+          {Array.from({ length: 3 }).flatMap((_, r) =>
+            cols.map((c) => (
+              <div key={`r${r}-${c.key}`} style={cellStyle(c.key)}>
+                {sample[c.key] ?? ""}
+              </div>
+            )),
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // image / company_logo (placeholder — o logo real aparece só no PDF)
   return (
     <div className="flex h-full w-full items-center justify-center rounded-sm border border-dashed border-gray-300 bg-gray-50 text-[9px] font-medium text-gray-400">

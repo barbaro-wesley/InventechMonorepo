@@ -1,6 +1,6 @@
 export type LabelReferenceType = "EQUIPMENT" | "SERVICE_ORDER";
 
-export type LabelElementType = "text" | "qrcode" | "image";
+export type LabelElementType = "text" | "qrcode" | "image" | "table";
 
 export interface LabelElementBase {
   id: string;
@@ -35,10 +35,32 @@ export interface LabelImageElement extends LabelElementBase {
   fit?: "contain" | "cover";
 }
 
+/** Colunas disponíveis na tabela de OS preventivas. */
+export type LabelTableColumnKey = "number" | "createdAt" | "description" | "status";
+
+export interface LabelTableColumn {
+  key: LabelTableColumnKey;
+  label: string;
+  width: number; // peso relativo da coluna
+}
+
+export interface LabelTableElement extends LabelElementBase {
+  type: "table";
+  source: "preventive_os";
+  columns: LabelTableColumn[];
+  fontSize: number; // pt
+  headerBold?: boolean;
+  showHeader?: boolean;
+  showBorders?: boolean;
+  maxRows?: number;
+  color?: string;
+}
+
 export type LabelElement =
   | LabelTextElement
   | LabelQrElement
-  | LabelImageElement;
+  | LabelImageElement
+  | LabelTableElement;
 
 export interface LabelLayout {
   width: number; // mm

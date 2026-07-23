@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import {
   Type, QrCode, Image as ImageIcon, ZoomIn, ZoomOut, Maximize2,
-  Save, X, Loader2,
+  Save, X, Loader2, Table as TableIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -122,6 +122,18 @@ export function LabelEditor({
       const size = clamp(Math.min(layout.width, layout.height) - 8, 8, 40);
       el = { ...base, type: "qrcode", x: clamp((layout.width - size) / 2, 0, layout.width), y: 8,
         width: size, height: size, value: "{qr_url}", errorCorrectionLevel: "M" };
+    } else if (type === "table") {
+      el = { ...base, type: "table",
+        width: clamp(layout.width - 4, 10, layout.width),
+        height: clamp(Math.min(layout.height - 4, 30), 8, layout.height),
+        source: "preventive_os",
+        columns: [
+          { key: "number", label: "Nº", width: 1 },
+          { key: "createdAt", label: "Criada", width: 2 },
+          { key: "description", label: "Descrição", width: 4 },
+          { key: "status", label: "Status", width: 2 },
+        ],
+        fontSize: 6, headerBold: true, showHeader: true, showBorders: true, maxRows: 8, color: "#000000" };
     } else {
       el = { ...base, type: "image", width: 12, height: 12, source: "company_logo", fit: "contain" };
     }
@@ -200,6 +212,9 @@ export function LabelEditor({
           </Button>
           <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("image")}>
             <ImageIcon className="mr-2 h-4 w-4" /> Logo
+          </Button>
+          <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("table")}>
+            <TableIcon className="mr-2 h-4 w-4" /> Tabela OS
           </Button>
 
           <div className="mt-auto space-y-2">

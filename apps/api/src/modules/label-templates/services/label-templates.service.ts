@@ -7,9 +7,39 @@ import {
   UpdateLabelTemplateDto,
   LabelElement,
   LabelLayout,
+  LabelTableColumn,
+  LabelTableColumnKey,
 } from '../dto/label-template.dto'
 
-const ELEMENT_TYPES = ['text', 'qrcode', 'image']
+const ELEMENT_TYPES = ['text', 'qrcode', 'image', 'table']
+
+const OS_TABLE_COLUMN_KEYS: LabelTableColumnKey[] = ['number', 'createdAt', 'description', 'status']
+
+const OS_TABLE_DEFAULT_LABELS: Record<LabelTableColumnKey, string> = {
+  number: 'Nº',
+  createdAt: 'Criada',
+  description: 'Descrição',
+  status: 'Status',
+}
+
+const OS_TABLE_DEFAULT_COLUMNS: LabelTableColumn[] = [
+  { key: 'number', label: 'Nº', width: 1 },
+  { key: 'createdAt', label: 'Criada', width: 2 },
+  { key: 'description', label: 'Descrição', width: 4 },
+  { key: 'status', label: 'Status', width: 2 },
+]
+
+function sanitizeTableColumns(raw: any): LabelTableColumn[] {
+  if (!Array.isArray(raw)) return OS_TABLE_DEFAULT_COLUMNS
+  const cols = raw
+    .filter((c: any) => c && OS_TABLE_COLUMN_KEYS.includes(c.key))
+    .map((c: any): LabelTableColumn => ({
+      key: c.key,
+      label: typeof c.label === 'string' && c.label ? c.label : OS_TABLE_DEFAULT_LABELS[c.key as LabelTableColumnKey],
+      width: clamp(c.width, 0.1, 100, 1),
+    }))
+  return cols.length ? cols : OS_TABLE_DEFAULT_COLUMNS
+}
 
 function clamp(n: unknown, min: number, max: number, fallback: number): number {
   const v = typeof n === 'number' && Number.isFinite(n) ? n : fallback
@@ -53,6 +83,20 @@ function sanitizeLayout(raw: any): LabelLayout {
           errorCorrectionLevel: ['L', 'M', 'Q', 'H'].includes(e.errorCorrectionLevel)
             ? e.errorCorrectionLevel
             : 'M',
+        }
+      }
+      if (e.type === 'table') {
+        return {
+          ...base,
+          type: 'table',
+          source: 'preventive_os',
+          columns: sanitizeTableColumns(e.columns),
+          fontSize: clamp(e.fontSize, 3, 24, 6),
+          headerBold: e.headerBold !== false,
+          showHeader: e.showHeader !== false,
+          showBorders: e.showBorders !== false,
+          maxRows: clamp(e.maxRows, 1, 50, 8),
+          color: typeof e.color === 'string' ? e.color : '#000000',
         }
       }
       return {

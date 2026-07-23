@@ -11,7 +11,16 @@ import {
 import { cn } from "@/lib/utils";
 import type {
   LabelElement, LabelLayout, LabelVariable,
+  LabelTableElement, LabelTableColumn, LabelTableColumnKey,
 } from "@/services/label-templates/label-templates.types";
+
+// Catálogo de colunas da tabela de OS preventivas (ordem canônica de exibição).
+const OS_TABLE_CATALOG: { key: LabelTableColumnKey; label: string; defaultWidth: number }[] = [
+  { key: "number", label: "Nº", defaultWidth: 1 },
+  { key: "createdAt", label: "Criada", defaultWidth: 2 },
+  { key: "description", label: "Descrição", defaultWidth: 4 },
+  { key: "status", label: "Status", defaultWidth: 2 },
+];
 
 function NumberField({
   label, value, onChange, min, max, step = 1, suffix,
@@ -73,6 +82,29 @@ export function LabelPropertiesPanel({
     }
   }
 
+  function toggleTableColumn(el: LabelTableElement, key: LabelTableColumnKey) {
+    const cols = el.columns ?? [];
+    const on = cols.some((c) => c.key === key);
+    let next: LabelTableColumn[];
+    if (on) {
+      next = cols.filter((c) => c.key !== key);
+    } else {
+      const cat = OS_TABLE_CATALOG.find((c) => c.key === key)!;
+      const added = [...cols, { key, label: cat.label, width: cat.defaultWidth }];
+      // Reordena pelo catálogo para a ordem das colunas ficar estável.
+      next = OS_TABLE_CATALOG
+        .filter((c) => added.some((a) => a.key === c.key))
+        .map((c) => added.find((a) => a.key === c.key)!);
+    }
+    onElementChange(el.id, { columns: next });
+  }
+
+  function setTableColumnWidth(el: LabelTableElement, key: LabelTableColumnKey, width: number) {
+    onElementChange(el.id, {
+      columns: (el.columns ?? []).map((c) => (c.key === key ? { ...c, width } : c)),
+    });
+  }
+
   return (
     <div className="flex w-80 shrink-0 flex-col gap-4 overflow-y-auto border-l bg-muted/30 p-4">
       {/* ── Etiqueta (canvas) ── */}
@@ -113,7 +145,8 @@ export function LabelPropertiesPanel({
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">
               {selected.type === "text" ? "Texto"
-                : selected.type === "qrcode" ? "QR Code" : "Logo"}
+                : selected.type === "qrcode" ? "QR Code"
+                : selected.type === "table" ? "Tabela de OS" : "Logo"}
             </h3>
             <Button
               variant="ghost" size="sm"
@@ -227,6 +260,72 @@ export function LabelPropertiesPanel({
                 </SelectContent>
               </Select>
             </div>
+          )}
+
+          {/* Tabela de OS preventivas */}
+          {selected.type === "table" && (
+            <>
+              <p className="text-[11px] leading-tight text-muted-foreground">
+                Lista as OS de manutenção preventiva do equipamento (mais recentes primeiro).
+                Os dados são preenchidos na impressão.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField label="Fonte (pt)" min={3} max={24} value={selected.fontSize}
+                  onChange={(n) => onElementChange(selected.id, { fontSize: n })} />
+                <NumberField label="Máx. linhas" min={1} max={50} value={selected.maxRows ?? 8}
+                  onChange={(n) => onElementChange(selected.id, { maxRows: n })} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Cor do texto</Label>
+                <input type="color" value={selected.color || "#000000"}
+                  onChange={(e) => onElementChange(selected.id, { color: e.target.value })}
+                  className="h-8 w-full cursor-pointer rounded border" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={selected.showHeader !== false}
+                    onChange={(e) => onElementChange(selected.id, { showHeader: e.target.checked })}
+                    className="h-3.5 w-3.5" />
+                  Mostrar cabeçalho
+                </label>
+                <label className="flex items-center gap-2 text-xs">
+                  <input type="checkbox" checked={selected.showBorders !== false}
+                    onChange={(e) => onElementChange(selected.id, { showBorders: e.target.checked })}
+                    className="h-3.5 w-3.5" />
+                  Mostrar bordas
+                </label>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Colunas</Label>
+                <div className="space-y-1">
+                  {OS_TABLE_CATALOG.map((cat) => {
+                    const tableEl = selected;
+                    const col = (tableEl.columns ?? []).find((c) => c.key === cat.key);
+                    return (
+                      <div key={cat.key} className="flex items-center gap-2">
+                        <input type="checkbox" checked={!!col}
+                          onChange={() => toggleTableColumn(tableEl, cat.key)}
+                          className="h-3.5 w-3.5" />
+                        <span className="flex-1 text-xs">{cat.label}</span>
+                        {col && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground">larg.</span>
+                            <Input
+                              type="number" min={0.5} max={20} step={0.5} value={col.width}
+                              onChange={(e) => setTableColumnWidth(tableEl, cat.key, parseFloat(e.target.value))}
+                              className="h-7 w-14 px-1 text-xs"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] leading-tight text-muted-foreground">
+                  A largura é um peso relativo entre as colunas.
+                </p>
+              </div>
+            </>
           )}
 
           {/* Inserir variáveis (texto e QR) */}
