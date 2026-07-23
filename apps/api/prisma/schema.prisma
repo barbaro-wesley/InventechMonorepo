@@ -53,6 +53,7 @@ model Company {
   platform               Platform                @relation(fields: [platformId], references: [id])
   customRoles            CustomRole[]
   eSignDocuments         ESignDocument[]
+  labelTemplates         LabelTemplate[]
   laudoTemplates         LaudoTemplate[]
   laudos                 Laudo[]
   maintenanceGroups      MaintenanceGroup[]
@@ -135,6 +136,7 @@ model User {
   movementsRequested           EquipmentMovement[]         @relation("MovementRequester")
   eSignDocumentsCreated        ESignDocument[]             @relation("ESignDocumentCreatedBy")
   eSignRequestsSigner          ESignRequest[]              @relation("ESignRequestSigner")
+  labelTemplatesCreated        LabelTemplate[]             @relation("LabelTemplateCreatedBy")
   laudoTemplatesCreated        LaudoTemplate[]             @relation("LaudoTemplateCreatedBy")
   laudosApproved               Laudo[]                     @relation("LaudoApprovedBy")
   laudosCreated                Laudo[]                     @relation("LaudoCreatedBy")
@@ -1052,6 +1054,27 @@ model ESignCertificate {
   @@map("esign_certificates")
 }
 
+model LabelTemplate {
+  id            String             @id @default(uuid())
+  companyId     String             @map("company_id")
+  createdById   String             @map("created_by_id")
+  name          String
+  description   String?
+  referenceType LabelReferenceType @map("reference_type")
+  layout        Json
+  isDefault     Boolean            @default(false) @map("is_default")
+  isActive      Boolean            @default(true) @map("is_active")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  deletedAt     DateTime?          @map("deleted_at")
+  company       Company            @relation(fields: [companyId], references: [id])
+  createdBy     User               @relation("LabelTemplateCreatedBy", fields: [createdById], references: [id])
+
+  @@index([companyId])
+  @@index([companyId, referenceType])
+  @@map("label_templates")
+}
+
 model LaudoTemplate {
   id                  String             @id @default(uuid())
   companyId           String             @map("company_id")
@@ -1522,6 +1545,11 @@ enum LaudoReferenceType {
   MAINTENANCE
   SERVICE_ORDER
   CUSTOM
+}
+
+enum LabelReferenceType {
+  EQUIPMENT
+  SERVICE_ORDER
 }
 
 enum ScanStatus {
