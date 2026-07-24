@@ -4,7 +4,7 @@ import { CompaniesService } from '../../companies/companies.service'
 import { LabelVariablesService, PreventiveOsRow } from './label-variables.service'
 import {
   LabelLayout, LabelElement, LabelTextElement, LabelQrElement, LabelImageElement,
-  LabelTableElement,
+  LabelTableElement, LabelLineElement, LabelRectElement,
 } from '../dto/label-template.dto'
 
 // 1 mm = 72 / 25.4 pt
@@ -85,6 +85,8 @@ export class LabelPdfService {
         else if (el.type === 'qrcode') await this.drawQr(doc, QRCodeLib, el, vars)
         else if (el.type === 'image') this.drawImage(doc, el, logoBuffer)
         else if (el.type === 'table') this.drawTable(doc, el, tableRows)
+        else if (el.type === 'rect') this.drawRect(doc, el)
+        else if (el.type === 'line') this.drawLine(doc, el)
       } catch {
         // Um elemento malformado não deve derrubar a etiqueta inteira.
       }
@@ -150,6 +152,57 @@ export class LabelPdfService {
       drawRow(columns.map((c) => row[c.key] ?? ''), y, false)
       y += rowH
     }
+  }
+
+  /** Desenha um retângulo/moldura (preenchimento e/ou borda). */
+  private drawRect(doc: any, el: LabelRectElement): void {
+    const x = el.x * MM
+    const y = el.y * MM
+    const w = el.width * MM
+    const h = el.height * MM
+    const radius = Math.min((el.radius ?? 0) * MM, w / 2, h / 2)
+    const borderWidth = el.borderWidth ?? 0.3
+    const hasFill = typeof el.fill === 'string' && el.fill
+    const hasBorder = borderWidth > 0 && !!el.borderColor
+
+    // Sem preenchimento nem borda não há o que desenhar — evita deixar um path
+    // pendente que "vazaria" para o próximo elemento pintado.
+    if (!hasFill && !hasBorder) return
+
+    if (radius > 0) doc.roundedRect(x, y, w, h, radius)
+    else doc.rect(x, y, w, h)
+
+    if (hasFill && hasBorder) {
+      doc.lineWidth(borderWidth * MM).fillAndStroke(el.fill, el.borderColor)
+    } else if (hasFill) {
+      doc.fill(el.fill)
+    } else if (hasBorder) {
+      doc.lineWidth(borderWidth * MM).stroke(el.borderColor)
+    }
+  }
+
+  /** Desenha uma linha divisória horizontal ou vertical dentro da caixa do elemento. */
+  private drawLine(doc: any, el: LabelLineElement): void {
+    const x = el.x * MM
+    const y = el.y * MM
+    const w = el.width * MM
+    const h = el.height * MM
+    const thickness = (el.thickness ?? 0.3) * MM
+    const vertical = el.orientation === 'vertical'
+
+    let x1: number, y1: number, x2: number, y2: number
+    if (vertical) {
+      // Linha vertical centralizada na largura da caixa.
+      x1 = x2 = x + w / 2
+      y1 = y
+      y2 = y + h
+    } else {
+      // Linha horizontal centralizada na altura da caixa.
+      x1 = x
+      x2 = x + w
+      y1 = y2 = y + h / 2
+    }
+    doc.lineWidth(thickness).moveTo(x1, y1).lineTo(x2, y2).stroke(el.color || '#000000')
   }
 
   private drawText(doc: any, el: LabelTextElement, vars: Record<string, string>): void {

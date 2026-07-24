@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { LabelReferenceType, MaintenanceType, ServiceOrderStatus } from '@prisma/client'
+import {
+  EquipmentCriticality, LabelReferenceType, MaintenanceType, ServiceOrderStatus,
+} from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { getFrontendUrl } from '../../../config/app.config'
 import { recurrenceLabel } from '../../maintenance/schedule/recurrence.util'
@@ -19,6 +21,27 @@ const SERVICE_ORDER_STATUS_LABELS: Record<ServiceOrderStatus, string> = {
   COMPLETED_REJECTED: 'Reprovada',
   CANCELLED: 'Cancelada',
   AWAITING_PICKUP: 'Aguardando retirada',
+}
+
+// Rótulos pt-BR para a criticidade do equipamento
+const EQUIPMENT_CRITICALITY_LABELS: Record<EquipmentCriticality, string> = {
+  LOW: 'Baixa',
+  MEDIUM: 'Média',
+  HIGH: 'Alta',
+  CRITICAL: 'Crítica',
+}
+
+/** Formata uma data (ou null) como dd/mm/aaaa em pt-BR, ou string vazia. */
+function formatDate(date: Date | null | undefined): string {
+  return date ? date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : ''
+}
+
+/** Formata um valor Decimal/número (ou null) como moeda BRL, ou string vazia. */
+function formatCurrency(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return ''
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 /** Uma linha da tabela de OS preventivas (valores já formatados como texto). */
@@ -54,6 +77,16 @@ const EQUIPMENT_VARIABLES: LabelVariable[] = [
   { key: '{equipment_subtype}', label: 'Subtipo' },
   { key: '{equipment_location}', label: 'Localização' },
   { key: '{equipment_status}', label: 'Status' },
+  { key: '{equipment_criticality}', label: 'Criticidade' },
+  { key: '{equipment_cost_center}', label: 'Centro de custo' },
+  { key: '{equipment_purchase_date}', label: 'Data de compra' },
+  { key: '{equipment_purchase_value}', label: 'Valor de compra' },
+  { key: '{equipment_warranty_end}', label: 'Fim da garantia' },
+  { key: '{equipment_voltage}', label: 'Voltagem' },
+  { key: '{equipment_power}', label: 'Potência' },
+  { key: '{equipment_ip}', label: 'Endereço IP' },
+  { key: '{equipment_observations}', label: 'Observações' },
+  { key: '{proxima_preventiva}', label: 'Próxima preventiva agendada' },
   { key: '{preventivas_realizadas}', label: 'Preventivas realizadas (data · recorrência)' },
 ]
 
@@ -118,13 +151,18 @@ export class LabelVariablesService {
         select: {
           name: true, brand: true, model: true, serialNumber: true,
           patrimonyNumber: true, anvisaNumber: true, status: true,
+          criticality: true, purchaseDate: true, purchaseValue: true,
+          warrantyEnd: true, voltage: true, power: true, ipAddress: true,
+          observations: true,
           type: { select: { name: true } },
           subtype: { select: { name: true } },
           location: { select: { name: true } },
           currentLocation: { select: { name: true } },
+          costCenter: { select: { name: true } },
         },
       })
       if (eq) this.applyEquipmentVars(vars, eq)
+      vars['{proxima_preventiva}'] = await this.buildNextPreventive(companyId, entityId)
       vars['{preventivas_realizadas}'] = await this.buildPreventiveHistory(companyId, entityId)
     }
 
@@ -143,10 +181,14 @@ export class LabelVariablesService {
             select: {
               name: true, brand: true, model: true, serialNumber: true,
               patrimonyNumber: true, anvisaNumber: true, status: true,
+              criticality: true, purchaseDate: true, purchaseValue: true,
+              warrantyEnd: true, voltage: true, power: true, ipAddress: true,
+              observations: true,
               type: { select: { name: true } },
               subtype: { select: { name: true } },
               location: { select: { name: true } },
               currentLocation: { select: { name: true } },
+              costCenter: { select: { name: true } },
             },
           },
         },
@@ -163,6 +205,7 @@ export class LabelVariablesService {
           .join(', ')
         if (so.equipment) this.applyEquipmentVars(vars, so.equipment)
         if (so.equipmentId) {
+          vars['{proxima_preventiva}'] = await this.buildNextPreventive(companyId, so.equipmentId)
           vars['{preventivas_realizadas}'] = await this.buildPreventiveHistory(companyId, so.equipmentId)
         }
       }
@@ -182,6 +225,17 @@ export class LabelVariablesService {
     vars['{equipment_subtype}'] = eq.subtype?.name ?? ''
     vars['{equipment_location}'] = eq.currentLocation?.name ?? eq.location?.name ?? ''
     vars['{equipment_status}'] = eq.status ?? ''
+    vars['{equipment_criticality}'] = eq.criticality
+      ? (EQUIPMENT_CRITICALITY_LABELS[eq.criticality as EquipmentCriticality] ?? eq.criticality)
+      : ''
+    vars['{equipment_cost_center}'] = eq.costCenter?.name ?? ''
+    vars['{equipment_purchase_date}'] = formatDate(eq.purchaseDate)
+    vars['{equipment_purchase_value}'] = formatCurrency(eq.purchaseValue)
+    vars['{equipment_warranty_end}'] = formatDate(eq.warrantyEnd)
+    vars['{equipment_voltage}'] = eq.voltage ?? ''
+    vars['{equipment_power}'] = eq.power ?? ''
+    vars['{equipment_ip}'] = eq.ipAddress ?? ''
+    vars['{equipment_observations}'] = eq.observations ?? ''
   }
 
   /**
@@ -223,6 +277,19 @@ export class LabelVariablesService {
         return recurrence ? `${date} · ${recurrence}` : date
       })
       .join('\n')
+  }
+
+  /**
+   * Data da próxima preventiva agendada do equipamento (dd/mm/aaaa), a partir do
+   * agendamento ativo com `nextRunAt` mais próximo. Retorna '' se não houver.
+   */
+  private async buildNextPreventive(companyId: string, equipmentId: string): Promise<string> {
+    const schedule = await this.prisma.maintenanceSchedule.findFirst({
+      where: { companyId, equipmentId, isActive: true },
+      select: { nextRunAt: true },
+      orderBy: { nextRunAt: 'asc' },
+    })
+    return formatDate(schedule?.nextRunAt)
   }
 
   /** Descobre o equipmentId a partir da entidade da etiqueta (equipamento ou OS). */

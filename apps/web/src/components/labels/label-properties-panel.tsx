@@ -148,7 +148,9 @@ export function LabelPropertiesPanel({
             <h3 className="text-sm font-semibold">
               {selected.type === "text" ? "Texto"
                 : selected.type === "qrcode" ? "QR Code"
-                : selected.type === "table" ? "Tabela de OS" : "Logo"}
+                : selected.type === "table" ? "Tabela de OS"
+                : selected.type === "line" ? "Linha"
+                : selected.type === "rect" ? "Retângulo" : "Logo"}
             </h3>
             <Button
               variant="ghost" size="sm"
@@ -326,6 +328,71 @@ export function LabelPropertiesPanel({
                 <p className="text-[11px] leading-tight text-muted-foreground">
                   A largura é um peso relativo entre as colunas.
                 </p>
+              </div>
+            </>
+          )}
+
+          {/* Linha */}
+          {selected.type === "line" && (
+            <>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Orientação</Label>
+                <Select
+                  value={selected.orientation ?? "horizontal"}
+                  onValueChange={(v) => onElementChange(selected.id, { orientation: v as "horizontal" | "vertical" })}
+                >
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="horizontal">Horizontal</SelectItem>
+                    <SelectItem value="vertical">Vertical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField label="Espessura" suffix="mm" min={0.1} max={10} step={0.1}
+                  value={selected.thickness ?? 0.3}
+                  onChange={(n) => onElementChange(selected.id, { thickness: n })} />
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Cor</Label>
+                  <input type="color" value={selected.color || "#000000"}
+                    onChange={(e) => onElementChange(selected.id, { color: e.target.value })}
+                    className="h-8 w-full cursor-pointer rounded border" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Retângulo */}
+          {selected.type === "rect" && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Preenchimento</Label>
+                  <input type="color" value={selected.fill || "#FFFFFF"}
+                    onChange={(e) => onElementChange(selected.id, { fill: e.target.value })}
+                    className="h-8 w-full cursor-pointer rounded border" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Cor da borda</Label>
+                  <input type="color" value={selected.borderColor || "#000000"}
+                    onChange={(e) => onElementChange(selected.id, { borderColor: e.target.value })}
+                    className="h-8 w-full cursor-pointer rounded border" />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => onElementChange(selected.id, { fill: undefined })}
+                className="text-[11px] text-blue-600 hover:underline"
+              >
+                Sem preenchimento (transparente)
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <NumberField label="Borda" suffix="mm" min={0} max={10} step={0.1}
+                  value={selected.borderWidth ?? 0.3}
+                  onChange={(n) => onElementChange(selected.id, { borderWidth: n })} />
+                <NumberField label="Cantos" suffix="mm" min={0} max={50} step={0.5}
+                  value={selected.radius ?? 0}
+                  onChange={(n) => onElementChange(selected.id, { radius: n })} />
               </div>
             </>
           )}
