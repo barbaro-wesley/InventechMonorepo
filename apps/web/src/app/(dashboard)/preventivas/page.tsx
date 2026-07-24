@@ -290,9 +290,10 @@ export default function PreventivasPage() {
     : statusFilter === "inactive" ? false
     : undefined;
 
-  // "no_tech" / patrimônio / técnico não têm filtro correspondente na API — bump limit
+  // "no_tech" / técnico não têm filtro correspondente na API — bump limit
   // para o filtro client-side cobrir mais registros (mesmo padrão de overdue/due_soon).
-  const needsBuffer = statusFilter === "overdue" || statusFilter === "due_soon" || statusFilter === "no_tech" || !!patrimonyParam || !!technicianId;
+  // Patrimônio é filtrado server-side (patrimonyNumber), então pagina normalmente.
+  const needsBuffer = statusFilter === "overdue" || statusFilter === "due_soon" || statusFilter === "no_tech" || !!technicianId;
   const effectiveLimit = needsBuffer ? 100 : LIMIT;
 
   const { data, isLoading } = useMaintenanceSchedules({
@@ -322,7 +323,6 @@ export default function PreventivasPage() {
     if (statusFilter === "overdue" && st !== "overdue") return false;
     if (statusFilter === "due_soon" && st !== "due_soon") return false;
     if (statusFilter === "no_tech" && s.assignedTechnician) return false;
-    if (patrimonyParam && !s.equipment.patrimonyNumber?.toLowerCase().includes(patrimonyParam.toLowerCase())) return false;
     if (technicianId && s.assignedTechnician?.id !== technicianId) return false;
     return true;
   });
