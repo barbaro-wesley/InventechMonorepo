@@ -253,6 +253,10 @@ export class ListSchedulesDto {
     search?: string
 
     @IsOptional()
+    @IsString()
+    patrimonyNumber?: string
+
+    @IsOptional()
     @IsUUID()
     equipmentId?: string
 

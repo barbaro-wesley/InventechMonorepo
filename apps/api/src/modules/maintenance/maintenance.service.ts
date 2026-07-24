@@ -236,7 +236,7 @@ export class MaintenanceService {
         filters: ListSchedulesDto,
         clientId?: string,
     ) {
-        const { search, equipmentId, maintenanceType, recurrenceType, groupId, isActive, page = 1, limit = 20 } = filters
+        const { search, patrimonyNumber, equipmentId, maintenanceType, recurrenceType, groupId, isActive, page = 1, limit = 20 } = filters
 
         // Restrição por grupo: mesma lógica do equipment service
         // Usuário cliente só vê agendamentos dos grupos vinculados ao seu cliente
@@ -253,10 +253,17 @@ export class MaintenanceService {
             ...(maintenanceType && { maintenanceType }),
             ...(recurrenceType && { recurrenceType }),
             ...(isActive !== undefined && { isActive }),
+            // Filtro dedicado por patrimônio (busca server-side, não apenas na página atual)
+            ...(patrimonyNumber && {
+                equipment: {
+                    patrimonyNumber: { contains: patrimonyNumber, mode: 'insensitive' },
+                },
+            }),
             ...(search && {
                 OR: [
                     { title: { contains: search, mode: 'insensitive' } },
                     { equipment: { name: { contains: search, mode: 'insensitive' } } },
+                    { equipment: { patrimonyNumber: { contains: search, mode: 'insensitive' } } },
                     { client: { name: { contains: search, mode: 'insensitive' } } },
                 ],
             }),
