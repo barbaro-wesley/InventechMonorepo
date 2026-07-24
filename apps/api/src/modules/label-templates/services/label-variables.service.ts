@@ -22,7 +22,10 @@ const SERVICE_ORDER_STATUS_LABELS: Record<ServiceOrderStatus, string> = {
 }
 
 /** Uma linha da tabela de OS preventivas (valores já formatados como texto). */
-export type PreventiveOsRow = Record<'number' | 'createdAt' | 'description' | 'status', string>
+export type PreventiveOsRow = Record<
+  'number' | 'createdAt' | 'description' | 'status' | 'client' | 'technician',
+  string
+>
 
 export interface LabelVariable {
   key: string
@@ -256,7 +259,14 @@ export class LabelVariablesService {
         deletedAt: null,
         maintenanceType: MaintenanceType.PREVENTIVE,
       },
-      select: { number: true, createdAt: true, description: true, status: true },
+      select: {
+        number: true, createdAt: true, description: true, status: true,
+        client: { select: { reportName: true, name: true } },
+        technicians: {
+          select: { technician: { select: { name: true } } },
+          orderBy: { assignedAt: 'asc' },
+        },
+      },
       orderBy: { createdAt: 'desc' },
       take: OS_TABLE_QUERY_LIMIT,
     })
@@ -266,6 +276,11 @@ export class LabelVariablesService {
       createdAt: os.createdAt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
       description: os.description ?? '',
       status: SERVICE_ORDER_STATUS_LABELS[os.status] ?? os.status,
+      client: os.client?.reportName || os.client?.name || '',
+      technician: os.technicians
+        .map((t) => t.technician?.name)
+        .filter(Boolean)
+        .join(', '),
     }))
   }
 
