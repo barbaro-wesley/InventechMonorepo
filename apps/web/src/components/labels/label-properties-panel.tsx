@@ -20,6 +20,8 @@ const OS_TABLE_CATALOG: { key: LabelTableColumnKey; label: string; defaultWidth:
   { key: "createdAt", label: "Criada", defaultWidth: 2 },
   { key: "description", label: "Descrição", defaultWidth: 4 },
   { key: "status", label: "Status", defaultWidth: 2 },
+  { key: "client", label: "Prestador", defaultWidth: 3 },
+  { key: "technician", label: "Técnico", defaultWidth: 3 },
 ];
 
 function NumberField({
