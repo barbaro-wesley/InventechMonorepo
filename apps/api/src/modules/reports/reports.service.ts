@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { UserRole } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CompaniesService } from '../companies/companies.service'
+import { getFrontendUrl } from '../../config/app.config'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 // Tipos de filtro para os relatórios
@@ -2401,7 +2402,7 @@ export class ReportsService {
     const PAD = 5
     const CX = W / 2
 
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001'
+    const frontendUrl = getFrontendUrl()
     const qrUrl = `${frontendUrl}/equipamentos?detail=${equipmentId}`
     const qrPng = await QRCodeLib.toBuffer(qrUrl, {
       type: 'png',
