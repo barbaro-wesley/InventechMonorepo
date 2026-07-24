@@ -11,7 +11,7 @@ import {
   LabelTableColumnKey,
 } from '../dto/label-template.dto'
 
-const ELEMENT_TYPES = ['text', 'qrcode', 'image', 'table']
+const ELEMENT_TYPES = ['text', 'qrcode', 'image', 'table', 'line', 'rect']
 
 const OS_TABLE_COLUMN_KEYS: LabelTableColumnKey[] = [
   'number',
@@ -106,6 +106,25 @@ function sanitizeLayout(raw: any): LabelLayout {
           showBorders: e.showBorders !== false,
           maxRows: clamp(e.maxRows, 1, 50, 8),
           color: typeof e.color === 'string' ? e.color : '#000000',
+        }
+      }
+      if (e.type === 'line') {
+        return {
+          ...base,
+          type: 'line',
+          color: typeof e.color === 'string' ? e.color : '#000000',
+          thickness: clamp(e.thickness, 0.1, 10, 0.3),
+          orientation: e.orientation === 'vertical' ? 'vertical' : 'horizontal',
+        }
+      }
+      if (e.type === 'rect') {
+        return {
+          ...base,
+          type: 'rect',
+          ...(typeof e.fill === 'string' ? { fill: e.fill } : {}),
+          borderColor: typeof e.borderColor === 'string' ? e.borderColor : '#000000',
+          borderWidth: clamp(e.borderWidth, 0, 10, 0.3),
+          radius: clamp(e.radius, 0, 50, 0),
         }
       }
       return {

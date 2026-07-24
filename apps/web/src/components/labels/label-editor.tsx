@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import {
   Type, QrCode, Image as ImageIcon, ZoomIn, ZoomOut, Maximize2,
-  Save, X, Loader2, Table as TableIcon,
+  Save, X, Loader2, Table as TableIcon, Minus, Square,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,6 +134,14 @@ export function LabelEditor({
           { key: "status", label: "Status", width: 2 },
         ],
         fontSize: 6, headerBold: true, showHeader: true, showBorders: true, maxRows: 8, color: "#000000" };
+    } else if (type === "line") {
+      el = { ...base, type: "line", width: clamp(layout.width - 4, 5, layout.width), height: 1,
+        color: "#000000", thickness: 0.3, orientation: "horizontal" };
+    } else if (type === "rect") {
+      el = { ...base, type: "rect",
+        width: clamp(layout.width - 4, 5, layout.width),
+        height: clamp(layout.height - 4, 5, layout.height),
+        borderColor: "#000000", borderWidth: 0.3, radius: 0 };
     } else {
       el = { ...base, type: "image", width: 12, height: 12, source: "company_logo", fit: "contain" };
     }
@@ -215,6 +223,12 @@ export function LabelEditor({
           </Button>
           <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("table")}>
             <TableIcon className="mr-2 h-4 w-4" /> Tabela OS
+          </Button>
+          <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("line")}>
+            <Minus className="mr-2 h-4 w-4" /> Linha
+          </Button>
+          <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("rect")}>
+            <Square className="mr-2 h-4 w-4" /> Retângulo
           </Button>
 
           <div className="mt-auto space-y-2">

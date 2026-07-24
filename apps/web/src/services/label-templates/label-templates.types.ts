@@ -1,6 +1,12 @@
 export type LabelReferenceType = "EQUIPMENT" | "SERVICE_ORDER";
 
-export type LabelElementType = "text" | "qrcode" | "image" | "table";
+export type LabelElementType =
+  | "text"
+  | "qrcode"
+  | "image"
+  | "table"
+  | "line"
+  | "rect";
 
 export interface LabelElementBase {
   id: string;
@@ -62,11 +68,30 @@ export interface LabelTableElement extends LabelElementBase {
   color?: string;
 }
 
+/** Linha divisória (horizontal ou vertical) dentro da etiqueta. */
+export interface LabelLineElement extends LabelElementBase {
+  type: "line";
+  color?: string;
+  thickness?: number; // mm
+  orientation?: "horizontal" | "vertical";
+}
+
+/** Retângulo/moldura (preenchimento e/ou borda). */
+export interface LabelRectElement extends LabelElementBase {
+  type: "rect";
+  fill?: string;
+  borderColor?: string;
+  borderWidth?: number; // mm
+  radius?: number; // mm
+}
+
 export type LabelElement =
   | LabelTextElement
   | LabelQrElement
   | LabelImageElement
-  | LabelTableElement;
+  | LabelTableElement
+  | LabelLineElement
+  | LabelRectElement;
 
 export interface LabelLayout {
   width: number; // mm

@@ -8,7 +8,7 @@ import { LabelReferenceType } from '@prisma/client'
 // ─── Layout types (stored as JSON in LabelTemplate.layout) ─────────────────────
 // Todas as coordenadas/dimensões estão em milímetros (mm), relativas à etiqueta.
 
-export type LabelElementType = 'text' | 'qrcode' | 'image' | 'table'
+export type LabelElementType = 'text' | 'qrcode' | 'image' | 'table' | 'line' | 'rect'
 
 export interface LabelElementBase {
   id: string
@@ -70,11 +70,30 @@ export interface LabelTableElement extends LabelElementBase {
   color?: string
 }
 
+/** Linha divisória (horizontal ou vertical) dentro da etiqueta. */
+export interface LabelLineElement extends LabelElementBase {
+  type: 'line'
+  color?: string
+  thickness?: number // mm
+  orientation?: 'horizontal' | 'vertical'
+}
+
+/** Retângulo/moldura (preenchimento e/ou borda) para agrupar áreas da etiqueta. */
+export interface LabelRectElement extends LabelElementBase {
+  type: 'rect'
+  fill?: string
+  borderColor?: string
+  borderWidth?: number // mm
+  radius?: number // mm
+}
+
 export type LabelElement =
   | LabelTextElement
   | LabelQrElement
   | LabelImageElement
   | LabelTableElement
+  | LabelLineElement
+  | LabelRectElement
 
 export interface LabelLayout {
   width: number

@@ -224,6 +224,37 @@ function ElementContent({ el, scale }: { el: LabelElement; scale: number }) {
     );
   }
 
+  if (el.type === "line") {
+    const vertical = el.orientation === "vertical";
+    const thicknessPx = Math.max(1, (el.thickness ?? 0.3) * scale);
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div
+          style={{
+            width: vertical ? thicknessPx : "100%",
+            height: vertical ? "100%" : thicknessPx,
+            background: el.color || "#000000",
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (el.type === "rect") {
+    const borderPx = Math.max(0, (el.borderWidth ?? 0.3) * scale);
+    const hasBorder = borderPx > 0 && !!el.borderColor;
+    return (
+      <div
+        className="h-full w-full"
+        style={{
+          background: el.fill || "transparent",
+          border: hasBorder ? `${borderPx}px solid ${el.borderColor}` : undefined,
+          borderRadius: (el.radius ?? 0) * scale,
+        }}
+      />
+    );
+  }
+
   // image / company_logo (placeholder — o logo real aparece só no PDF)
   return (
     <div className="flex h-full w-full items-center justify-center rounded-sm border border-dashed border-gray-300 bg-gray-50 text-[9px] font-medium text-gray-400">
