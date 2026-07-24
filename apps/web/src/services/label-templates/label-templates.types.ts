@@ -36,7 +36,13 @@ export interface LabelImageElement extends LabelElementBase {
 }
 
 /** Colunas disponíveis na tabela de OS preventivas. */
-export type LabelTableColumnKey = "number" | "createdAt" | "description" | "status";
+export type LabelTableColumnKey =
+  | "number"
+  | "createdAt"
+  | "description"
+  | "status"
+  | "client"
+  | "technician";
 
 export interface LabelTableColumn {
   key: LabelTableColumnKey;

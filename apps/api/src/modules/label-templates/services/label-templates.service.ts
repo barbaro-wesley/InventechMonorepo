@@ -13,13 +13,22 @@ import {
 
 const ELEMENT_TYPES = ['text', 'qrcode', 'image', 'table']
 
-const OS_TABLE_COLUMN_KEYS: LabelTableColumnKey[] = ['number', 'createdAt', 'description', 'status']
+const OS_TABLE_COLUMN_KEYS: LabelTableColumnKey[] = [
+  'number',
+  'createdAt',
+  'description',
+  'status',
+  'client',
+  'technician',
+]
 
 const OS_TABLE_DEFAULT_LABELS: Record<LabelTableColumnKey, string> = {
   number: 'Nº',
   createdAt: 'Criada',
   description: 'Descrição',
   status: 'Status',
+  client: 'Prestador',
+  technician: 'Técnico',
 }
 
 const OS_TABLE_DEFAULT_COLUMNS: LabelTableColumn[] = [

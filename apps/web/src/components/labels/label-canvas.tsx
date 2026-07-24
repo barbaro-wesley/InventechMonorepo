@@ -180,6 +180,8 @@ function ElementContent({ el, scale }: { el: LabelElement; scale: number }) {
       createdAt: "15/03/2026",
       description: "Descrição da OS…",
       status: "Concluída",
+      client: "Prestador Exemplo",
+      technician: "João Silva",
     };
     const cellStyle = (key: string): React.CSSProperties => ({
       padding: "0 2px",
