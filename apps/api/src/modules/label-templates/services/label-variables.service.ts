@@ -59,6 +59,8 @@ const SERVICE_ORDER_VARIABLES: LabelVariable[] = [
   { key: '{service_order_title}', label: 'Título da OS' },
   { key: '{service_order_type}', label: 'Tipo de manutenção' },
   { key: '{service_order_status}', label: 'Status da OS' },
+  { key: '{service_order_client}', label: 'Prestador' },
+  { key: '{service_order_technician}', label: 'Técnico' },
   ...EQUIPMENT_VARIABLES,
 ]
 
@@ -129,6 +131,11 @@ export class LabelVariablesService {
         select: {
           number: true, title: true, maintenanceType: true, status: true,
           equipmentId: true,
+          client: { select: { reportName: true, name: true } },
+          technicians: {
+            select: { technician: { select: { name: true } } },
+            orderBy: { assignedAt: 'asc' },
+          },
           equipment: {
             select: {
               name: true, brand: true, model: true, serialNumber: true,
@@ -146,6 +153,11 @@ export class LabelVariablesService {
         vars['{service_order_title}'] = so.title ?? ''
         vars['{service_order_type}'] = so.maintenanceType ?? ''
         vars['{service_order_status}'] = so.status ?? ''
+        vars['{service_order_client}'] = so.client?.reportName || so.client?.name || ''
+        vars['{service_order_technician}'] = so.technicians
+          .map((t) => t.technician?.name)
+          .filter(Boolean)
+          .join(', ')
         if (so.equipment) this.applyEquipmentVars(vars, so.equipment)
         if (so.equipmentId) {
           vars['{preventivas_realizadas}'] = await this.buildPreventiveHistory(companyId, so.equipmentId)
