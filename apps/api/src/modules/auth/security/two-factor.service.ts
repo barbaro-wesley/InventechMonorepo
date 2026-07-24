@@ -12,6 +12,7 @@ import { buildTwoFactorCodeEmail } from './templates/two-factor-code.template'
 import { buildEmailVerificationEmail } from './templates/email-verification.template'
 import { buildPasswordResetEmail } from './templates/password-reset.template'
 import { getSecuritySettings } from '../../companies/company-security-settings'
+import { getFrontendUrl } from '../../../config/app.config'
 
 const CODE_EXPIRY_MINUTES = 10        // Código 2FA expira em 10 min
 const TOKEN_EXPIRY_HOURS = 24         // Token de email/reset expira em 24h
@@ -140,7 +141,7 @@ export class TwoFactorService {
             data: { userId, token, expiresAt },
         })
 
-        const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001'
+        const frontendUrl = getFrontendUrl()
         const verificationUrl = `${frontendUrl}/verificar-email?token=${token}`
 
         await this.notificationsService.queueAuthEmail({
@@ -206,7 +207,7 @@ export class TwoFactorService {
             data: { userId: user.id, token: tokenHash, ipAddress, expiresAt },
         })
 
-        const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001'
+        const frontendUrl = getFrontendUrl()
         const resetUrl = `${frontendUrl}/reset-password?token=${token}`
 
         await this.notificationsService.queueAuthEmail({

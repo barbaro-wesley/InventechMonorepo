@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { LabelReferenceType, MaintenanceType, ServiceOrderStatus } from '@prisma/client'
 import { PrismaService } from '../../../prisma/prisma.service'
+import { getFrontendUrl } from '../../../config/app.config'
 import { recurrenceLabel } from '../../maintenance/schedule/recurrence.util'
 
 // Quantas preventivas concluídas listar na variável {preventivas_realizadas}
@@ -76,7 +77,7 @@ export class LabelVariablesService {
 
   /** URL apontada pelo QR, por tipo de referência. */
   private buildQrUrl(referenceType: LabelReferenceType, entityId: string): string {
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3001'
+    const frontendUrl = getFrontendUrl()
     if (referenceType === LabelReferenceType.SERVICE_ORDER)
       return `${frontendUrl}/minhas-os?detail=${entityId}`
     return `${frontendUrl}/equipamentos?detail=${entityId}`
