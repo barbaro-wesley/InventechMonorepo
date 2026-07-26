@@ -68,6 +68,7 @@ model Company {
   stockItems             StockItem[]
   stockMovements         StockMovement[]
   stockPoints            StockPoint[]
+  slaConfigs             CompanySlaConfig[]
   users                  User[]
 
   @@index([platformId])
@@ -547,6 +548,9 @@ model ServiceOrder {
   locationId           String?                     @map("location_id")
   totalCost            Decimal?                    @map("total_cost") @db.Decimal(12, 2)
   parentServiceOrderId String?                     @map("parent_service_order_id")
+  slaResponseDueDate   DateTime?                   @map("sla_response_due_date")
+  slaResolutionDueDate DateTime?                   @map("sla_resolution_due_date")
+  slaStatus            SlaStatus?                  @default(ON_TIME) @map("sla_status")
   attachments          Attachment[]                @relation("ServiceOrderAttachments")
   laudos               Laudo[]
   originatedSchedules  MaintenanceSchedule[]       @relation("ScheduleFromOS")
@@ -581,6 +585,8 @@ model ServiceOrder {
   @@index([locationId])
   @@index([createdAt])
   @@index([parentServiceOrderId])
+  @@index([companyId, slaStatus])
+  @@index([slaResolutionDueDate])
   @@map("service_orders")
 }
 
@@ -1363,6 +1369,30 @@ enum ServiceOrderPriority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum SlaStatus {
+  ON_TIME
+  NEAR_BREACH
+  BREACHED
+  COMPLETED_ON_TIME
+  COMPLETED_LATE
+}
+
+model CompanySlaConfig {
+  id                 String               @id @default(uuid())
+  companyId          String               @map("company_id")
+  priority           ServiceOrderPriority
+  maxResponseHours   Decimal              @default(0) @map("max_response_hours") @db.Decimal(6, 2)
+  maxResolutionHours Decimal              @default(0) @map("max_resolution_hours") @db.Decimal(6, 2)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  company            Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, priority])
+  @@index([companyId])
+  @@map("company_sla_configs")
 }
 
 enum ServiceOrderTechnicianRole {

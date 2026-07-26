@@ -162,7 +162,7 @@ export function OsSummaryTab({ os, clientId, osId, canManage, onNavigateTab }: O
           label="SLA"
           iconClass={sla?.late ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border-red-200' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200'}
           valueClass={sla?.late ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}
-          sub={sla ? sla.sub : 'Sem prazo'}
+          sub={sla ? `${sla.timeLeftStr} (SLA: ${sla.totalHoursStr})` : 'Sem prazo'}
         >
           {sla ? sla.label : 'Dentro do prazo'}
         </StatCard>
@@ -272,20 +272,31 @@ export function OsSummaryTab({ os, clientId, osId, canManage, onNavigateTab }: O
 
           <Card title="SLA / Prazo" icon={Clock}>
             <div className="flex flex-col items-center justify-center py-2">
-              <div className="relative flex items-center justify-center w-24 h-24 rounded-full border-4 border-[#114b9f] dark:border-blue-500 mb-2">
-                <div className="text-center">
-                  <span className="text-sm font-bold text-[#1d2530] dark:text-zinc-100 block">
-                    {sla ? sla.sub.split(' ')[0] : '24h'}
-                  </span>
-                  <span className="text-[9px] text-[#6c7c93] dark:text-zinc-400 block leading-tight">restantes</span>
-                </div>
+              <div className={`relative flex flex-col items-center justify-center w-28 h-28 rounded-full border-4 ${
+                sla?.late
+                  ? 'border-red-500 text-red-600 dark:border-red-600 dark:text-red-400 bg-red-50/40 dark:bg-red-950/20'
+                  : 'border-[#0d4da5] text-[#1d2530] dark:border-blue-500 dark:text-zinc-100 bg-blue-50/30 dark:bg-blue-950/20'
+              } mb-2.5 transition-all`}>
+                <span className="text-base font-extrabold leading-tight">
+                  {sla ? sla.mainDisplayTime : '24h'}
+                </span>
+                <span className="text-[10px] font-medium text-[#6c7c93] dark:text-zinc-400 leading-tight">
+                  {sla?.late ? 'em atraso' : 'restantes'}
+                </span>
               </div>
-              <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400">
-                Prazo limite: <span className="font-medium text-[#1d2530] dark:text-zinc-100">{sla?.prazoFinal ?? '22/05/2024 18:00'}</span>
-              </p>
-              <p className={`text-xs font-semibold mt-1.5 flex items-center gap-1 ${sla?.late ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                ✓ {sla ? sla.label : 'Dentro do prazo'}
-              </p>
+              <div className="w-full space-y-1 text-center">
+                {priority && (
+                  <p className="text-xs text-[#6c7c93] dark:text-zinc-400">
+                    Prazo prioridade ({priority.label}): <span className="font-semibold text-[#1d2530] dark:text-zinc-100">{sla?.totalHoursStr ?? '24h'}</span>
+                  </p>
+                )}
+                <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400">
+                  Prazo limite: <span className="font-medium text-[#1d2530] dark:text-zinc-100">{sla?.prazoFinal ?? '—'}</span>
+                </p>
+                <p className={`text-xs font-semibold mt-1 flex items-center justify-center gap-1 ${sla?.late ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                  {sla?.late ? '✕ Atrasada' : '✓ Dentro do prazo'}
+                </p>
+              </div>
             </div>
           </Card>
         </div>

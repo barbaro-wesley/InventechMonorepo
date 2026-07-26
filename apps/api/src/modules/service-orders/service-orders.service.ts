@@ -12,6 +12,7 @@ import {
     ServiceOrderStatus,
     ServiceOrderTechnicianRole,
     ServiceOrderPriority,
+    SlaStatus,
     UserRole,
     EquipmentStatus,
     MaintenanceType,
@@ -31,6 +32,7 @@ import {
 } from './dto/service-order.dto'
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
+import { SlaService } from '../sla/sla.service'
 
 const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
     [ServiceOrderStatus.OPEN]: [
@@ -105,6 +107,9 @@ const OS_SELECT = {
     maintenanceType: true,
     status: true,
     priority: true,
+    slaResponseDueDate: true,
+    slaResolutionDueDate: true,
+    slaStatus: true,
     resolution: true,
     internalNotes: true,
     estimatedHours: true,
@@ -165,6 +170,7 @@ export class ServiceOrdersService {
     constructor(
         private prisma: PrismaService,
         private notificationsService: NotificationsService,
+        private slaService: SlaService,
     ) { }
 
     async findAll(
@@ -174,7 +180,7 @@ export class ServiceOrdersService {
         currentUser: AuthenticatedUser,
     ) {
         const {
-            search, status, priority, equipmentId,
+            search, status, priority, slaStatus, equipmentId,
             groupId, dateFrom, dateTo, page = 1, limit = 20,
         } = filters
 
@@ -184,6 +190,7 @@ export class ServiceOrdersService {
             deletedAt: null,
             ...(status && { status }),
             ...(priority && { priority }),
+            ...(slaStatus && { slaStatus }),
             ...(equipmentId && { equipmentId }),
             ...(groupId && { groupId }),
             ...((dateFrom || dateTo) && {
@@ -615,6 +622,9 @@ export class ServiceOrdersService {
             ? ServiceOrderStatus.AWAITING_PICKUP
             : ServiceOrderStatus.OPEN
 
+        const priority = dto.priority ?? ServiceOrderPriority.MEDIUM
+        const slaDates = await this.slaService.calculateSlaDates(companyId, priority)
+
         const os = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
 
@@ -633,7 +643,10 @@ export class ServiceOrdersService {
                     title: dto.title,
                     description: dto.description,
                     maintenanceType: dto.maintenanceType,
-                    priority: dto.priority,
+                    priority,
+                    slaResponseDueDate: slaDates.slaResponseDueDate,
+                    slaResolutionDueDate: slaDates.slaResolutionDueDate,
+                    slaStatus: slaDates.slaStatus,
                     status: initialStatus,
                     isAvailable,
                     alertAfterHours: dto.alertAfterHours ?? 2,
@@ -753,6 +766,9 @@ export class ServiceOrdersService {
 
         const initialStatus = ServiceOrderStatus.AWAITING_PICKUP
 
+        const batchPriority = dto.priority ?? ServiceOrderPriority.MEDIUM
+        const slaDates = await this.slaService.calculateSlaDates(companyId, batchPriority)
+
         const createdOrders = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
 
@@ -775,7 +791,10 @@ export class ServiceOrdersService {
                         title: dto.title,
                         description: dto.description,
                         maintenanceType: dto.maintenanceType,
-                        priority: dto.priority ?? ServiceOrderPriority.MEDIUM,
+                        priority: batchPriority,
+                        slaResponseDueDate: slaDates.slaResponseDueDate,
+                        slaResolutionDueDate: slaDates.slaResolutionDueDate,
+                        slaStatus: slaDates.slaStatus,
                         status: initialStatus,
                         isAvailable: true,
                         alertAfterHours: 2,
@@ -1080,12 +1099,23 @@ export class ServiceOrdersService {
             })
         }
 
+        let slaUpdateData: Record<string, any> = {}
+        if (dto.priority && dto.priority !== os.priority) {
+            const slaDates = await this.slaService.calculateSlaDates(companyId, dto.priority, os.createdAt)
+            slaUpdateData = {
+                slaResponseDueDate: slaDates.slaResponseDueDate,
+                slaResolutionDueDate: slaDates.slaResolutionDueDate,
+                slaStatus: slaDates.slaStatus,
+            }
+        }
+
         return this.prisma.serviceOrder.update({
             where: { id },
             data: {
                 ...(dto.title && { title: dto.title }),
                 ...(dto.description && { description: dto.description }),
                 ...(dto.priority && { priority: dto.priority }),
+                ...slaUpdateData,
                 ...(dto.maintenanceType && { maintenanceType: dto.maintenanceType }),
                 ...(dto.clientId !== undefined && {
                     client: dto.clientId ? { connect: { id: dto.clientId } } : { disconnect: true },
@@ -1163,6 +1193,15 @@ export class ServiceOrdersService {
         if (dto.status === ServiceOrderStatus.COMPLETED_APPROVED || dto.status === ServiceOrderStatus.COMPLETED_REJECTED) {
             statusData.approvedAt = new Date()
             statusData.approvedById = currentUser.sub
+        }
+
+        if (dto.status === ServiceOrderStatus.COMPLETED || dto.status === ServiceOrderStatus.COMPLETED_APPROVED) {
+            const completedAt = statusData.completedAt || new Date()
+            if (os.slaResolutionDueDate) {
+                statusData.slaStatus = completedAt <= os.slaResolutionDueDate
+                    ? SlaStatus.COMPLETED_ON_TIME
+                    : SlaStatus.COMPLETED_LATE
+            }
         }
 
         let finalStatus = dto.status
@@ -1436,6 +1475,9 @@ export class ServiceOrdersService {
             ? ServiceOrderStatus.AWAITING_PICKUP
             : ServiceOrderStatus.OPEN
 
+        const childPriority = dto.priority ?? ServiceOrderPriority.MEDIUM
+        const slaDates = await this.slaService.calculateSlaDates(companyId, childPriority)
+
         const os = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
 
@@ -1454,7 +1496,10 @@ export class ServiceOrdersService {
                     title: dto.title,
                     description: dto.description,
                     maintenanceType: dto.maintenanceType,
-                    priority: dto.priority ?? ServiceOrderPriority.MEDIUM,
+                    priority: childPriority,
+                    slaResponseDueDate: slaDates.slaResponseDueDate,
+                    slaResolutionDueDate: slaDates.slaResolutionDueDate,
+                    slaStatus: slaDates.slaStatus,
                     status: initialStatus,
                     isAvailable,
                     alertAfterHours: 2,
@@ -1555,7 +1600,10 @@ export class ServiceOrdersService {
                 deletedAt: null,
                 ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
             },
-            select: { id: true, number: true, status: true, equipmentId: true, maintenanceType: true },
+            select: {
+                id: true, number: true, status: true, equipmentId: true, maintenanceType: true,
+                priority: true, createdAt: true, slaResolutionDueDate: true,
+            },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
         return os

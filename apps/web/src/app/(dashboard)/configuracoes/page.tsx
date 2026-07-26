@@ -12,7 +12,9 @@ import {
     Eye,
     EyeOff,
     KeyRound,
+    Clock,
 } from "lucide-react";
+import { SlaTab } from "./sla-tab";
 
 import { useCurrentUser } from "@/store/auth.store";
 import {
@@ -575,6 +577,9 @@ export default function ConfiguracoesPage() {
                     <TabsTrigger value="reports">
                         <FileText className="h-4 w-4" /> Relatórios
                     </TabsTrigger>
+                    <TabsTrigger value="sla">
+                        <Clock className="h-4 w-4" /> SLA (Prazos)
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="security" className="mt-5">
@@ -617,6 +622,10 @@ export default function ConfiguracoesPage() {
                             reportFooterText: company.reportFooterText ?? "",
                         }}
                     />
+                </TabsContent>
+
+                <TabsContent value="sla" className="mt-5">
+                    <SlaTab />
                 </TabsContent>
             </Tabs>
         </div>
