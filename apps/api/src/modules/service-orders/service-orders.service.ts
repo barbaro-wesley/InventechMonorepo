@@ -848,7 +848,7 @@ export class ServiceOrdersService {
                 id,
                 companyId,
                 deletedAt: null,
-                OR: [{ clientId }, { clientId: null }],
+                ...(clientId && { OR: [{ clientId }, { clientId: null }] }),
             },
             select: {
                 id: true, number: true, status: true,

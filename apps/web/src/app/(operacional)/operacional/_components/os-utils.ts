@@ -128,6 +128,48 @@ export function formatDuration(startStr: string, endStr?: string | null): string
   return `${diffHours}h ${diffMin}min`
 }
 
+// ─── SLA derivado ─────────────────────────────────────────────────────────────
+// Não há campo formal de prazo na OS; deriva de scheduledFor ou (criada + alertAfterHours).
+
+export interface SlaInfo {
+  label: string
+  sub: string
+  prazoFinal: string
+  pct: number
+  late: boolean
+}
+
+export function getSlaInfo(os: {
+  scheduledFor: string | null
+  alertAfterHours: number | null
+  createdAt: string
+  completedAt: string | null
+}): SlaInfo | null {
+  let deadline: Date | null = null
+  if (os.scheduledFor) deadline = new Date(os.scheduledFor)
+  else if (os.alertAfterHours) deadline = new Date(new Date(os.createdAt).getTime() + os.alertAfterHours * 3_600_000)
+  if (!deadline) return null
+
+  const now = os.completedAt ? new Date(os.completedAt) : new Date()
+  const start = new Date(os.createdAt).getTime()
+  const total = deadline.getTime() - start
+  const elapsed = now.getTime() - start
+  const pct = total > 0 ? Math.min(100, Math.max(0, Math.round((elapsed / total) * 100))) : 100
+  const msLeft = deadline.getTime() - now.getTime()
+  const late = msLeft < 0
+  const daysLeft = Math.max(1, Math.ceil(Math.abs(msLeft) / 86_400_000))
+
+  return {
+    label: late ? 'Atrasada' : 'Dentro do prazo',
+    sub: late
+      ? `${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'} em atraso`
+      : `${daysLeft} ${daysLeft === 1 ? 'dia restante' : 'dias restantes'}`,
+    prazoFinal: deadline.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+    pct,
+    late,
+  }
+}
+
 // ─── Valid status transitions (mirrors backend rules) ────────────────────────
 
 export const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
