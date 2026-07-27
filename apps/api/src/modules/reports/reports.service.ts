@@ -34,8 +34,8 @@ export interface ReportFilters {
   dateField?: string
   dateFrom?: string
   dateTo?: string
-  /** Group rows by: 'status' | 'priority' | 'maintenanceType' | 'client' | 'group' | 'technician' */
   groupBy?: string
+  subGroupBy?: string
 }
 
 export interface EquipmentReportFilters {
@@ -44,9 +44,8 @@ export interface EquipmentReportFilters {
   typeId?: string
   locationId?: string
   costCenterId?: string
-  /** 'status' | 'criticality' | 'type' | 'location' | 'costCenter' */
   groupBy?: string
-  /** 'name' | 'status' | 'criticality' | 'type' | 'costCenter' — secondary sort within groups (or primary when no grouping) */
+  subGroupBy?: string
   orderBy?: string
   columns?: string[]
 }
@@ -455,38 +454,42 @@ export class ReportsService {
       'Aberta': 'FF374151',
     }
 
-    // ── Extrair chave de quebra para cada OS ──
-    const groupBy = filters.groupBy
-    const getGroupKey = (os: (typeof orders)[number]): string => {
-      switch (groupBy) {
-        case 'status': return statusLabels[os.status] ?? os.status
-        case 'priority': return priorityLabels[os.priority] ?? os.priority
-        case 'maintenanceType': return typeLabels[os.maintenanceType] ?? os.maintenanceType
-        case 'client': return os.client?.name ?? 'Sem cliente'
-        case 'group': return os.group?.name ?? 'Sem grupo'
-        case 'technician': return os.technicians.find((t) => t.role === 'LEAD')?.technician.name
-          ?? os.technicians[0]?.technician.name
-          ?? 'Sem técnico'
-        default: return ''
+    const groupByKey = filters.groupBy && filters.groupBy !== 'none' && filters.groupBy !== '__none__' ? filters.groupBy : undefined
+    const subGroupByKey = filters.subGroupBy && filters.subGroupBy !== 'none' && filters.subGroupBy !== '__none__' ? filters.subGroupBy : undefined
+
+    const getGroupInfo = (os: typeof orders[0]) => {
+      const mainInfo = this.getSingleOsGroupInfo(os, groupByKey)
+      const subInfo = this.getSingleOsGroupInfo(os, subGroupByKey)
+      const hasSubGroup = Boolean(subGroupByKey && subInfo.label && subInfo.label !== mainInfo.label)
+      return {
+        mainLabel: mainInfo.label,
+        mainSortKey: mainInfo.sortKey,
+        subLabel: subInfo.label,
+        subSortKey: subInfo.sortKey,
+        hasSubGroup,
       }
     }
 
-    // ── Ordenar por grupo (mantém sub-ordem por número) ──
-    const sortedOrders = groupBy
-      ? [...orders].sort((a, b) => {
-        const ka = getGroupKey(a)
-        const kb = getGroupKey(b)
-        if (groupBy === 'priority') {
-          return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
+    const sortedOrders = [...orders].sort((a, b) => {
+      if (groupByKey) {
+        const infoA = getGroupInfo(a)
+        const infoB = getGroupInfo(b)
+        if (infoA.mainSortKey !== infoB.mainSortKey) {
+          if (typeof infoA.mainSortKey === 'number' && typeof infoB.mainSortKey === 'number') {
+            return infoA.mainSortKey - infoB.mainSortKey
+          }
+          return String(infoA.mainSortKey).localeCompare(String(infoB.mainSortKey), 'pt-BR')
         }
-        if (groupBy === 'status') {
-          return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
+        if (infoA.hasSubGroup && infoA.subSortKey !== infoB.subSortKey) {
+          if (typeof infoA.subSortKey === 'number' && typeof infoB.subSortKey === 'number') {
+            return infoA.subSortKey - infoB.subSortKey
+          }
+          return String(infoA.subSortKey).localeCompare(String(infoB.subSortKey), 'pt-BR')
         }
-        return ka.localeCompare(kb, 'pt-BR')
-      })
-      : orders
+      }
+      return a.number - b.number
+    })
 
-    // ── Estilo da linha de cabeçalho de grupo ──
     const groupHeaderArgb = 'FF' + template.primaryColor.replace('#', '')
     const groupHeaderStyle = {
       font: { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) }, size: 10 },
@@ -494,48 +497,65 @@ export class ReportsService {
       alignment: { vertical: 'middle' as const },
     }
 
-    // ── Dados com quebras ──
-    let currentGroup = ''
-    let groupRowCount = 0
-    let groupHoursSum = 0
-    let groupStartRow = 2
-    let zIdx = 0
-
-    const flushGroupSubtotal = (groupLabel: string, count: number, avgH: number) => {
-      if (!groupBy || count === 0) return
-      const subtotalRow = sheet.addRow([
-        `  ↳ Subtotal — ${groupLabel}: ${count} OS  ·  Tempo médio: ${avgH > 0 ? avgH.toFixed(1) + 'h' : '-'}`,
-        '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+    const addSubGroupSubtotal = (subLabel: string, count: number) => {
+      const stRow = sheet.addRow([
+        `      ↳ Subtotal ${subLabel}: ${count} OS`,
+        ...Array(14).fill(''),
       ])
-      subtotalRow.font = { bold: true, italic: true, size: 9 }
-      subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
-      subtotalRow.height = 16
+      stRow.font = { italic: true, size: 8.5, color: { argb: 'FF475569' } }
+      stRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+      stRow.height = 15
     }
 
-    sortedOrders.forEach((os) => {
-      const groupKey = getGroupKey(os)
+    const addMainGroupSubtotal = (mainLabel: string, count: number) => {
+      const stRow = sheet.addRow([
+        `  ↳ Total ${mainLabel}: ${count} OS`,
+        ...Array(14).fill(''),
+      ])
+      stRow.font = { bold: true, italic: true, size: 9 }
+      stRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
+      stRow.height = 16
+    }
 
-      // Quebra de grupo
-      if (groupBy && groupKey !== currentGroup) {
-        if (currentGroup !== '') {
-          const hoursNums = sortedOrders
-            .slice(groupStartRow - 2, groupStartRow - 2 + groupRowCount)
-            .map((o) => {
-              if (!o.startedAt || !o.completedAt) return 0
-              return (new Date(o.completedAt).getTime() - new Date(o.startedAt).getTime()) / 3600000
-            })
-            .filter((h) => h > 0)
-          const avgH = hoursNums.length ? hoursNums.reduce((a, b) => a + b, 0) / hoursNums.length : 0
-          flushGroupSubtotal(currentGroup, groupRowCount, avgH)
+    let currentMainGroup = ''
+    let currentSubGroup = ''
+    let mainCount = 0
+    let subCount = 0
+    let zIdx = 0
+
+    sortedOrders.forEach((os) => {
+      if (groupByKey) {
+        const info = getGroupInfo(os)
+
+        if (info.mainLabel !== currentMainGroup) {
+          if (currentMainGroup !== '') {
+            if (currentSubGroup !== '') {
+              addSubGroupSubtotal(currentSubGroup, subCount)
+              currentSubGroup = ''
+              subCount = 0
+            }
+            addMainGroupSubtotal(currentMainGroup, mainCount)
+            mainCount = 0
+          }
+          currentMainGroup = info.mainLabel
+          const hRow = sheet.addRow([`  ${currentMainGroup}`, ...Array(14).fill('')])
+          hRow.height = 22
+          hRow.eachCell((cell) => Object.assign(cell, groupHeaderStyle))
         }
-        // Cabeçalho do novo grupo
-        const hRow = sheet.addRow([`  ${groupKey}`, '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-        hRow.height = 22
-        hRow.eachCell((cell) => { Object.assign(cell, groupHeaderStyle) })
-        currentGroup = groupKey
-        groupRowCount = 0
-        groupStartRow = sheet.rowCount + 1
-        zIdx = 0
+
+        if (info.hasSubGroup && info.subLabel !== currentSubGroup) {
+          if (currentSubGroup !== '') {
+            addSubGroupSubtotal(currentSubGroup, subCount)
+            subCount = 0
+          }
+          currentSubGroup = info.subLabel
+          const subGroupRow = sheet.addRow([`    ↳ ${currentSubGroup}`, ...Array(14).fill('')])
+          subGroupRow.height = 19
+          subGroupRow.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+            cell.font = { bold: true, color: { argb: 'FF1E293B' }, size: 9 }
+          })
+        }
       }
 
       const row = sheet.addRow({
@@ -570,21 +590,14 @@ export class ReportsService {
       const color = statusColors[statusCell.value as string]
       if (color) statusCell.font = { bold: true, color: { argb: color } }
 
-      groupRowCount++
+      mainCount++
+      if (currentSubGroup) subCount++
       zIdx++
     })
 
-    // Subtotal do último grupo
-    if (groupBy && currentGroup !== '') {
-      const hoursNums = sortedOrders
-        .slice(sortedOrders.length - groupRowCount)
-        .map((o) => {
-          if (!o.startedAt || !o.completedAt) return 0
-          return (new Date(o.completedAt).getTime() - new Date(o.startedAt).getTime()) / 3600000
-        })
-        .filter((h) => h > 0)
-      const avgH = hoursNums.length ? hoursNums.reduce((a, b) => a + b, 0) / hoursNums.length : 0
-      flushGroupSubtotal(currentGroup, groupRowCount, avgH)
+    if (groupByKey && currentMainGroup !== '') {
+      if (currentSubGroup !== '') addSubGroupSubtotal(currentSubGroup, subCount)
+      addMainGroupSubtotal(currentMainGroup, mainCount)
     }
 
     // ── Linha de total geral ──
@@ -694,27 +707,41 @@ export class ReportsService {
 
     const fmt = (d: Date | null) => d ? new Date(d).toLocaleDateString('pt-BR') : '-'
 
-    const groupBy = filters.groupBy
-    const getGroupKey = (os: (typeof orders)[number]): string => {
-      switch (groupBy) {
-        case 'status': return statusLabels[os.status] ?? os.status
-        case 'priority': return priorityLabels[os.priority] ?? os.priority
-        case 'maintenanceType': return typeLabels[os.maintenanceType] ?? os.maintenanceType
-        case 'client': return os.client?.name ?? 'Sem cliente'
-        case 'group': return os.group?.name ?? 'Sem grupo'
-        case 'technician': return os.technicians.find((t) => t.role === 'LEAD')?.technician.name
-          ?? os.technicians[0]?.technician.name ?? 'Sem técnico'
-        default: return ''
+    const groupByKey = filters.groupBy && filters.groupBy !== 'none' && filters.groupBy !== '__none__' ? filters.groupBy : undefined
+    const subGroupByKey = filters.subGroupBy && filters.subGroupBy !== 'none' && filters.subGroupBy !== '__none__' ? filters.subGroupBy : undefined
+
+    const getPdfGroupInfo = (os: typeof orders[0]) => {
+      const mainInfo = this.getSingleOsGroupInfo(os, groupByKey)
+      const subInfo = this.getSingleOsGroupInfo(os, subGroupByKey)
+      const hasSubGroup = Boolean(subGroupByKey && subInfo.label && subInfo.label !== mainInfo.label)
+      return {
+        mainLabel: mainInfo.label,
+        mainSortKey: mainInfo.sortKey,
+        subLabel: subInfo.label,
+        subSortKey: subInfo.sortKey,
+        hasSubGroup,
       }
     }
 
-    const sortedOrders = groupBy
-      ? [...orders].sort((a, b) => {
-        if (groupBy === 'priority') return (priorityOrder[a.priority] ?? 99) - (priorityOrder[b.priority] ?? 99)
-        if (groupBy === 'status') return (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99)
-        return getGroupKey(a).localeCompare(getGroupKey(b), 'pt-BR')
-      })
-      : orders
+    const pdfSortedOrders = [...orders].sort((a, b) => {
+      if (groupByKey) {
+        const infoA = getPdfGroupInfo(a)
+        const infoB = getPdfGroupInfo(b)
+        if (infoA.mainSortKey !== infoB.mainSortKey) {
+          if (typeof infoA.mainSortKey === 'number' && typeof infoB.mainSortKey === 'number') {
+            return infoA.mainSortKey - infoB.mainSortKey
+          }
+          return String(infoA.mainSortKey).localeCompare(String(infoB.mainSortKey), 'pt-BR')
+        }
+        if (infoA.hasSubGroup && infoA.subSortKey !== infoB.subSortKey) {
+          if (typeof infoA.subSortKey === 'number' && typeof infoB.subSortKey === 'number') {
+            return infoA.subSortKey - infoB.subSortKey
+          }
+          return String(infoA.subSortKey).localeCompare(String(infoB.subSortKey), 'pt-BR')
+        }
+      }
+      return a.number - b.number
+    })
 
     // ── Cabeçalho ──
     const filterParts: string[] = []
@@ -730,12 +757,19 @@ export class ReportsService {
       const vals = filters.maintenanceType.split(',').map((s) => typeLabels[s.trim()] ?? s.trim()).filter(Boolean)
       if (vals.length) filterParts.push(`Tipo: ${vals.join(', ')}`)
     }
-    if (groupBy) {
+    if (groupByKey) {
       const gbLabels: Record<string, string> = {
         status: 'Status', priority: 'Prioridade', maintenanceType: 'Tipo',
         client: 'Cliente', group: 'Grupo', technician: 'Técnico',
       }
-      filterParts.push(`Agrupado por: ${gbLabels[groupBy] ?? groupBy}`)
+      filterParts.push(`Quebra principal: ${gbLabels[groupByKey] ?? groupByKey}`)
+    }
+    if (subGroupByKey) {
+      const gbLabels: Record<string, string> = {
+        status: 'Status', priority: 'Prioridade', maintenanceType: 'Tipo',
+        client: 'Cliente', group: 'Grupo', technician: 'Técnico',
+      }
+      filterParts.push(`Subquebra: ${gbLabels[subGroupByKey] ?? subGroupByKey}`)
     }
     const clientNameFilter = filters.clientId ? orders.find((o) => o.client?.name)?.client?.name : null
     if (clientNameFilter) filterParts.push(`Cliente: ${clientNameFilter}`)
@@ -779,38 +813,33 @@ export class ReportsService {
 
     y = drawTableHeader(y)
     let rowIdx = 0
-    let currentGroup = ''
-    let groupCount = 0
-    let groupAvgHours: number[] = []
+    let pdfMainGroup = ''
+    let pdfSubGroup = ''
 
-    const drawGroupSubtotal = (label: string, count: number, avgHrs: number[]) => {
-      if (!groupBy) return
-      const avg = avgHrs.length ? (avgHrs.reduce((a, b) => a + b, 0) / avgHrs.length).toFixed(1) + 'h' : '-'
-      const subtotalH = 14
-      if (y > doc.page.height - 80) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
-      doc.rect(40, y, W, subtotalH).fill('#F1F5F9')
-      doc.fillColor('#475569').fontSize(7).font('Helvetica-Bold')
-        .text(`  ↳ ${label}: ${count} OS  ·  Tempo médio: ${avg}`, 43, y + 4, { width: W - 6, lineBreak: false })
-      y += subtotalH
-    }
+    pdfSortedOrders.forEach((os) => {
+      if (groupByKey) {
+        const info = getPdfGroupInfo(os)
 
-    sortedOrders.forEach((os) => {
-      const groupKey = getGroupKey(os)
+        if (info.mainLabel !== pdfMainGroup) {
+          pdfMainGroup = info.mainLabel
+          pdfSubGroup = ''
+          if (y > doc.page.height - 100) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
+          doc.rect(40, y, W, 18).fill(blue)
+          doc.fillColor(this.getContrastColor(template.primaryColor)).fontSize(8).font('Helvetica-Bold')
+            .text(`  ${pdfMainGroup}`, 43, y + 5, { width: W - 6, lineBreak: false })
+          y += 18
+          rowIdx = 0
+        }
 
-      if (groupBy && groupKey !== currentGroup) {
-        if (currentGroup !== '') drawGroupSubtotal(currentGroup, groupCount, groupAvgHours)
-
-        // Cabeçalho do grupo
-        if (y > doc.page.height - 100) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
-        const ghH = 20
-        doc.rect(40, y, W, ghH).fill(blue)
-        doc.fillColor(this.getContrastColor(template.primaryColor)).fontSize(9).font('Helvetica-Bold')
-          .text(`  ${groupKey}`, 43, y + 6, { width: W - 6, lineBreak: false })
-        y += ghH
-        currentGroup = groupKey
-        groupCount = 0
-        groupAvgHours = []
-        rowIdx = 0
+        if (info.hasSubGroup && info.subLabel !== pdfSubGroup) {
+          pdfSubGroup = info.subLabel
+          if (y > doc.page.height - 100) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
+          doc.rect(40, y, W, 16).fill('#E2E8F0')
+          doc.fillColor('#1E293B').fontSize(7.5).font('Helvetica-Bold')
+            .text(`    ↳ ${pdfSubGroup}`, 43, y + 4, { width: W - 6, lineBreak: false })
+          y += 16
+          rowIdx = 0
+        }
       }
 
       if (y > doc.page.height - 80) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
@@ -831,13 +860,7 @@ export class ReportsService {
       })
       y += rowH
       rowIdx++
-      groupCount++
-      if (os.startedAt && os.completedAt) {
-        groupAvgHours.push((new Date(os.completedAt).getTime() - new Date(os.startedAt).getTime()) / 3600000)
-      }
     })
-
-    if (groupBy && currentGroup !== '') drawGroupSubtotal(currentGroup, groupCount, groupAvgHours)
 
     // ── Rodapé ──
     this.drawPdfFooter(doc, template, y + 12)
@@ -1011,22 +1034,102 @@ export class ReportsService {
       'Crítica': 'FFDC2626', 'Alta': 'FFD97706', 'Média': 'FF2563EB', 'Baixa': 'FF16A34A',
     }
 
-    let lastGroupValue = ''
+    const groupByKey = filters.groupBy && filters.groupBy !== 'none' && filters.groupBy !== '__none__' ? filters.groupBy : undefined
+    const subGroupByKey = filters.subGroupBy && filters.subGroupBy !== 'none' && filters.subGroupBy !== '__none__' ? filters.subGroupBy : undefined
+
+    const getGroupInfo = (eq: typeof items[0]) => {
+      const mainInfo = this.getSingleEquipmentGroupInfo(eq, groupByKey)
+      const subInfo = this.getSingleEquipmentGroupInfo(eq, subGroupByKey)
+      const hasSubGroup = Boolean(subGroupByKey && subInfo.label && subInfo.label !== mainInfo.label)
+      return {
+        mainLabel: mainInfo.label,
+        mainSortKey: mainInfo.sortKey,
+        subLabel: subInfo.label,
+        subSortKey: subInfo.sortKey,
+        hasSubGroup,
+      }
+    }
+
+    const sortedItems = [...items].sort((a, b) => {
+      if (groupByKey) {
+        const infoA = getGroupInfo(a)
+        const infoB = getGroupInfo(b)
+        if (infoA.mainSortKey !== infoB.mainSortKey) {
+          if (typeof infoA.mainSortKey === 'number' && typeof infoB.mainSortKey === 'number') {
+            return infoA.mainSortKey - infoB.mainSortKey
+          }
+          return String(infoA.mainSortKey).localeCompare(String(infoB.mainSortKey), 'pt-BR')
+        }
+        if (infoA.hasSubGroup && infoA.subSortKey !== infoB.subSortKey) {
+          if (typeof infoA.subSortKey === 'number' && typeof infoB.subSortKey === 'number') {
+            return infoA.subSortKey - infoB.subSortKey
+          }
+          return String(infoA.subSortKey).localeCompare(String(infoB.subSortKey), 'pt-BR')
+        }
+      }
+      return (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR')
+    })
+
+    const addSubGroupSubtotal = (subLabel: string, count: number) => {
+      const stRow = sheet.addRow([
+        `      ↳ Subtotal ${subLabel}: ${count} equipamento(s)`,
+        ...Array(selectedKeys.length - 1).fill(''),
+      ])
+      stRow.font = { italic: true, size: 8.5, color: { argb: 'FF475569' } }
+      stRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+      stRow.height = 15
+    }
+
+    const addMainGroupSubtotal = (mainLabel: string, count: number) => {
+      const stRow = sheet.addRow([
+        `  ↳ Total ${mainLabel}: ${count} equipamento(s)`,
+        ...Array(selectedKeys.length - 1).fill(''),
+      ])
+      stRow.font = { bold: true, italic: true, size: 9 }
+      stRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: secondaryArgb } }
+      stRow.height = 16
+    }
+
+    let currentMainGroup = ''
+    let currentSubGroup = ''
+    let mainCount = 0
+    let subCount = 0
     let dataRowCount = 0
 
-    items.forEach((eq) => {
-      // ── Group header row ──
-      if (filters.groupBy && filters.groupBy !== 'none') {
-        const groupRaw = this.getEquipmentGroupValue(eq, filters.groupBy)
-        const groupLabel = groupByLabels[filters.groupBy]?.[groupRaw] ?? groupRaw
+    sortedItems.forEach((eq) => {
+      if (groupByKey) {
+        const info = getGroupInfo(eq)
 
-        if (groupLabel !== lastGroupValue) {
-          lastGroupValue = groupLabel
-          const groupRow = sheet.addRow([groupLabel, ...Array(selectedKeys.length - 1).fill('')])
-          groupRow.height = 20
+        if (info.mainLabel !== currentMainGroup) {
+          if (currentMainGroup !== '') {
+            if (currentSubGroup !== '') {
+              addSubGroupSubtotal(currentSubGroup, subCount)
+              currentSubGroup = ''
+              subCount = 0
+            }
+            addMainGroupSubtotal(currentMainGroup, mainCount)
+            mainCount = 0
+          }
+          currentMainGroup = info.mainLabel
+          const groupRow = sheet.addRow([`  ${currentMainGroup}`, ...Array(selectedKeys.length - 1).fill('')])
+          groupRow.height = 22
           groupRow.eachCell((cell) => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryArgb } }
             cell.font = { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) }, size: 10 }
+          })
+        }
+
+        if (info.hasSubGroup && info.subLabel !== currentSubGroup) {
+          if (currentSubGroup !== '') {
+            addSubGroupSubtotal(currentSubGroup, subCount)
+            subCount = 0
+          }
+          currentSubGroup = info.subLabel
+          const subGroupRow = sheet.addRow([`    ↳ ${currentSubGroup}`, ...Array(selectedKeys.length - 1).fill('')])
+          subGroupRow.height = 19
+          subGroupRow.eachCell((cell) => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
+            cell.font = { bold: true, color: { argb: 'FF1E293B' }, size: 9 }
           })
         }
       }
@@ -1042,6 +1145,8 @@ export class ReportsService {
       }
       row.height = 18
       dataRowCount++
+      mainCount++
+      if (currentSubGroup) subCount++
 
       // Criticidade colorida
       const critIdx = selectedKeys.indexOf('criticality')
@@ -1060,6 +1165,11 @@ export class ReportsService {
         }
       }
     })
+
+    if (groupByKey && currentMainGroup !== '') {
+      if (currentSubGroup !== '') addSubGroupSubtotal(currentSubGroup, subCount)
+      addMainGroupSubtotal(currentMainGroup, mainCount)
+    }
 
     const totalRow = sheet.addRow([
       `${template.companyName} — Total: ${items.length} equipamento(s)`,
@@ -1238,23 +1348,68 @@ export class ReportsService {
 
       drawTableHeader()
 
+      const groupByKey = filters.groupBy && filters.groupBy !== 'none' && filters.groupBy !== '__none__' ? filters.groupBy : undefined
+      const subGroupByKey = filters.subGroupBy && filters.subGroupBy !== 'none' && filters.subGroupBy !== '__none__' ? filters.subGroupBy : undefined
+
+      const getPdfGroupInfo = (eq: typeof items[0]) => {
+        const mainInfo = this.getSingleEquipmentGroupInfo(eq, groupByKey)
+        const subInfo = this.getSingleEquipmentGroupInfo(eq, subGroupByKey)
+        const hasSubGroup = Boolean(subGroupByKey && subInfo.label && subInfo.label !== mainInfo.label)
+        return {
+          mainLabel: mainInfo.label,
+          mainSortKey: mainInfo.sortKey,
+          subLabel: subInfo.label,
+          subSortKey: subInfo.sortKey,
+          hasSubGroup,
+        }
+      }
+
+      const pdfSortedItems = [...items].sort((a, b) => {
+        if (groupByKey) {
+          const infoA = getPdfGroupInfo(a)
+          const infoB = getPdfGroupInfo(b)
+          if (infoA.mainSortKey !== infoB.mainSortKey) {
+            if (typeof infoA.mainSortKey === 'number' && typeof infoB.mainSortKey === 'number') {
+              return infoA.mainSortKey - infoB.mainSortKey
+            }
+            return String(infoA.mainSortKey).localeCompare(String(infoB.mainSortKey), 'pt-BR')
+          }
+          if (infoA.hasSubGroup && infoA.subSortKey !== infoB.subSortKey) {
+            if (typeof infoA.subSortKey === 'number' && typeof infoB.subSortKey === 'number') {
+              return infoA.subSortKey - infoB.subSortKey
+            }
+            return String(infoA.subSortKey).localeCompare(String(infoB.subSortKey), 'pt-BR')
+          }
+        }
+        return (a.name ?? '').localeCompare(b.name ?? '', 'pt-BR')
+      })
+
       let rowIdx = 0
-      let lastGroupValue = ''
+      let pdfMainGroup = ''
+      let pdfSubGroup = ''
 
-      items.forEach((eq) => {
-        // ── Group header ──
-        if (filters.groupBy && filters.groupBy !== 'none') {
-          const groupRaw = this.getEquipmentGroupValue(eq, filters.groupBy)
-          const groupLabel = groupByLabels[filters.groupBy]?.[groupRaw] ?? groupRaw
+      pdfSortedItems.forEach((eq) => {
+        if (groupByKey) {
+          const info = getPdfGroupInfo(eq)
 
-          if (groupLabel !== lastGroupValue) {
-            lastGroupValue = groupLabel
+          if (info.mainLabel !== pdfMainGroup) {
+            pdfMainGroup = info.mainLabel
+            pdfSubGroup = ''
             if (y > doc.page.height - 80) { doc.addPage(); y = 40; drawTableHeader() }
-
-            doc.rect(40, y, W, 20).fill(blue)
+            doc.rect(40, y, W, 18).fill(blue)
             doc.fillColor(this.getContrastColor(template.primaryColor)).fontSize(8).font('Helvetica-Bold')
-              .text(groupLabel, 45, y + 6, { width: W - 10, ellipsis: true })
-            y += 20
+              .text(`  ${pdfMainGroup}`, 45, y + 5, { width: W - 10, ellipsis: true })
+            y += 18
+            rowIdx = 0
+          }
+
+          if (info.hasSubGroup && info.subLabel !== pdfSubGroup) {
+            pdfSubGroup = info.subLabel
+            if (y > doc.page.height - 80) { doc.addPage(); y = 40; drawTableHeader() }
+            doc.rect(40, y, W, 16).fill('#E2E8F0')
+            doc.fillColor('#1E293B').fontSize(7.5).font('Helvetica-Bold')
+              .text(`    ↳ ${pdfSubGroup}`, 45, y + 4, { width: W - 10, ellipsis: true })
+            y += 16
             rowIdx = 0
           }
         }
@@ -1290,6 +1445,136 @@ export class ReportsService {
   // ─────────────────────────────────────────
   // RELATÓRIO DE PREVENTIVAS
   // ─────────────────────────────────────────
+  private readonly MONTH_NAMES = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+  ]
+  private readonly WEEKDAY_NAMES = [
+    'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado',
+  ]
+
+  private getSingleEquipmentGroupInfo(eq: any, key: string | undefined): { label: string; sortKey: number | string } {
+    if (!key || key === 'none' || key === '__none__') return { label: '', sortKey: '' }
+
+    const statusLabels: Record<string, string> = {
+      ACTIVE: 'Ativo', INACTIVE: 'Inativo',
+      UNDER_MAINTENANCE: 'Em manutenção', SCRAPPED: 'Descartado', BORROWED: 'Emprestado',
+    }
+    const critLabels: Record<string, string> = {
+      LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', CRITICAL: 'Crítica',
+    }
+    const critOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+    const statusOrder: Record<string, number> = { ACTIVE: 0, UNDER_MAINTENANCE: 1, BORROWED: 2, INACTIVE: 3, SCRAPPED: 4 }
+
+    switch (key) {
+      case 'status': {
+        const val = eq.status ?? ''
+        return { label: statusLabels[val] ?? val, sortKey: statusOrder[val] ?? 99 }
+      }
+      case 'criticality': {
+        const val = eq.criticality ?? ''
+        return { label: critLabels[val] ?? val, sortKey: critOrder[val] ?? 99 }
+      }
+      case 'type':       return { label: eq.type?.name ?? 'Sem tipo', sortKey: eq.type?.name ?? 'Sem tipo' }
+      case 'location':   return { label: eq.location?.name ?? 'Sem local', sortKey: eq.location?.name ?? 'Sem local' }
+      case 'costCenter': return { label: eq.costCenter?.name ?? 'Sem centro de custo', sortKey: eq.costCenter?.name ?? 'Sem centro de custo' }
+      case 'name':       return { label: eq.name ?? '', sortKey: eq.name ?? '' }
+      default:           return { label: '', sortKey: '' }
+    }
+  }
+
+  private getSingleOsGroupInfo(os: any, key: string | undefined): { label: string; sortKey: number | string } {
+    if (!key || key === 'none' || key === '__none__') return { label: '', sortKey: '' }
+
+    const statusLabels: Record<string, string> = {
+      OPEN: 'Aberta', AWAITING_PICKUP: 'Aguard. técnico', IN_PROGRESS: 'Em andamento',
+      COMPLETED: 'Concluída', COMPLETED_APPROVED: 'Aprovada', COMPLETED_REJECTED: 'Reprovada', CANCELLED: 'Cancelada',
+    }
+    const typeLabels: Record<string, string> = {
+      PREVENTIVE: 'Preventiva', CORRECTIVE: 'Corretiva', INITIAL_ACCEPTANCE: 'Aceitação inicial',
+      EXTERNAL_SERVICE: 'Serviço externo', TECHNOVIGILANCE: 'Tecnovigilância', TRAINING: 'Treinamento',
+      IMPROPER_USE: 'Uso inadequado', DEACTIVATION: 'Desativação',
+    }
+    const priorityLabels: Record<string, string> = {
+      LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', URGENT: 'Urgente',
+    }
+    const priorityOrder: Record<string, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+    const statusOrder: Record<string, number> = {
+      OPEN: 0, AWAITING_PICKUP: 1, IN_PROGRESS: 2, COMPLETED: 3, COMPLETED_APPROVED: 4, COMPLETED_REJECTED: 5, CANCELLED: 6,
+    }
+
+    switch (key) {
+      case 'status':          return { label: statusLabels[os.status] ?? os.status, sortKey: statusOrder[os.status] ?? 99 }
+      case 'priority':        return { label: priorityLabels[os.priority] ?? os.priority, sortKey: priorityOrder[os.priority] ?? 99 }
+      case 'maintenanceType': return { label: typeLabels[os.maintenanceType] ?? os.maintenanceType, sortKey: typeLabels[os.maintenanceType] ?? os.maintenanceType }
+      case 'client':          return { label: os.client?.name ?? 'Sem cliente', sortKey: os.client?.name ?? 'Sem cliente' }
+      case 'group':           return { label: os.group?.name ?? 'Sem grupo', sortKey: os.group?.name ?? 'Sem grupo' }
+      case 'technician': {
+        const lead = os.technicians?.find((t: any) => t.role === 'LEAD')?.technician?.name ?? os.technicians?.[0]?.technician?.name ?? 'Sem técnico'
+        return { label: lead, sortKey: lead }
+      }
+      default: return { label: '', sortKey: '' }
+    }
+  }
+
+  private getSingleGroupInfo(
+    s: {
+      title?: string
+      nextRunAt: Date | null
+      recurrenceType: string
+      isActive: boolean
+      endDate: Date | null
+      equipment?: {
+        name?: string | null
+        type?: { name: string } | null
+        subtype?: { name: string } | null
+        costCenter?: { name: string } | null
+      } | null
+      client?: { name: string } | null
+    },
+    key: string | undefined,
+    recurrenceLabels: Record<string, string>,
+    situacaoFn: (s: any) => string,
+    situationOrder: Record<string, number>,
+  ): { label: string; sortKey: number | string } {
+    if (!key || key === 'none' || key === '__none__') return { label: '', sortKey: '' }
+
+    switch (key) {
+      case 'month': {
+        if (!s.nextRunAt) return { label: 'Sem Data Programada', sortKey: 999999 }
+        const d = new Date(s.nextRunAt)
+        const yr = d.getFullYear()
+        const mo = d.getMonth()
+        return {
+          label: `${this.MONTH_NAMES[mo]} de ${yr}`,
+          sortKey: yr * 100 + mo,
+        }
+      }
+      case 'day': {
+        if (!s.nextRunAt) return { label: 'Sem Data Programada', sortKey: 999999 }
+        const d = new Date(s.nextRunAt)
+        const dayFmt = d.toLocaleDateString('pt-BR')
+        const wday = this.WEEKDAY_NAMES[d.getDay()]
+        return {
+          label: `Dia ${dayFmt} (${wday})`,
+          sortKey: d.getTime(),
+        }
+      }
+      case 'costCenter': return { label: s.equipment?.costCenter?.name ?? 'Sem Setor', sortKey: s.equipment?.costCenter?.name ?? 'Sem Setor' }
+      case 'type':       return { label: s.equipment?.type?.name ?? 'Sem Tipo', sortKey: s.equipment?.type?.name ?? 'Sem Tipo' }
+      case 'subtype':    return { label: s.equipment?.subtype?.name ?? 'Sem Subtipo', sortKey: s.equipment?.subtype?.name ?? 'Sem Subtipo' }
+      case 'recurrence': return { label: recurrenceLabels[s.recurrenceType] ?? s.recurrenceType, sortKey: recurrenceLabels[s.recurrenceType] ?? s.recurrenceType }
+      case 'situation': {
+        const sit = situacaoFn(s)
+        return { label: sit, sortKey: situationOrder[sit] ?? 99 }
+      }
+      case 'client':     return { label: s.client?.name ?? 'Sem Prestador', sortKey: s.client?.name ?? 'Sem Prestador' }
+      case 'equipment':  return { label: s.equipment?.name ?? 'Sem Equipamento', sortKey: s.equipment?.name ?? 'Sem Equipamento' }
+      case 'title':      return { label: s.title ?? 'Sem Título', sortKey: s.title ?? 'Sem Título' }
+      default:           return { label: '', sortKey: '' }
+    }
+  }
+
   async getPreventiveData(
     companyId: string,
     filters: {
@@ -1303,6 +1588,7 @@ export class ReportsService {
       startDateFrom?: string
       startDateTo?: string
       groupBy?: string
+      subGroupBy?: string
       orderBy?: string
     },
     effectiveClientId?: string | null,
@@ -1318,6 +1604,7 @@ export class ReportsService {
         case 'equipment':   return { equipment: { name: 'asc' as const } }
         case 'costCenter':  return { equipment: { costCenter: { name: 'asc' as const } } }
         case 'title':       return { title: 'asc' as const }
+        case 'day':         return { nextRunAt: 'asc' as const }
         default:            return { nextRunAt: 'asc' as const }
       }
     })()
@@ -1371,7 +1658,7 @@ export class ReportsService {
 
   async exportPreventiveExcel(
     companyId: string,
-    filters: { clientId?: string; isActive?: boolean; typeId?: string; subtypeId?: string; recurrenceType?: string; costCenterId?: string; nextRunFrom?: string; nextRunTo?: string; startDateFrom?: string; startDateTo?: string; groupBy?: string; orderBy?: string },
+    filters: { clientId?: string; isActive?: boolean; typeId?: string; subtypeId?: string; recurrenceType?: string; costCenterId?: string; nextRunFrom?: string; nextRunTo?: string; startDateFrom?: string; startDateTo?: string; groupBy?: string; subGroupBy?: string; orderBy?: string },
     currentUser: AuthenticatedUser,
   ): Promise<Buffer> {
     const ExcelJS = await import('exceljs')
@@ -1438,31 +1725,69 @@ export class ReportsService {
       return 'Em dia'
     }
 
+
+
     // ── Agrupamento e ordenação em memória ──
-    const groupByKey = filters.groupBy
+    const groupByKey = filters.groupBy && filters.groupBy !== '__none__' ? filters.groupBy : undefined
+    const subGroupByKey = (filters.subGroupBy && filters.subGroupBy !== '__none__')
+      ? filters.subGroupBy
+      : (filters.orderBy && filters.orderBy !== 'nextRun' && filters.orderBy !== 'nextRunDesc' && filters.orderBy !== '__none__')
+        ? filters.orderBy
+        : undefined
+
     const situationOrder: Record<string, number> = { 'Atrasada': 0, 'Em dia': 1, 'Encerrada': 2, 'Inativo': 3 }
 
-    const getGroupKey = (s: typeof items[0]): string => {
-      switch (groupByKey) {
-        case 'costCenter': return s.equipment?.costCenter?.name ?? 'Sem Setor'
-        case 'type':       return s.equipment?.type?.name ?? 'Sem Tipo'
-        case 'recurrence': return recurrenceLabels[s.recurrenceType] ?? s.recurrenceType
-        case 'situation':  return situacao(s)
-        case 'client':     return s.client?.name ?? 'Sem Prestador'
-        default:           return ''
+    const getGroupInfo = (s: typeof items[0]) => {
+      const mainInfo = this.getSingleGroupInfo(s, groupByKey, recurrenceLabels, situacao, situationOrder)
+      const subInfo = this.getSingleGroupInfo(s, subGroupByKey, recurrenceLabels, situacao, situationOrder)
+      const hasSubGroup = Boolean(subGroupByKey && subInfo.label && subInfo.label !== mainInfo.label)
+      return {
+        mainLabel: mainInfo.label,
+        mainSortKey: mainInfo.sortKey,
+        subLabel: subInfo.label,
+        subSortKey: subInfo.sortKey,
+        hasSubGroup,
       }
     }
 
-    const sortedItems = groupByKey
-      ? [...items].sort((a, b) => {
-          const ka = getGroupKey(a)
-          const kb = getGroupKey(b)
-          if (groupByKey === 'situation') return (situationOrder[ka] ?? 99) - (situationOrder[kb] ?? 99)
-          return ka.localeCompare(kb, 'pt-BR')
-        })
-      : filters.orderBy === 'situation'
-        ? [...items].sort((a, b) => (situationOrder[situacao(a)] ?? 99) - (situationOrder[situacao(b)] ?? 99))
-        : items
+    const compareItems = (a: typeof items[0], b: typeof items[0]) => {
+      switch (filters.orderBy) {
+        case 'nextRunDesc':
+          return (b.nextRunAt ? new Date(b.nextRunAt).getTime() : 0) - (a.nextRunAt ? new Date(a.nextRunAt).getTime() : 0)
+        case 'equipment':
+          return (a.equipment?.name ?? '').localeCompare(b.equipment?.name ?? '', 'pt-BR')
+        case 'costCenter':
+          return (a.equipment?.costCenter?.name ?? '').localeCompare(b.equipment?.costCenter?.name ?? '', 'pt-BR')
+        case 'title':
+          return (a.title ?? '').localeCompare(b.title ?? '', 'pt-BR')
+        case 'situation':
+          return (situationOrder[situacao(a)] ?? 99) - (situationOrder[situacao(b)] ?? 99)
+        case 'day':
+        case 'nextRun':
+        default:
+          return (a.nextRunAt ? new Date(a.nextRunAt).getTime() : 0) - (b.nextRunAt ? new Date(b.nextRunAt).getTime() : 0)
+      }
+    }
+
+    const sortedItems = [...items].sort((a, b) => {
+      if (groupByKey) {
+        const infoA = getGroupInfo(a)
+        const infoB = getGroupInfo(b)
+        if (infoA.mainSortKey !== infoB.mainSortKey) {
+          if (typeof infoA.mainSortKey === 'number' && typeof infoB.mainSortKey === 'number') {
+            return infoA.mainSortKey - infoB.mainSortKey
+          }
+          return String(infoA.mainSortKey).localeCompare(String(infoB.mainSortKey), 'pt-BR')
+        }
+        if (infoA.hasSubGroup && infoA.subSortKey !== infoB.subSortKey) {
+          if (typeof infoA.subSortKey === 'number' && typeof infoB.subSortKey === 'number') {
+            return infoA.subSortKey - infoB.subSortKey
+          }
+          return String(infoA.subSortKey).localeCompare(String(infoB.subSortKey), 'pt-BR')
+        }
+      }
+      return compareItems(a, b)
+    })
 
     const groupHeaderArgb = 'FF' + template.primaryColor.replace('#', '')
     const groupHeaderStyle = {
@@ -1471,9 +1796,19 @@ export class ReportsService {
       alignment: { vertical: 'middle' as const },
     }
 
-    const addGroupSubtotal = (label: string, count: number, overdue: number) => {
+    const addSubGroupSubtotal = (subLabel: string, count: number, overdue: number) => {
       const stRow = sheet.addRow([
-        `  ↳ ${label}: ${count} agendamento(s)  ·  ${overdue} atrasado(s)`,
+        `      ↳ ${subLabel}: ${count} agendamento(s)  ·  ${overdue} atrasado(s)`,
+        ...Array(14).fill(''),
+      ])
+      stRow.font = { italic: true, size: 8.5, color: { argb: 'FF475569' } }
+      stRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
+      stRow.height = 15
+    }
+
+    const addMainGroupSubtotal = (mainLabel: string, count: number, overdue: number) => {
+      const stRow = sheet.addRow([
+        `  ↳ Total ${mainLabel}: ${count} agendamento(s)  ·  ${overdue} atrasado(s)`,
         ...Array(14).fill(''),
       ])
       stRow.font = { bold: true, italic: true, size: 9 }
@@ -1481,23 +1816,51 @@ export class ReportsService {
       stRow.height = 16
     }
 
-    let currentGroup = ''
-    let groupCount = 0
-    let groupOverdueCount = 0
+    let currentMainGroup = ''
+    let currentSubGroup = ''
+    let mainCount = 0
+    let mainOverdue = 0
+    let subCount = 0
+    let subOverdue = 0
     let rowIdx = 0
 
     sortedItems.forEach((s) => {
+      const info = getGroupInfo(s)
       if (groupByKey) {
-        const groupKey = getGroupKey(s)
-        if (groupKey !== currentGroup) {
-          if (currentGroup !== '') addGroupSubtotal(currentGroup, groupCount, groupOverdueCount)
-          const hRow = sheet.addRow([`  ${groupKey}`, ...Array(14).fill('')])
+        if (info.mainLabel !== currentMainGroup) {
+          if (currentSubGroup !== '' && info.hasSubGroup) {
+            addSubGroupSubtotal(currentSubGroup, subCount, subOverdue)
+            currentSubGroup = ''
+            subCount = 0
+            subOverdue = 0
+          }
+          if (currentMainGroup !== '') {
+            addMainGroupSubtotal(currentMainGroup, mainCount, mainOverdue)
+          }
+          const hRow = sheet.addRow([`  ${info.mainLabel}`, ...Array(14).fill('')])
           hRow.height = 22
           hRow.eachCell((cell) => { Object.assign(cell, groupHeaderStyle) })
-          currentGroup = groupKey
-          groupCount = 0
-          groupOverdueCount = 0
+          currentMainGroup = info.mainLabel
+          mainCount = 0
+          mainOverdue = 0
           rowIdx = 0
+        }
+
+        if (info.hasSubGroup && info.subLabel !== currentSubGroup) {
+          if (currentSubGroup !== '') {
+            addSubGroupSubtotal(currentSubGroup, subCount, subOverdue)
+          }
+          const subHRow = sheet.addRow([`    ↳ ${info.subLabel}`, ...Array(14).fill('')])
+          subHRow.height = 19
+          const subGroupStyle = {
+            font: { bold: true, color: { argb: 'FF1E293B' }, size: 9 },
+            fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE2E8F0' } },
+            alignment: { vertical: 'middle' as const },
+          }
+          subHRow.eachCell((cell) => { Object.assign(cell, subGroupStyle) })
+          currentSubGroup = info.subLabel
+          subCount = 0
+          subOverdue = 0
         }
       }
 
@@ -1535,12 +1898,17 @@ export class ReportsService {
       const sitArgb = sit === 'Em dia' ? 'FF16A34A' : sit === 'Atrasada' ? 'FFDC2626' : 'FF6B7280'
       row.getCell(15).font = { bold: true, color: { argb: sitArgb } }
 
-      if (sit === 'Atrasada') groupOverdueCount++
-      groupCount++
+      if (sit === 'Atrasada') {
+        mainOverdue++
+        subOverdue++
+      }
+      mainCount++
+      subCount++
       rowIdx++
     })
 
-    if (groupByKey && currentGroup !== '') addGroupSubtotal(currentGroup, groupCount, groupOverdueCount)
+    if (currentSubGroup !== '') addSubGroupSubtotal(currentSubGroup, subCount, subOverdue)
+    if (currentMainGroup !== '') addMainGroupSubtotal(currentMainGroup, mainCount, mainOverdue)
 
     const overdueCount = items.filter((s) => situacao(s) === 'Atrasada').length
 
@@ -1587,10 +1955,10 @@ export class ReportsService {
       prevExcelFilterParts.push(`Vigência: ${from} → ${to}`)
     }
     const gbLabels: Record<string, string> = {
-      costCenter: 'Setor', type: 'Tipo de Equip.', recurrence: 'Recorrência', situation: 'Situação', client: 'Prestador',
+      month: 'Mês', costCenter: 'Setor', type: 'Tipo de Equip.', recurrence: 'Recorrência', situation: 'Situação', client: 'Prestador',
     }
     const obLabels: Record<string, string> = {
-      nextRun: 'Próxima OS ↑', nextRunDesc: 'Próxima OS ↓', situation: 'Situação',
+      nextRun: 'Próxima OS ↑', nextRunDesc: 'Próxima OS ↓', day: 'Dia (Próxima OS)', situation: 'Situação',
       equipment: 'Equipamento', costCenter: 'Setor', title: 'Título',
     }
     if (filters.groupBy) prevExcelFilterParts.push(`Agrupado por: ${gbLabels[filters.groupBy] ?? filters.groupBy}`)
@@ -1612,7 +1980,7 @@ export class ReportsService {
 
   async exportPreventivePdf(
     companyId: string,
-    filters: { clientId?: string; isActive?: boolean; typeId?: string; subtypeId?: string; recurrenceType?: string; costCenterId?: string; nextRunFrom?: string; nextRunTo?: string; startDateFrom?: string; startDateTo?: string; groupBy?: string; orderBy?: string },
+    filters: { clientId?: string; isActive?: boolean; typeId?: string; subtypeId?: string; recurrenceType?: string; costCenterId?: string; nextRunFrom?: string; nextRunTo?: string; startDateFrom?: string; startDateTo?: string; groupBy?: string; subGroupBy?: string; orderBy?: string },
     currentUser: AuthenticatedUser,
   ): Promise<Buffer> {
     const PDFDocument = (await import('pdfkit')).default
@@ -1685,6 +2053,7 @@ export class ReportsService {
       prevFilterParts.push(`Vigência: ${from} → ${to}`)
     }
     const pdfGbLabels: Record<string, string> = {
+      month: 'Mês', monthDay: 'Mês e Dia (Subquebra por Dia)', day: 'Dia (Próxima OS)',
       costCenter: 'Setor', type: 'Tipo de Equip.', recurrence: 'Recorrência', situation: 'Situação', client: 'Prestador',
     }
     if (filters.groupBy) prevFilterParts.push(`Agrupado por: ${pdfGbLabels[filters.groupBy] ?? filters.groupBy}`)
@@ -1720,60 +2089,132 @@ export class ReportsService {
     y = drawTableHeader(y)
 
     // ── Agrupamento e ordenação em memória ──
-    const groupByKey = filters.groupBy
+    const groupByKey = filters.groupBy && filters.groupBy !== '__none__' ? filters.groupBy : undefined
+    const subGroupByKey = (filters.subGroupBy && filters.subGroupBy !== '__none__')
+      ? filters.subGroupBy
+      : (filters.orderBy && filters.orderBy !== 'nextRun' && filters.orderBy !== 'nextRunDesc' && filters.orderBy !== '__none__')
+        ? filters.orderBy
+        : undefined
+
     const pdfSituationOrder: Record<string, number> = { 'Atrasada': 0, 'Em dia': 1, 'Encerrada': 2, 'Inativo': 3 }
 
-    const getPdfGroupKey = (s: typeof items[0]): string => {
-      switch (groupByKey) {
-        case 'costCenter': return s.equipment?.costCenter?.name ?? 'Sem Setor'
-        case 'type':       return s.equipment?.type?.name ?? 'Sem Tipo'
-        case 'recurrence': return recurrenceLabels[s.recurrenceType] ?? s.recurrenceType
-        case 'situation':  return situacao(s)
-        case 'client':     return s.client?.name ?? 'Sem Prestador'
-        default:           return ''
+    const getPdfGroupInfo = (s: typeof items[0]) => {
+      const mainInfo = this.getSingleGroupInfo(s, groupByKey, recurrenceLabels, situacao, pdfSituationOrder)
+      const subInfo = this.getSingleGroupInfo(s, subGroupByKey, recurrenceLabels, situacao, pdfSituationOrder)
+      const hasSubGroup = Boolean(subGroupByKey && subInfo.label && subInfo.label !== mainInfo.label)
+      return {
+        mainLabel: mainInfo.label,
+        mainSortKey: mainInfo.sortKey,
+        subLabel: subInfo.label,
+        subSortKey: subInfo.sortKey,
+        hasSubGroup,
       }
     }
 
-    const pdfSortedItems = groupByKey
-      ? [...items].sort((a, b) => {
-          const ka = getPdfGroupKey(a)
-          const kb = getPdfGroupKey(b)
-          if (groupByKey === 'situation') return (pdfSituationOrder[ka] ?? 99) - (pdfSituationOrder[kb] ?? 99)
-          return ka.localeCompare(kb, 'pt-BR')
-        })
-      : filters.orderBy === 'situation'
-        ? [...items].sort((a, b) => (pdfSituationOrder[situacao(a)] ?? 99) - (pdfSituationOrder[situacao(b)] ?? 99))
-        : items
+    const comparePdfItems = (a: typeof items[0], b: typeof items[0]) => {
+      switch (filters.orderBy) {
+        case 'nextRunDesc':
+          return (b.nextRunAt ? new Date(b.nextRunAt).getTime() : 0) - (a.nextRunAt ? new Date(a.nextRunAt).getTime() : 0)
+        case 'equipment':
+          return (a.equipment?.name ?? '').localeCompare(b.equipment?.name ?? '', 'pt-BR')
+        case 'costCenter':
+          return (a.equipment?.costCenter?.name ?? '').localeCompare(b.equipment?.costCenter?.name ?? '', 'pt-BR')
+        case 'title':
+          return (a.title ?? '').localeCompare(b.title ?? '', 'pt-BR')
+        case 'situation':
+          return (pdfSituationOrder[situacao(a)] ?? 99) - (pdfSituationOrder[situacao(b)] ?? 99)
+        case 'day':
+        case 'nextRun':
+        default:
+          return (a.nextRunAt ? new Date(a.nextRunAt).getTime() : 0) - (b.nextRunAt ? new Date(b.nextRunAt).getTime() : 0)
+      }
+    }
+
+    const pdfSortedItems = [...items].sort((a, b) => {
+      if (groupByKey) {
+        const infoA = getPdfGroupInfo(a)
+        const infoB = getPdfGroupInfo(b)
+        if (infoA.mainSortKey !== infoB.mainSortKey) {
+          if (typeof infoA.mainSortKey === 'number' && typeof infoB.mainSortKey === 'number') {
+            return infoA.mainSortKey - infoB.mainSortKey
+          }
+          return String(infoA.mainSortKey).localeCompare(String(infoB.mainSortKey), 'pt-BR')
+        }
+        if (infoA.hasSubGroup && infoA.subSortKey !== infoB.subSortKey) {
+          if (typeof infoA.subSortKey === 'number' && typeof infoB.subSortKey === 'number') {
+            return infoA.subSortKey - infoB.subSortKey
+          }
+          return String(infoA.subSortKey).localeCompare(String(infoB.subSortKey), 'pt-BR')
+        }
+      }
+      return comparePdfItems(a, b)
+    })
 
     let rowIdx = 0
-    let currentPdfGroup = ''
-    let pdfGroupCount = 0
-    let pdfGroupOverdue = 0
+    let pdfMainGroup = ''
+    let pdfSubGroup = ''
+    let pdfMainCount = 0
+    let pdfMainOverdue = 0
+    let pdfSubCount = 0
+    let pdfSubOverdue = 0
 
-    const drawGroupSubtotal = (label: string, count: number, overdue: number) => {
+    const drawSubGroupSubtotal = (subLabel: string, count: number, overdue: number) => {
+      if (y > doc.page.height - 80) { y = drawTableHeader(doc.addPage().page ? 40 : 40); rowIdx = 0 }
+      const stH = 12
+      doc.rect(40, y, W, stH).fill('#F8FAFC')
+      doc.fillColor('#475569').fontSize(7).font('Helvetica-Oblique')
+        .text(`      ↳ Subtotal ${subLabel}: ${count} agendamento(s)  ·  ${overdue} atrasado(s)`, 43, y + 3, { width: W - 6, lineBreak: false })
+      y += stH
+    }
+
+    const drawMainGroupSubtotal = (mainLabel: string, count: number, overdue: number) => {
       if (y > doc.page.height - 80) { y = drawTableHeader(doc.addPage().page ? 40 : 40); rowIdx = 0 }
       const stH = 14
       doc.rect(40, y, W, stH).fill('#F1F5F9')
-      doc.fillColor('#475569').fontSize(7).font('Helvetica-Bold')
-        .text(`  ↳ ${label}: ${count} agendamento(s)  ·  ${overdue} atrasado(s)`, 43, y + 4, { width: W - 6, lineBreak: false })
+      doc.fillColor('#1E293B').fontSize(7.5).font('Helvetica-Bold')
+        .text(`  ↳ Total ${mainLabel}: ${count} agendamento(s)  ·  ${overdue} atrasado(s)`, 43, y + 3.5, { width: W - 6, lineBreak: false })
       y += stH
     }
 
     pdfSortedItems.forEach((s) => {
+      const info = getPdfGroupInfo(s)
       if (groupByKey) {
-        const groupKey = getPdfGroupKey(s)
-        if (groupKey !== currentPdfGroup) {
-          if (currentPdfGroup !== '') drawGroupSubtotal(currentPdfGroup, pdfGroupCount, pdfGroupOverdue)
+        if (info.mainLabel !== pdfMainGroup) {
+          if (pdfSubGroup !== '' && info.hasSubGroup) {
+            drawSubGroupSubtotal(pdfSubGroup, pdfSubCount, pdfSubOverdue)
+            pdfSubGroup = ''
+            pdfSubCount = 0
+            pdfSubOverdue = 0
+          }
+          if (pdfMainGroup !== '') {
+            drawMainGroupSubtotal(pdfMainGroup, pdfMainCount, pdfMainOverdue)
+          }
+
           if (y > doc.page.height - 80) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
           const ghH = 20
           doc.rect(40, y, W, ghH).fill(blue)
           doc.fillColor(this.getContrastColor(template.primaryColor)).fontSize(9).font('Helvetica-Bold')
-            .text(`  ${groupKey}`, 43, y + 6, { width: W - 6, lineBreak: false })
+            .text(`  ${info.mainLabel}`, 43, y + 6, { width: W - 6, lineBreak: false })
           y += ghH
-          currentPdfGroup = groupKey
-          pdfGroupCount = 0
-          pdfGroupOverdue = 0
+          pdfMainGroup = info.mainLabel
+          pdfMainCount = 0
+          pdfMainOverdue = 0
           rowIdx = 0
+        }
+
+        if (info.hasSubGroup && info.subLabel !== pdfSubGroup) {
+          if (pdfSubGroup !== '') {
+            drawSubGroupSubtotal(pdfSubGroup, pdfSubCount, pdfSubOverdue)
+          }
+          if (y > doc.page.height - 80) { doc.addPage(); y = drawTableHeader(40); rowIdx = 0 }
+          const subGhH = 16
+          doc.rect(40, y, W, subGhH).fill('#E2E8F0')
+          doc.fillColor('#1E293B').fontSize(8).font('Helvetica-Bold')
+            .text(`    ↳ ${info.subLabel}`, 43, y + 4, { width: W - 6, lineBreak: false })
+          y += subGhH
+          pdfSubGroup = info.subLabel
+          pdfSubCount = 0
+          pdfSubOverdue = 0
         }
       }
 
@@ -1813,12 +2254,17 @@ export class ReportsService {
       })
 
       y += rowH
-      if (sit === 'Atrasada') pdfGroupOverdue++
-      pdfGroupCount++
+      if (sit === 'Atrasada') {
+        pdfMainOverdue++
+        pdfSubOverdue++
+      }
+      pdfMainCount++
+      pdfSubCount++
       rowIdx++
     })
 
-    if (groupByKey && currentPdfGroup !== '') drawGroupSubtotal(currentPdfGroup, pdfGroupCount, pdfGroupOverdue)
+    if (pdfSubGroup !== '') drawSubGroupSubtotal(pdfSubGroup, pdfSubCount, pdfSubOverdue)
+    if (pdfMainGroup !== '') drawMainGroupSubtotal(pdfMainGroup, pdfMainCount, pdfMainOverdue)
 
     this.drawPdfFooter(doc, template, y + 12)
 

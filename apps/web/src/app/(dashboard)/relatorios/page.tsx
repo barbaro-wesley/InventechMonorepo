@@ -263,6 +263,7 @@ function EquipmentReport() {
   const [typeIds, setTypeIds] = useState<string[]>([]);
   const [costCenterIds, setCostCenterIds] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState("none");
+  const [subGroupBy, setSubGroupBy] = useState("none");
   const [orderBy, setOrderBy] = useState("name");
 
   const [selectedColumns, setSelectedColumns] = useState<string[]>(
@@ -296,6 +297,7 @@ function EquipmentReport() {
     ...(typeIds.length > 0 && { typeId: typeIds.join(",") }),
     ...(costCenterIds.length > 0 && { costCenterId: costCenterIds.join(",") }),
     ...(groupBy !== "none" && { groupBy }),
+    ...(subGroupBy !== "none" && { subGroupBy }),
     ...(orderBy !== "name" && { orderBy }),
     columns: selectedColumns.join(","),
   };
@@ -377,16 +379,16 @@ function EquipmentReport() {
       </Section>
 
       {/* Agrupamento e ordenação */}
-      <Section title="Agrupamento e ordenação" collapsible>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Section title="Agrupamento (quebra e subquebra) e ordenação" collapsible>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Agrupar por</Label>
+            <Label className="text-xs text-muted-foreground">Quebra principal (1º nível)</Label>
             <Select value={groupBy} onValueChange={setGroupBy}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Sem agrupamento</SelectItem>
+                <SelectItem value="none">Sem quebra</SelectItem>
                 <SelectItem value="status">Status</SelectItem>
                 <SelectItem value="criticality">Criticidade</SelectItem>
                 <SelectItem value="type">Tipo</SelectItem>
@@ -394,9 +396,24 @@ function EquipmentReport() {
                 <SelectItem value="costCenter">Centro de custo</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Separa os equipamentos em seções no relatório.
-            </p>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Subquebra (2º nível)</Label>
+            <Select value={subGroupBy} onValueChange={setSubGroupBy}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem subquebra</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="criticality">Criticidade</SelectItem>
+                <SelectItem value="type">Tipo</SelectItem>
+                <SelectItem value="location">Local</SelectItem>
+                <SelectItem value="costCenter">Centro de custo</SelectItem>
+                <SelectItem value="name">Nome do equipamento</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1">
@@ -413,9 +430,6 @@ function EquipmentReport() {
                 <SelectItem value="costCenter">Centro de custo</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Ordenação dentro de cada grupo (ou geral, sem agrupamento).
-            </p>
           </div>
         </div>
       </Section>
@@ -663,6 +677,7 @@ function ServiceOrdersReport() {
   const [groupId, setGroupId] = useState("");
   const [technicianId, setTechnicianId] = useState("");
   const [osGroupBy, setOsGroupBy] = useState("none");
+  const [osSubGroupBy, setOsSubGroupBy] = useState("none");
 
   const [loading, setLoading] = useState<"excel" | "pdf" | null>(null);
 
@@ -700,6 +715,7 @@ function ServiceOrdersReport() {
     ...(groupId && { groupId }),
     ...(technicianId && { technicianId }),
     ...(osGroupBy !== "none" && { groupBy: osGroupBy }),
+    ...(osSubGroupBy !== "none" && { subGroupBy: osSubGroupBy }),
   };
 
   const handleDownload = async (format: "excel" | "pdf") => {
@@ -850,17 +866,17 @@ function ServiceOrdersReport() {
         </div>
       </Section>
 
-      {/* Agrupamento / Quebra */}
-      <Section title="Agrupamento (quebra)" collapsible>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Agrupamento / Quebras */}
+      <Section title="Agrupamento (quebra e subquebra)" collapsible>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Quebrar relatório por</Label>
+            <Label className="text-xs text-muted-foreground">Quebra principal (1º nível)</Label>
             <Select value={osGroupBy} onValueChange={setOsGroupBy}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Sem agrupamento</SelectItem>
+                <SelectItem value="none">Sem quebra</SelectItem>
                 <SelectItem value="status">Status</SelectItem>
                 <SelectItem value="priority">Prioridade</SelectItem>
                 <SelectItem value="maintenanceType">Tipo de manutenção</SelectItem>
@@ -869,9 +885,24 @@ function ServiceOrdersReport() {
                 <SelectItem value="technician">Técnico responsável</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Insere seções separadas com subtotal por grupo no Excel e PDF.
-            </p>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Subquebra (2º nível)</Label>
+            <Select value={osSubGroupBy} onValueChange={setOsSubGroupBy}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem subquebra</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="priority">Prioridade</SelectItem>
+                <SelectItem value="maintenanceType">Tipo de manutenção</SelectItem>
+                <SelectItem value="client">Cliente / Prestador</SelectItem>
+                <SelectItem value="group">Grupo de manutenção</SelectItem>
+                <SelectItem value="technician">Técnico responsável</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </Section>
@@ -954,6 +985,7 @@ function PreventiveReport() {
   const [startDateFrom, setStartDateFrom] = useState("");
   const [startDateTo, setStartDateTo] = useState("");
   const [groupBy, setGroupBy] = useState("");
+  const [subGroupBy, setSubGroupBy] = useState("");
   const [orderBy, setOrderBy] = useState("nextRun");
   const [loading, setLoading] = useState<"excel" | "pdf" | null>(null);
 
@@ -995,6 +1027,7 @@ function PreventiveReport() {
     ...(startDateFrom && { startDateFrom }),
     ...(startDateTo && { startDateTo }),
     ...(groupBy && { groupBy }),
+    ...(subGroupBy && { subGroupBy }),
     ...(orderBy && orderBy !== "nextRun" && { orderBy }),
   };
 
@@ -1133,21 +1166,44 @@ function PreventiveReport() {
             </div>
           </div>
 
-          {/* Agrupamento & Ordenação */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Agrupamento (Quebra e Subquebra) & Ordenação */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Agrupar por (quebras)</Label>
+              <Label className="text-xs text-muted-foreground">Quebra principal (1º nível)</Label>
               <Select value={groupBy || "__none__"} onValueChange={(v) => setGroupBy(v === "__none__" ? "" : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sem agrupamento" />
+                  <SelectValue placeholder="Sem quebra" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none__">Sem agrupamento</SelectItem>
+                  <SelectItem value="__none__">Sem quebra</SelectItem>
+                  <SelectItem value="month">Mês (Próxima OS)</SelectItem>
+                  <SelectItem value="day">Dia (Próxima OS)</SelectItem>
                   <SelectItem value="costCenter">Centro de Custo / Setor</SelectItem>
                   <SelectItem value="type">Tipo de Equipamento</SelectItem>
                   <SelectItem value="recurrence">Recorrência</SelectItem>
                   <SelectItem value="situation">Situação (Em dia / Atrasada)</SelectItem>
                   <SelectItem value="client">Prestador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Subquebra (2º nível)</Label>
+              <Select value={subGroupBy || "__none__"} onValueChange={(v) => setSubGroupBy(v === "__none__" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sem subquebra" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Sem subquebra</SelectItem>
+                  <SelectItem value="day">Dia (Próxima OS)</SelectItem>
+                  <SelectItem value="month">Mês (Próxima OS)</SelectItem>
+                  <SelectItem value="costCenter">Centro de Custo / Setor</SelectItem>
+                  <SelectItem value="type">Tipo de Equipamento</SelectItem>
+                  <SelectItem value="recurrence">Recorrência</SelectItem>
+                  <SelectItem value="situation">Situação (Em dia / Atrasada)</SelectItem>
+                  <SelectItem value="client">Prestador</SelectItem>
+                  <SelectItem value="equipment">Equipamento</SelectItem>
+                  <SelectItem value="title">Título</SelectItem>
                 </SelectContent>
               </Select>
             </div>
