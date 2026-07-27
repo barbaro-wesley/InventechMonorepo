@@ -1,594 +1,586 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
-  CalendarClock, Search, CheckCircle2, AlertTriangle,
-  Clock, XCircle, ChevronLeft, ChevronRight, Plus, X,
-  LayoutGrid, Calendar, MoreVertical, SlidersHorizontal,
+  CalendarClock,
+  Search,
+  Plus,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+  CalendarDays,
+  Clock,
+  ListFilter,
+  Filter,
+  Layers,
+  Sparkles,
+  Tag,
+  Wrench,
+  Monitor,
+  CalendarCheck,
+  ArrowRight,
 } from "lucide-react";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  isSameMonth,
+  subMonths,
+  addMonths,
+  subWeeks,
+  addWeeks,
+  subDays,
+  addDays,
+  parseISO,
+} from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  useMaintenanceSchedules, useMaintenanceGroups,
+  useMaintenanceSchedules,
+  useMaintenanceGroups,
 } from "@/hooks/maintenance/use-maintenance-schedule";
-import { useUsers } from "@/hooks/users/use-users";
+import { useEquipmentTypes } from "@/hooks/equipment/use-equipment-types";
 import { useCurrentUser } from "@/store/auth.store";
 import { usePermissions } from "@/hooks/auth/use-permissions";
-import { ScheduleDetailPanel, getScheduleStatus } from "@/components/maintenance/schedule-detail-panel";
+import { ScheduleDetailPanel } from "@/components/maintenance/schedule-detail-panel";
 import { ScheduleFormSheet } from "@/components/maintenance/schedule-form-sheet";
-import type { MaintenanceSchedule, MaintenanceType, RecurrenceType } from "@/services/maintenance/maintenance-schedule.service";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const RECURRENCE_LABELS: Record<string, string> = {
-  DAILY: "Diária", WEEKLY: "Semanal", BIWEEKLY: "Quinzenal",
-  MONTHLY: "Mensal", QUARTERLY: "Trimestral", SEMIANNUAL: "Semestral",
-  ANNUAL: "Anual", CUSTOM: "Personalizada",
-};
-
-const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
-  PREVENTIVE: "Preventiva", CORRECTIVE: "Corretiva",
-  INITIAL_ACCEPTANCE: "Aceitação Inicial", EXTERNAL_SERVICE: "Serviço Externo",
-  TECHNOVIGILANCE: "Tecnovigilância", TRAINING: "Treinamento",
-  IMPROPER_USE: "Uso Indevido", DEACTIVATION: "Desativação",
-};
+import { PreventivasCalendarView, type ViewMode } from "@/components/maintenance/preventivas-calendar-view";
+import type { MaintenanceSchedule } from "@/services/maintenance/maintenance-schedule.service";
 
 const LEGEND = [
-  { color: "bg-emerald-500", label: "Em dia", desc: "Próxima OS dentro do prazo" },
-  { color: "bg-amber-500", label: "Atenção", desc: "Próxima OS nos próximos 7 dias" },
-  { color: "bg-red-500", label: "Atrasada", desc: "Próxima OS já passou do prazo" },
-  { color: "bg-gray-400", label: "Inativo", desc: "Agendamento inativo" },
-  { color: "bg-gray-400", label: "Vigência encerrada", desc: "Data final do plano já passou" },
+  { color: "bg-emerald-500", label: "Em dia", desc: "Próxima OS dentro do prazo programado" },
+  { color: "bg-amber-500", label: "Atenção / Esta semana", desc: "Próxima OS nos próximos 7 dias" },
+  { color: "bg-red-500", label: "Vencida / Atrasada", desc: "Próxima OS já passou da data limite" },
+  { color: "bg-gray-400", label: "Inativo / Encerrado", desc: "Agendamento inativo ou vigência finalizada" },
 ];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatDate(iso: string | null) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
-function relativeTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const diff = Math.round((new Date(iso).getTime() - Date.now()) / 86400000);
-  if (diff < -1) return `há ${Math.abs(diff)}d`;
-  if (diff === -1) return "ontem";
-  if (diff === 0) return "hoje";
-  if (diff === 1) return "amanhã";
-  return `em ${diff}d`;
-}
-
-function isSameMonth(iso: string) {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-}
-
-function isToday(iso: string) {
-  const d = new Date(iso);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
-}
-
-function rowVisual(s: MaintenanceSchedule, status: ReturnType<typeof getScheduleStatus>) {
-  if (status === "overdue") return { Icon: AlertTriangle, bg: "bg-red-50", color: "text-red-500" };
-  if (s.recurrenceType === "DAILY" || s.recurrenceType === "WEEKLY" || s.recurrenceType === "BIWEEKLY") {
-    return { Icon: LayoutGrid, bg: "bg-blue-50", color: "text-blue-500" };
-  }
-  if (s.recurrenceType === "MONTHLY" || s.recurrenceType === "QUARTERLY") {
-    return { Icon: Calendar, bg: "bg-amber-50", color: "text-amber-600" };
-  }
-  return { Icon: Calendar, bg: "bg-emerald-50", color: "text-emerald-600" };
-}
-
-function getPageNumbers(current: number, total: number): (number | "...")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages = new Set<number>([1, total, current, current - 1, current + 1]);
-  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
-  const result: (number | "...")[] = [];
-  let prev = 0;
-  for (const p of sorted) {
-    if (prev && p - prev > 1) result.push("...");
-    result.push(p);
-    prev = p;
-  }
-  return result;
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function StatusBadge({ schedule }: { schedule: MaintenanceSchedule }) {
-  const status = getScheduleStatus(schedule);
-  const cfgs = {
-    overdue:  { label: "Vencido",             cls: "bg-red-50 text-red-700 ring-1 ring-red-200",              Icon: AlertTriangle },
-    due_soon: { label: "Esta semana",         cls: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",         Icon: Clock },
-    active:   { label: "Em dia",              cls: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",   Icon: CheckCircle2 },
-    inactive: { label: "Inativo",             cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200",           Icon: XCircle },
-    expired:  { label: "Vigência encerrada",  cls: "bg-gray-100 text-gray-500 ring-1 ring-gray-200",           Icon: XCircle },
-  };
-  const { label, cls, Icon } = cfgs[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${cls}`}>
-      <Icon className="w-3 h-3" />{label}
-    </span>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <div className="flex items-center gap-4 bg-white dark:bg-zinc-950/50 rounded-2xl border border-border p-4 animate-pulse">
-      <div className="w-10 h-10 rounded-xl bg-muted/60 shrink-0" />
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="h-3.5 w-1/3 rounded bg-muted/60" />
-        <div className="h-3 w-1/2 rounded bg-muted/40" />
-      </div>
-      <div className="hidden sm:block w-24 h-6 rounded bg-muted/40" />
-      <div className="hidden md:block w-24 h-6 rounded bg-muted/40" />
-      <div className="w-20 h-6 rounded-full bg-muted/40" />
-    </div>
-  );
-}
-
-interface StatCardProps {
-  label: string; value: number; icon: React.ElementType;
-  color: "blue" | "red" | "amber";
-  active?: boolean; onClick?: () => void;
-  delta?: string; deltaColor?: string;
-}
-
-const colorMap = {
-  blue:  { icon: "bg-blue-50 text-blue-600",   border: "border-blue-200",  ring: "ring-blue-300",  text: "text-blue-700" },
-  red:   { icon: "bg-red-50 text-red-500",     border: "border-red-200",   ring: "ring-red-300",   text: "text-red-700" },
-  amber: { icon: "bg-amber-50 text-amber-500", border: "border-amber-200", ring: "ring-amber-300", text: "text-amber-700" },
-};
-
-function StatCard({ label, value, icon: Icon, color, active, onClick, delta, deltaColor }: StatCardProps) {
-  const c = colorMap[color];
-  return (
-    <button
-      onClick={onClick}
-      className={`text-left rounded-2xl border p-4 flex flex-col gap-3 transition-all duration-200
-        ${active
-          ? `bg-white dark:bg-zinc-950/50 ${c.border} ring-2 ${c.ring} shadow-sm`
-          : "bg-white dark:bg-zinc-950/50 border-border hover:border-gray-300 dark:hover:border-zinc-700 hover:shadow-sm"}`}
-    >
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${c.icon}`}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="flex items-end justify-between gap-2">
-        <div>
-          <p className="text-2xl font-bold text-foreground tabular-nums leading-tight">{value}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-          {delta && <p className={`text-xs font-medium mt-1 ${deltaColor ?? "text-muted-foreground"}`}>{delta}</p>}
-        </div>
-        {active && <span className={`text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${c.text}`}>Filtrado</span>}
-      </div>
-    </button>
-  );
-}
-
-function PreventivaRow({
-  schedule, selected, onSelect, isCompanyLevel,
-}: {
-  schedule: MaintenanceSchedule;
-  selected: boolean;
-  onSelect: (s: MaintenanceSchedule) => void;
-  isCompanyLevel: boolean;
-}) {
-  const status = getScheduleStatus(schedule);
-  const { Icon, bg, color } = rowVisual(schedule, status);
-  const relNext = relativeTime(schedule.nextRunAt);
-  const endDiff = schedule.endDate
-    ? Math.round((new Date(schedule.endDate).getTime() - Date.now()) / 86400000)
-    : null;
-  const nextColor = status === "overdue" ? "text-red-500" : status === "due_soon" ? "text-amber-500" : "text-muted-foreground";
-
-  return (
-    <div
-      onClick={() => onSelect(schedule)}
-      className={`flex items-center gap-4 bg-white dark:bg-zinc-950/50 rounded-2xl border p-4 cursor-pointer transition-all hover:shadow-md ${
-        selected ? "border-primary ring-1 ring-primary/30" : "border-border"
-      }`}
-    >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${bg}`}>
-        <Icon className={`w-[18px] h-[18px] ${color}`} />
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-foreground truncate">{schedule.title}</p>
-        <p className="text-xs text-muted-foreground truncate">
-          {schedule.equipment.name}
-          {schedule.equipment.patrimonyNumber ? ` · Pat. ${schedule.equipment.patrimonyNumber}` : ""}
-        </p>
-        {(schedule.equipment.costCenter || schedule.equipment.location) && (
-          <p className="text-xs text-muted-foreground/70 truncate">
-            {schedule.equipment.costCenter?.name}
-            {schedule.equipment.costCenter && schedule.equipment.location ? <span className="mx-1">›</span> : null}
-            {schedule.equipment.location?.name}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center gap-1 mt-1.5">
-          {schedule.checklistTemplate && (
-            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 ring-1 ring-emerald-200 px-1.5 py-0.5 rounded">
-              ✓ Checklist
-            </span>
-          )}
-          {endDiff !== null && endDiff < 0 && (
-            <span className="text-[10px] font-semibold text-red-700 bg-red-50 ring-1 ring-red-200 px-1.5 py-0.5 rounded">
-              Plano expirado
-            </span>
-          )}
-          {endDiff !== null && endDiff >= 0 && endDiff <= 30 && (
-            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 ring-1 ring-amber-200 px-1.5 py-0.5 rounded">
-              Vence em {endDiff}d
-            </span>
-          )}
-          {isCompanyLevel && schedule.client && (
-            <span className="text-[10px] text-muted-foreground/70 truncate">{schedule.client.name}</span>
-          )}
-        </div>
-      </div>
-
-      <div className="hidden sm:block w-24 shrink-0">
-        <p className="text-sm font-medium text-foreground/80">
-          {RECURRENCE_LABELS[schedule.recurrenceType] ?? schedule.recurrenceType}
-        </p>
-        <p className="text-xs text-muted-foreground">Recorrência</p>
-      </div>
-
-      <div className="hidden md:block w-32 shrink-0">
-        <p className={`text-sm font-medium tabular-nums ${status === "overdue" ? "text-red-600" : "text-foreground/80"}`}>
-          {formatDate(schedule.nextRunAt)}
-        </p>
-        <p className="text-xs text-muted-foreground">Próxima OS</p>
-        {relNext && <p className={`text-xs font-medium ${nextColor}`}>{relNext}</p>}
-      </div>
-
-      <StatusBadge schedule={schedule} />
-
-      <MoreVertical className="hidden sm:block w-4 h-4 text-muted-foreground/50 shrink-0" />
-    </div>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PreventivasPage() {
   const currentUser = useCurrentUser();
-  const isCompanyLevel = !currentUser?.clientId;
   const { canAccess } = usePermissions();
 
-  const [search, setSearch] = useState("");
-  const [recurrenceType, setRecurrenceType] = useState<string>("");
-  const [groupId, setGroupId] = useState<string>("");
-  const [technicianId, setTechnicianId] = useState<string>("");
-  const [maintenanceType, setMaintenanceType] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [showMoreFilters, setShowMoreFilters] = useState(false);
-  const [page, setPage] = useState(1);
-  const LIMIT = 20;
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const lastAutoJumpRef = useRef<string>("");
 
+  // Filter States
+  const [search, setSearch] = useState("");
+  const [groupId, setGroupId] = useState("");
+  const [typeId, setTypeId] = useState("");
+
+  // Pagination state
+  const [page, setPage] = useState(1);
+  const LIMIT = 100;
+
+  // Calendar State
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+
+  // Panel & Sheets
   const [selectedSchedule, setSelectedSchedule] = useState<MaintenanceSchedule | null>(null);
   const [editSchedule, setEditSchedule] = useState<MaintenanceSchedule | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const today = new Date().toISOString().split("T")[0];
-  const in7days = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+  // Queries for Select Dropdowns
+  const { data: groupsData } = useMaintenanceGroups();
+  const { data: typesData } = useEquipmentTypes({ limit: 100 });
 
-  // Uma única caixa de busca cobre título/equipamento/cliente e patrimônio: números puros
-  // (ex: "05462") são tratados como patrimônio, o resto vai para a busca textual da API.
+  const groupsList: any[] = Array.isArray(groupsData)
+    ? groupsData
+    : (groupsData as any)?.data ?? [];
+  const typesList: any[] = Array.isArray(typesData)
+    ? typesData
+    : (typesData as any)?.data ?? [];
+
+  // Search parameter formatting
   const trimmedSearch = search.trim();
-  const looksLikePatrimony = /^\d+$/.test(trimmedSearch);
-  const searchParam = trimmedSearch && !looksLikePatrimony ? trimmedSearch : undefined;
-  const patrimonyParam = trimmedSearch && looksLikePatrimony ? trimmedSearch : undefined;
+  const isPatrimonyNumber = /^\d+$/.test(trimmedSearch);
+  const searchParam = trimmedSearch && !isPatrimonyNumber ? trimmedSearch : undefined;
+  const patrimonyParam = trimmedSearch && isPatrimonyNumber ? trimmedSearch : undefined;
 
-  const isActiveFilter =
-    statusFilter === "active" || statusFilter === "overdue" || statusFilter === "due_soon" ? true
-    : statusFilter === "inactive" ? false
-    : undefined;
+  // Compute dynamic date range based on active view mode and currentDate
+  const getDateRangeForView = (date: Date, mode: ViewMode) => {
+    // If user typed a search query, search across all dates (don't restrict date range)
+    if (trimmedSearch) {
+      return { date: undefined, nextRunFrom: undefined, nextRunTo: undefined };
+    }
 
-  // "no_tech" / técnico não têm filtro correspondente na API — bump limit
-  // para o filtro client-side cobrir mais registros (mesmo padrão de overdue/due_soon).
-  // Patrimônio é filtrado server-side (patrimonyNumber), então pagina normalmente.
-  const needsBuffer = statusFilter === "overdue" || statusFilter === "due_soon" || statusFilter === "no_tech" || !!technicianId;
-  const effectiveLimit = needsBuffer ? 100 : LIMIT;
+    if (mode === "month") {
+      const monthStart = startOfMonth(date);
+      const monthEnd = endOfMonth(monthStart);
+      const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+      const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+      return {
+        date: undefined,
+        nextRunFrom: format(gridStart, "yyyy-MM-dd"),
+        nextRunTo: format(gridEnd, "yyyy-MM-dd"),
+      };
+    }
+    if (mode === "week") {
+      const wStart = startOfWeek(date, { weekStartsOn: 1 });
+      const wEnd = endOfWeek(date, { weekStartsOn: 1 });
+      return {
+        date: undefined,
+        nextRunFrom: format(wStart, "yyyy-MM-dd"),
+        nextRunTo: format(wEnd, "yyyy-MM-dd"),
+      };
+    }
+    if (mode === "day") {
+      return {
+        date: format(date, "yyyy-MM-dd"),
+        nextRunFrom: undefined,
+        nextRunTo: undefined,
+      };
+    }
+    // Agenda mode: 1 month back to 3 months forward
+    return {
+      date: undefined,
+      nextRunFrom: format(startOfMonth(subMonths(date, 1)), "yyyy-MM-dd"),
+      nextRunTo: format(endOfMonth(addMonths(date, 3)), "yyyy-MM-dd"),
+    };
+  };
 
+  const { date: dateParam, nextRunFrom, nextRunTo } = getDateRangeForView(currentDate, viewMode);
+
+  // Query schedules with all filters
   const { data, isLoading } = useMaintenanceSchedules({
     search: searchParam,
     patrimonyNumber: patrimonyParam,
-    recurrenceType: recurrenceType as RecurrenceType || undefined,
     groupId: groupId || undefined,
-    maintenanceType: maintenanceType as MaintenanceType || undefined,
-    isActive: isActiveFilter,
-    nextRunTo: statusFilter === "overdue" ? today : statusFilter === "due_soon" ? in7days : undefined,
-    nextRunFrom: statusFilter === "due_soon" ? today : undefined,
+    typeId: typeId || undefined,
+    date: dateParam,
+    nextRunFrom,
+    nextRunTo,
     page,
-    limit: effectiveLimit,
+    limit: LIMIT,
   });
-
-  const { data: groups = [] } = useMaintenanceGroups();
-  const { data: usersData } = useUsers({ role: "TECHNICIAN", limit: 100 });
-  const technicians = usersData?.data ?? [];
 
   const schedules: MaintenanceSchedule[] = data?.data ?? [];
-  const total = data?.pagination?.total ?? data?.total ?? 0;
-  const totalPages = needsBuffer ? 1 : (data?.pagination?.totalPages ?? Math.ceil(total / LIMIT));
+  const total = data?.pagination?.total ?? data?.total ?? schedules.length;
+  const totalPages = data?.pagination?.totalPages ?? Math.ceil(total / LIMIT);
 
-  // Client-side filter for filters not supported by the API (date-status, patrimony, técnico)
-  const filtered = schedules.filter((s) => {
-    const st = getScheduleStatus(s);
-    if (statusFilter === "overdue" && st !== "overdue") return false;
-    if (statusFilter === "due_soon" && st !== "due_soon") return false;
-    if (statusFilter === "no_tech" && s.assignedTechnician) return false;
-    if (technicianId && s.assignedTechnician?.id !== technicianId) return false;
-    return true;
-  });
+  // Auto-jump calendar date to the target date of the first search result when searching
+  useEffect(() => {
+    if (trimmedSearch && schedules.length > 0 && schedules[0].nextRunAt) {
+      const targetIso = schedules[0].nextRunAt;
+      const jumpKey = `${trimmedSearch}-${targetIso}`;
+      if (lastAutoJumpRef.current !== jumpKey) {
+        lastAutoJumpRef.current = jumpKey;
+        try {
+          const parsed = parseISO(targetIso);
+          if (!isNaN(parsed.getTime())) {
+            setCurrentDate(parsed);
+          }
+        } catch {}
+      }
+    }
+  }, [trimmedSearch, schedules]);
 
-  // Card counts: use pagination total when a server-side filter is active (accurate);
-  // otherwise count from the fetched records (reflects what's visible).
-  const cntActive   = statusFilter === "active"   ? total : schedules.filter((s) => s.isActive).length;
-  const cntOverdue  = statusFilter === "overdue"  ? filtered.length : schedules.filter((s) => getScheduleStatus(s) === "overdue").length;
-  const cntDueSoon  = statusFilter === "due_soon" ? filtered.length : schedules.filter((s) => getScheduleStatus(s) === "due_soon").length;
+  const hasFilters = !!(search || groupId || typeId);
 
-  // Deltas reais (não fabricados) calculados a partir do lote atualmente carregado —
-  // mesma limitação de amostragem já assumida pelos contadores acima.
-  const cntActiveThisMonth = schedules.filter((s) => s.isActive && isSameMonth(s.createdAt)).length;
-  const cntOverdueThisWeek = schedules.filter((s) => getScheduleStatus(s) === "overdue" && (Date.now() - new Date(s.nextRunAt).getTime()) <= 7 * 86400000).length;
-  const cntDueToday = schedules.filter((s) => getScheduleStatus(s) === "due_soon" && isToday(s.nextRunAt)).length;
-
-  const hasFilters = !!(search || recurrenceType || groupId || technicianId || maintenanceType || statusFilter);
-
-  function clearFilters() {
+  const clearFilters = () => {
     setSearch("");
-    setRecurrenceType(""); setGroupId(""); setTechnicianId(""); setMaintenanceType(""); setStatusFilter(""); setPage(1);
-  }
-
-  function toggleStatusFilter(val: string) {
-    setStatusFilter((prev) => prev === val ? "" : val);
+    setGroupId("");
+    setTypeId("");
     setPage(1);
-  }
+    lastAutoJumpRef.current = "";
+  };
+
+  // Navigation handlers
+  const handlePrev = () => {
+    setPage(1);
+    if (viewMode === "month") setCurrentDate(subMonths(currentDate, 1));
+    else if (viewMode === "week") setCurrentDate(subWeeks(currentDate, 1));
+    else setCurrentDate(subDays(currentDate, 1));
+  };
+
+  const handleNext = () => {
+    setPage(1);
+    if (viewMode === "month") setCurrentDate(addMonths(currentDate, 1));
+    else if (viewMode === "week") setCurrentDate(addWeeks(currentDate, 1));
+    else setCurrentDate(addDays(currentDate, 1));
+  };
+
+  const handleToday = () => {
+    setPage(1);
+    setCurrentDate(new Date());
+  };
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setPage(1);
+    setViewMode(mode);
+  };
+
+  // Label formatted for current period
+  const getHeaderDateLabel = () => {
+    if (viewMode === "month") {
+      return format(currentDate, "MMMM 'de' yyyy", { locale: ptBR });
+    }
+    if (viewMode === "week") {
+      const start = startOfWeek(currentDate, { weekStartsOn: 1 });
+      const end = endOfWeek(currentDate, { weekStartsOn: 1 });
+      if (isSameMonth(start, end)) {
+        return `${format(start, "d", { locale: ptBR })} - ${format(end, "d 'de' MMMM, yyyy", { locale: ptBR })}`;
+      }
+      return `${format(start, "d 'de' MMM", { locale: ptBR })} - ${format(end, "d 'de' MMM, yyyy", { locale: ptBR })}`;
+    }
+    if (viewMode === "day") {
+      return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+    }
+    return "Cronograma Geral";
+  };
 
   return (
     <div className={`space-y-4 transition-[padding] duration-200 ${selectedSchedule ? "lg:pr-[404px]" : ""}`}>
-
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #10b981, #3b82f6)" }}>
-            <CalendarClock className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight text-foreground leading-none">Preventivas</h1>
-            <p className="text-sm text-muted-foreground mt-1">Agendamentos recorrentes de OS · PMOC</p>
-          </div>
-        </div>
-        {canAccess('maintenance-schedule', 'create') && (
-          <Button onClick={() => setCreateOpen(true)} className="h-11 px-4 gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 border-0 flex-shrink-0">
-            <Plus className="w-4 h-4" />
-            Nova Preventiva
-          </Button>
-        )}
-      </div>
-
-      {/* ── Stat cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <StatCard label="Ativas" value={cntActive} icon={LayoutGrid} color="blue"
-          active={statusFilter === "active"} onClick={() => toggleStatusFilter("active")}
-          delta={cntActiveThisMonth > 0 ? `+${cntActiveThisMonth} este mês` : undefined} deltaColor="text-emerald-500" />
-        <StatCard label="Vencidas" value={cntOverdue} icon={AlertTriangle} color="red"
-          active={statusFilter === "overdue"} onClick={() => toggleStatusFilter("overdue")}
-          delta={cntOverdueThisWeek > 0 ? `+${cntOverdueThisWeek} esta semana` : undefined} deltaColor="text-red-500" />
-        <StatCard label="Próximos 7 dias" value={cntDueSoon} icon={Clock} color="amber"
-          active={statusFilter === "due_soon"} onClick={() => toggleStatusFilter("due_soon")}
-          delta={cntDueToday > 0 ? `+${cntDueToday} hoje` : undefined} deltaColor="text-amber-500" />
-      </div>
-
-      {/* ── Search + filters ── */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            className="pl-11 pr-9 h-11 rounded-xl text-sm"
-            placeholder="Buscar por título, equipamento, patrimônio..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
-          {search && (
-            <button onClick={() => setSearch("")} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        <Select value={recurrenceType || "all"} onValueChange={(v) => { setRecurrenceType(v === "all" ? "" : v); setPage(1); }}>
-          <SelectTrigger className="h-11 rounded-xl text-sm w-36">
-            <SelectValue placeholder="Recorrência" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Toda recorrência</SelectItem>
-            {Object.entries(RECURRENCE_LABELS).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {(groups as any[]).length > 0 && (
-          <Select value={groupId || "all"} onValueChange={(v) => { setGroupId(v === "all" ? "" : v); setPage(1); }}>
-            <SelectTrigger className="h-11 rounded-xl text-sm w-36">
-              <SelectValue placeholder="Grupo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todo grupo</SelectItem>
-              {(groups as any[]).map((g: any) => (
-                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <Select value={statusFilter || "all"} onValueChange={(v) => { setStatusFilter(v === "all" ? "" : v); setPage(1); }}>
-          <SelectTrigger className="h-11 rounded-xl text-sm w-36">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todo status</SelectItem>
-            <SelectItem value="active">Em dia</SelectItem>
-            <SelectItem value="overdue">Vencido</SelectItem>
-            <SelectItem value="due_soon">Esta semana</SelectItem>
-            <SelectItem value="no_tech">Sem técnico</SelectItem>
-            <SelectItem value="inactive">Inativo</SelectItem>
-          </SelectContent>
-        </Select>
-
-        {technicians.length > 0 && (
-          <Select value={technicianId || "all"} onValueChange={(v) => { setTechnicianId(v === "all" ? "" : v); setPage(1); }}>
-            <SelectTrigger className="h-11 rounded-xl text-sm w-36">
-              <SelectValue placeholder="Técnico" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todo técnico</SelectItem>
-              {technicians.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        <Button
-          variant="ghost"
-          onClick={() => setShowMoreFilters((v) => !v)}
-          className={`h-11 px-4 gap-1.5 text-sm rounded-xl ${showMoreFilters || maintenanceType ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" : "bg-primary/5 text-primary hover:bg-primary/10"}`}
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-          Filtros
-        </Button>
-
-        {showMoreFilters && (
-          <Select value={maintenanceType || "all"} onValueChange={(v) => { setMaintenanceType(v === "all" ? "" : v); setPage(1); }}>
-            <SelectTrigger className="h-11 rounded-xl text-sm w-40">
-              <SelectValue placeholder="Tipo de manutenção" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todo tipo</SelectItem>
-              {Object.entries(MAINTENANCE_TYPE_LABELS).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {hasFilters && (
-          <Button variant="ghost" className="h-11 px-3 text-sm text-muted-foreground" onClick={clearFilters}>
-            <X className="w-3.5 h-3.5 mr-1" />Limpar
-          </Button>
-        )}
-      </div>
-
-      {/* ── List ── */}
-      <div className="space-y-3">
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => <SkeletonRow key={i} />)}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="bg-white dark:bg-zinc-950/50 rounded-2xl border border-dashed border-border py-16 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-3">
-              <CalendarClock className="w-6 h-6 text-muted-foreground/40" />
+      {/* ── Dynamic Top Header & Calendar Toolbar Card ── */}
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-border p-4 shadow-xs space-y-4">
+        {/* Top Row: Title + Period Badge + Search & Dropdown Filters + New Button */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+          {/* Header Title & Dynamic Count Badge */}
+          <div className="flex items-center gap-3.5 shrink-0">
+            <div
+              className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md"
+              style={{ background: "linear-gradient(135deg, #10b981, #3b82f6)" }}
+            >
+              <CalendarClock className="w-5.5 h-5.5 text-white" />
             </div>
-            <p className="text-sm font-semibold text-foreground">Nenhum agendamento encontrado</p>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
-              {hasFilters ? "Nenhum resultado com os filtros aplicados." : "Crie seu primeiro agendamento de preventiva."}
-            </p>
-            {hasFilters && (
-              <Button variant="outline" size="sm" className="mt-4 text-xs" onClick={clearFilters}>Limpar filtros</Button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((s) => (
-              <PreventivaRow
-                key={s.id}
-                schedule={s}
-                selected={selectedSchedule?.id === s.id}
-                onSelect={setSelectedSchedule}
-                isCompanyLevel={isCompanyLevel}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Pagination */}
-        {!isLoading && filtered.length > 0 && (
-          <div className="flex items-center justify-between flex-wrap gap-3 pt-1">
-            <span className="text-xs text-muted-foreground">
-              {needsBuffer
-                ? <><span className="font-medium text-foreground">{filtered.length}</span> resultado{filtered.length !== 1 ? "s" : ""}</>
-                : <>Mostrando <span className="font-medium text-foreground">{(page - 1) * LIMIT + 1}</span> a{" "}
-                   <span className="font-medium text-foreground">{Math.min(page * LIMIT, total)}</span> de{" "}
-                   <span className="font-medium text-foreground">{total}</span> preventiva{total !== 1 ? "s" : ""}</>
-              }
-            </span>
-            {!needsBuffer && totalPages > 1 && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {getPageNumbers(page, totalPages).map((n, i) =>
-                  n === "..." ? (
-                    <span key={`ellipsis-${i}`} className="w-8 h-8 flex items-center justify-center text-muted-foreground">…</span>
-                  ) : (
-                    <button
-                      key={n}
-                      onClick={() => setPage(n)}
-                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium ${
-                        page === n ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  )
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-extrabold tracking-tight text-foreground leading-none">
+                  Preventivas
+                </h1>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize border border-primary/20">
+                  {getHeaderDateLabel()}
+                </span>
+                {!isLoading && (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border/60">
+                    {total} {total === 1 ? "preventiva" : "preventivas"}
+                  </span>
                 )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Agenda e Cronograma de Manutenção Preventiva · PMOC
+              </p>
+            </div>
+          </div>
+
+          {/* Controls: Search + Group Select + Type Select + New Schedule Button */}
+          <div className="flex items-center gap-2 flex-wrap flex-1 xl:justify-end">
+            {/* Direct Inline Search Field */}
+            <div className="relative min-w-[200px] flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Equipamento ou patrimônio..."
+                className="pl-9 pr-7 h-9 rounded-xl text-xs bg-muted/30 focus:bg-background transition-colors"
+              />
+              {search && (
                 <button
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => {
+                    setSearch("");
+                    setPage(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-md"
+                  title="Limpar busca"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
+              )}
+            </div>
+
+            {/* Grupo de Manutenção Dropdown */}
+            <Select
+              value={groupId || "all"}
+              onValueChange={(v) => {
+                setGroupId(v === "all" ? "" : v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9 rounded-xl text-xs w-36 bg-muted/30 focus:bg-background">
+                <SelectValue placeholder="Todo Grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todo Grupo</SelectItem>
+                {groupsList.map((g: any) => (
+                  <SelectItem key={g.id} value={g.id}>
+                    {g.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Tipo de Equipamento Dropdown */}
+            <Select
+              value={typeId || "all"}
+              onValueChange={(v) => {
+                setTypeId(v === "all" ? "" : v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="h-9 rounded-xl text-xs w-36 bg-muted/30 focus:bg-background">
+                <SelectValue placeholder="Todo Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todo Tipo</SelectItem>
+                {typesList.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Clear filters button */}
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground rounded-xl"
+              >
+                <X className="w-3.5 h-3.5 mr-1" /> Limpar
+              </Button>
+            )}
+
+            {/* New Schedule Button */}
+            {canAccess("maintenance-schedule", "create") && (
+              <Button
+                onClick={() => setCreateOpen(true)}
+                className="h-9 px-3 gap-1.5 text-xs rounded-xl bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 border-0 shadow-xs font-semibold flex-shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                Nova Preventiva
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Calendar Date Controls + Page Navigation (if multi-page) + View Switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
+          {/* Navigation Controls (< Hoje > Ir para data) */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-xl border border-border/50">
+              <button
+                onClick={handlePrev}
+                className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-all"
+                title="Período anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleToday}
+                className="px-3 py-1 text-xs font-bold rounded-lg bg-background text-foreground shadow-xs border border-border/60 hover:bg-muted/80 transition-all"
+              >
+                Hoje
+              </button>
+              <button
+                onClick={handleNext}
+                className="p-1.5 rounded-lg hover:bg-background text-muted-foreground hover:text-foreground transition-all"
+                title="Próximo período"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              <div className="h-4 w-px bg-border/60 mx-0.5" />
+
+              {/* Specific Date Picker Trigger */}
+              <div className="flex items-center">
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={format(currentDate, "yyyy-MM-dd")}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const [y, m, d] = e.target.value.split("-").map(Number);
+                      setCurrentDate(new Date(y, m - 1, d));
+                      setPage(1);
+                    }
+                  }}
+                  className="sr-only"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const el = dateInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+                    if (el) {
+                      if (typeof el.showPicker === "function") {
+                        el.showPicker();
+                      } else {
+                        el.focus();
+                      }
+                    }
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-background text-foreground shadow-xs border border-border/60 hover:bg-muted/80 transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Selecionar data específica"
+                >
+                  <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                  <span>Ir para data</span>
+                </button>
+              </div>
+            </div>
+
+            {/* If period has multiple pages (>100 items), display inline dynamic page navigator */}
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 px-2.5 py-1 rounded-xl border border-amber-300 dark:border-amber-800 text-xs font-medium">
+                <span>Pág {page} de {totalPages}</span>
+                <div className="flex items-center ml-1">
+                  <button
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className="p-0.5 rounded hover:bg-amber-500/20 disabled:opacity-30"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    className="p-0.5 rounded hover:bg-amber-500/20 disabled:opacity-30"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
-        )}
 
-        {/* Legend */}
-        <div className="bg-white dark:bg-zinc-950/50 border border-border rounded-2xl p-5">
-          <div className="text-sm font-semibold text-foreground mb-4">Entenda os status</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {LEGEND.map((l) => (
-              <div key={l.label}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`w-2 h-2 rounded-full ${l.color}`} />
-                  <span className="text-sm font-medium text-foreground">{l.label}</span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-snug">{l.desc}</p>
-              </div>
-            ))}
+          {/* View Mode Switcher Tabs */}
+          <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/50 text-xs font-medium">
+            <button
+              onClick={() => handleViewModeChange("month")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === "month"
+                  ? "bg-white dark:bg-zinc-800 text-foreground font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CalendarIcon className="w-3.5 h-3.5" />
+              Mês
+            </button>
+            <button
+              onClick={() => handleViewModeChange("week")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === "week"
+                  ? "bg-white dark:bg-zinc-800 text-foreground font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              Semana
+            </button>
+            <button
+              onClick={() => handleViewModeChange("day")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === "day"
+                  ? "bg-white dark:bg-zinc-800 text-foreground font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              Dia
+            </button>
+            <button
+              onClick={() => handleViewModeChange("agenda")}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === "agenda"
+                  ? "bg-white dark:bg-zinc-800 text-foreground font-semibold shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ListFilter className="w-3.5 h-3.5" />
+              Agenda
+            </button>
           </div>
         </div>
       </div>
 
+      {/* ── Active Search Info Banner ── */}
+      {trimmedSearch && schedules.length > 0 && (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-3.5 flex items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shrink-0">
+              <CalendarCheck className="w-4.5 h-4.5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-foreground truncate">
+                Busca: "{trimmedSearch}" · {schedules.length} preventiva{schedules.length !== 1 ? "s" : ""} encontrada{schedules.length !== 1 ? "s" : ""}
+              </p>
+              {schedules[0].nextRunAt && (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium truncate">
+                  📅 O calendário navegou para a data do próximo agendamento:{" "}
+                  <strong>{format(parseISO(schedules[0].nextRunAt), "dd/MM/yyyy ('em' EEEE)", { locale: ptBR })}</strong>
+                </p>
+              )}
+            </div>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-emerald-500/20 rounded-lg shrink-0"
+          >
+            <X className="w-3.5 h-3.5 mr-1" />
+            Limpar busca
+          </Button>
+        </div>
+      )}
+
+      {/* ── Calendar View ── */}
+      <PreventivasCalendarView
+        schedules={schedules}
+        isLoading={isLoading}
+        selectedSchedule={selectedSchedule}
+        onSelectSchedule={setSelectedSchedule}
+        onCreateNew={() => setCreateOpen(true)}
+        currentDate={currentDate}
+        onDateChange={setCurrentDate}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        hideHeader
+      />
+
+      {/* ── Legend Footer ── */}
+      <div className="bg-white dark:bg-zinc-900 border border-border rounded-2xl p-4 shadow-xs">
+        <div className="text-xs font-bold text-foreground mb-3 uppercase tracking-wider flex items-center gap-1.5">
+          <Filter className="w-3.5 h-3.5 text-primary" />
+          Legenda de Status no Calendário
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {LEGEND.map((l) => (
+            <div key={l.label} className="flex items-start gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${l.color} shrink-0 mt-1`} />
+              <div>
+                <p className="text-xs font-bold text-foreground">{l.label}</p>
+                <p className="text-[11px] text-muted-foreground leading-snug">{l.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Schedule Detail Drawer Panel ── */}
       {selectedSchedule && (
         <ScheduleDetailPanel
           schedule={selectedSchedule}
           onClose={() => setSelectedSchedule(null)}
-          onEdit={(s) => { setSelectedSchedule(null); setEditSchedule(s); }}
+          onEdit={(s) => {
+            setSelectedSchedule(null);
+            setEditSchedule(s);
+          }}
         />
       )}
 

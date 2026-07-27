@@ -273,9 +273,25 @@ export class ListSchedulesDto {
     groupId?: string
 
     @IsOptional()
+    @IsUUID()
+    typeId?: string
+
+    @IsOptional()
     @IsBoolean()
     @Type(() => Boolean)
     isActive?: boolean
+
+    @IsOptional()
+    @IsDateString()
+    date?: string
+
+    @IsOptional()
+    @IsDateString()
+    nextRunFrom?: string
+
+    @IsOptional()
+    @IsDateString()
+    nextRunTo?: string
 
     @IsOptional()
     @Type(() => Number)
