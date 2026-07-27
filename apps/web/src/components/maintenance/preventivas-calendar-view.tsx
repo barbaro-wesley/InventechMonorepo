@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   format,
   startOfMonth,
@@ -323,8 +323,20 @@ function MonthView({
   const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
   const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
-  const days = eachDayOfInterval({ start: startDate, end: endDate });
+  const days = useMemo(() => eachDayOfInterval({ start: startDate, end: endDate }), [startDate.toISOString(), endDate.toISOString()]);
   const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+  // Index schedules by YYYY-MM-DD date key for O(1) instant lookup
+  const schedulesByDateMap = useMemo(() => {
+    const map: Record<string, MaintenanceSchedule[]> = {};
+    for (const s of schedules) {
+      if (!s.nextRunAt) continue;
+      const dateKey = format(parseISO(s.nextRunAt), "yyyy-MM-dd");
+      if (!map[dateKey]) map[dateKey] = [];
+      map[dateKey].push(s);
+    }
+    return map;
+  }, [schedules]);
 
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-border shadow-xs overflow-hidden">
@@ -340,13 +352,8 @@ function MonthView({
         {days.map((day) => {
           const isCurrentMonth = isSameMonth(day, monthStart);
           const isTodayDay = isToday(day);
-
-          // Find schedules for this day
-          const daySchedules = schedules.filter((s) => {
-            if (!s.nextRunAt) return false;
-            const sDate = parseISO(s.nextRunAt);
-            return isSameDay(sDate, day);
-          });
+          const dayKey = format(day, "yyyy-MM-dd");
+          const daySchedules = schedulesByDateMap[dayKey] ?? [];
 
           return (
             <div

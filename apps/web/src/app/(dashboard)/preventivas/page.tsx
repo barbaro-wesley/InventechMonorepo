@@ -65,6 +65,15 @@ const LEGEND = [
   { color: "bg-gray-400", label: "Inativo / Encerrado", desc: "Agendamento inativo ou vigência finalizada" },
 ];
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export default function PreventivasPage() {
   const currentUser = useCurrentUser();
   const { canAccess } = usePermissions();
@@ -74,6 +83,8 @@ export default function PreventivasPage() {
 
   // Filter States
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
+
   const [groupId, setGroupId] = useState("");
   const [typeId, setTypeId] = useState("");
 
@@ -101,8 +112,8 @@ export default function PreventivasPage() {
     ? typesData
     : (typesData as any)?.data ?? [];
 
-  // Search parameter formatting
-  const trimmedSearch = search.trim();
+  // Search parameter formatting using debouncedSearch
+  const trimmedSearch = debouncedSearch.trim();
   const isPatrimonyNumber = /^\d+$/.test(trimmedSearch);
   const searchParam = trimmedSearch && !isPatrimonyNumber ? trimmedSearch : undefined;
   const patrimonyParam = trimmedSearch && isPatrimonyNumber ? trimmedSearch : undefined;
