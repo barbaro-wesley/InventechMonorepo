@@ -89,7 +89,9 @@ export interface ListSchedulesParams {
   maintenanceType?: MaintenanceType
   recurrenceType?: RecurrenceType
   groupId?: string
+  typeId?: string
   isActive?: boolean
+  date?: string
   nextRunFrom?: string
   nextRunTo?: string
   page?: number

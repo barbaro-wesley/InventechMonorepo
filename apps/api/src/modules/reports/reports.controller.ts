@@ -35,6 +35,7 @@ class OsFiltersDto {
   @IsOptional() @IsDateString() dateTo?: string
   /** Group rows by: 'status' | 'priority' | 'maintenanceType' | 'client' | 'group' | 'technician' */
   @IsOptional() @IsString() groupBy?: string
+  @IsOptional() @IsString() subGroupBy?: string
 }
 
 class EquipmentFiltersDto {
@@ -43,9 +44,8 @@ class EquipmentFiltersDto {
   @IsOptional() @IsString() typeId?: string
   @IsOptional() @IsString() locationId?: string
   @IsOptional() @IsString() costCenterId?: string
-  /** 'status' | 'criticality' | 'type' | 'location' | 'costCenter' */
   @IsOptional() @IsString() groupBy?: string
-  /** 'name' | 'status' | 'criticality' | 'type' | 'costCenter' */
+  @IsOptional() @IsString() subGroupBy?: string
   @IsOptional() @IsString() orderBy?: string
   /** Comma-separated column keys, e.g. 'patrimony,name,brand,status' */
   @IsOptional() @IsString() columns?: string
@@ -61,9 +61,8 @@ class PreventiveFiltersDto {
   @IsOptional() @IsString() nextRunTo?: string
   @IsOptional() @IsString() startDateFrom?: string
   @IsOptional() @IsString() startDateTo?: string
-  /** 'costCenter' | 'type' | 'recurrence' | 'situation' | 'client' */
   @IsOptional() @IsString() groupBy?: string
-  /** 'nextRun' | 'nextRunDesc' | 'situation' | 'equipment' | 'costCenter' | 'title' */
+  @IsOptional() @IsString() subGroupBy?: string
   @IsOptional() @IsString() orderBy?: string
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

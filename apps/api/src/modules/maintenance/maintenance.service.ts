@@ -236,25 +236,67 @@ export class MaintenanceService {
         filters: ListSchedulesDto,
         clientId?: string,
     ) {
-        const { search, patrimonyNumber, equipmentId, maintenanceType, recurrenceType, groupId, isActive, page = 1, limit = 20 } = filters
+        const {
+            search,
+            patrimonyNumber,
+            equipmentId,
+            maintenanceType,
+            recurrenceType,
+            groupId,
+            typeId,
+            isActive,
+            date,
+            nextRunFrom,
+            nextRunTo,
+            page = 1,
+            limit = 20,
+        } = filters
 
         // Restrição por grupo: mesma lógica do equipment service
         // Usuário cliente só vê agendamentos dos grupos vinculados ao seu cliente
         const allowedGroupIds = await this.resolveAllowedGroupIds(clientId)
 
+        // Filtro por data/período em nextRunAt
+        let nextRunAtFilter: Prisma.DateTimeFilter | undefined
+
+        if (date) {
+            const dayStart = new Date(date)
+            dayStart.setUTCHours(0, 0, 0, 0)
+            const dayEnd = new Date(date)
+            dayEnd.setUTCHours(23, 59, 59, 999)
+            nextRunAtFilter = { gte: dayStart, lte: dayEnd }
+        } else if (nextRunFrom || nextRunTo) {
+            const gte = nextRunFrom ? new Date(nextRunFrom) : undefined
+            let lte: Date | undefined = undefined
+            if (nextRunTo) {
+                lte = new Date(nextRunTo)
+                if (nextRunTo.length === 10) {
+                    lte.setUTCHours(23, 59, 59, 999)
+                }
+            }
+            nextRunAtFilter = {
+                ...(gte && { gte }),
+                ...(lte && { lte }),
+            }
+        }
+
         const where: Prisma.MaintenanceScheduleWhereInput = {
             companyId,
             ...(clientId && { clientId }),
-            // Se allowedGroupIds for um array vazio, o cliente não tem grupos → retorna nada
-            // Se for null, usuário de empresa → sem restrição de grupo
             ...(allowedGroupIds !== null && { groupId: { in: allowedGroupIds } }),
             ...(groupId && { groupId }),
             ...(equipmentId && { equipmentId }),
             ...(maintenanceType && { maintenanceType }),
             ...(recurrenceType && { recurrenceType }),
             ...(isActive !== undefined && { isActive }),
-            // Filtro dedicado por patrimônio (busca server-side, não apenas na página atual)
-            ...(patrimonyNumber && {
+            ...(nextRunAtFilter && { nextRunAt: nextRunAtFilter }),
+            ...(typeId && {
+                equipment: {
+                    typeId,
+                    ...(patrimonyNumber && { patrimonyNumber: { contains: patrimonyNumber, mode: 'insensitive' } }),
+                },
+            }),
+            ...(!typeId && patrimonyNumber && {
                 equipment: {
                     patrimonyNumber: { contains: patrimonyNumber, mode: 'insensitive' },
                 },
