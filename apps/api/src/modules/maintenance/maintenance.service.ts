@@ -21,6 +21,7 @@ import {
 } from './dto/maintenance.dto'
 import { calculateNextRunAt } from './schedule/recurrence.util'
 import { maintenanceTypeBlocksEquipment } from '../../common/enums/maintenance-type.enum'
+import { SlaService } from '../sla/sla.service'
 
 export const MAINTENANCE_QUEUE = 'maintenance'
 
@@ -111,6 +112,7 @@ export class MaintenanceService {
     constructor(
         private prisma: PrismaService,
         @InjectQueue(MAINTENANCE_QUEUE) private maintenanceQueue: Queue,
+        private readonly slaService: SlaService,
     ) { }
 
     // ─────────────────────────────────────────
@@ -686,6 +688,15 @@ export class MaintenanceService {
                     const requesterId = schedule.createdById
                         ?? await this.getCompanyAdminId(schedule.companyId, tx)
 
+                    // SLA de execução das preventivas: prazo em dias após a
+                    // abertura automática (padrão 30 dias, configurável por empresa).
+                    const slaDates = await this.slaService.resolveSlaDates(
+                        schedule.companyId,
+                        schedule.maintenanceType,
+                        'MEDIUM',
+                        now,
+                    )
+
                     const os = await tx.serviceOrder.create({
                         data: {
                             companyId: schedule.companyId,
@@ -699,6 +710,9 @@ export class MaintenanceService {
                             isAvailable,
                             alertAfterHours: 4,
                             priority: 'MEDIUM',
+                            slaResponseDueDate: slaDates.slaResponseDueDate,
+                            slaResolutionDueDate: slaDates.slaResolutionDueDate,
+                            slaStatus: slaDates.slaStatus,
                             requesterId,
                             ...(schedule.groupId && { groupId: schedule.groupId }),
                         },

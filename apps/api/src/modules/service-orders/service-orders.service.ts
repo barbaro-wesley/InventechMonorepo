@@ -630,7 +630,7 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const priority = dto.priority ?? ServiceOrderPriority.MEDIUM
-        const slaDates = await this.slaService.calculateSlaDates(companyId, priority)
+        const slaDates = await this.slaService.resolveSlaDates(companyId, dto.maintenanceType, priority)
 
         const os = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
@@ -778,7 +778,7 @@ export class ServiceOrdersService {
         const initialStatus = ServiceOrderStatus.AWAITING_PICKUP
 
         const batchPriority = dto.priority ?? ServiceOrderPriority.MEDIUM
-        const slaDates = await this.slaService.calculateSlaDates(companyId, batchPriority)
+        const slaDates = await this.slaService.resolveSlaDates(companyId, dto.maintenanceType, batchPriority)
 
         const createdOrders = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
@@ -1116,7 +1116,8 @@ export class ServiceOrdersService {
 
         let slaUpdateData: Record<string, any> = {}
         if (dto.priority && dto.priority !== os.priority) {
-            const slaDates = await this.slaService.calculateSlaDates(companyId, dto.priority, os.createdAt)
+            const effectiveType = dto.maintenanceType ?? os.maintenanceType
+            const slaDates = await this.slaService.resolveSlaDates(companyId, effectiveType, dto.priority, os.createdAt)
             slaUpdateData = {
                 slaResponseDueDate: slaDates.slaResponseDueDate,
                 slaResolutionDueDate: slaDates.slaResolutionDueDate,
@@ -1262,6 +1263,18 @@ export class ServiceOrdersService {
                     reason: dto.reason,
                 },
             })
+
+            // Regra de status: a OS preventiva (e demais tipos que não param o
+            // equipamento na abertura) só coloca o equipamento "em manutenção"
+            // quando o atendimento de fato entra "em andamento" (IN_PROGRESS).
+            // Para corretivas o equipamento já está UNDER_MAINTENANCE desde a
+            // abertura, então o updateMany filtrado por ACTIVE é um no-op.
+            if (finalStatus === ServiceOrderStatus.IN_PROGRESS && os.equipmentId) {
+                await tx.equipment.updateMany({
+                    where: { id: os.equipmentId, status: EquipmentStatus.ACTIVE },
+                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                })
+            }
 
             if (finalStatus === ServiceOrderStatus.CANCELLED) {
                 const children = await tx.serviceOrder.findMany({
@@ -1500,7 +1513,7 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const childPriority = dto.priority ?? ServiceOrderPriority.MEDIUM
-        const slaDates = await this.slaService.calculateSlaDates(companyId, childPriority)
+        const slaDates = await this.slaService.resolveSlaDates(companyId, dto.maintenanceType, childPriority)
 
         const os = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
