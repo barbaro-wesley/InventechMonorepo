@@ -20,6 +20,7 @@ import {
     ListSchedulesDto,
 } from './dto/maintenance.dto'
 import { calculateNextRunAt } from './schedule/recurrence.util'
+import { maintenanceTypeBlocksEquipment } from '../../common/enums/maintenance-type.enum'
 
 export const MAINTENANCE_QUEUE = 'maintenance'
 
@@ -724,11 +725,15 @@ export class MaintenanceService {
                         },
                     })
 
-                    // Marca equipamento como em manutenção (somente se estiver ACTIVE)
-                    await tx.equipment.updateMany({
-                        where: { id: schedule.equipmentId, status: EquipmentStatus.ACTIVE },
-                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-                    })
+                    // Marca equipamento como "em manutenção" apenas se o tipo de fato
+                    // para o equipamento (ex.: corretiva) e ele estiver ACTIVE.
+                    // Preventivas/aceitação inicial não alteram o status do equipamento.
+                    if (maintenanceTypeBlocksEquipment(schedule.maintenanceType)) {
+                        await tx.equipment.updateMany({
+                            where: { id: schedule.equipmentId, status: EquipmentStatus.ACTIVE },
+                            data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                        })
+                    }
 
                     // Cria registro de manutenção vinculado à OS
                     const maintenance = await tx.maintenance.create({
