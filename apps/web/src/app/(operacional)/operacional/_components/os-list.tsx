@@ -100,6 +100,7 @@ export function OsList({ orders, onRowClick }: OsListProps) {
                     <SlaBadge
                       slaResolutionDueDate={os.slaResolutionDueDate}
                       slaStatus={os.slaStatus}
+                      slaResponseBreachedAt={os.slaResponseBreachedAt}
                       status={os.status}
                     />
                   </div>

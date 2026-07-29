@@ -2,11 +2,14 @@
 
 import { Clock, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { formatDurationMs } from '@/lib/sla'
 import type { SlaStatus, ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
 
 interface SlaBadgeProps {
   slaResolutionDueDate?: string | null
   slaStatus?: SlaStatus | null
+  /** Preenchido = TPA estourado. Métrica independente do prazo de conclusão. */
+  slaResponseBreachedAt?: string | null
   status?: ServiceOrderStatus
   className?: string
 }
@@ -14,12 +17,23 @@ interface SlaBadgeProps {
 export function SlaBadge({
   slaResolutionDueDate,
   slaStatus,
+  slaResponseBreachedAt,
   status,
   className,
 }: SlaBadgeProps) {
   // Se a OS já foi encerrada ou cancelada
   if (status === 'COMPLETED' || status === 'COMPLETED_APPROVED') {
     if (slaStatus === 'COMPLETED_ON_TIME') {
+      // A conclusão foi no prazo, mas o TPA pode ter estourado — os dois prazos
+      // são cobrados separadamente, então o badge não pode dizer só "cumprido".
+      if (slaResponseBreachedAt) {
+        return (
+          <Badge variant="outline" className={`bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800 gap-1.5 ${className || ''}`} title="Conclusão no prazo, primeiro atendimento fora do prazo">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            SLA Cumprido · TPA Estourado
+          </Badge>
+        )
+      }
       return (
         <Badge variant="outline" className={`bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800 gap-1.5 ${className || ''}`}>
           <CheckCircle2 className="w-3.5 h-3.5" />
@@ -51,11 +65,10 @@ export function SlaBadge({
   const diffHours = Math.round(diffMs / (1000 * 60 * 60))
 
   if (diffMs < 0) {
-    const hoursOver = Math.abs(diffHours)
     return (
       <Badge variant="destructive" className={`gap-1.5 font-medium animate-pulse ${className || ''}`}>
         <XCircle className="w-3.5 h-3.5" />
-        SLA Atrasado ({hoursOver === 0 ? '<1h' : `${hoursOver}h`})
+        SLA Atrasado ({formatDurationMs(diffMs)})
       </Badge>
     )
   }
@@ -64,7 +77,7 @@ export function SlaBadge({
     return (
       <Badge variant="outline" className={`bg-amber-500 text-white border-amber-600 gap-1.5 ${className || ''}`}>
         <Clock className="w-3.5 h-3.5" />
-        SLA Vence em {diffHours === 0 ? '<1h' : `${diffHours}h`}
+        SLA Vence em {formatDurationMs(diffMs)}
       </Badge>
     )
   }
@@ -72,7 +85,7 @@ export function SlaBadge({
   return (
     <Badge variant="outline" className={`bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 gap-1.5 ${className || ''}`}>
       <Clock className="w-3.5 h-3.5 text-slate-500" />
-      SLA em {diffHours}h
+      SLA em {formatDurationMs(diffMs)}
     </Badge>
   )
 }

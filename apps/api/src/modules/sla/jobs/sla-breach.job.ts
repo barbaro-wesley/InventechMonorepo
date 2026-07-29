@@ -14,8 +14,13 @@ export class SlaBreachJob {
   async refreshSlaStatuses() {
     this.logger.log('Cron: reclassificando status de SLA das OS em aberto...')
     try {
+      // A ordem importa: registrar o estouro de TPA primeiro, porque a
+      // reclassificação lê sla_response_breached_at para manter a OS BREACHED.
+      const breached = await this.slaService.stampResponseBreaches()
       const updated = await this.slaService.refreshSlaStatuses()
-      this.logger.log(`Cron SLA concluído — ${updated} OS reclassificada(s).`)
+      this.logger.log(
+        `Cron SLA concluído — ${breached} estouro(s) de TPA registrado(s), ${updated} OS reclassificada(s).`,
+      )
     } catch (err) {
       this.logger.error('Falha ao reclassificar status de SLA', err instanceof Error ? err.stack : String(err))
     }

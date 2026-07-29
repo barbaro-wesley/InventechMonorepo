@@ -127,6 +127,14 @@ export class AnalyticsOsService {
                  THEN EXTRACT(EPOCH FROM (so.completed_at - so.created_at)) / 3600.0
             END
           )::numeric, 1)::float8                                                                  AS avg_total_hours,
+          -- Cumprimento de TPA e de conclusão são métricas independentes: uma OS
+          -- pode concluir no prazo e ainda ter estourado o primeiro atendimento.
+          -- Denominador = só OS com prazo de TPA definido (o TPA é opt-in por
+          -- tipo/prioridade), senão as demais diluiriam o percentual.
+          COUNT(*) FILTER (WHERE so.sla_response_due_date IS NOT NULL)::int                       AS tpa_applicable,
+          COUNT(*) FILTER (WHERE so.sla_response_breached_at IS NOT NULL)::int                    AS tpa_breached,
+          COUNT(*) FILTER (WHERE so.sla_status IN ('COMPLETED_ON_TIME', 'COMPLETED_LATE'))::int   AS resolution_judged,
+          COUNT(*) FILTER (WHERE so.sla_status = 'COMPLETED_ON_TIME')::int                        AS resolution_on_time,
           COALESCE(SUM(so.total_cost), 0)::float8                                                 AS total_cost
         FROM service_orders so
         WHERE so.company_id  = ${companyId}
@@ -176,6 +184,17 @@ export class AnalyticsOsService {
           avgResponseHours:   main.avg_response_hours,
           avgResolutionHours: main.avg_resolution_hours,
           avgTotalHours:      main.avg_total_hours,
+          // Percentuais nulos quando não há base — evita exibir "100%" a partir
+          // de zero OS avaliáveis.
+          tpaApplicable:      main.tpa_applicable,
+          tpaBreached:        main.tpa_breached,
+          tpaComplianceRate:  main.tpa_applicable > 0
+            ? Math.round(((main.tpa_applicable - main.tpa_breached) / main.tpa_applicable) * 100)
+            : null,
+          resolutionJudged:   main.resolution_judged,
+          resolutionComplianceRate: main.resolution_judged > 0
+            ? Math.round((main.resolution_on_time / main.resolution_judged) * 100)
+            : null,
         },
         rates: {
           approvalRate,

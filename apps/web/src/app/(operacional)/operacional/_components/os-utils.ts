@@ -1,3 +1,4 @@
+import { formatDurationHours, formatDurationDetailed } from '@/lib/sla'
 import type {
   ServiceOrderStatus,
   ServiceOrderPriority,
@@ -128,6 +129,60 @@ export function formatDuration(startStr: string, endStr?: string | null): string
   return `${diffHours}h ${diffMin}min`
 }
 
+// ─── TPA (primeiro atendimento) ───────────────────────────────────────────────
+// Métrica independente do prazo de conclusão: uma OS pode concluir no prazo e
+// ainda assim ter estourado o TPA. O estouro vem de slaResponseBreachedAt, campo
+// gravado no backend e nunca limpo — não dá para inferir de slaStatus, que é
+// recalculado e volta a ON_TIME quando a OS inicia.
+
+export interface TpaInfo {
+  /** Texto pronto para exibição, já com a duração formatada. */
+  label: string
+  breached: boolean
+  /** Ainda em aberto, sem estouro: o relógio está correndo. */
+  pending: boolean
+}
+
+export function getTpaInfo(os: {
+  createdAt: string
+  startedAt?: string | null
+  slaResponseDueDate?: string | null
+  slaResponseBreachedAt?: string | null
+}): TpaInfo | null {
+  // Sem prazo de TPA configurado para o tipo/prioridade da OS.
+  if (!os.slaResponseDueDate) return null
+
+  const created = new Date(os.createdAt).getTime()
+  const due = new Date(os.slaResponseDueDate).getTime()
+
+  if (os.slaResponseBreachedAt) {
+    if (os.startedAt) {
+      const atraso = new Date(os.startedAt).getTime() - due
+      return {
+        label: `estourado (atendido ${formatDurationDetailed(atraso)} após o prazo)`,
+        breached: true,
+        pending: false,
+      }
+    }
+    return {
+      label: `estourado há ${formatDurationDetailed(Date.now() - due)}, sem atendimento`,
+      breached: true,
+      pending: false,
+    }
+  }
+
+  if (os.startedAt) {
+    const levou = new Date(os.startedAt).getTime() - created
+    return { label: `cumprido em ${formatDurationDetailed(levou)}`, breached: false, pending: false }
+  }
+
+  return {
+    label: `vence em ${formatDurationDetailed(due - Date.now())}`,
+    breached: false,
+    pending: true,
+  }
+}
+
 // ─── SLA derivado ─────────────────────────────────────────────────────────────
 // Não há campo formal de prazo na OS; deriva de scheduledFor ou (criada + alertAfterHours).
 
@@ -137,7 +192,7 @@ export interface SlaInfo {
   prazoFinal: string
   pct: number
   late: boolean
-  totalHoursStr: string
+  totalDurationStr: string
   timeLeftStr: string
   mainDisplayTime: string
 }
@@ -165,23 +220,9 @@ export function getSlaInfo(os: {
   const late = msLeft < 0
   const pct = totalMs > 0 ? Math.min(100, Math.max(0, Math.round((elapsedMs / totalMs) * 100))) : 100
 
-  const totalHours = Math.max(1, Math.round(totalMs / 3_600_000))
-  const totalHoursStr = `${totalHours}h`
-
-  const absMs = Math.abs(msLeft)
-  const hLeft = Math.floor(absMs / 3_600_000)
-  const mLeft = Math.floor((absMs % 3_600_000) / 60_000)
-
-  let timeLeftStr = ''
-  let mainDisplayTime = ''
-
-  if (late) {
-    timeLeftStr = hLeft > 0 ? `${hLeft}h ${mLeft}min em atraso` : `${mLeft}min em atraso`
-    mainDisplayTime = hLeft > 0 ? `${hLeft}h ${mLeft}m` : `${mLeft}m`
-  } else {
-    timeLeftStr = hLeft > 0 ? `${hLeft}h ${mLeft}min restantes` : `${mLeft}min restantes`
-    mainDisplayTime = hLeft > 0 ? `${hLeft}h ${mLeft}m` : `${mLeft}m`
-  }
+  const totalDurationStr = formatDurationHours(Math.max(1, totalMs / 3_600_000))
+  const mainDisplayTime = formatDurationDetailed(msLeft)
+  const timeLeftStr = `${mainDisplayTime} ${late ? 'em atraso' : 'restantes'}`
 
   return {
     label: late ? 'Atrasada' : 'Dentro do prazo',
@@ -189,7 +230,7 @@ export function getSlaInfo(os: {
     prazoFinal: deadline.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
     pct,
     late,
-    totalHoursStr,
+    totalDurationStr,
     timeLeftStr,
     mainDisplayTime,
   }

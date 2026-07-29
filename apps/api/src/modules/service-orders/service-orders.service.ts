@@ -116,6 +116,7 @@ const OS_SELECT = {
     priority: true,
     slaResponseDueDate: true,
     slaResolutionDueDate: true,
+    slaResponseBreachedAt: true,
     slaStatus: true,
     resolution: true,
     internalNotes: true,
@@ -888,6 +889,7 @@ export class ServiceOrdersService {
                 id: true, number: true, status: true,
                 isAvailable: true, groupId: true,
                 title: true, requesterId: true,
+                slaResponseDueDate: true, slaResponseBreachedAt: true,
             },
         })
 
@@ -940,12 +942,21 @@ export class ServiceOrdersService {
                 },
             })
 
+            const startedAt = new Date()
+            // Mesmo registro de estouro de TPA do fluxo de mudança de status:
+            // assumir a OS do painel também é o primeiro atendimento.
+            const breachedNow =
+                os.slaResponseBreachedAt == null &&
+                os.slaResponseDueDate &&
+                startedAt > os.slaResponseDueDate
+
             const result = await tx.serviceOrder.update({
                 where: { id },
                 data: {
                     isAvailable: false,
                     status: ServiceOrderStatus.IN_PROGRESS,
-                    startedAt: new Date(),
+                    startedAt,
+                    ...(breachedNow && { slaResponseBreachedAt: startedAt }),
                 },
                 select: OS_SELECT,
             })
@@ -1200,7 +1211,19 @@ export class ServiceOrdersService {
         }
 
         const statusData: Record<string, any> = {}
-        if (dto.status === ServiceOrderStatus.IN_PROGRESS) statusData.startedAt = new Date()
+        if (dto.status === ServiceOrderStatus.IN_PROGRESS) {
+            const startedAt = new Date()
+            statusData.startedAt = startedAt
+            // Registra o estouro de TPA no próprio início: o job roda a cada 30
+            // min e uma OS iniciada com atraso dentro dessa janela escaparia.
+            if (
+                os.slaResponseBreachedAt == null &&
+                os.slaResponseDueDate &&
+                startedAt > os.slaResponseDueDate
+            ) {
+                statusData.slaResponseBreachedAt = startedAt
+            }
+        }
         if (dto.status === ServiceOrderStatus.COMPLETED) {
             statusData.completedAt = new Date()
             if (dto.resolution) statusData.resolution = dto.resolution
@@ -1647,6 +1670,7 @@ export class ServiceOrdersService {
             select: {
                 id: true, number: true, status: true, equipmentId: true, maintenanceType: true,
                 priority: true, createdAt: true, slaResolutionDueDate: true,
+                slaResponseDueDate: true, slaResponseBreachedAt: true,
             },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')
