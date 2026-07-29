@@ -2,6 +2,7 @@
 
 import { Clock, Wrench, User, MessageSquare, CheckSquare, Paperclip, GitBranch, ClipboardList, MapPin, Building2 } from 'lucide-react'
 import type { ServiceOrder } from '@/services/service-orders/service-orders.types'
+import { SlaBadge } from '@/components/service-orders/sla-badge'
 import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo } from './os-utils'
 
 interface OsCardProps {
@@ -58,6 +59,11 @@ export function OsCard({ os, onClick }: OsCardProps) {
             >
               {priority.label}
             </span>
+            <SlaBadge
+              slaResolutionDueDate={os.slaResolutionDueDate}
+              slaStatus={os.slaStatus}
+              status={os.status}
+            />
             {os.parentServiceOrderId && (
               <span className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-violet-50 text-violet-600 border border-violet-200">
                 <GitBranch className="h-2.5 w-2.5" />

@@ -128,6 +128,73 @@ export function formatDuration(startStr: string, endStr?: string | null): string
   return `${diffHours}h ${diffMin}min`
 }
 
+// ─── SLA derivado ─────────────────────────────────────────────────────────────
+// Não há campo formal de prazo na OS; deriva de scheduledFor ou (criada + alertAfterHours).
+
+export interface SlaInfo {
+  label: string
+  sub: string
+  prazoFinal: string
+  pct: number
+  late: boolean
+  totalHoursStr: string
+  timeLeftStr: string
+  mainDisplayTime: string
+}
+
+export function getSlaInfo(os: {
+  scheduledFor?: string | null
+  alertAfterHours?: number | null
+  createdAt: string
+  completedAt?: string | null
+  slaResolutionDueDate?: string | null
+}): SlaInfo | null {
+  let deadline: Date | null = null
+  if (os.slaResolutionDueDate) deadline = new Date(os.slaResolutionDueDate)
+  else if (os.scheduledFor) deadline = new Date(os.scheduledFor)
+  else if (os.alertAfterHours) deadline = new Date(new Date(os.createdAt).getTime() + os.alertAfterHours * 3_600_000)
+  if (!deadline) return null
+
+  const start = new Date(os.createdAt).getTime()
+  const now = os.completedAt ? new Date(os.completedAt).getTime() : Date.now()
+
+  const totalMs = deadline.getTime() - start
+  const elapsedMs = now - start
+  const msLeft = deadline.getTime() - now
+
+  const late = msLeft < 0
+  const pct = totalMs > 0 ? Math.min(100, Math.max(0, Math.round((elapsedMs / totalMs) * 100))) : 100
+
+  const totalHours = Math.max(1, Math.round(totalMs / 3_600_000))
+  const totalHoursStr = `${totalHours}h`
+
+  const absMs = Math.abs(msLeft)
+  const hLeft = Math.floor(absMs / 3_600_000)
+  const mLeft = Math.floor((absMs % 3_600_000) / 60_000)
+
+  let timeLeftStr = ''
+  let mainDisplayTime = ''
+
+  if (late) {
+    timeLeftStr = hLeft > 0 ? `${hLeft}h ${mLeft}min em atraso` : `${mLeft}min em atraso`
+    mainDisplayTime = hLeft > 0 ? `${hLeft}h ${mLeft}m` : `${mLeft}m`
+  } else {
+    timeLeftStr = hLeft > 0 ? `${hLeft}h ${mLeft}min restantes` : `${mLeft}min restantes`
+    mainDisplayTime = hLeft > 0 ? `${hLeft}h ${mLeft}m` : `${mLeft}m`
+  }
+
+  return {
+    label: late ? 'Atrasada' : 'Dentro do prazo',
+    sub: timeLeftStr,
+    prazoFinal: deadline.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }),
+    pct,
+    late,
+    totalHoursStr,
+    timeLeftStr,
+    mainDisplayTime,
+  }
+}
+
 // ─── Valid status transitions (mirrors backend rules) ────────────────────────
 
 export const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {

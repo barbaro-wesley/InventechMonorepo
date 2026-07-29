@@ -2,6 +2,7 @@
 
 import { Clock, Wrench } from 'lucide-react'
 import type { ServiceOrder } from '@/services/service-orders/service-orders.types'
+import { SlaBadge } from '@/components/service-orders/sla-badge'
 import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo } from './os-utils'
 
 interface OsListProps {
@@ -90,11 +91,18 @@ export function OsList({ orders, onRowClick }: OsListProps) {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border ${priority.badge}`}
-                  >
-                    {priority.label}
-                  </span>
+                  <div className="flex flex-col gap-1 items-start">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border ${priority.badge}`}
+                    >
+                      {priority.label}
+                    </span>
+                    <SlaBadge
+                      slaResolutionDueDate={os.slaResolutionDueDate}
+                      slaStatus={os.slaStatus}
+                      status={os.status}
+                    />
+                  </div>
                 </td>
                 <td className="px-4 py-3 hidden lg:table-cell">
                   {lead?.technician ? (

@@ -8,6 +8,14 @@ export type ServiceOrderStatus =
   | 'CANCELLED'
 
 export type ServiceOrderPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
+export type SlaStatus = 'ON_TIME' | 'NEAR_BREACH' | 'BREACHED' | 'COMPLETED_ON_TIME' | 'COMPLETED_LATE'
+
+export interface CompanySlaConfig {
+  priority: ServiceOrderPriority
+  maxResponseHours: number
+  maxResolutionHours: number
+  isCustomized?: boolean
+}
 export type MaintenanceType =
   | 'PREVENTIVE'
   | 'CORRECTIVE'
@@ -76,6 +84,9 @@ export interface ServiceOrder {
   maintenanceType: MaintenanceType
   status: ServiceOrderStatus
   priority: ServiceOrderPriority
+  slaResponseDueDate?: string | null
+  slaResolutionDueDate?: string | null
+  slaStatus?: SlaStatus | null
   resolution: string | null
   internalNotes: string | null
   estimatedHours: number | null

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useCurrentUser } from '@/store/auth.store'
 import { useServiceOrders } from '@/hooks/service-orders/use-service-orders'
 import { useClients } from '@/hooks/clients/use-clients'
@@ -10,9 +11,8 @@ import { QuickStatsBar } from './_components/quick-stats-bar'
 import { CommandBar, type ViewMode } from './_components/command-bar'
 import { OsBoard } from './_components/os-board'
 import { OsList } from './_components/os-list'
-import { OsDetailDrawer } from './_components/os-detail-drawer'
 import { OsBatchCreateSheet } from '@/components/service-orders/os-batch-create-sheet'
-import type { ServiceOrder, ServiceOrderStatus, ServiceOrderPriority } from '@/services/service-orders/service-orders.types'
+import type { ServiceOrder, ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
 
 const ACTIVE_STATUSES: ServiceOrderStatus[] = ['AWAITING_PICKUP', 'OPEN', 'IN_PROGRESS', 'COMPLETED']
 
@@ -32,11 +32,11 @@ export default function OperacionalPage() {
   const user = useCurrentUser()
 
   const { filters, set, hydrated } = usePersistedFilters(user?.id)
+  const router = useRouter()
 
   const [page, setPage] = useState(1)
   const [boardPage, setBoardPage] = useState(1)
   const [allBoardOrders, setAllBoardOrders] = useState<ServiceOrder[]>([])
-  const [selectedOs, setSelectedOs] = useState<{ id: string; clientId: string } | null>(null)
   const [batchSheetOpen, setBatchSheetOpen] = useState(false)
 
   const debouncedSearch = useDebounce(filters.search, 350)
@@ -100,7 +100,7 @@ export default function OperacionalPage() {
   }, [allBoardOrders, filters.myOrders, user])
 
   const handleCardClick = (os: ServiceOrder) =>
-    setSelectedOs({ id: os.id, clientId: os.client?.id ?? os.clientId ?? '' })
+    router.push(`/operacional/os/${os.id}`)
 
   const handleViewChange = (v: ViewMode) => {
     set('view', v)
@@ -240,13 +240,6 @@ export default function OperacionalPage() {
             </div>
           )
       )}
-
-      <OsDetailDrawer
-        osId={selectedOs?.id ?? null}
-        clientId={selectedOs?.clientId ?? null}
-        open={!!selectedOs}
-        onClose={() => setSelectedOs(null)}
-      />
 
       <OsBatchCreateSheet
         open={batchSheetOpen}

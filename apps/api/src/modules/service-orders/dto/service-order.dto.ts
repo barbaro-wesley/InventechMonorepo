@@ -9,6 +9,7 @@ import {
     ServiceOrderPriority,
     ServiceOrderStatus,
     ServiceOrderTechnicianRole,
+    SlaStatus,
 } from '@prisma/client'
 
 export class CreateServiceOrderDto {
@@ -189,6 +190,10 @@ export class ListServiceOrdersDto {
     @IsOptional()
     @IsEnum(ServiceOrderPriority)
     priority?: ServiceOrderPriority
+
+    @IsOptional()
+    @IsEnum(SlaStatus)
+    slaStatus?: SlaStatus
 
     @IsOptional()
     @IsUUID()
