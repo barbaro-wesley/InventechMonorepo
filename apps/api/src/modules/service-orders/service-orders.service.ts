@@ -33,6 +33,13 @@ import {
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
 import { SlaService } from '../sla/sla.service'
+import { maintenanceTypeBlocksEquipment } from '../../common/enums/maintenance-type.enum'
+
+// Tipos de manutenção que colocam o equipamento em "em manutenção" ao abrir a OS.
+// Preventivas e aceitações iniciais não param o equipamento, portanto não contam.
+const BLOCKING_MAINTENANCE_TYPES: MaintenanceType[] = (
+    Object.values(MaintenanceType) as MaintenanceType[]
+).filter((t) => maintenanceTypeBlocksEquipment(t))
 
 const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
     [ServiceOrderStatus.OPEN]: [
@@ -683,10 +690,14 @@ export class ServiceOrdersService {
                     where: { id: dto.equipmentId },
                     data: { totalServiceOrders: { increment: 1 } },
                 })
-                await tx.equipment.updateMany({
-                    where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
-                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-                })
+                // Só marca "em manutenção" quando a OS de fato para o equipamento
+                // (ex.: corretiva). Preventivas e aceitações iniciais não alteram o status.
+                if (maintenanceTypeBlocksEquipment(dto.maintenanceType)) {
+                    await tx.equipment.updateMany({
+                        where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
+                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                    })
+                }
             }
 
             return created
@@ -819,10 +830,14 @@ export class ServiceOrdersService {
                     where: { id: equip.id },
                     data: { totalServiceOrders: { increment: 1 } },
                 })
-                await tx.equipment.updateMany({
-                    where: { id: equip.id, status: EquipmentStatus.ACTIVE },
-                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-                })
+                // Só marca "em manutenção" quando a OS de fato para o equipamento
+                // (ex.: corretiva). Preventivas e aceitações iniciais não alteram o status.
+                if (maintenanceTypeBlocksEquipment(dto.maintenanceType)) {
+                    await tx.equipment.updateMany({
+                        where: { id: equip.id, status: EquipmentStatus.ACTIVE },
+                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                    })
+                }
 
                 orders.push({ id: created.id, number: created.number, equipmentId: equip.id, equipmentName: equip.name })
             }
@@ -1290,22 +1305,31 @@ export class ServiceOrdersService {
                         data: { status: EquipmentStatus.INACTIVE, lastMaintenanceAt: new Date() },
                     })
                 } else {
+                    // Registra a data da última manutenção ao aprovar a OS,
+                    // independentemente do status atual do equipamento — preventivas
+                    // e aceitações iniciais não deixam o equipamento "em manutenção".
+                    if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED) {
+                        await tx.equipment.updateMany({
+                            where: { id: os.equipmentId },
+                            data: { lastMaintenanceAt: new Date() },
+                        })
+                    }
+
+                    // Só reverte para ATIVO quando não há mais OS que de fato param o
+                    // equipamento (ex.: corretiva). OS preventivas/aceitação inicial
+                    // não mantêm o equipamento "em manutenção".
                     const activeOsCount = await tx.serviceOrder.count({
                         where: {
                             equipmentId: os.equipmentId,
                             deletedAt: null,
                             status: { notIn: TERMINAL },
+                            maintenanceType: { in: BLOCKING_MAINTENANCE_TYPES },
                         },
                     })
-                    const equipmentUpdate: Record<string, unknown> = {}
-                    if (activeOsCount === 0) equipmentUpdate.status = EquipmentStatus.ACTIVE
-                    if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED) {
-                        equipmentUpdate.lastMaintenanceAt = new Date()
-                    }
-                    if (Object.keys(equipmentUpdate).length > 0) {
+                    if (activeOsCount === 0) {
                         await tx.equipment.updateMany({
                             where: { id: os.equipmentId, status: EquipmentStatus.UNDER_MAINTENANCE },
-                            data: equipmentUpdate,
+                            data: { status: EquipmentStatus.ACTIVE },
                         })
                     }
                 }
@@ -1538,10 +1562,14 @@ export class ServiceOrdersService {
                     where: { id: parent.equipmentId },
                     data: { totalServiceOrders: { increment: 1 } },
                 })
-                await tx.equipment.updateMany({
-                    where: { id: parent.equipmentId, status: EquipmentStatus.ACTIVE },
-                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-                })
+                // Só marca "em manutenção" quando a OS de fato para o equipamento
+                // (ex.: corretiva). Preventivas e aceitações iniciais não alteram o status.
+                if (maintenanceTypeBlocksEquipment(dto.maintenanceType)) {
+                    await tx.equipment.updateMany({
+                        where: { id: parent.equipmentId, status: EquipmentStatus.ACTIVE },
+                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                    })
+                }
             }
 
             return created
@@ -1573,11 +1601,14 @@ export class ServiceOrdersService {
             })
 
             if (os.equipmentId) {
+                // Conta apenas OS que de fato param o equipamento (ex.: corretiva).
+                // OS preventivas/aceitação inicial não mantêm o equipamento "em manutenção".
                 const activeOsCount = await tx.serviceOrder.count({
                     where: {
                         equipmentId: os.equipmentId,
                         deletedAt: null,
                         status: { notIn: TERMINAL_STATUSES },
+                        maintenanceType: { in: BLOCKING_MAINTENANCE_TYPES },
                     },
                 })
                 if (activeOsCount === 0) {
