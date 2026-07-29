@@ -28,6 +28,7 @@ model Company {
   status                 CompanyStatus           @default(ACTIVE)
   trialEndsAt            DateTime?               @map("trial_ends_at")
   settings               Json?
+  preventiveSlaDays      Int                     @default(30) @map("preventive_sla_days")
   createdAt              DateTime                @default(now()) @map("created_at")
   updatedAt              DateTime                @updatedAt @map("updated_at")
   deletedAt              DateTime?               @map("deleted_at")

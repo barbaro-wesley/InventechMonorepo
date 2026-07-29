@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Clock, Loader2, Save, AlertCircle } from 'lucide-react'
+import { Clock, Loader2, Save, CalendarClock } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { slaService } from '@/services/sla/sla.service'
@@ -27,10 +27,13 @@ const DEFAULT_FALLBACK_CONFIGS: CompanySlaConfig[] = [
   { priority: 'LOW',    maxResponseHours: 8, maxResolutionHours: 72 },
 ]
 
+const DEFAULT_PREVENTIVE_DAYS = 30
+
 export function SlaTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [configs, setConfigs] = useState<CompanySlaConfig[]>([])
+  const [preventiveDays, setPreventiveDays] = useState<number>(DEFAULT_PREVENTIVE_DAYS)
 
   useEffect(() => {
     loadConfigs()
@@ -39,12 +42,16 @@ export function SlaTab() {
   async function loadConfigs() {
     try {
       setLoading(true)
-      const data = await slaService.getSlaConfigs()
+      const [data, preventive] = await Promise.all([
+        slaService.getSlaConfigs(),
+        slaService.getPreventiveSla().catch(() => ({ executionDays: DEFAULT_PREVENTIVE_DAYS })),
+      ])
       if (Array.isArray(data) && data.length > 0) {
         setConfigs(data)
       } else {
         setConfigs(DEFAULT_FALLBACK_CONFIGS)
       }
+      setPreventiveDays(preventive?.executionDays ?? DEFAULT_PREVENTIVE_DAYS)
     } catch (err) {
       toast.error('Erro ao carregar configurações de SLA')
       setConfigs(DEFAULT_FALLBACK_CONFIGS)
@@ -64,7 +71,10 @@ export function SlaTab() {
     e.preventDefault()
     try {
       setSaving(true)
-      const updated = await slaService.updateSlaConfigs(configs)
+      const [updated] = await Promise.all([
+        slaService.updateSlaConfigs(configs),
+        slaService.updatePreventiveSla(Math.max(1, Math.round(preventiveDays) || DEFAULT_PREVENTIVE_DAYS)),
+      ])
       setConfigs(updated)
       toast.success('Configurações de SLA salvas com sucesso!')
     } catch (err) {
@@ -92,9 +102,9 @@ export function SlaTab() {
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-base">Tempo de SLA por Prioridade</h3>
+            <h3 className="font-semibold text-base">SLA de Corretivas por Prioridade</h3>
             <p className="text-sm text-muted-foreground">
-              Configure o tempo máximo (em horas) para a primeira resposta/atendimento e para a resolução completa das Ordens de Serviço.
+              Configure o tempo máximo (em horas) para o primeiro atendimento (TPA) e para a resolução completa das Ordens de Serviço corretivas, conforme a prioridade do chamado.
             </p>
           </div>
         </div>
@@ -117,7 +127,7 @@ export function SlaTab() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Prazo de Resposta (Horas)</Label>
+                  <Label className="text-xs text-muted-foreground">Primeiro Atendimento — TPA (Horas)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -141,13 +151,46 @@ export function SlaTab() {
             )
           })}
         </div>
+      </div>
 
-        <div className="flex justify-end pt-4">
-          <Button type="submit" disabled={saving} className="gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Salvar Configurações de SLA
-          </Button>
+      <div className="rounded-lg border bg-card p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10 text-primary">
+            <CalendarClock className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-base">SLA de Execução das Preventivas</h3>
+            <p className="text-sm text-muted-foreground">
+              Prazo máximo (em dias) para a conclusão de uma OS preventiva após a abertura automática. Após esse período a OS é classificada como atrasada.
+            </p>
+          </div>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg border bg-slate-50/50 dark:bg-slate-900/50 items-center">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-semibold bg-emerald-100 text-emerald-700 border-emerald-200">
+              Preventiva
+            </Badge>
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs text-muted-foreground">Prazo de Conclusão (Dias)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={365}
+              step={1}
+              value={preventiveDays}
+              onChange={(e) => setPreventiveDays(Math.max(1, Number(e.target.value) || 0))}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <Button type="submit" disabled={saving} className="gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Salvar Configurações de SLA
+        </Button>
       </div>
     </form>
   )
