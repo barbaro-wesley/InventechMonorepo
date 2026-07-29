@@ -1,12 +1,11 @@
 import { Controller, Get, Put, Body, BadRequestException } from '@nestjs/common'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
-import { UserRole } from '@prisma/client'
 import { SlaService } from './sla.service'
 import { BatchUpdateSlaConfigDto } from './dto/update-sla-config.dto'
 import { UpdatePreventiveSlaDto } from './dto/update-preventive-sla.dto'
 import { BatchUpdateMaintenanceTypeSlaDto } from './dto/update-maintenance-type-sla.dto'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
-import { Roles } from '../../common/decorators/roles.decorator'
+import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 
 @ApiTags('SLA')
@@ -16,7 +15,7 @@ export class SlaController {
   constructor(private readonly slaService: SlaService) {}
 
   @Get()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Permission('sla:read')
   @ApiOperation({ summary: 'Obtém as configurações de SLA por prioridade da empresa' })
   getSlaConfigs(@CurrentUser() currentUser: AuthenticatedUser) {
     if (!currentUser.companyId) {
@@ -26,7 +25,7 @@ export class SlaController {
   }
 
   @Put()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Permission('sla:update')
   @ApiOperation({ summary: 'Atualiza as configurações de SLA por prioridade da empresa' })
   updateSlaConfigs(
     @CurrentUser() currentUser: AuthenticatedUser,
@@ -39,7 +38,7 @@ export class SlaController {
   }
 
   @Get('maintenance-types')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Permission('sla:read')
   @ApiOperation({
     summary: 'Obtém os prazos de SLA (em horas) por tipo de manutenção',
     description: 'Não inclui corretiva, cujo SLA é definido por prioridade em GET /sla-configs.',
@@ -52,7 +51,7 @@ export class SlaController {
   }
 
   @Put('maintenance-types')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Permission('sla:update')
   @ApiOperation({ summary: 'Atualiza os prazos de SLA (em horas) por tipo de manutenção' })
   updateMaintenanceTypeSlaConfigs(
     @CurrentUser() currentUser: AuthenticatedUser,
@@ -65,7 +64,7 @@ export class SlaController {
   }
 
   @Get('preventive')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN, UserRole.COMPANY_MANAGER)
+  @Permission('sla:read')
   @ApiOperation({
     summary: 'Obtém o prazo de execução (SLA) das preventivas em dias',
     deprecated: true,
@@ -80,7 +79,7 @@ export class SlaController {
   }
 
   @Put('preventive')
-  @Roles(UserRole.SUPER_ADMIN, UserRole.COMPANY_ADMIN)
+  @Permission('sla:update')
   @ApiOperation({
     summary: 'Atualiza o prazo de execução (SLA) das preventivas em dias',
     deprecated: true,

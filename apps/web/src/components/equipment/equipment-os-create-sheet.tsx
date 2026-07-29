@@ -21,11 +21,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCreateServiceOrder, useCreateBatchServiceOrders } from '@/hooks/service-orders/use-service-orders'
+import { useSlaConfigs, useMaintenanceTypeSlaConfigs } from '@/hooks/sla/use-sla'
 import { useCurrentUser } from '@/store/auth.store'
 import { usePermissions } from '@/hooks/auth/use-permissions'
 import { api } from '@/lib/api'
 import { storageService } from '@/services/storage/storage.service'
 import type { Equipment } from '@/services/equipment/equipment.service'
+import type { SlaConfigurableMaintenanceType } from '@/services/sla/sla.service'
+import { formatDurationHours } from '@/lib/sla'
 import { cn } from '@/lib/utils'
 
 const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
@@ -38,11 +41,17 @@ const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
   DEACTIVATION: 'Desativação',
 }
 
+/**
+ * O prazo de cada prioridade não fica aqui: vem da configuração de SLA da
+ * empresa (aba Configurações › SLA), que varia por tipo de manutenção. Antes
+ * estes rótulos eram fixos ("5 dias úteis", "até 1 hora") e desalinhavam do
+ * prazo realmente aplicado à OS.
+ */
 const PRIORITY_OPTIONS = [
-  { value: 'LOW',    label: 'Baixa',      emoji: '🟢', desc: '5 dias úteis'  },
-  { value: 'MEDIUM', label: 'Média',      emoji: '🔵', desc: '3 dias úteis'  },
-  { value: 'HIGH',   label: 'Alta',       emoji: '🟠', desc: '1 dia útil'    },
-  { value: 'URGENT', label: 'Muito Alta', emoji: '🔴', desc: 'até 1 hora'    },
+  { value: 'LOW',    label: 'Baixa',      emoji: '🟢' },
+  { value: 'MEDIUM', label: 'Média',      emoji: '🔵' },
+  { value: 'HIGH',   label: 'Alta',       emoji: '🟠' },
+  { value: 'URGENT', label: 'Muito Alta', emoji: '🔴' },
 ]
 
 type FormData = {
@@ -152,6 +161,39 @@ export function EquipmentOsCreateSheet({ equipment, batchEquipment, open, onClos
   })
 
   const watchedPriority = form.watch('priority')
+  const watchedMaintenanceType = form.watch('maintenanceType')
+
+  // Prazos de SLA vigentes, buscados ao abrir o formulário. Sem checar
+  // 'sla:read' no cliente de propósito: user.permissions vem do /me gravado no
+  // sessionStorage e fica defasado até a sessão renovar, o que esconderia o
+  // prazo de quem tem acesso. Quem não tem recebe 403 — o React Query não faz
+  // retry nesse status e os prazos simplesmente não aparecem.
+  const { data: prioritySla } = useSlaConfigs(open)
+  const { data: maintenanceTypeSla } = useMaintenanceTypeSlaConfigs(open)
+
+  /**
+   * Prazo de conclusão (em horas) do par tipo × prioridade selecionado.
+   * Corretiva usa a tabela por prioridade; os demais tipos, a matriz por tipo.
+   * Espelha a resolução feita no backend em SlaService.resolveSlaDates.
+   */
+  function resolutionHoursFor(priority: string): number | null {
+    if (watchedMaintenanceType === 'CORRECTIVE') {
+      return prioritySla?.find((c) => c.priority === priority)?.maxResolutionHours ?? null
+    }
+    return (
+      maintenanceTypeSla?.find(
+        (c) =>
+          c.maintenanceType === (watchedMaintenanceType as SlaConfigurableMaintenanceType) &&
+          c.priority === priority,
+      )?.maxResolutionHours ?? null
+    )
+  }
+
+  const priorityHours = PRIORITY_OPTIONS.map((opt) => ({
+    opt,
+    hours: resolutionHoursFor(opt.value),
+  }))
+  const hasSlaData = priorityHours.some(({ hours }) => hours != null)
 
   useEffect(() => {
     if (!open) return
@@ -540,7 +582,7 @@ export function EquipmentOsCreateSheet({ equipment, batchEquipment, open, onClos
                     Prioridade <span className="text-red-500">*</span>
                   </Label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {PRIORITY_OPTIONS.map((opt) => (
+                    {priorityHours.map(({ opt, hours }) => (
                       <button
                         key={opt.value}
                         type="button"
@@ -554,15 +596,25 @@ export function EquipmentOsCreateSheet({ equipment, batchEquipment, open, onClos
                       >
                         <span className="text-xl">{opt.emoji}</span>
                         <span className="text-xs font-semibold">{opt.label}</span>
+                        {/* nbsp preserva a altura do botão enquanto o prazo carrega */}
                         <span className={cn(
                           'text-[10px]',
                           watchedPriority === opt.value ? 'text-primary/70' : 'text-muted-foreground',
                         )}>
-                          {opt.desc}
+                          {hours != null ? formatDurationHours(hours) : ' '}
                         </span>
                       </button>
                     ))}
                   </div>
+                  {hasSlaData && (
+                    <p className="text-xs text-muted-foreground">
+                      Prazo de conclusão conforme a configuração de SLA da empresa
+                      {watchedMaintenanceType !== 'CORRECTIVE' && MAINTENANCE_TYPE_LABELS[watchedMaintenanceType]
+                        ? ` para ${MAINTENANCE_TYPE_LABELS[watchedMaintenanceType]}`
+                        : ''}
+                      . Contado a partir da abertura, em horas corridas.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
