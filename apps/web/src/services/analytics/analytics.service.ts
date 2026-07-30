@@ -81,6 +81,56 @@ export interface EquipmentWithoutPreventiveResult {
   generatedAt: string;
 }
 
+export interface EquipmentWarrantyParams extends EquipmentOverviewParams {
+  daysAhead?: number;
+  scope?: "expiring" | "expired" | "all";
+  limit?: number;
+}
+
+export interface EquipmentWarrantyBucket {
+  bucket: string;
+  count: number;
+  severity: "expired" | "critical" | "high" | "medium" | "low" | "ok";
+}
+
+export interface EquipmentWarrantyItem {
+  id: string;
+  name: string;
+  brand: string | null;
+  model: string | null;
+  serial_number: string | null;
+  patrimony_number: string | null;
+  status: string;
+  criticality: string;
+  warranty_start: string | null;
+  warranty_end: string;
+  days_remaining: number;
+  purchase_value: number | null;
+  type_name: string | null;
+  location_name: string | null;
+  cost_center_name: string | null;
+  /** warranty_end anterior a warranty_start — erro de cadastro, não vencimento real */
+  suspect_date: boolean;
+  open_os: number;
+}
+
+export interface EquipmentWarrantyResult {
+  daysAhead: number;
+  scope: string;
+  summary: {
+    totalTracked: number;
+    withoutWarranty: number;
+    expired: number;
+    expiringInWindow: number;
+    suspectDates: number;
+    valueExpiring: number;
+  };
+  buckets: EquipmentWarrantyBucket[];
+  count: number;
+  items: EquipmentWarrantyItem[];
+  generatedAt: string;
+}
+
 export interface EquipmentOsTimelineItem {
   month: string;
   total_os: number;
@@ -120,13 +170,36 @@ export interface OsOverview {
     improperUse: number;
     deactivation: number;
   };
+  /**
+   * OS concluídas recortadas por data de conclusão — o número real de
+   * "concluídas no período". `byStatus` é a distribuição de status da safra
+   * *aberta* no período, que responde outra pergunta.
+   */
+  concludedInPeriod: {
+    total: number;
+    awaitingApproval: number;
+    approved: number;
+    onTime: number;
+    late: number;
+    avgResolutionHours: number | null;
+    avgTotalHours: number | null;
+    totalCost: number;
+    onTimeRate: number | null;
+  };
+  concludedFromPeriodIntake: number;
   sla: {
     avgResponseHours: number | null;
     avgResolutionHours: number | null;
     avgTotalHours: number | null;
+    tpaApplicable: number;
+    tpaBreached: number;
+    tpaComplianceRate: number | null;
+    resolutionJudged: number;
+    resolutionComplianceRate: number | null;
   };
   rates: {
     approvalRate: number | null;
+    completionRate: number | null;
     urgentActive: number;
     childOsCount: number;
     childOsRate: number;
@@ -492,6 +565,11 @@ export const analyticsService = {
 
   async getEquipmentOsTimeline(p: EquipmentRangeParams = {}): Promise<EquipmentOsTimelineResult> {
     const { data } = await api.get(`/analytics/equipment/os-timeline${toQuery(p)}`);
+    return data;
+  },
+
+  async getEquipmentWarranty(p: EquipmentWarrantyParams = {}): Promise<EquipmentWarrantyResult> {
+    const { data } = await api.get(`/analytics/equipment/warranty${toQuery(p)}`);
     return data;
   },
 

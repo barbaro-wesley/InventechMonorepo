@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, AlertCircle } from 'lucide-react'
 
 interface ChartCardProps {
   title: string
@@ -11,6 +11,8 @@ interface ChartCardProps {
   className?: string
   loading?: boolean
   empty?: boolean
+  /** Falha na consulta — distingue erro de servidor de "período sem dados". */
+  error?: unknown
   height?: number
 }
 
@@ -22,6 +24,7 @@ export function ChartCard({
   className,
   loading = false,
   empty = false,
+  error,
   height = 260,
 }: ChartCardProps) {
   return (
@@ -37,6 +40,11 @@ export function ChartCard({
       <div className="p-4 flex items-center justify-center" style={{ height }}>
         {loading ? (
           <div className="w-full h-full bg-[#f9fafb] rounded-lg animate-pulse" />
+        ) : error ? (
+          <div className="flex flex-col items-center gap-2 text-center">
+            <AlertCircle className="h-8 w-8 text-red-400" />
+            <p className="text-xs text-red-500 font-medium">Falha ao carregar os dados</p>
+          </div>
         ) : empty ? (
           <div className="flex flex-col items-center gap-2 text-center">
             <BarChart3 className="h-8 w-8 text-[#e0e5eb]" />

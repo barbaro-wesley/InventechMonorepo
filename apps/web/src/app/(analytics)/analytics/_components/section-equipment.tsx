@@ -13,9 +13,11 @@ import {
   Cell,
   Legend,
 } from 'recharts'
-import { Cpu, AlertTriangle, ShieldOff, TrendingUp } from 'lucide-react'
+import { useState } from 'react'
+import { Cpu, AlertTriangle, ShieldOff, TrendingUp, LayoutDashboard, ShieldAlert } from 'lucide-react'
 import { KpiCard } from './kpi-card'
 import { ChartCard } from './chart-card'
+import { SectionEquipmentWarranty } from './section-equipment-warranty'
 import {
   useEquipmentOverview,
   useEquipmentTopFailures,
@@ -23,6 +25,7 @@ import {
   useEquipmentOsTimeline,
 } from '@/hooks/analytics/use-analytics'
 import type { AnalyticsFilters } from './filter-bar'
+import { cn } from '@/lib/utils'
 
 function fmt(n: number | null | undefined, digits = 0) {
   if (n == null) return '–'
@@ -39,6 +42,11 @@ function fmtHours(h: number | null | undefined) {
   if (h < 1) return `${Math.round(h * 60)}min`
   return `${h.toFixed(1)}h`
 }
+
+// Recharts entrega o valor do tooltip como number | string | array.
+type ChartValue = number | string | ReadonlyArray<number | string> | undefined
+type ChartName = number | string | undefined
+const asNum = (v: ChartValue) => (typeof v === 'number' ? v : Number(v ?? 0))
 
 const CRITICALITY_COLORS: Record<string, string> = {
   CRITICAL: '#ef4444', critical: '#ef4444',
@@ -74,13 +82,21 @@ interface Props {
   filters: AnalyticsFilters
 }
 
+type SubTab = 'overview' | 'warranty'
+
+const SUB_TABS: { id: SubTab; label: string; icon: React.ElementType }[] = [
+  { id: 'overview', label: 'Parque e falhas', icon: LayoutDashboard },
+  { id: 'warranty', label: 'Garantias', icon: ShieldAlert },
+]
+
 export function SectionEquipment({ filters }: Props) {
+  const [subTab, setSubTab] = useState<SubTab>('overview')
   const range = { startDate: filters.startDate, endDate: filters.endDate }
 
-  const { data: overview, isLoading: loadingOv } = useEquipmentOverview({})
-  const { data: topFailuresResult, isLoading: loadingTf } = useEquipmentTopFailures(range)
-  const { data: withoutPrevResult, isLoading: loadingWp } = useEquipmentWithoutPreventive({})
-  const { data: osTimelineResult, isLoading: loadingTl } = useEquipmentOsTimeline(range)
+  const { data: overview, isLoading: loadingOv, error: errorOv } = useEquipmentOverview({})
+  const { data: topFailuresResult, isLoading: loadingTf, error: errorTf } = useEquipmentTopFailures(range)
+  const { data: withoutPrevResult, isLoading: loadingWp, error: errorWp } = useEquipmentWithoutPreventive({})
+  const { data: osTimelineResult, isLoading: loadingTl, error: errorTl } = useEquipmentOsTimeline(range)
 
   const topFailures = topFailuresResult
   const withoutPrev = withoutPrevResult?.items
@@ -92,8 +108,47 @@ export function SectionEquipment({ filters }: Props) {
         .map(([k, v]) => ({ name: STATUS_LABELS[k] ?? k, value: v as number, color: STATUS_COLORS[k] ?? '#94a3b8' }))
     : []
 
+  const subNav = (
+    <div className="flex items-center gap-1 border-b border-[#e8ecf1] dark:border-zinc-800 -mx-1 px-1">
+      {SUB_TABS.map((t) => {
+        const Icon = t.icon
+        const isActive = subTab === t.id
+        return (
+          <button
+            key={t.id}
+            onClick={() => setSubTab(t.id)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors -mb-px',
+              isActive
+                ? 'border-[#1162d4] text-[#0a3776] dark:text-blue-400'
+                : 'border-transparent text-[#6c7c93] dark:text-zinc-400 hover:text-[#1d2530] dark:hover:text-zinc-100',
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {t.label}
+            {t.id === 'warranty' && overview && overview.warranty.expiringSoon30 > 0 && (
+              <span className="ml-0.5 rounded-full bg-amber-100 px-1.5 text-[10px] font-bold text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                {overview.warranty.expiringSoon30}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  if (subTab === 'warranty') {
+    return (
+      <div className="space-y-5">
+        {subNav}
+        <SectionEquipmentWarranty />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-5">
+      {subNav}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <KpiCard
           title="Total de Equipamentos"
@@ -102,6 +157,7 @@ export function SectionEquipment({ filters }: Props) {
           icon={<Cpu className="h-4 w-4" />}
           accent="blue"
           loading={loadingOv}
+          error={errorOv}
         />
         <KpiCard
           title="Disponibilidade"
@@ -109,6 +165,7 @@ export function SectionEquipment({ filters }: Props) {
           subtitle="Ativos / total"
           accent="green"
           loading={loadingOv}
+          error={errorOv}
         />
         <KpiCard
           title="Sem Preventiva Ativa"
@@ -117,6 +174,7 @@ export function SectionEquipment({ filters }: Props) {
           icon={<ShieldOff className="h-4 w-4" />}
           accent={overview && overview.withoutActiveSchedule > 0 ? 'amber' : 'green'}
           loading={loadingOv}
+          error={errorOv}
         />
         <KpiCard
           title="Garantias a Vencer (30d)"
@@ -125,12 +183,13 @@ export function SectionEquipment({ filters }: Props) {
           icon={<AlertTriangle className="h-4 w-4" />}
           accent={overview && overview.warranty.expiringSoon30 > 0 ? 'amber' : 'green'}
           loading={loadingOv}
+          error={errorOv}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <ChartCard title="OS por Mês (Equipamentos)" subtitle="Corretivas vs Preventivas"
-          className="lg:col-span-2" loading={loadingTl} empty={!Array.isArray(osTimeline) || osTimeline.length === 0}>
+          className="lg:col-span-2" loading={loadingTl} error={errorTl} empty={!Array.isArray(osTimeline) || osTimeline.length === 0}>
           {Array.isArray(osTimeline) && osTimeline.length > 0 && (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={osTimeline} margin={{top:4,right:8,bottom:0,left:-10}}>
@@ -147,7 +206,7 @@ export function SectionEquipment({ filters }: Props) {
                   tickFormatter={(v)=>{const[,m]=v.split('-');const ms=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];return ms[parseInt(m)-1]??v}}/>
                 <YAxis tick={{fontSize:11,fill:'#6c7c93'}} tickLine={false} axisLine={false}/>
                 <Tooltip contentStyle={{fontSize:12,borderRadius:8,border:'1px solid #e8ecf1'}}
-                  formatter={(v:any,n:any)=>[v,n==='corrective'?'Corretivas':n==='preventive'?'Preventivas':n]}/>
+                  formatter={(v:ChartValue,n:ChartName)=>[asNum(v),n==='corrective'?'Corretivas':n==='preventive'?'Preventivas':n]}/>
                 <Legend formatter={(v)=><span style={{fontSize:11}}>{v==='corrective'?'Corretivas':'Preventivas'}</span>}/>
                 <Area type="monotone" dataKey="corrective" stroke="#3b82f6" strokeWidth={2} fill="url(#eq-gC)"/>
                 <Area type="monotone" dataKey="preventive" stroke="#10b981" strokeWidth={2} fill="url(#eq-gP)"/>
@@ -156,7 +215,7 @@ export function SectionEquipment({ filters }: Props) {
           )}
         </ChartCard>
 
-        <ChartCard title="Status dos Equipamentos" loading={loadingOv} empty={statusPie.length === 0}>
+        <ChartCard title="Status dos Equipamentos" loading={loadingOv} error={errorOv} empty={statusPie.length === 0}>
           {statusPie.length > 0 && (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -185,6 +244,10 @@ export function SectionEquipment({ filters }: Props) {
               <div className="p-4 space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
               </div>
+            ) : errorTf ? (
+              <p className="p-6 text-xs text-red-500 text-center font-medium">Falha ao carregar o ranking de falhas</p>
+            ) : (topFailures?.items ?? []).length === 0 ? (
+              <p className="p-6 text-xs text-[#6c7c93] dark:text-zinc-400 text-center">Nenhuma OS de equipamento no período</p>
             ) : (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-white dark:bg-zinc-950">
@@ -233,6 +296,8 @@ export function SectionEquipment({ filters }: Props) {
               <div className="p-4 space-y-2">
                 {Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-8 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />)}
               </div>
+            ) : errorWp ? (
+              <p className="p-6 text-xs text-red-500 text-center font-medium">Falha ao carregar a lista</p>
             ) : !withoutPrev || withoutPrev.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-center gap-2">
                 <TrendingUp className="h-8 w-8 text-emerald-400" />

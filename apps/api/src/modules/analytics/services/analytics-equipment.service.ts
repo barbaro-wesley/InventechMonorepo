@@ -3,10 +3,12 @@ import { Prisma, EquipmentStatus } from '@prisma/client'
 import Redis from 'ioredis'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { REDIS_CLIENT } from '../../../common/providers/redis.provider'
+import { resolvePeriod } from '../analytics-period.util'
 import type {
   EquipmentOverviewQueryDto,
   EquipmentRangeQueryDto,
   EquipmentCostsQueryDto,
+  EquipmentWarrantyQueryDto,
 } from '../dto/analytics-equipment-query.dto'
 
 const TTL = 300
@@ -139,8 +141,7 @@ export class AnalyticsEquipmentService {
   // ─────────────────────────────────────────
   async getTopFailures(companyId: string, filters: EquipmentRangeQueryDto) {
     const limit = filters.limit ?? 10
-    const start = filters.startDate ? new Date(filters.startDate) : this.startOfYear()
-    const end   = filters.endDate   ? new Date(filters.endDate)   : new Date()
+    const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
 
     const cacheKey = `analytics:equip:failures:${companyId}:${start.toISOString()}:${end.toISOString()}:${filters.typeId ?? ''}:${filters.locationId ?? ''}:${limit}`
 
@@ -186,7 +187,7 @@ export class AnalyticsEquipmentService {
                    THEN EXTRACT(EPOCH FROM (so.completed_at - so.started_at)) / 3600.0
               END
             )::numeric, 1)::float8                                                  AS mttr_hours,
-            COALESCE(SUM(soci.total_price), 0)::float8                              AS total_cost
+            COALESCE(SUM(ci.total), 0)::float8                                      AS total_cost
           FROM equipments e
           LEFT JOIN equipment_types            et   ON et.id  = e.type_id
           LEFT JOIN locations                  l    ON l.id   = e.current_location_id
@@ -195,7 +196,13 @@ export class AnalyticsEquipmentService {
             AND so.deleted_at   IS NULL
             AND so.created_at  >= ${start}
             AND so.created_at  <= ${end}
-          LEFT JOIN service_order_cost_items   soci ON soci.service_order_id = so.id
+          -- Custo agregado por OS antes do join: juntar os itens direto
+          -- duplicava a linha da OS e distorcia o MTTR médio.
+          LEFT JOIN LATERAL (
+            SELECT COALESCE(SUM(soci.total_price), 0) AS total
+            FROM service_order_cost_items soci
+            WHERE soci.service_order_id = so.id
+          ) ci ON TRUE
           WHERE e.company_id  = ${companyId}
             AND e.deleted_at  IS NULL
             ${typeF}
@@ -239,8 +246,7 @@ export class AnalyticsEquipmentService {
   // e agrupado por equipment / type / location / costCenter
   // ─────────────────────────────────────────
   async getCosts(companyId: string, filters: EquipmentCostsQueryDto) {
-    const start   = filters.startDate ? new Date(filters.startDate) : this.startOfYear()
-    const end     = filters.endDate   ? new Date(filters.endDate)   : new Date()
+    const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
     const groupBy = filters.groupBy ?? 'equipment'
     const limit   = filters.limit ?? 20
 
@@ -449,12 +455,193 @@ export class AnalyticsEquipmentService {
   }
 
   // ─────────────────────────────────────────
+  // Garantias — vencidas e a vencer
+  // Equipamento sob garantia não deve gerar custo de manutenção paga; saber o
+  // que está prestes a sair da cobertura é o gancho para acionar o fornecedor
+  // antes do prazo.
+  // ─────────────────────────────────────────
+  async getWarranty(companyId: string, filters: EquipmentWarrantyQueryDto) {
+    const daysAhead = filters.daysAhead ?? 90
+    const scope     = filters.scope ?? 'expiring'
+    const limit     = filters.limit ?? 200
+
+    const cacheKey = `analytics:equip:warranty:${companyId}:${daysAhead}:${scope}:${limit}:${filters.typeId ?? ''}:${filters.locationId ?? ''}:${filters.costCenterId ?? ''}`
+
+    return this.cached(cacheKey, async () => {
+      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id             = ${filters.typeId}::uuid`       : Prisma.empty
+      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id = ${filters.locationId}::uuid`   : Prisma.empty
+      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id      = ${filters.costCenterId}::uuid` : Prisma.empty
+
+      // Sucateados/inativos ficam de fora: a garantia deles é irrelevante
+      // operacionalmente e só inflaria as contagens.
+      const activeF = Prisma.sql`AND e.status NOT IN ('SCRAPPED', 'INACTIVE')`
+
+      const scopeF =
+        scope === 'expired'
+          ? Prisma.sql`AND e.warranty_end <  CURRENT_DATE`
+          : scope === 'all'
+            ? Prisma.sql`AND e.warranty_end <= CURRENT_DATE + ${daysAhead} * INTERVAL '1 day'`
+            : Prisma.sql`AND e.warranty_end >= CURRENT_DATE
+                         AND e.warranty_end <= CURRENT_DATE + ${daysAhead} * INTERVAL '1 day'`
+
+      const [[summary], items] = await Promise.all([
+        this.prisma.$queryRaw<Array<{
+          total_tracked:   number
+          without_warranty: number
+          expired:         number
+          due_30:          number
+          due_60:          number
+          due_90:          number
+          due_180:         number
+          due_365:         number
+          covered:         number
+          due_window:      number
+          suspect:         number
+          value_expiring:  number
+        }>>`
+          SELECT
+            COUNT(*) FILTER (WHERE e.warranty_end IS NOT NULL)::int                             AS total_tracked,
+            COUNT(*) FILTER (WHERE e.warranty_end IS NULL)::int                                 AS without_warranty,
+            COUNT(*) FILTER (WHERE e.warranty_end <  CURRENT_DATE)::int                         AS expired,
+            COUNT(*) FILTER (
+              WHERE e.warranty_end >= CURRENT_DATE
+                AND e.warranty_end <= CURRENT_DATE + ${daysAhead} * INTERVAL '1 day'
+            )::int                                                                              AS due_window,
+            -- Fim de garantia anterior ao início denuncia erro de digitação no
+            -- ano (o parque tem casos tipo 0025-12-19). Continuam contados como
+            -- vencidos, mas sinalizados para correção do cadastro.
+            COUNT(*) FILTER (
+              WHERE e.warranty_start IS NOT NULL
+                AND e.warranty_end   <  e.warranty_start
+            )::int                                                                              AS suspect,
+            COUNT(*) FILTER (
+              WHERE e.warranty_end >= CURRENT_DATE
+                AND e.warranty_end <= CURRENT_DATE + INTERVAL '30 days'
+            )::int                                                                              AS due_30,
+            COUNT(*) FILTER (
+              WHERE e.warranty_end >  CURRENT_DATE + INTERVAL '30 days'
+                AND e.warranty_end <= CURRENT_DATE + INTERVAL '60 days'
+            )::int                                                                              AS due_60,
+            COUNT(*) FILTER (
+              WHERE e.warranty_end >  CURRENT_DATE + INTERVAL '60 days'
+                AND e.warranty_end <= CURRENT_DATE + INTERVAL '90 days'
+            )::int                                                                              AS due_90,
+            COUNT(*) FILTER (
+              WHERE e.warranty_end >  CURRENT_DATE + INTERVAL '90 days'
+                AND e.warranty_end <= CURRENT_DATE + INTERVAL '180 days'
+            )::int                                                                              AS due_180,
+            COUNT(*) FILTER (
+              WHERE e.warranty_end >  CURRENT_DATE + INTERVAL '180 days'
+                AND e.warranty_end <= CURRENT_DATE + INTERVAL '365 days'
+            )::int                                                                              AS due_365,
+            COUNT(*) FILTER (WHERE e.warranty_end > CURRENT_DATE + INTERVAL '365 days')::int     AS covered,
+            COALESCE(SUM(e.purchase_value) FILTER (
+              WHERE e.warranty_end >= CURRENT_DATE
+                AND e.warranty_end <= CURRENT_DATE + ${daysAhead} * INTERVAL '1 day'
+            ), 0)::float8                                                                       AS value_expiring
+          FROM equipments e
+          WHERE e.company_id = ${companyId}
+            AND e.deleted_at IS NULL
+            ${activeF}
+            ${typeF}
+            ${locF}
+            ${ccF}
+        `,
+
+        this.prisma.$queryRaw<Array<{
+          id:               string
+          name:             string
+          brand:            string | null
+          model:            string | null
+          serial_number:    string | null
+          patrimony_number: string | null
+          status:           string
+          criticality:      string
+          warranty_start:   Date | null
+          warranty_end:     Date
+          days_remaining:   number
+          purchase_value:   number | null
+          type_name:        string | null
+          location_name:    string | null
+          cost_center_name: string | null
+          suspect_date:     boolean
+          open_os:          number
+        }>>`
+          SELECT
+            e.id,
+            e.name,
+            e.brand,
+            e.model,
+            e.serial_number,
+            e.patrimony_number,
+            e.status,
+            e.criticality,
+            e.warranty_start,
+            e.warranty_end,
+            (e.warranty_end - CURRENT_DATE)::int      AS days_remaining,
+            e.purchase_value::float8                  AS purchase_value,
+            et.name                                   AS type_name,
+            l.name                                    AS location_name,
+            cc.name                                   AS cost_center_name,
+            (e.warranty_start IS NOT NULL
+              AND e.warranty_end < e.warranty_start)  AS suspect_date,
+            (
+              SELECT COUNT(*)::int
+              FROM service_orders so
+              WHERE so.equipment_id = e.id
+                AND so.deleted_at  IS NULL
+                AND so.status NOT IN ('COMPLETED_APPROVED', 'CANCELLED')
+            )                                         AS open_os
+          FROM equipments e
+          LEFT JOIN equipment_types et ON et.id = e.type_id
+          LEFT JOIN locations       l  ON l.id  = e.current_location_id
+          LEFT JOIN cost_centers    cc ON cc.id = e.cost_center_id
+          WHERE e.company_id      = ${companyId}
+            AND e.deleted_at     IS NULL
+            AND e.warranty_end IS NOT NULL
+            ${activeF}
+            ${scopeF}
+            ${typeF}
+            ${locF}
+            ${ccF}
+          ORDER BY e.warranty_end ASC, e.criticality DESC
+          LIMIT ${limit}
+        `,
+      ])
+
+      return {
+        daysAhead,
+        scope,
+        summary: {
+          totalTracked:     summary.total_tracked,
+          withoutWarranty:  summary.without_warranty,
+          expired:          summary.expired,
+          expiringInWindow: summary.due_window,
+          suspectDates:     summary.suspect,
+          valueExpiring:    summary.value_expiring,
+        },
+        buckets: [
+          { bucket: 'Vencida',      count: summary.expired, severity: 'expired'  as const },
+          { bucket: 'Até 30 dias',  count: summary.due_30,  severity: 'critical' as const },
+          { bucket: '31–60 dias',   count: summary.due_60,  severity: 'high'     as const },
+          { bucket: '61–90 dias',   count: summary.due_90,  severity: 'medium'   as const },
+          { bucket: '91–180 dias',  count: summary.due_180, severity: 'low'      as const },
+          { bucket: '181–365 dias', count: summary.due_365, severity: 'low'      as const },
+          { bucket: '> 1 ano',      count: summary.covered, severity: 'ok'       as const },
+        ],
+        count: items.length,
+        items,
+        generatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
+  // ─────────────────────────────────────────
   // Série temporal de OS por equipamento
   // Útil para ver tendência de falhas ao longo do tempo
   // ─────────────────────────────────────────
   async getOsTimeline(companyId: string, filters: EquipmentRangeQueryDto) {
-    const start = filters.startDate ? new Date(filters.startDate) : this.startOfYear()
-    const end   = filters.endDate   ? new Date(filters.endDate)   : new Date()
+    const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
 
     const cacheKey = `analytics:equip:timeline:${companyId}:${start.toISOString()}:${end.toISOString()}:${filters.typeId ?? ''}:${filters.locationId ?? ''}`
 
@@ -498,10 +685,4 @@ export class AnalyticsEquipmentService {
     })
   }
 
-  private startOfYear(): Date {
-    const d = new Date()
-    d.setMonth(0, 1)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
 }

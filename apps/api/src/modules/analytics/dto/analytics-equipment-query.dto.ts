@@ -27,3 +27,37 @@ export class EquipmentCostsQueryDto extends EquipmentRangeQueryDto {
   @IsIn(['equipment', 'type', 'location', 'costCenter'])
   groupBy?: 'equipment' | 'type' | 'location' | 'costCenter'
 }
+
+export class EquipmentWarrantyQueryDto extends EquipmentOverviewQueryDto {
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 730,
+    default: 90,
+    description: 'Janela de vencimento a considerar, em dias a partir de hoje.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(730)
+  daysAhead?: number
+
+  @ApiPropertyOptional({
+    enum: ['expiring', 'expired', 'all'],
+    default: 'expiring',
+    description:
+      'expiring = vence dentro da janela; expired = garantia já vencida; ' +
+      'all = ambos, vencidas primeiro.',
+  })
+  @IsOptional()
+  @IsIn(['expiring', 'expired', 'all'])
+  scope?: 'expiring' | 'expired' | 'all'
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 500, default: 200 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number
+}
