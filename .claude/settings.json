@@ -48,7 +48,10 @@
       "Bash(node \"C:/Users/WESLEY~1.BAR/AppData/Local/Temp/claude/c--Users-Wesley-Barbaro-Documents-Inventech-InventechMonorepo/aa7af7f5-d115-470d-9ae9-e2143405fdd9/scratchpad/dryrun.js\")",
       "Bash(node \"C:/Users/WESLEY~1.BAR/AppData/Local/Temp/claude/c--Users-Wesley-Barbaro-Documents-Inventech-InventechMonorepo/aa7af7f5-d115-470d-9ae9-e2143405fdd9/scratchpad/inspect.js\")",
       "Bash(node \"C:/Users/WESLEY~1.BAR/AppData/Local/Temp/claude/c--Users-Wesley-Barbaro-Documents-Inventech-InventechMonorepo/aa7af7f5-d115-470d-9ae9-e2143405fdd9/scratchpad/verify.js\")",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node probe.tmp.js)",
+      "Bash(echo \"LINT EXIT=$?\")",
+      "Bash(npm run *)"
     ]
   }
 }

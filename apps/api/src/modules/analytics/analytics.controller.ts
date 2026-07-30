@@ -11,6 +11,7 @@ import {
   EquipmentOverviewQueryDto,
   EquipmentRangeQueryDto,
   EquipmentCostsQueryDto,
+  EquipmentWarrantyQueryDto,
 } from './dto/analytics-equipment-query.dto'
 import {
   OsBaseQueryDto,
@@ -104,6 +105,24 @@ export class AnalyticsController {
     @Query() query: EquipmentOverviewQueryDto,
   ) {
     return this.equipmentSvc.getWithoutPreventive(cu.companyId!, query)
+  }
+
+  @Get('equipment/warranty')
+  @Permission('analytics:equipment')
+  @ApiOperation({
+    summary: 'Garantias de equipamentos vencidas e a vencer',
+    description:
+      'Distribuição das garantias por faixa de vencimento (vencida, até 30, ' +
+      '31–60, 61–90, 91–180, 181–365 dias e acima de 1 ano) e lista detalhada ' +
+      'dos equipamentos dentro da janela informada, com dias restantes, ' +
+      'criticidade, localização, valor de compra e OS em aberto. ' +
+      'Equipamentos sucateados e inativos são ignorados.',
+  })
+  getEquipmentWarranty(
+    @CurrentUser() cu: AuthenticatedUser,
+    @Query() query: EquipmentWarrantyQueryDto,
+  ) {
+    return this.equipmentSvc.getWarranty(cu.companyId!, query)
   }
 
   @Get('equipment/os-timeline')

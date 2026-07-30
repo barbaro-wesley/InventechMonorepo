@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import Redis from 'ioredis'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { REDIS_CLIENT } from '../../../common/providers/redis.provider'
+import { resolvePeriod } from '../analytics-period.util'
 import type {
   OsBaseQueryDto,
   OsBacklogQueryDto,
@@ -37,15 +38,17 @@ export class AnalyticsOsService {
   }
 
   private buildFilters(f: OsBaseQueryDto) {
-    const start = f.startDate ? new Date(f.startDate) : this.startOfYear()
-    const end   = f.endDate   ? new Date(f.endDate)   : new Date()
+    const { start, end } = resolvePeriod(f.startDate, f.endDate)
     return {
       start,
       end,
       clientF:  f.clientId       ? Prisma.sql`AND so.client_id        = ${f.clientId}::uuid`          : Prisma.empty,
       groupF:   f.groupId        ? Prisma.sql`AND so.group_id         = ${f.groupId}::uuid`           : Prisma.empty,
-      typeF:    f.maintenanceType ? Prisma.sql`AND so.maintenance_type = ${f.maintenanceType}::text`   : Prisma.empty,
-      priorityF: f.priority      ? Prisma.sql`AND so.priority         = ${f.priority}::text`          : Prisma.empty,
+      // Colunas enum precisam ser convertidas para text — comparar
+      // "MaintenanceType" com um parâmetro text quebra a resolução de operador
+      // no Postgres.
+      typeF:    f.maintenanceType ? Prisma.sql`AND so.maintenance_type::text = ${f.maintenanceType}`  : Prisma.empty,
+      priorityF: f.priority      ? Prisma.sql`AND so.priority::text         = ${f.priority}`          : Prisma.empty,
     }
   }
 
@@ -80,9 +83,14 @@ export class AnalyticsOsService {
         type_improper_use:    number
         type_deactivation:    number
         child_os:             number
+        concluded:            number
         avg_response_hours:   number | null
         avg_resolution_hours: number | null
         avg_total_hours:      number | null
+        tpa_applicable:       number
+        tpa_breached:         number
+        resolution_judged:    number
+        resolution_on_time:   number
         total_cost:           number
       }
       const [main] = await this.prisma.$queryRaw<OsOverviewRow[]>`
@@ -112,6 +120,11 @@ export class AnalyticsOsService {
           COUNT(*) FILTER (WHERE so.maintenance_type = 'IMPROPER_USE')::int                      AS type_improper_use,
           COUNT(*) FILTER (WHERE so.maintenance_type = 'DEACTIVATION')::int                      AS type_deactivation,
           COUNT(*) FILTER (WHERE so.parent_service_order_id IS NOT NULL)::int                    AS child_os,
+          -- "Concluída" = entregue pelo técnico. COMPLETED aguarda aprovação e
+          -- COMPLETED_APPROVED já foi aprovada; ambas contam. Muitas empresas
+          -- aprovam automaticamente e nunca param em COMPLETED, então contar só
+          -- COMPLETED zerava o indicador.
+          COUNT(*) FILTER (WHERE so.status IN ('COMPLETED', 'COMPLETED_APPROVED'))::int          AS concluded,
           ROUND(AVG(
             CASE WHEN so.started_at IS NOT NULL
                  THEN EXTRACT(EPOCH FROM (so.started_at - so.created_at)) / 3600.0
@@ -135,8 +148,18 @@ export class AnalyticsOsService {
           COUNT(*) FILTER (WHERE so.sla_response_breached_at IS NOT NULL)::int                    AS tpa_breached,
           COUNT(*) FILTER (WHERE so.sla_status IN ('COMPLETED_ON_TIME', 'COMPLETED_LATE'))::int   AS resolution_judged,
           COUNT(*) FILTER (WHERE so.sla_status = 'COMPLETED_ON_TIME')::int                        AS resolution_on_time,
-          COALESCE(SUM(so.total_cost), 0)::float8                                                 AS total_cost
+          -- O custo real é o dos itens lançados; so.total_cost é uma
+          -- desnormalização que só existe em parte das OS. Preferir os itens
+          -- mantém este total igual ao da aba Financeiro.
+          COALESCE(SUM(
+            CASE WHEN ci.total > 0 THEN ci.total ELSE COALESCE(so.total_cost, 0) END
+          ), 0)::float8                                                                            AS total_cost
         FROM service_orders so
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(SUM(soci.total_price), 0) AS total
+          FROM service_order_cost_items soci
+          WHERE soci.service_order_id = so.id
+        ) ci ON TRUE
         WHERE so.company_id  = ${companyId}
           AND so.deleted_at IS NULL
           AND so.created_at >= ${start}
@@ -147,9 +170,61 @@ export class AnalyticsOsService {
           ${priorityF}
       `
 
-      const totalClosed = main.approved + main.rejected + main.cancelled
-      const approvalRate = totalClosed > 0
-        ? Math.round((main.approved / (main.approved + main.rejected)) * 100)
+      // Concluídas *no período*: recortadas por completed_at, não por
+      // created_at. Uma OS aberta em janeiro e concluída em junho pertence a
+      // junho — filtrar pela abertura fazia o indicador divergir da realidade.
+      type ConcludedRow = {
+        concluded:                   number
+        awaiting_approval:           number
+        approved:                    number
+        on_time:                     number
+        late:                        number
+        avg_resolution_hours:        number | null
+        avg_total_hours:             number | null
+        total_cost:                  number
+      }
+      const [closed] = await this.prisma.$queryRaw<ConcludedRow[]>`
+        SELECT
+          COUNT(*)::int                                                              AS concluded,
+          COUNT(*) FILTER (WHERE so.status = 'COMPLETED')::int                       AS awaiting_approval,
+          COUNT(*) FILTER (WHERE so.status = 'COMPLETED_APPROVED')::int              AS approved,
+          COUNT(*) FILTER (WHERE so.sla_status = 'COMPLETED_ON_TIME')::int           AS on_time,
+          COUNT(*) FILTER (WHERE so.sla_status = 'COMPLETED_LATE')::int              AS late,
+          ROUND(AVG(
+            CASE WHEN so.started_at IS NOT NULL
+                 THEN EXTRACT(EPOCH FROM (so.completed_at - so.started_at)) / 3600.0
+            END
+          )::numeric, 1)::float8                                                     AS avg_resolution_hours,
+          ROUND(AVG(
+            EXTRACT(EPOCH FROM (so.completed_at - so.created_at)) / 3600.0
+          )::numeric, 1)::float8                                                     AS avg_total_hours,
+          COALESCE(SUM(
+            CASE WHEN ci.total > 0 THEN ci.total ELSE COALESCE(so.total_cost, 0) END
+          ), 0)::float8                                                              AS total_cost
+        FROM service_orders so
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(SUM(soci.total_price), 0) AS total
+          FROM service_order_cost_items soci
+          WHERE soci.service_order_id = so.id
+        ) ci ON TRUE
+        WHERE so.company_id     = ${companyId}
+          AND so.deleted_at    IS NULL
+          AND so.completed_at IS NOT NULL
+          AND so.completed_at >= ${start}
+          AND so.completed_at <= ${end}
+          AND so.status IN ('COMPLETED', 'COMPLETED_APPROVED')
+          ${clientF}
+          ${groupF}
+          ${typeF}
+          ${priorityF}
+      `
+
+      // Denominador da taxa de aprovação = OS que passaram por avaliação.
+      // Canceladas nunca foram avaliadas, então não entram; incluí-las no
+      // guard fazia a divisão virar NaN quando só havia canceladas.
+      const judged = main.approved + main.rejected
+      const approvalRate = judged > 0
+        ? Math.round((main.approved / judged) * 100)
         : null
 
       return {
@@ -164,6 +239,25 @@ export class AnalyticsOsService {
           rejected:       main.rejected,
           cancelled:      main.cancelled,
         },
+        // Recorte por data de conclusão — é este o número de "OS concluídas no
+        // período". `byStatus` continua sendo a distribuição de status da safra
+        // de OS *abertas* no período, que é outra pergunta.
+        concludedInPeriod: {
+          total:              closed.concluded,
+          awaitingApproval:   closed.awaiting_approval,
+          approved:           closed.approved,
+          onTime:             closed.on_time,
+          late:               closed.late,
+          avgResolutionHours: closed.avg_resolution_hours,
+          avgTotalHours:      closed.avg_total_hours,
+          totalCost:          closed.total_cost,
+          onTimeRate:         closed.on_time + closed.late > 0
+            ? Math.round((closed.on_time / (closed.on_time + closed.late)) * 100)
+            : null,
+        },
+        // Concluídas dentro da safra aberta no período — usado para a taxa de
+        // conclusão da safra, não para "quantas foram concluídas".
+        concludedFromPeriodIntake: main.concluded,
         byPriority: {
           low:    main.priority_low,
           medium: main.priority_medium,
@@ -198,6 +292,10 @@ export class AnalyticsOsService {
         },
         rates: {
           approvalRate,
+          // % da safra aberta no período que já foi concluída
+          completionRate: main.total > 0
+            ? Math.round((main.concluded / main.total) * 100)
+            : null,
           urgentActive:   main.urgent_active,
           childOsCount:   main.child_os,
           childOsRate:    main.total > 0
@@ -211,17 +309,23 @@ export class AnalyticsOsService {
   }
 
   // ─────────────────────────────────────────
-  // Série temporal de OS criadas no período
+  // Série temporal de OS abertas x concluídas no período
   // ─────────────────────────────────────────
   async getTimeline(companyId: string, filters: OsTimelineQueryDto) {
     const { start, end, clientF, groupF, typeF, priorityF } = this.buildFilters(filters)
-    const granularity = filters.groupBy ?? 'month'
-    const cacheKey = `analytics:os:timeline:${companyId}:${start.toISOString()}:${end.toISOString()}:${granularity}:${filters.clientId ?? ''}:${filters.groupId ?? ''}`
+    const granularity = filters.groupBy ?? this.pickGranularity(start, end)
+    const cacheKey = `analytics:os:timeline:${companyId}:${start.toISOString()}:${end.toISOString()}:${granularity}:${filters.clientId ?? ''}:${filters.groupId ?? ''}:${filters.maintenanceType ?? ''}:${filters.priority ?? ''}`
 
     return this.cached(cacheKey, async () => {
-      const trunc  = this.truncSql(granularity)
-      const format = this.truncFormat(granularity)
+      const { unit, step, format } = this.granParts(granularity)
 
+      // A série é montada sobre um "espinha dorsal" de buckets gerado pelo
+      // Postgres: sem isso, períodos sem OS simplesmente não vinham na resposta
+      // e o gráfico ligava um ponto ao outro escondendo os buracos.
+      //
+      // `opened` é recortado por created_at e `closed` por completed_at — são
+      // recortes diferentes de propósito, para o gráfico mostrar entrada vs
+      // vazão do período.
       const rows = await this.prisma.$queryRaw<Array<{
         period:       string
         total:        number
@@ -231,25 +335,68 @@ export class AnalyticsOsService {
         preventive:   number
         total_cost:   number
       }>>`
+        WITH spine AS (
+          SELECT generate_series(
+            DATE_TRUNC(${unit}, ${start}::timestamptz),
+            DATE_TRUNC(${unit}, ${end}::timestamptz),
+            ${step}
+          ) AS bucket
+        ),
+        opened AS (
+          SELECT
+            DATE_TRUNC(${unit}, so.created_at)                                            AS bucket,
+            COUNT(*)::int                                                                 AS total,
+            COUNT(*) FILTER (WHERE so.status = 'CANCELLED')::int                          AS cancelled,
+            COUNT(*) FILTER (WHERE so.maintenance_type = 'CORRECTIVE')::int               AS corrective,
+            COUNT(*) FILTER (WHERE so.maintenance_type = 'PREVENTIVE')::int               AS preventive,
+            COALESCE(SUM(
+              CASE WHEN ci.total > 0 THEN ci.total ELSE COALESCE(so.total_cost, 0) END
+            ), 0)::float8                                                                 AS total_cost
+          FROM service_orders so
+          LEFT JOIN LATERAL (
+            SELECT COALESCE(SUM(soci.total_price), 0) AS total
+            FROM service_order_cost_items soci
+            WHERE soci.service_order_id = so.id
+          ) ci ON TRUE
+          WHERE so.company_id  = ${companyId}
+            AND so.deleted_at IS NULL
+            AND so.created_at >= ${start}
+            AND so.created_at <= ${end}
+            ${clientF}
+            ${groupF}
+            ${typeF}
+            ${priorityF}
+          GROUP BY 1
+        ),
+        closed AS (
+          SELECT
+            DATE_TRUNC(${unit}, so.completed_at)  AS bucket,
+            COUNT(*)::int                         AS completed
+          FROM service_orders so
+          WHERE so.company_id     = ${companyId}
+            AND so.deleted_at    IS NULL
+            AND so.completed_at IS NOT NULL
+            AND so.completed_at >= ${start}
+            AND so.completed_at <= ${end}
+            AND so.status IN ('COMPLETED', 'COMPLETED_APPROVED')
+            ${clientF}
+            ${groupF}
+            ${typeF}
+            ${priorityF}
+          GROUP BY 1
+        )
         SELECT
-          TO_CHAR(${trunc}, ${format})                                                            AS period,
-          COUNT(*)::int                                                                           AS total,
-          COUNT(*) FILTER (WHERE so.status IN ('COMPLETED', 'COMPLETED_APPROVED'))::int           AS completed,
-          COUNT(*) FILTER (WHERE so.status = 'CANCELLED')::int                                   AS cancelled,
-          COUNT(*) FILTER (WHERE so.maintenance_type = 'CORRECTIVE')::int                        AS corrective,
-          COUNT(*) FILTER (WHERE so.maintenance_type = 'PREVENTIVE')::int                        AS preventive,
-          COALESCE(SUM(so.total_cost), 0)::float8                                                AS total_cost
-        FROM service_orders so
-        WHERE so.company_id  = ${companyId}
-          AND so.deleted_at IS NULL
-          AND so.created_at >= ${start}
-          AND so.created_at <= ${end}
-          ${clientF}
-          ${groupF}
-          ${typeF}
-          ${priorityF}
-        GROUP BY ${trunc}
-        ORDER BY ${trunc} ASC
+          TO_CHAR(s.bucket, ${format})        AS period,
+          COALESCE(o.total, 0)::int           AS total,
+          COALESCE(c.completed, 0)::int       AS completed,
+          COALESCE(o.cancelled, 0)::int       AS cancelled,
+          COALESCE(o.corrective, 0)::int      AS corrective,
+          COALESCE(o.preventive, 0)::int      AS preventive,
+          COALESCE(o.total_cost, 0)::float8   AS total_cost
+        FROM spine s
+        LEFT JOIN opened o ON o.bucket = s.bucket
+        LEFT JOIN closed c ON c.bucket = s.bucket
+        ORDER BY s.bucket ASC
       `
 
       return {
@@ -305,11 +452,17 @@ export class AnalyticsOsService {
                  THEN EXTRACT(EPOCH FROM (so.completed_at - so.started_at)) / 3600.0
             END
           )::numeric, 1)::float8                                                                  AS avg_resolution_hours,
-          COALESCE(SUM(soci.total_price) FILTER (WHERE soci.type = 'LABOR'), 0)::float8          AS labor_cost
+          COALESCE(SUM(ci.labor), 0)::float8                                                     AS labor_cost
         FROM service_order_technicians sot
         JOIN users                     u    ON u.id   = sot.technician_id
         JOIN service_orders            so   ON so.id  = sot.service_order_id
-        LEFT JOIN service_order_cost_items soci ON soci.service_order_id = so.id
+        -- Agregado por OS num LATERAL: juntar cost_items direto multiplicava as
+        -- linhas da OS e enviesava os AVG de tempo (uma OS com 5 itens pesava 5x).
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(SUM(soci.total_price) FILTER (WHERE soci.type = 'LABOR'), 0) AS labor
+          FROM service_order_cost_items soci
+          WHERE soci.service_order_id = so.id
+        ) ci ON TRUE
         WHERE so.company_id  = ${companyId}
           AND so.deleted_at IS NULL
           AND so.created_at >= ${start}
@@ -508,46 +661,57 @@ export class AnalyticsOsService {
     const cacheKey = `analytics:os:backlog:${companyId}:${filters.clientId ?? ''}:${filters.groupId ?? ''}`
 
     return this.cached(cacheKey, async () => {
-      // Contagens por faixa de idade
-      const [buckets] = await Promise.all([
-        this.prisma.$queryRaw<Array<{
-          bucket:        string
-          count:         number
-          avg_days_open: number
-          urgent_count:  number
-        }>>`
+      // Contagens por faixa de idade.
+      //
+      // A ordem da faixa é calculada como coluna própria (`bucket_order`) numa
+      // CTE. Referenciar o alias `bucket` dentro de uma expressão do ORDER BY
+      // (`ORDER BY CASE bucket WHEN …`) é inválido no Postgres — o ORDER BY só
+      // aceita o alias sozinho — e essa consulta falhava com 42703
+      // ("column \"bucket\" does not exist"), derrubando o endpoint inteiro.
+      const buckets = await this.prisma.$queryRaw<Array<{
+        bucket:        string
+        count:         number
+        avg_days_open: number
+        urgent_count:  number
+      }>>`
+        WITH aged AS (
           SELECT
+            so.priority,
+            EXTRACT(EPOCH FROM (NOW() - so.created_at)) / 86400.0 AS days_open
+          FROM service_orders so
+          WHERE so.company_id = ${companyId}
+            AND so.deleted_at IS NULL
+            AND so.status NOT IN ('COMPLETED_APPROVED', 'CANCELLED', 'COMPLETED_REJECTED')
+            ${clientF}
+            ${groupF}
+        ),
+        bucketed AS (
+          SELECT
+            priority,
+            days_open,
             CASE
               WHEN days_open <  7  THEN '0-7d'
               WHEN days_open <  30 THEN '7-30d'
               WHEN days_open <  90 THEN '30-90d'
               ELSE                      '>90d'
-            END                                             AS bucket,
-            COUNT(*)::int                                   AS count,
-            ROUND(AVG(days_open)::numeric, 1)::float8       AS avg_days_open,
-            COUNT(*) FILTER (WHERE priority = 'URGENT')::int AS urgent_count
-          FROM (
-            SELECT
-              so.id,
-              so.priority,
-              EXTRACT(DAY FROM (NOW() - so.created_at))::int AS days_open
-            FROM service_orders so
-            WHERE so.company_id = ${companyId}
-              AND so.deleted_at IS NULL
-              AND so.status NOT IN ('COMPLETED_APPROVED', 'CANCELLED', 'COMPLETED_REJECTED')
-              ${clientF}
-              ${groupF}
-          ) sub
-          GROUP BY bucket
-          ORDER BY
-            CASE bucket
-              WHEN '0-7d'   THEN 1
-              WHEN '7-30d'  THEN 2
-              WHEN '30-90d' THEN 3
-              ELSE               4
-            END
-        `,
-      ])
+            END AS bucket,
+            CASE
+              WHEN days_open <  7  THEN 1
+              WHEN days_open <  30 THEN 2
+              WHEN days_open <  90 THEN 3
+              ELSE                      4
+            END AS bucket_order
+          FROM aged
+        )
+        SELECT
+          bucket,
+          COUNT(*)::int                                    AS count,
+          ROUND(AVG(days_open)::numeric, 1)::float8        AS avg_days_open,
+          COUNT(*) FILTER (WHERE priority = 'URGENT')::int AS urgent_count
+        FROM bucketed
+        GROUP BY bucket, bucket_order
+        ORDER BY bucket_order
+      `
 
       // OS mais antigas em aberto (top 15) para detalhe no painel
       const oldest = await this.prisma.$queryRaw<Array<{
@@ -567,7 +731,7 @@ export class AnalyticsOsService {
           so.title,
           so.status,
           so.priority,
-          EXTRACT(DAY FROM (NOW() - so.created_at))::int AS days_open,
+          (EXTRACT(EPOCH FROM (NOW() - so.created_at)) / 86400)::int AS days_open,
           e.name   AS equipment,
           mg.name  AS group_name,
           c.name   AS client_name
@@ -713,22 +877,25 @@ export class AnalyticsOsService {
     })
   }
 
-  private truncSql(granularity: string): Prisma.Sql {
-    if (granularity === 'day')  return Prisma.sql`DATE_TRUNC('day',   so.created_at)`
-    if (granularity === 'week') return Prisma.sql`DATE_TRUNC('week',  so.created_at)`
-    return                             Prisma.sql`DATE_TRUNC('month', so.created_at)`
+  private granParts(granularity: string) {
+    if (granularity === 'day') {
+      return { unit: Prisma.sql`'day'`,  step: Prisma.sql`'1 day'::interval`,  format: 'YYYY-MM-DD' }
+    }
+    if (granularity === 'week') {
+      return { unit: Prisma.sql`'week'`, step: Prisma.sql`'1 week'::interval`, format: 'IYYY-"W"IW' }
+    }
+    return { unit: Prisma.sql`'month'`,  step: Prisma.sql`'1 month'::interval`, format: 'YYYY-MM' }
   }
 
-  private truncFormat(granularity: string): string {
-    if (granularity === 'day')  return 'YYYY-MM-DD'
-    if (granularity === 'week') return 'IYYY-"W"IW'
-    return                             'YYYY-MM'
-  }
-
-  private startOfYear(): Date {
-    const d = new Date()
-    d.setMonth(0, 1)
-    d.setHours(0, 0, 0, 0)
-    return d
+  /**
+   * Granularidade padrão em função do tamanho da janela. Agrupar 30 dias por
+   * mês produzia um gráfico de um ou dois pontos, que na tela parece um gráfico
+   * quebrado.
+   */
+  private pickGranularity(start: Date, end: Date): 'day' | 'week' | 'month' {
+    const days = (end.getTime() - start.getTime()) / 86_400_000
+    if (days <= 45)  return 'day'
+    if (days <= 180) return 'week'
+    return 'month'
   }
 }

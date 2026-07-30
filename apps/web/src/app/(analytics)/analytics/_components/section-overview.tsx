@@ -17,7 +17,9 @@ const STATUS_COLORS: Record<string, string> = {
 }
 const STATUS_LABELS: Record<string, string> = {
   open: 'Abertas', inProgress: 'Em andamento', awaitingPickup: 'Aguard. retirada',
-  completed: 'Concluídas', approved: 'Aprovadas', rejected: 'Rejeitadas', cancelled: 'Canceladas',
+  // "Concluídas" seria ambíguo ao lado de "Aprovadas": este status é a OS
+  // entregue pelo técnico que ainda espera o aval.
+  completed: 'Aguard. aprovação', approved: 'Aprovadas', rejected: 'Rejeitadas', cancelled: 'Canceladas',
 }
 
 function fmt(n: number | null | undefined, digits = 0) {
@@ -42,17 +44,30 @@ function invertDelta(d: OsComparisonDelta | null | undefined) {
   return { absolute: -d.absolute, percent: d.percent != null ? -d.percent : null }
 }
 
+// Recharts entrega o valor do tooltip como number | string | array. Estreitar
+// aqui evita `any` nos formatters e mantém o lint limpo.
+type ChartValue = number | string | ReadonlyArray<number | string> | undefined
+type ChartName = number | string | undefined
+const asNum = (v: ChartValue) => (typeof v === 'number' ? v : Number(v ?? 0))
+
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-function monthLabel(v: string) { const [,m] = v.split('-'); return MONTHS[parseInt(m)-1] ?? v }
+
+/** O formato do rótulo acompanha a granularidade escolhida pelo backend. */
+function periodLabel(v: string, granularity: string | undefined) {
+  if (granularity === 'day') { const [,m,d] = v.split('-'); return d && m ? `${d}/${m}` : v }
+  if (granularity === 'week') { const [,w] = v.split('-W'); return w ? `S${w}` : v }
+  const [,m] = v.split('-'); return MONTHS[parseInt(m)-1] ?? v
+}
 
 interface Props { filters: AnalyticsFilters }
 
 export function SectionOverview({ filters }: Props) {
   const base = { startDate: filters.startDate, endDate: filters.endDate, clientId: filters.clientId, groupId: filters.groupId }
-  const { data: osOverview, isLoading: loadingOs } = useOsOverview(base)
-  const { data: timeline, isLoading: loadingTimeline } = useOsTimeline({ ...base, groupBy: 'month' })
-  const { data: cmp, isLoading: loadingCmp } = useOsComparison(base)
-  const { data: eqOverview, isLoading: loadingEq } = useEquipmentOverview({})
+  const { data: osOverview, isLoading: loadingOs, error: errorOs } = useOsOverview(base)
+  // Granularidade automática no backend conforme o tamanho da janela.
+  const { data: timeline, isLoading: loadingTimeline, error: errorTimeline } = useOsTimeline(base)
+  const { data: cmp, isLoading: loadingCmp, error: errorCmp } = useOsComparison(base)
+  const { data: eqOverview, isLoading: loadingEq, error: errorEq } = useEquipmentOverview({})
 
   const statusPie = osOverview
     ? Object.entries(osOverview.byStatus).filter(([,v]) => v > 0)
@@ -72,44 +87,48 @@ export function SectionOverview({ filters }: Props) {
       {/* Row 1 — OS KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <KpiCard title="Total de OS" value={loadingOs ? '…' : fmt(osOverview?.total)} subtitle="No período"
-          icon={<Wrench className="h-4 w-4"/>} accent="blue" loading={loadingOs}
+          icon={<Wrench className="h-4 w-4"/>} accent="blue" loading={loadingOs} error={errorOs}
           delta={deltaToKpi(d?.total)} deltaLabel="vs período anterior" />
 
-        <KpiCard title="OS Concluídas" value={loadingOs ? '…' : fmt(osOverview?.byStatus.completed)}
-          subtitle={osOverview ? `${((osOverview.byStatus.completed/Math.max(osOverview.total,1))*100).toFixed(0)}% do total` : ''}
-          icon={<CheckCircle2 className="h-4 w-4"/>} accent="green" loading={loadingOs}
+        {/* Concluídas = recorte por data de conclusão. Antes usava
+            byStatus.completed, que conta apenas o status COMPLETED (aguardando
+            aprovação) da safra aberta no período — zerava o cartão em empresas
+            que aprovam a OS na sequência. */}
+        <KpiCard title="OS Concluídas" value={loadingOs ? '…' : fmt(osOverview?.concludedInPeriod.total)}
+          subtitle="Concluídas no período"
+          icon={<CheckCircle2 className="h-4 w-4"/>} accent="green" loading={loadingOs} error={errorOs}
           delta={deltaToKpi(d?.completed)} deltaLabel="vs período anterior" />
 
         <KpiCard title="Tempo Médio Resolução" value={loadingOs ? '…' : fmtHours(osOverview?.sla.avgResolutionHours)} subtitle="MTTR"
-          icon={<Clock className="h-4 w-4"/>} accent="amber" loading={loadingOs}
+          icon={<Clock className="h-4 w-4"/>} accent="amber" loading={loadingOs} error={errorOs}
           delta={invertDelta(d?.avgResolutionHours)} deltaLabel="vs período anterior" />
 
         <KpiCard title="First-Time Fix Rate"
           value={loadingCmp ? '…' : cur?.firstTimeFixRate != null ? `${fmt(cur.firstTimeFixRate, 1)}%` : '–'}
-          subtitle="OS sem OS filha" icon={<TrendingUp className="h-4 w-4"/>} accent="green" loading={loadingCmp}
+          subtitle="OS sem OS filha" icon={<TrendingUp className="h-4 w-4"/>} accent="green" loading={loadingCmp} error={errorCmp}
           delta={deltaToKpi(d?.firstTimeFixRate)} deltaLabel="vs período anterior" />
       </div>
 
       {/* Row 2 — Equipment KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <KpiCard title="Total de Equipamentos" value={loadingEq ? '…' : fmt(eqOverview?.total)}
-          subtitle={eqOverview ? `${fmt(eqOverview.byStatus.active)} ativos` : ''} accent="blue" loading={loadingEq} />
+          subtitle={eqOverview ? `${fmt(eqOverview.byStatus.active)} ativos` : ''} accent="blue" loading={loadingEq} error={errorEq} />
 
         <KpiCard title="Disponibilidade" value={loadingEq ? '…' : eqOverview ? `${fmt(eqOverview.availabilityRate, 1)}%` : '–'}
-          subtitle="Taxa de disponibilidade" accent="green" loading={loadingEq} />
+          subtitle="Taxa de disponibilidade" accent="green" loading={loadingEq} error={errorEq} />
 
         <KpiCard title="Custo Total OS" value={loadingOs ? '…' : fmtCurrency(osOverview?.totalCost)} subtitle="No período"
-          accent="amber" loading={loadingOs} delta={deltaToKpi(d?.totalCost)} deltaLabel="vs período anterior" />
+          accent="amber" loading={loadingOs} error={errorOs} delta={deltaToKpi(d?.totalCost)} deltaLabel="vs período anterior" />
 
         <KpiCard title="Garantias a Vencer" value={loadingEq ? '…' : fmt(eqOverview?.warranty.expiringSoon30)} subtitle="Próximos 30 dias"
           icon={<AlertTriangle className="h-4 w-4"/>}
-          accent={eqOverview && eqOverview.warranty.expiringSoon30 > 0 ? 'amber' : 'green'} loading={loadingEq} />
+          accent={eqOverview && eqOverview.warranty.expiringSoon30 > 0 ? 'amber' : 'green'} loading={loadingEq} error={errorEq} />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <ChartCard title="Evolução de OS" subtitle="Abertas por mês" className="lg:col-span-2"
-          loading={loadingTimeline} empty={!hasTimeline}>
+        <ChartCard title="Evolução de OS" subtitle="Abertas vs concluídas" className="lg:col-span-2"
+          loading={loadingTimeline} error={errorTimeline} empty={!hasTimeline}>
           {hasTimeline && (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={timelineSeries} margin={{top:4,right:8,bottom:0,left:-10}}>
@@ -122,10 +141,12 @@ export function SectionOverview({ filters }: Props) {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false}/>
-                <XAxis dataKey="period" tick={{fontSize:11,fill:'#6c7c93'}} tickLine={false} axisLine={false} tickFormatter={monthLabel}/>
+                <XAxis dataKey="period" tick={{fontSize:11,fill:'#6c7c93'}} tickLine={false} axisLine={false}
+                  minTickGap={16} tickFormatter={(v)=>periodLabel(v, timeline?.granularity)}/>
                 <YAxis tick={{fontSize:11,fill:'#6c7c93'}} tickLine={false} axisLine={false}/>
                 <Tooltip contentStyle={{fontSize:12,borderRadius:8,border:'1px solid #e8ecf1'}}
-                  formatter={(v:any,n:any)=>[v,n==='total'?'Total':n==='completed'?'Concluídas':n]}/>
+                  labelFormatter={(v)=>periodLabel(String(v), timeline?.granularity)}
+                  formatter={(v:ChartValue,n:ChartName)=>[asNum(v),n==='total'?'Abertas':n==='completed'?'Concluídas':n]}/>
                 <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} fill="url(#ov-gT)" name="total"/>
                 <Area type="monotone" dataKey="completed" stroke="#10b981" strokeWidth={2} fill="url(#ov-gD)" name="completed"/>
               </AreaChart>
@@ -133,7 +154,7 @@ export function SectionOverview({ filters }: Props) {
           )}
         </ChartCard>
 
-        <ChartCard title="OS por Status" subtitle="Distribuição atual" loading={loadingOs} empty={!hasPie}>
+        <ChartCard title="OS por Status" subtitle="Safra aberta no período" loading={loadingOs} error={errorOs} empty={!hasPie}>
           {hasPie && (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>

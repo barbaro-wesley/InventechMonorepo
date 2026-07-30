@@ -1,6 +1,6 @@
 'use client'
 
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface KpiCardProps {
@@ -12,6 +12,8 @@ interface KpiCardProps {
   icon?: React.ReactNode
   accent?: 'blue' | 'green' | 'amber' | 'red' | 'purple'
   loading?: boolean
+  /** Falha na consulta. Sem isto um 500 vira um card em branco indistinguível de "sem dados". */
+  error?: unknown
 }
 
 const accentMap = {
@@ -31,6 +33,7 @@ export function KpiCard({
   icon,
   accent = 'blue',
   loading = false,
+  error,
 }: KpiCardProps) {
   const colors = accentMap[accent]
 
@@ -57,6 +60,11 @@ export function KpiCard({
           <div className="space-y-2">
             <div className="h-8 w-24 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />
             <div className="h-3.5 w-16 bg-[#f3f4f7] dark:bg-zinc-800 rounded animate-pulse" />
+          </div>
+        ) : error ? (
+          <div className="flex items-center gap-1.5 text-red-500">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="text-xs font-medium">Falha ao carregar</span>
           </div>
         ) : (
           <>

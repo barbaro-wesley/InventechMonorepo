@@ -5,6 +5,7 @@ import {
   EquipmentCostsParams,
   EquipmentOverviewParams,
   EquipmentRangeParams,
+  EquipmentWarrantyParams,
   FinancialParams,
   FinancialTcoParams,
   FinancialTrendParams,
@@ -27,6 +28,7 @@ export const analyticsKeys = {
     costs: (p: EquipmentCostsParams) => ["analytics", "equipment", "costs", p] as const,
     withoutPreventive: (p: EquipmentOverviewParams) => ["analytics", "equipment", "without-preventive", p] as const,
     osTimeline: (p: EquipmentRangeParams) => ["analytics", "equipment", "os-timeline", p] as const,
+    warranty: (p: EquipmentWarrantyParams) => ["analytics", "equipment", "warranty", p] as const,
   },
   os: {
     overview: (p: BaseOsParams) => ["analytics", "os", "overview", p] as const,
@@ -88,6 +90,14 @@ export function useEquipmentOsTimeline(p: EquipmentRangeParams = {}) {
   return useQuery({
     queryKey: analyticsKeys.equipment.osTimeline(p),
     queryFn: () => analyticsService.getEquipmentOsTimeline(p),
+    staleTime: STALE,
+  });
+}
+
+export function useEquipmentWarranty(p: EquipmentWarrantyParams = {}) {
+  return useQuery({
+    queryKey: analyticsKeys.equipment.warranty(p),
+    queryFn: () => analyticsService.getEquipmentWarranty(p),
     staleTime: STALE,
   });
 }

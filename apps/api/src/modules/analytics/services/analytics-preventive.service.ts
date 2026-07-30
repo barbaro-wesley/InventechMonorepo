@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import Redis from 'ioredis'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { REDIS_CLIENT } from '../../../common/providers/redis.provider'
+import { resolvePeriod } from '../analytics-period.util'
 import type {
   PreventiveAdherenceQueryDto,
   PreventiveBaseQueryDto,
@@ -38,8 +39,7 @@ export class AnalyticsPreventiveService {
   // Base: registros de Maintenance com scheduleId (gerados pelo agendador)
   // ─────────────────────────────────────────
   async getAdherence(companyId: string, filters: PreventiveAdherenceQueryDto) {
-    const start = filters.startDate ? new Date(filters.startDate) : this.startOfYear()
-    const end   = filters.endDate   ? new Date(filters.endDate)   : new Date()
+    const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
 
     const clientF = filters.clientId ? Prisma.sql`AND m.client_id    = ${filters.clientId}::uuid`    : Prisma.empty
     const groupF  = filters.groupId  ? Prisma.sql`AND ms.group_id    = ${filters.groupId}::uuid`     : Prisma.empty
@@ -345,10 +345,4 @@ export class AnalyticsPreventiveService {
     })
   }
 
-  private startOfYear(): Date {
-    const d = new Date()
-    d.setMonth(0, 1)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
 }

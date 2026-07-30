@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import Redis from 'ioredis'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { REDIS_CLIENT } from '../../../common/providers/redis.provider'
+import { resolvePeriod } from '../analytics-period.util'
 import type {
   FinancialQueryDto,
   FinancialTrendQueryDto,
@@ -38,8 +39,7 @@ export class AnalyticsFinancialService {
   // Inclui comparação automática com período anterior equivalente
   // ─────────────────────────────────────────
   async getOverview(companyId: string, filters: FinancialQueryDto) {
-    const start = filters.startDate ? new Date(filters.startDate) : this.startOfYear()
-    const end   = filters.endDate   ? new Date(filters.endDate)   : new Date()
+    const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
 
     const durationMs = end.getTime() - start.getTime()
     const prevEnd    = new Date(start.getTime() - 1)
@@ -143,8 +143,7 @@ export class AnalyticsFinancialService {
   // Evolução mensal/trimestral de custo
   // ────────────────────────────���────────────
   async getTrend(companyId: string, filters: FinancialTrendQueryDto) {
-    const start     = filters.startDate ? new Date(filters.startDate) : this.startOfYear()
-    const end       = filters.endDate   ? new Date(filters.endDate)   : new Date()
+    const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
     const granularity = filters.groupBy ?? 'month'
 
     const clientF = filters.clientId ? Prisma.sql`AND so.client_id = ${filters.clientId}::uuid` : Prisma.empty
@@ -290,10 +289,4 @@ export class AnalyticsFinancialService {
     return { absolute, percent }
   }
 
-  private startOfYear(): Date {
-    const d = new Date()
-    d.setMonth(0, 1)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
 }
