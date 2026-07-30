@@ -28,6 +28,9 @@ model Company {
   status                 CompanyStatus           @default(ACTIVE)
   trialEndsAt            DateTime?               @map("trial_ends_at")
   settings               Json?
+  /// @deprecated Substituído por CompanyMaintenanceTypeSla (linha PREVENTIVE, em horas).
+  /// Mantido apenas como origem do seed da migration; não é mais lido em runtime.
+  preventiveSlaDays      Int                     @default(30) @map("preventive_sla_days")
   createdAt              DateTime                @default(now()) @map("created_at")
   updatedAt              DateTime                @updatedAt @map("updated_at")
   deletedAt              DateTime?               @map("deleted_at")
@@ -69,6 +72,7 @@ model Company {
   stockMovements         StockMovement[]
   stockPoints            StockPoint[]
   slaConfigs             CompanySlaConfig[]
+  maintenanceTypeSlas    CompanyMaintenanceTypeSla[]
   users                  User[]
 
   @@index([platformId])
@@ -551,6 +555,11 @@ model ServiceOrder {
   slaResponseDueDate   DateTime?                   @map("sla_response_due_date")
   slaResolutionDueDate DateTime?                   @map("sla_resolution_due_date")
   slaStatus            SlaStatus?                  @default(ON_TIME) @map("sla_status")
+  /// Momento em que o prazo de primeiro atendimento (TPA) foi estourado.
+  /// Gravado na primeira detecção e nunca limpo — é o registro durável da
+  /// violação, já que slaStatus é recalculado e volta a ON_TIME quando a OS
+  /// inicia. Base da métrica de cumprimento de TPA.
+  slaResponseBreachedAt DateTime?                  @map("sla_response_breached_at")
   attachments          Attachment[]                @relation("ServiceOrderAttachments")
   laudos               Laudo[]
   originatedSchedules  MaintenanceSchedule[]       @relation("ScheduleFromOS")
@@ -587,6 +596,7 @@ model ServiceOrder {
   @@index([parentServiceOrderId])
   @@index([companyId, slaStatus])
   @@index([slaResolutionDueDate])
+  @@index([slaResponseBreachedAt])
   @@map("service_orders")
 }
 
@@ -1393,6 +1403,30 @@ model CompanySlaConfig {
   @@unique([companyId, priority])
   @@index([companyId])
   @@map("company_sla_configs")
+}
+
+/// SLA por tipo de manutenção e prioridade. Cobre os tipos que não são
+/// corretiva (preventiva, aceitação inicial, etc.), na mesma granularidade das
+/// corretivas: cada par (tipo, prioridade) tem TPA e prazo de conclusão.
+/// Os prazos são sempre armazenados em HORAS — a apresentação em dias fica a
+/// cargo da UI. Manter uma unidade única evita a ambiguidade dia/hora.
+model CompanyMaintenanceTypeSla {
+  id                 String               @id @default(uuid())
+  companyId          String               @map("company_id")
+  maintenanceType    MaintenanceType      @map("maintenance_type")
+  priority           ServiceOrderPriority
+  /// Prazo de primeiro atendimento (TPA). Nulo = sem prazo de TPA.
+  maxResponseHours   Decimal?             @map("max_response_hours") @db.Decimal(8, 2)
+  /// Prazo de conclusão/resolução.
+  maxResolutionHours Decimal              @map("max_resolution_hours") @db.Decimal(8, 2)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+
+  company            Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, maintenanceType, priority])
+  @@index([companyId])
+  @@map("company_maintenance_type_sla_configs")
 }
 
 enum ServiceOrderTechnicianRole {

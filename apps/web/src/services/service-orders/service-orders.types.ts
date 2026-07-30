@@ -86,6 +86,8 @@ export interface ServiceOrder {
   priority: ServiceOrderPriority
   slaResponseDueDate?: string | null
   slaResolutionDueDate?: string | null
+  /** Momento em que o TPA foi estourado. Nulo = TPA cumprido (ou sem prazo). */
+  slaResponseBreachedAt?: string | null
   slaStatus?: SlaStatus | null
   resolution: string | null
   internalNotes: string | null

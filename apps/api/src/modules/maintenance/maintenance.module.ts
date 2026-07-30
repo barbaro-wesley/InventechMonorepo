@@ -5,12 +5,14 @@ import { MaintenanceController, ScheduleController, CompanyScheduleController } 
 import { MaintenanceProcessor } from './processors/maintenance.processor'
 import { MaintenanceCronJobs } from './schedule/maintenance-cron.jobs'
 import { NotificationsModule } from '../notifications/notifications.module'
+import { SlaModule } from '../sla/sla.module'
 
 @Module({
     imports: [
         // Registra a fila no Redis via Bull
         BullModule.registerQueue({ name: MAINTENANCE_QUEUE }),
         NotificationsModule,
+        SlaModule,
     ],
     controllers: [
         MaintenanceController,

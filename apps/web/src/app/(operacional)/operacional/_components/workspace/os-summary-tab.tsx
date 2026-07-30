@@ -13,7 +13,7 @@ import {
 import { useAddTechnician, useRemoveTechnician } from '@/hooks/service-orders/use-service-orders'
 import { useUsers } from '@/hooks/users/use-users'
 import type { ServiceOrderDetail, ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
-import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo, formatDuration, getSlaInfo } from '../os-utils'
+import { PRIORITY_CONFIG, STATUS_CONFIG, MAINTENANCE_TYPE_LABELS, timeAgo, formatDuration, getSlaInfo, getTpaInfo } from '../os-utils'
 
 interface OsSummaryTabProps {
   os: ServiceOrderDetail
@@ -136,6 +136,7 @@ export function OsSummaryTab({ os, clientId, osId, canManage, onNavigateTab }: O
 
   const nextActions = getNextActions(os.status as ServiceOrderStatus)
   const sla = getSlaInfo(os)
+  const tpa = getTpaInfo(os)
 
   return (
     <div className="space-y-4">
@@ -162,7 +163,7 @@ export function OsSummaryTab({ os, clientId, osId, canManage, onNavigateTab }: O
           label="SLA"
           iconClass={sla?.late ? 'bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border-red-200' : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200'}
           valueClass={sla?.late ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}
-          sub={sla ? `${sla.timeLeftStr} (SLA: ${sla.totalHoursStr})` : 'Sem prazo'}
+          sub={sla ? `${sla.timeLeftStr} (SLA: ${sla.totalDurationStr})` : 'Sem prazo'}
         >
           {sla ? sla.label : 'Dentro do prazo'}
         </StatCard>
@@ -285,9 +286,17 @@ export function OsSummaryTab({ os, clientId, osId, canManage, onNavigateTab }: O
                 </span>
               </div>
               <div className="w-full space-y-1 text-center">
-                {priority && (
+                {/* Só corretiva tem o prazo definido pela prioridade; os demais
+                    tipos seguem o SLA configurado para o próprio tipo. */}
+                {os.maintenanceType === 'CORRECTIVE' ? (
+                  priority && (
+                    <p className="text-xs text-[#6c7c93] dark:text-zinc-400">
+                      Prazo prioridade ({priority.label}): <span className="font-semibold text-[#1d2530] dark:text-zinc-100">{sla?.totalDurationStr ?? '24h'}</span>
+                    </p>
+                  )
+                ) : (
                   <p className="text-xs text-[#6c7c93] dark:text-zinc-400">
-                    Prazo prioridade ({priority.label}): <span className="font-semibold text-[#1d2530] dark:text-zinc-100">{sla?.totalHoursStr ?? '24h'}</span>
+                    Prazo {MAINTENANCE_TYPE_LABELS[os.maintenanceType]?.toLowerCase() ?? 'do tipo'}: <span className="font-semibold text-[#1d2530] dark:text-zinc-100">{sla?.totalDurationStr ?? '—'}</span>
                   </p>
                 )}
                 <p className="text-[11px] text-[#6c7c93] dark:text-zinc-400">
@@ -296,6 +305,16 @@ export function OsSummaryTab({ os, clientId, osId, canManage, onNavigateTab }: O
                 <p className={`text-xs font-semibold mt-1 flex items-center justify-center gap-1 ${sla?.late ? 'text-red-600' : 'text-emerald-600 dark:text-emerald-400'}`}>
                   {sla?.late ? '✕ Atrasada' : '✓ Dentro do prazo'}
                 </p>
+
+                {/* TPA é medido e cobrado separado do prazo de conclusão: uma OS
+                    pode concluir no prazo e ainda assim ter estourado o TPA. */}
+                {tpa && (
+                  <p className={`text-[11px] mt-1.5 pt-1.5 border-t border-[#e6ebf2] dark:border-zinc-800 flex items-center justify-center gap-1 ${
+                    tpa.breached ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-[#6c7c93] dark:text-zinc-400'
+                  }`}>
+                    {tpa.breached ? '✕' : '✓'} 1º atendimento: {tpa.label}
+                  </p>
+                )}
               </div>
             </div>
           </Card>

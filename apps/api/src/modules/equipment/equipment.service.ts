@@ -4,7 +4,7 @@ import {
     ConflictException,
     ForbiddenException,
 } from '@nestjs/common'
-import { Prisma, AttachmentEntity, EquipmentStatus, ServiceOrderStatus } from '@prisma/client'
+import { Prisma, AttachmentEntity, EquipmentStatus, ServiceOrderStatus, MaintenanceType } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { CreateEquipmentDto, UpdateEquipmentDto, ListEquipmentsDto, ListEquipmentServiceOrdersDto } from './dto/equipment.dto'
@@ -12,6 +12,13 @@ import { StorageService } from '../storage/storage.service'
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
 import { CustomFieldsService } from './custom-fields/custom-fields.service'
+import { maintenanceTypeBlocksEquipment } from '../../common/enums/maintenance-type.enum'
+
+// Tipos de manutenção que NÃO param o equipamento (preventiva/aceitação inicial).
+// Usado para reconciliar equipamentos presos em "em manutenção".
+const NON_BLOCKING_MAINTENANCE_TYPES: MaintenanceType[] = (
+    Object.values(MaintenanceType) as MaintenanceType[]
+).filter((t) => !maintenanceTypeBlocksEquipment(t))
 
 const EQUIPMENT_SELECT = {
     id: true,
@@ -588,12 +595,15 @@ export class EquipmentService {
         const stuck = await this.prisma.equipment.findMany({
             where: {
                 status: EquipmentStatus.UNDER_MAINTENANCE,
+                // Apenas OS que de fato param o equipamento (ex.: corretiva) mantêm o
+                // status "em manutenção". OS preventivas/aceitação inicial não contam.
                 serviceOrders: {
                     none: {
                         deletedAt: null,
                         status: {
                             notIn: [ServiceOrderStatus.COMPLETED_APPROVED, ServiceOrderStatus.CANCELLED],
                         },
+                        maintenanceType: { notIn: NON_BLOCKING_MAINTENANCE_TYPES },
                     },
                 },
             },

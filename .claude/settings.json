@@ -41,7 +41,14 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\" -Recurse -Directory)",
       "Bash(Select-Object -First 30)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\" -Recurse -Directory | Select-Object -First 50 | ForEach-Object { $_.FullName })",
-      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\" -Directory)"
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\User\\\\Documents\\\\inventech\\\\InventechMonorepo\" -Directory)",
+      "PowerShell(npx tsc --noEmit -p \"c:\\\\Users\\\\Wesley.Barbaro\\\\Documents\\\\Inventech\\\\InventechMonorepo\\\\apps\\\\api\\\\tsconfig.json\" 2>&1)",
+      "Bash(node \"C:/Users/WESLEY~1.BAR/AppData/Local/Temp/claude/c--Users-Wesley-Barbaro-Documents-Inventech-InventechMonorepo/aa7af7f5-d115-470d-9ae9-e2143405fdd9/scratchpad/pgver.js\")",
+      "PowerShell(npx tsc --noEmit -p \"c:\\\\Users\\\\Wesley.Barbaro\\\\Documents\\\\Inventech\\\\InventechMonorepo\\\\apps\\\\web\\\\tsconfig.json\" 2>&1)",
+      "Bash(node \"C:/Users/WESLEY~1.BAR/AppData/Local/Temp/claude/c--Users-Wesley-Barbaro-Documents-Inventech-InventechMonorepo/aa7af7f5-d115-470d-9ae9-e2143405fdd9/scratchpad/dryrun.js\")",
+      "Bash(node \"C:/Users/WESLEY~1.BAR/AppData/Local/Temp/claude/c--Users-Wesley-Barbaro-Documents-Inventech-InventechMonorepo/aa7af7f5-d115-470d-9ae9-e2143405fdd9/scratchpad/inspect.js\")",
+      "Bash(node \"C:/Users/WESLEY~1.BAR/AppData/Local/Temp/claude/c--Users-Wesley-Barbaro-Documents-Inventech-InventechMonorepo/aa7af7f5-d115-470d-9ae9-e2143405fdd9/scratchpad/verify.js\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

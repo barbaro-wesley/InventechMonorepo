@@ -152,6 +152,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get platform() { return this._db.platform }
   get company() { return this._db.company }
   get companySlaConfig() { return this._db.companySlaConfig }
+  get companyMaintenanceTypeSla() { return this._db.companyMaintenanceTypeSla }
 
   // ─── Client ────────────────────────────────────────────────────────────────
 

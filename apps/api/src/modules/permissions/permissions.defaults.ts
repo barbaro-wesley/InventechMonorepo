@@ -122,6 +122,13 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   // Criar OS filha / agendamento vinculado a uma OS pai
   'service-order:create-child':             [SA, CA, CM],
 
+  // ── SLA (prazos de atendimento e conclusão) ────────────────────────────────
+  // Leitura acompanha 'service-order:create': o formulário de abertura de OS
+  // exibe o prazo de conclusão vigente por tipo × prioridade, então quem pode
+  // abrir OS precisa poder lê-lo. Configurar segue restrito a administradores.
+  'sla:read':                    [SA, CA, CM, TEC, CLA, CLU, CLV],
+  'sla:update':                  [SA, CA],
+
   // ── MAINTENANCE ────────────────────────────────────────────────────────────
   'maintenance:list':            [SA, CA, CM, TEC, CLA, CLV],
   'maintenance:read':            [SA, CA, CM, TEC, CLA, CLV],
@@ -325,6 +332,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'user':                 ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'client':               ['browse', 'list', 'read', 'create', 'update', 'delete', 'upload-logo'],
   'service-order':        ['browse', 'list', 'read', 'create', 'update', 'update-status', 'assume', 'manage-techs', 'comment', 'task', 'delete', 'view-own', 'create-without-equipment', 'link-equipment', 'create-child'],
+  'sla':                  ['read', 'update'],
   'maintenance':          ['list', 'read', 'create', 'update', 'delete'],
   'maintenance-schedule': ['browse', 'list', 'read', 'create', 'update', 'delete', 'trigger'],
   'maintenance-group':    ['browse', 'list', 'read', 'create', 'update', 'delete'],

@@ -33,6 +33,13 @@ import {
 import { NotificationsService } from '../notifications/notifications.service'
 import { EventType } from '../notifications/notifications.constants'
 import { SlaService } from '../sla/sla.service'
+import { maintenanceTypeBlocksEquipment } from '../../common/enums/maintenance-type.enum'
+
+// Tipos de manutenção que colocam o equipamento em "em manutenção" ao abrir a OS.
+// Preventivas e aceitações iniciais não param o equipamento, portanto não contam.
+const BLOCKING_MAINTENANCE_TYPES: MaintenanceType[] = (
+    Object.values(MaintenanceType) as MaintenanceType[]
+).filter((t) => maintenanceTypeBlocksEquipment(t))
 
 const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
     [ServiceOrderStatus.OPEN]: [
@@ -109,6 +116,7 @@ const OS_SELECT = {
     priority: true,
     slaResponseDueDate: true,
     slaResolutionDueDate: true,
+    slaResponseBreachedAt: true,
     slaStatus: true,
     resolution: true,
     internalNotes: true,
@@ -623,7 +631,7 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const priority = dto.priority ?? ServiceOrderPriority.MEDIUM
-        const slaDates = await this.slaService.calculateSlaDates(companyId, priority)
+        const slaDates = await this.slaService.resolveSlaDates(companyId, dto.maintenanceType, priority)
 
         const os = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
@@ -683,10 +691,14 @@ export class ServiceOrdersService {
                     where: { id: dto.equipmentId },
                     data: { totalServiceOrders: { increment: 1 } },
                 })
-                await tx.equipment.updateMany({
-                    where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
-                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-                })
+                // Só marca "em manutenção" quando a OS de fato para o equipamento
+                // (ex.: corretiva). Preventivas e aceitações iniciais não alteram o status.
+                if (maintenanceTypeBlocksEquipment(dto.maintenanceType)) {
+                    await tx.equipment.updateMany({
+                        where: { id: dto.equipmentId, status: EquipmentStatus.ACTIVE },
+                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                    })
+                }
             }
 
             return created
@@ -767,7 +779,7 @@ export class ServiceOrdersService {
         const initialStatus = ServiceOrderStatus.AWAITING_PICKUP
 
         const batchPriority = dto.priority ?? ServiceOrderPriority.MEDIUM
-        const slaDates = await this.slaService.calculateSlaDates(companyId, batchPriority)
+        const slaDates = await this.slaService.resolveSlaDates(companyId, dto.maintenanceType, batchPriority)
 
         const createdOrders = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
@@ -819,10 +831,14 @@ export class ServiceOrdersService {
                     where: { id: equip.id },
                     data: { totalServiceOrders: { increment: 1 } },
                 })
-                await tx.equipment.updateMany({
-                    where: { id: equip.id, status: EquipmentStatus.ACTIVE },
-                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-                })
+                // Só marca "em manutenção" quando a OS de fato para o equipamento
+                // (ex.: corretiva). Preventivas e aceitações iniciais não alteram o status.
+                if (maintenanceTypeBlocksEquipment(dto.maintenanceType)) {
+                    await tx.equipment.updateMany({
+                        where: { id: equip.id, status: EquipmentStatus.ACTIVE },
+                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                    })
+                }
 
                 orders.push({ id: created.id, number: created.number, equipmentId: equip.id, equipmentName: equip.name })
             }
@@ -873,6 +889,7 @@ export class ServiceOrdersService {
                 id: true, number: true, status: true,
                 isAvailable: true, groupId: true,
                 title: true, requesterId: true,
+                slaResponseDueDate: true, slaResponseBreachedAt: true,
             },
         })
 
@@ -925,12 +942,21 @@ export class ServiceOrdersService {
                 },
             })
 
+            const startedAt = new Date()
+            // Mesmo registro de estouro de TPA do fluxo de mudança de status:
+            // assumir a OS do painel também é o primeiro atendimento.
+            const breachedNow =
+                os.slaResponseBreachedAt == null &&
+                os.slaResponseDueDate &&
+                startedAt > os.slaResponseDueDate
+
             const result = await tx.serviceOrder.update({
                 where: { id },
                 data: {
                     isAvailable: false,
                     status: ServiceOrderStatus.IN_PROGRESS,
-                    startedAt: new Date(),
+                    startedAt,
+                    ...(breachedNow && { slaResponseBreachedAt: startedAt }),
                 },
                 select: OS_SELECT,
             })
@@ -1101,7 +1127,8 @@ export class ServiceOrdersService {
 
         let slaUpdateData: Record<string, any> = {}
         if (dto.priority && dto.priority !== os.priority) {
-            const slaDates = await this.slaService.calculateSlaDates(companyId, dto.priority, os.createdAt)
+            const effectiveType = dto.maintenanceType ?? os.maintenanceType
+            const slaDates = await this.slaService.resolveSlaDates(companyId, effectiveType, dto.priority, os.createdAt)
             slaUpdateData = {
                 slaResponseDueDate: slaDates.slaResponseDueDate,
                 slaResolutionDueDate: slaDates.slaResolutionDueDate,
@@ -1184,7 +1211,19 @@ export class ServiceOrdersService {
         }
 
         const statusData: Record<string, any> = {}
-        if (dto.status === ServiceOrderStatus.IN_PROGRESS) statusData.startedAt = new Date()
+        if (dto.status === ServiceOrderStatus.IN_PROGRESS) {
+            const startedAt = new Date()
+            statusData.startedAt = startedAt
+            // Registra o estouro de TPA no próprio início: o job roda a cada 30
+            // min e uma OS iniciada com atraso dentro dessa janela escaparia.
+            if (
+                os.slaResponseBreachedAt == null &&
+                os.slaResponseDueDate &&
+                startedAt > os.slaResponseDueDate
+            ) {
+                statusData.slaResponseBreachedAt = startedAt
+            }
+        }
         if (dto.status === ServiceOrderStatus.COMPLETED) {
             statusData.completedAt = new Date()
             if (dto.resolution) statusData.resolution = dto.resolution
@@ -1248,6 +1287,18 @@ export class ServiceOrdersService {
                 },
             })
 
+            // Regra de status: a OS preventiva (e demais tipos que não param o
+            // equipamento na abertura) só coloca o equipamento "em manutenção"
+            // quando o atendimento de fato entra "em andamento" (IN_PROGRESS).
+            // Para corretivas o equipamento já está UNDER_MAINTENANCE desde a
+            // abertura, então o updateMany filtrado por ACTIVE é um no-op.
+            if (finalStatus === ServiceOrderStatus.IN_PROGRESS && os.equipmentId) {
+                await tx.equipment.updateMany({
+                    where: { id: os.equipmentId, status: EquipmentStatus.ACTIVE },
+                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                })
+            }
+
             if (finalStatus === ServiceOrderStatus.CANCELLED) {
                 const children = await tx.serviceOrder.findMany({
                     where: {
@@ -1290,22 +1341,31 @@ export class ServiceOrdersService {
                         data: { status: EquipmentStatus.INACTIVE, lastMaintenanceAt: new Date() },
                     })
                 } else {
+                    // Registra a data da última manutenção ao aprovar a OS,
+                    // independentemente do status atual do equipamento — preventivas
+                    // e aceitações iniciais não deixam o equipamento "em manutenção".
+                    if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED) {
+                        await tx.equipment.updateMany({
+                            where: { id: os.equipmentId },
+                            data: { lastMaintenanceAt: new Date() },
+                        })
+                    }
+
+                    // Só reverte para ATIVO quando não há mais OS que de fato param o
+                    // equipamento (ex.: corretiva). OS preventivas/aceitação inicial
+                    // não mantêm o equipamento "em manutenção".
                     const activeOsCount = await tx.serviceOrder.count({
                         where: {
                             equipmentId: os.equipmentId,
                             deletedAt: null,
                             status: { notIn: TERMINAL },
+                            maintenanceType: { in: BLOCKING_MAINTENANCE_TYPES },
                         },
                     })
-                    const equipmentUpdate: Record<string, unknown> = {}
-                    if (activeOsCount === 0) equipmentUpdate.status = EquipmentStatus.ACTIVE
-                    if (finalStatus === ServiceOrderStatus.COMPLETED_APPROVED) {
-                        equipmentUpdate.lastMaintenanceAt = new Date()
-                    }
-                    if (Object.keys(equipmentUpdate).length > 0) {
+                    if (activeOsCount === 0) {
                         await tx.equipment.updateMany({
                             where: { id: os.equipmentId, status: EquipmentStatus.UNDER_MAINTENANCE },
-                            data: equipmentUpdate,
+                            data: { status: EquipmentStatus.ACTIVE },
                         })
                     }
                 }
@@ -1476,7 +1536,7 @@ export class ServiceOrdersService {
             : ServiceOrderStatus.OPEN
 
         const childPriority = dto.priority ?? ServiceOrderPriority.MEDIUM
-        const slaDates = await this.slaService.calculateSlaDates(companyId, childPriority)
+        const slaDates = await this.slaService.resolveSlaDates(companyId, dto.maintenanceType, childPriority)
 
         const os = await this.prisma.$transaction(async (tx) => {
             await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${companyId})::bigint)`
@@ -1538,10 +1598,14 @@ export class ServiceOrdersService {
                     where: { id: parent.equipmentId },
                     data: { totalServiceOrders: { increment: 1 } },
                 })
-                await tx.equipment.updateMany({
-                    where: { id: parent.equipmentId, status: EquipmentStatus.ACTIVE },
-                    data: { status: EquipmentStatus.UNDER_MAINTENANCE },
-                })
+                // Só marca "em manutenção" quando a OS de fato para o equipamento
+                // (ex.: corretiva). Preventivas e aceitações iniciais não alteram o status.
+                if (maintenanceTypeBlocksEquipment(dto.maintenanceType)) {
+                    await tx.equipment.updateMany({
+                        where: { id: parent.equipmentId, status: EquipmentStatus.ACTIVE },
+                        data: { status: EquipmentStatus.UNDER_MAINTENANCE },
+                    })
+                }
             }
 
             return created
@@ -1573,11 +1637,14 @@ export class ServiceOrdersService {
             })
 
             if (os.equipmentId) {
+                // Conta apenas OS que de fato param o equipamento (ex.: corretiva).
+                // OS preventivas/aceitação inicial não mantêm o equipamento "em manutenção".
                 const activeOsCount = await tx.serviceOrder.count({
                     where: {
                         equipmentId: os.equipmentId,
                         deletedAt: null,
                         status: { notIn: TERMINAL_STATUSES },
+                        maintenanceType: { in: BLOCKING_MAINTENANCE_TYPES },
                     },
                 })
                 if (activeOsCount === 0) {
@@ -1603,6 +1670,7 @@ export class ServiceOrdersService {
             select: {
                 id: true, number: true, status: true, equipmentId: true, maintenanceType: true,
                 priority: true, createdAt: true, slaResolutionDueDate: true,
+                slaResponseDueDate: true, slaResponseBreachedAt: true,
             },
         })
         if (!os) throw new NotFoundException('Ordem de serviço não encontrada')

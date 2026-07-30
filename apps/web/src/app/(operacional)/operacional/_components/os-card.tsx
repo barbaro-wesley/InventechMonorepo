@@ -62,6 +62,7 @@ export function OsCard({ os, onClick }: OsCardProps) {
             <SlaBadge
               slaResolutionDueDate={os.slaResolutionDueDate}
               slaStatus={os.slaStatus}
+              slaResponseBreachedAt={os.slaResponseBreachedAt}
               status={os.status}
             />
             {os.parentServiceOrderId && (
