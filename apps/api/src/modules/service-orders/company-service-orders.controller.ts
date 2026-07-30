@@ -143,12 +143,37 @@ export class CompanyServiceOrdersController {
     @Patch(':id/status')
     @HttpCode(HttpStatus.OK)
     @Permission('service-order:update-status')
-    updateStatus(
+    @UseInterceptors(
+        FilesInterceptor('files', 10, {
+            storage: memoryStorage(),
+            limits: { fileSize: 20 * 1024 * 1024 },
+            fileFilter: (_req, file, cb) => {
+                if (ALLOWED_MIME_LIST.includes(file.mimetype)) cb(null, true)
+                else cb(new BadRequestException(`Tipo não permitido: ${file.mimetype}`), false)
+            },
+        }),
+    )
+    async updateStatus(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateServiceOrderStatusDto,
+        @UploadedFiles() files: Express.Multer.File[],
         @CurrentUser() cu: AuthenticatedUser,
     ) {
-        return this.serviceOrdersService.updateStatus(id, dto, null, cu.companyId!, cu)
+        const os = await this.serviceOrdersService.updateStatus(id, dto, null, cu.companyId!, cu)
+        if (files?.length > 0) {
+            await Promise.all(
+                files.map((file) =>
+                    this.storageService.upload(
+                        file,
+                        { entity: AttachmentEntity.SERVICE_ORDER, entityId: os.id },
+                        cu.companyId!,
+                        null,
+                        cu,
+                    ),
+                ),
+            )
+        }
+        return os
     }
 
     @Post(':id/assume')
