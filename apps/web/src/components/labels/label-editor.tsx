@@ -26,6 +26,11 @@ const DEFAULT_LAYOUT: LabelLayout = {
   width: 50, height: 30, unit: "mm", background: "#FFFFFF", elements: [],
 };
 
+interface ElementPatch {
+  id: string;
+  patch: Partial<LabelElement>;
+}
+
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
 }
@@ -55,9 +60,11 @@ export function LabelEditor({
   const [layout, setLayout] = useState<LabelLayout>(
     template?.layout ?? DEFAULT_LAYOUT,
   );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [scale, setScale] = useState(8);
   const canvasAreaRef = useRef<HTMLDivElement>(null);
+
+  const isStandalone = referenceType === "STANDALONE";
 
   // Ajusta o zoom para a etiqueta preencher a área de trabalho disponível.
   const computeFitScale = useCallback(() => {
@@ -89,9 +96,9 @@ export function LabelEditor({
   const updateMutation = useUpdateLabelTemplate(template?.id ?? "");
   const saving = createMutation.isPending || updateMutation.isPending;
 
-  const selected = useMemo(
-    () => layout.elements.find((e) => e.id === selectedId) ?? null,
-    [layout.elements, selectedId],
+  const selectedElements = useMemo(
+    () => layout.elements.filter((e) => selectedIds.includes(e.id)),
+    [layout.elements, selectedIds],
   );
 
   // ── Mutadores de layout ──
@@ -106,10 +113,37 @@ export function LabelEditor({
     }));
   }
 
-  function deleteElement(id: string) {
-    setLayout((prev) => ({ ...prev, elements: prev.elements.filter((e) => e.id !== id) }));
-    setSelectedId(null);
+  function updateElements(patches: ElementPatch[]) {
+    setLayout((prev) => ({
+      ...prev,
+      elements: prev.elements.map((e) => {
+        const p = patches.find((x) => x.id === e.id);
+        return p ? ({ ...e, ...p.patch } as LabelElement) : e;
+      }),
+    }));
   }
+
+  const deleteElements = useCallback((ids: string[]) => {
+    setLayout((prev) => ({ ...prev, elements: prev.elements.filter((e) => !ids.includes(e.id)) }));
+    setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+  }, []);
+
+  // Atalhos: Delete/Backspace remove a seleção; Escape limpa. (Ignora quando digitando.)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || t?.isContentEditable) return;
+      if (e.key === "Escape") {
+        setSelectedIds([]);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedIds.length) {
+        e.preventDefault();
+        deleteElements(selectedIds);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedIds, deleteElements]);
 
   function addElement(type: LabelElementType) {
     const id = newId();
@@ -117,11 +151,12 @@ export function LabelEditor({
     let el: LabelElement;
     if (type === "text") {
       el = { ...base, type: "text", width: clamp(layout.width - 4, 5, layout.width), height: 6,
-        content: "{equipment_patrimony}", fontSize: 8, fontWeight: "bold", align: "center", color: "#000000" };
+        content: isStandalone ? "Texto" : "{equipment_patrimony}",
+        fontSize: 8, fontWeight: "bold", align: "center", color: "#000000", perCell: true };
     } else if (type === "qrcode") {
       const size = clamp(Math.min(layout.width, layout.height) - 8, 8, 40);
       el = { ...base, type: "qrcode", x: clamp((layout.width - size) / 2, 0, layout.width), y: 8,
-        width: size, height: size, value: "{qr_url}", errorCorrectionLevel: "M" };
+        width: size, height: size, value: isStandalone ? "" : "{qr_url}", errorCorrectionLevel: "M", perCell: true };
     } else if (type === "table") {
       el = { ...base, type: "table",
         width: clamp(layout.width - 4, 10, layout.width),
@@ -146,7 +181,7 @@ export function LabelEditor({
       el = { ...base, type: "image", width: 12, height: 12, source: "company_logo", fit: "contain" };
     }
     setLayout((prev) => ({ ...prev, elements: [...prev.elements, el] }));
-    setSelectedId(id);
+    setSelectedIds([id]);
   }
 
   async function handleSave() {
@@ -221,9 +256,11 @@ export function LabelEditor({
           <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("image")}>
             <ImageIcon className="mr-2 h-4 w-4" /> Logo
           </Button>
-          <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("table")}>
-            <TableIcon className="mr-2 h-4 w-4" /> Tabela OS
-          </Button>
+          {!isStandalone && (
+            <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("table")}>
+              <TableIcon className="mr-2 h-4 w-4" /> Tabela OS
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="justify-start" onClick={() => addElement("line")}>
             <Minus className="mr-2 h-4 w-4" /> Linha
           </Button>
@@ -255,20 +292,22 @@ export function LabelEditor({
           <LabelCanvas
             layout={layout}
             scale={scale}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onElementChange={updateElement}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            onElementsChange={updateElements}
           />
         </div>
 
         {/* Propriedades */}
         <LabelPropertiesPanel
           layout={layout}
-          selected={selected}
+          selectedElements={selectedElements}
           variables={variables}
+          referenceType={referenceType}
           onLayoutChange={updateLayout}
           onElementChange={updateElement}
-          onDeleteElement={deleteElement}
+          onElementsChange={updateElements}
+          onDeleteElements={deleteElements}
         />
       </div>
     </div>

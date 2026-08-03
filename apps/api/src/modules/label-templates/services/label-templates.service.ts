@@ -10,6 +10,7 @@ import {
   LabelTableColumn,
   LabelTableColumnKey,
 } from '../dto/label-template.dto'
+import { sanitizeSheet } from '../label-sheet.util'
 
 const ELEMENT_TYPES = ['text', 'qrcode', 'image', 'table', 'line', 'rect']
 
@@ -82,6 +83,7 @@ function sanitizeLayout(raw: any): LabelLayout {
           italic: !!e.italic,
           align: ['left', 'center', 'right'].includes(e.align) ? e.align : 'left',
           color: typeof e.color === 'string' ? e.color : '#000000',
+          perCell: e.perCell !== false,
         }
       }
       if (e.type === 'qrcode') {
@@ -92,6 +94,7 @@ function sanitizeLayout(raw: any): LabelLayout {
           errorCorrectionLevel: ['L', 'M', 'Q', 'H'].includes(e.errorCorrectionLevel)
             ? e.errorCorrectionLevel
             : 'M',
+          perCell: e.perCell !== false,
         }
       }
       if (e.type === 'table') {
@@ -140,6 +143,7 @@ function sanitizeLayout(raw: any): LabelLayout {
     height,
     unit: 'mm',
     ...(typeof raw?.background === 'string' ? { background: raw.background } : {}),
+    ...(raw?.sheet ? { sheet: sanitizeSheet(raw.sheet) } : {}),
     elements,
   }
 }
