@@ -7,6 +7,7 @@ import type {
   PaginatedLabelTemplates,
   LabelReferenceType,
   LabelVariable,
+  RenderSheetParams,
 } from "./label-templates.types";
 
 export const labelTemplatesService = {
@@ -57,6 +58,18 @@ export const labelTemplatesService = {
     const { data } = await api.post(
       `/label-templates/${id}/render-batch`,
       { entityIds },
+      { responseType: "blob" },
+    );
+    const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  },
+
+  /** Abre o PDF de uma folha (A4/A3/A5) com várias etiquetas — avulsas ou por entidade. */
+  async printSheet(id: string, params: RenderSheetParams): Promise<void> {
+    const { data } = await api.post(
+      `/label-templates/${id}/render-sheet`,
+      params,
       { responseType: "blob" },
     );
     const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));

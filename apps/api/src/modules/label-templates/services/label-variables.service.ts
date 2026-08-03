@@ -66,6 +66,11 @@ const COMMON_VARIABLES: LabelVariable[] = [
   { key: '{qr_url}', label: 'URL do QR (link do item)' },
 ]
 
+// Etiquetas avulsas não têm entidade — logo, não há {qr_url} (o QR usa texto livre).
+const STANDALONE_VARIABLES: LabelVariable[] = COMMON_VARIABLES.filter(
+  (v) => v.key !== '{qr_url}',
+)
+
 const EQUIPMENT_VARIABLES: LabelVariable[] = [
   { key: '{equipment_name}', label: 'Nome do equipamento' },
   { key: '{equipment_patrimony}', label: 'Nº de patrimônio' },
@@ -106,6 +111,9 @@ export class LabelVariablesService {
 
   /** Lista as variáveis disponíveis para um tipo de referência (para a UI). */
   getAvailableVariables(referenceType: LabelReferenceType): LabelVariable[] {
+    if (referenceType === LabelReferenceType.STANDALONE) {
+      return [...STANDALONE_VARIABLES]
+    }
     const specific =
       referenceType === LabelReferenceType.EQUIPMENT
         ? EQUIPMENT_VARIABLES
@@ -134,7 +142,10 @@ export class LabelVariablesService {
     vars['{datetime_now}'] = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
     vars['{year}'] = String(now.getFullYear())
     vars['{month}'] = String(now.getMonth() + 1).padStart(2, '0')
-    vars['{qr_url}'] = this.buildQrUrl(referenceType, entityId)
+    // Etiqueta avulsa não aponta para nenhuma entidade — sem {qr_url}.
+    if (referenceType !== LabelReferenceType.STANDALONE) {
+      vars['{qr_url}'] = this.buildQrUrl(referenceType, entityId)
+    }
 
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
