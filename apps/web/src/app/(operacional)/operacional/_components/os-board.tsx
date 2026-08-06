@@ -15,6 +15,7 @@ import { OsCard } from './os-card'
 import { OsColumn } from './os-column'
 import { KANBAN_COLUMNS, VALID_TRANSITIONS } from './os-utils'
 import { useUpdateStatusDnd } from '@/hooks/service-orders/use-service-orders'
+import { useCurrentUser } from '@/store/auth.store'
 
 interface OsBoardProps {
   orders: ServiceOrder[]
@@ -26,6 +27,10 @@ interface OsBoardProps {
 export function OsBoard({ orders, onCardClick, showClosed = false, columns = KANBAN_COLUMNS }: OsBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [optimisticOverrides, setOptimisticOverrides] = useState<Record<string, ServiceOrderStatus>>({})
+
+  const user = useCurrentUser()
+  // Só quem pode alterar status arrasta cards entre colunas (evita 403 no backend).
+  const canChangeStatus = user?.permissions?.includes('service-order:update-status') ?? false
 
   const updateStatus = useUpdateStatusDnd()
 
@@ -60,6 +65,7 @@ export function OsBoard({ orders, onCardClick, showClosed = false, columns = KAN
   )
 
   function handleDragStart(event: DragStartEvent) {
+    if (!canChangeStatus) return
     setActiveId(event.active.id as string)
   }
 
@@ -67,6 +73,7 @@ export function OsBoard({ orders, onCardClick, showClosed = false, columns = KAN
     const { active, over } = event
     setActiveId(null)
 
+    if (!canChangeStatus) return
     if (!over) return
 
     const newStatus = over.id as ServiceOrderStatus

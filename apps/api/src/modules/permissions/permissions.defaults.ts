@@ -108,7 +108,7 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'service-order:create':        [SA, CA, CM, TEC, CLA, CLU],
   'service-order:update':        [SA, CA, CM, TEC],
   'service-order:update-status': [SA, CA, CM, TEC, CLA],
-  'service-order:assume':        [SA, CA, CM, TEC],
+  'service-order:assume':        [SA, CA, CM, TEC, CLA, CLU],
   'service-order:manage-techs':  [SA, CA, CM],
   'service-order:comment':       [SA, CA, CM, TEC, CLA, CLU],
   'service-order:task':          [SA, CA, CM, TEC],

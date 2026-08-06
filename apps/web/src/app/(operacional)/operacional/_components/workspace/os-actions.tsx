@@ -190,6 +190,7 @@ export function OsActions({ os, clientId, osId, onDeleted, showPrimaryComplete =
     os.status === 'AWAITING_PICKUP' &&
     os.isAvailable &&
     (user?.permissions?.includes('service-order:assume') ?? false)
+  const canChangeStatus = user?.permissions?.includes('service-order:update-status') ?? false
   const canEdit = user?.permissions?.includes('service-order:update') ?? false
   const canDelete = user?.permissions?.includes('service-order:delete') ?? false
   const canCreateChild =
@@ -200,12 +201,12 @@ export function OsActions({ os, clientId, osId, onDeleted, showPrimaryComplete =
 
   // Botão primário "Finalizar OS" (só quando em andamento e no layout de página)
   const canComplete = os.status === 'IN_PROGRESS'
-  const showFinalize = showPrimaryComplete && canComplete
+  const showFinalize = showPrimaryComplete && canComplete && canChangeStatus
 
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        {statusActions.length > 0 && (
+        {statusActions.length > 0 && canChangeStatus && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
