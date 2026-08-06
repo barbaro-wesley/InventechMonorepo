@@ -216,9 +216,7 @@ export class ServiceOrdersService {
         }
 
         if (currentUser.role === UserRole.TECHNICIAN && !currentUser.clientId) {
-            where.technicians = {
-                some: { technicianId: currentUser.sub, releasedAt: null },
-            }
+            where.AND = [await this.buildTechnicianVisibilityFilter(currentUser.sub)]
         }
 
         const [data, total] = await this.prisma.$transaction([
@@ -343,9 +341,7 @@ export class ServiceOrdersService {
             if (currentUser.clientId) {
                 where.clientId = currentUser.clientId
             } else {
-                where.technicians = {
-                    some: { technicianId: currentUser.sub, releasedAt: null },
-                }
+                where.AND = [await this.buildTechnicianVisibilityFilter(currentUser.sub)]
             }
         }
 
@@ -1681,5 +1677,31 @@ export class ServiceOrdersService {
         const clientRoles: UserRole[] = [UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER, UserRole.CLIENT_VIEWER]
         if (clientRoles.includes(user.role)) return { isInternal: false }
         return {}
+    }
+
+    /**
+     * Filtro de visibilidade de OS para o técnico (prestador) nas listagens.
+     * Além das OS atribuídas diretamente a ele, o técnico enxerga as OS abertas
+     * para os grupos de manutenção dos quais participa — assim uma OS criada para
+     * um grupo aparece no painel de todos os prestadores vinculados àquele grupo,
+     * e não apenas quando um técnico específico é informado na criação.
+     */
+    private async buildTechnicianVisibilityFilter(
+        userId: string,
+    ): Promise<Prisma.ServiceOrderWhereInput> {
+        const techGroups = await this.prisma.technicianGroup.findMany({
+            where: { userId, isActive: true },
+            select: { groupId: true },
+        })
+        const groupIds = techGroups.map((g) => g.groupId)
+
+        const orConditions: Prisma.ServiceOrderWhereInput[] = [
+            { technicians: { some: { technicianId: userId, releasedAt: null } } },
+        ]
+        if (groupIds.length > 0) {
+            orConditions.push({ groupId: { in: groupIds } })
+        }
+
+        return { OR: orConditions }
     }
 }
