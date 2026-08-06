@@ -337,16 +337,15 @@ export class ServiceOrdersService {
             }),
         }
 
-        if (currentUser.role === UserRole.TECHNICIAN) {
-            if (currentUser.clientId) {
-                where.clientId = currentUser.clientId
-            } else {
-                where.AND = [await this.buildTechnicianVisibilityFilter(currentUser.sub)]
-            }
-        }
-
-        if (currentUser.role === UserRole.CLIENT_ADMIN || currentUser.role === UserRole.CLIENT_USER) {
-            where.clientId = currentUser.clientId!
+        if (currentUser.clientId) {
+            // Usuário vinculado a um prestador (Client) — CLIENT_ADMIN/CLIENT_USER ou
+            // técnico de um prestador. Enxerga as OS do próprio prestador e as dos
+            // grupos de manutenção aos quais ele está vinculado, para que uma OS
+            // aberta para o grupo apareça no painel de todos os prestadores do grupo.
+            where.AND = [await this.buildClientVisibilityFilter(currentUser.clientId)]
+        } else if (currentUser.role === UserRole.TECHNICIAN) {
+            // Técnico interno da empresa: OS atribuídas a ele + OS dos seus grupos.
+            where.AND = [await this.buildTechnicianVisibilityFilter(currentUser.sub)]
         }
 
         const [data, total] = await this.prisma.$transaction([
@@ -1698,6 +1697,31 @@ export class ServiceOrdersService {
         const orConditions: Prisma.ServiceOrderWhereInput[] = [
             { technicians: { some: { technicianId: userId, releasedAt: null } } },
         ]
+        if (groupIds.length > 0) {
+            orConditions.push({ groupId: { in: groupIds } })
+        }
+
+        return { OR: orConditions }
+    }
+
+    /**
+     * Filtro de visibilidade de OS para o prestador (usuário vinculado a um Client).
+     * Além das OS do próprio prestador (clientId), inclui as OS abertas para os
+     * grupos de manutenção aos quais o prestador está vinculado
+     * (ClientMaintenanceGroup) — assim uma OS criada para um grupo aparece no painel
+     * de todos os prestadores do grupo, e não apenas quando um prestador específico
+     * é informado na criação. Coerente com a autorização de assumeServiceOrder.
+     */
+    private async buildClientVisibilityFilter(
+        clientId: string,
+    ): Promise<Prisma.ServiceOrderWhereInput> {
+        const clientGroups = await this.prisma.clientMaintenanceGroup.findMany({
+            where: { clientId, isActive: true },
+            select: { groupId: true },
+        })
+        const groupIds = clientGroups.map((g) => g.groupId)
+
+        const orConditions: Prisma.ServiceOrderWhereInput[] = [{ clientId }]
         if (groupIds.length > 0) {
             orConditions.push({ groupId: { in: groupIds } })
         }
