@@ -196,8 +196,21 @@ export class ListServiceOrdersDto {
     slaStatus?: SlaStatus
 
     @IsOptional()
+    @IsEnum(MaintenanceType)
+    maintenanceType?: MaintenanceType
+
+    @IsOptional()
     @IsUUID()
     equipmentId?: string
+
+    // Filtros dedicados por equipamento (painel operacional / modal de filtros)
+    @IsOptional()
+    @IsString()
+    patrimonyNumber?: string
+
+    @IsOptional()
+    @IsString()
+    equipmentName?: string
 
     @IsOptional()
     @IsUUID()

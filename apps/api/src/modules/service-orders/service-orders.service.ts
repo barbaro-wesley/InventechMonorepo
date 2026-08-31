@@ -303,9 +303,17 @@ export class ServiceOrdersService {
         currentUser: AuthenticatedUser,
     ) {
         const {
-            search, status, statuses, priority, equipmentId,
+            search, status, statuses, priority, slaStatus, maintenanceType,
+            equipmentId, patrimonyNumber, equipmentName,
             clientId, groupId, dateFrom, dateTo, page = 1, limit = 50,
         } = filters
+
+        // Filtros dedicados sobre a relação de equipamento — combinados em um
+        // único objeto para não sobrescrever quando patrimônio e nome vêm juntos.
+        const equipmentFilter: Prisma.EquipmentWhereInput = {
+            ...(patrimonyNumber && { patrimonyNumber: { contains: patrimonyNumber, mode: 'insensitive' } }),
+            ...(equipmentName && { name: { contains: equipmentName, mode: 'insensitive' } }),
+        }
 
         const where: Prisma.ServiceOrderWhereInput = {
             companyId,
@@ -313,7 +321,10 @@ export class ServiceOrdersService {
             ...(clientId && { clientId }),
             ...(statuses?.length ? { status: { in: statuses } } : status ? { status } : {}),
             ...(priority && { priority }),
+            ...(slaStatus && { slaStatus }),
+            ...(maintenanceType && { maintenanceType }),
             ...(equipmentId && { equipmentId }),
+            ...(Object.keys(equipmentFilter).length > 0 && { equipment: equipmentFilter }),
             ...(groupId && { groupId }),
             ...((dateFrom || dateTo) && {
                 createdAt: {
