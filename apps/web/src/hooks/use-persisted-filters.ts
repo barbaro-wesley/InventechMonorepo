@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { ServiceOrderStatus, ServiceOrderPriority } from '@/services/service-orders/service-orders.types'
+import type {
+  ServiceOrderStatus,
+  ServiceOrderPriority,
+  SlaStatus,
+  MaintenanceType,
+} from '@/services/service-orders/service-orders.types'
 
 export type ViewMode = 'board' | 'list'
 
@@ -9,8 +14,14 @@ export interface OperacionalFilters {
   search: string
   status: ServiceOrderStatus | ''
   priority: ServiceOrderPriority | ''
+  slaStatus: SlaStatus | ''
+  maintenanceType: MaintenanceType | ''
   clientId: string
   groupId: string
+  patrimonyNumber: string
+  equipmentName: string
+  dateFrom: string
+  dateTo: string
   myOrders: boolean
   showClosed: boolean
   view: ViewMode
@@ -20,8 +31,14 @@ const DEFAULTS: OperacionalFilters = {
   search: '',
   status: '',
   priority: '',
+  slaStatus: '',
+  maintenanceType: '',
   clientId: '',
   groupId: '',
+  patrimonyNumber: '',
+  equipmentName: '',
+  dateFrom: '',
+  dateTo: '',
   myOrders: false,
   showClosed: false,
   view: 'board',
@@ -70,5 +87,18 @@ export function usePersistedFilters(userId: string | undefined) {
     [userId],
   )
 
-  return { filters, set, hydrated }
+  // Aplica vários filtros de uma vez (usado pelo modal de filtros avançados),
+  // evitando múltiplos renders/gravações ao setar campo a campo.
+  const setMany = useCallback(
+    (partial: Partial<OperacionalFilters>) => {
+      setFilters((prev) => {
+        const next = { ...prev, ...partial }
+        if (userId) save(userId, next)
+        return next
+      })
+    },
+    [userId],
+  )
+
+  return { filters, set, setMany, hydrated }
 }

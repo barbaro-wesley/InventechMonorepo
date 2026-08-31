@@ -11,6 +11,7 @@ import { QuickStatsBar } from './_components/quick-stats-bar'
 import { CommandBar, type ViewMode } from './_components/command-bar'
 import { OsBoard } from './_components/os-board'
 import { OsList } from './_components/os-list'
+import { FiltersModal, draftFrom, countActiveFilters, type FilterDraft } from './_components/filters-modal'
 import { OsBatchCreateSheet } from '@/components/service-orders/os-batch-create-sheet'
 import type { ServiceOrder, ServiceOrderStatus } from '@/services/service-orders/service-orders.types'
 
@@ -31,19 +32,42 @@ const BOARD_PAGE_SIZE = 100
 export default function OperacionalPage() {
   const user = useCurrentUser()
 
-  const { filters, set, hydrated } = usePersistedFilters(user?.id)
+  const { filters, set, setMany, hydrated } = usePersistedFilters(user?.id)
   const router = useRouter()
 
   const [page, setPage] = useState(1)
   const [boardPage, setBoardPage] = useState(1)
   const [allBoardOrders, setAllBoardOrders] = useState<ServiceOrder[]>([])
   const [batchSheetOpen, setBatchSheetOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  // Atalho Ctrl/⌘ + K abre o modal de filtros avançados
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault()
+        setFiltersOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  const activeFilterCount = countActiveFilters(draftFrom(filters))
 
   const debouncedSearch = useDebounce(filters.search, 350)
   const isTyping = filters.search !== debouncedSearch
 
-  useEffect(() => { setPage(1) }, [debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId])
-  useEffect(() => { setBoardPage(1) }, [debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId])
+  useEffect(() => { setPage(1) }, [
+    debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId,
+    filters.slaStatus, filters.maintenanceType, filters.patrimonyNumber, filters.equipmentName,
+    filters.dateFrom, filters.dateTo,
+  ])
+  useEffect(() => { setBoardPage(1) }, [
+    debouncedSearch, filters.status, filters.priority, filters.clientId, filters.groupId,
+    filters.slaStatus, filters.maintenanceType, filters.patrimonyNumber, filters.equipmentName,
+    filters.dateFrom, filters.dateTo,
+  ])
 
   const { data: clientsData } = useClients({ limit: 100 })
   const { data: groupsData } = useMaintenanceGroups({ isActive: true })
@@ -54,11 +78,26 @@ export default function OperacionalPage() {
     search: debouncedSearch || undefined,
     status: filters.status || undefined,
     priority: filters.priority || undefined,
+    slaStatus: filters.slaStatus || undefined,
+    maintenanceType: filters.maintenanceType || undefined,
     clientId: filters.clientId || undefined,
     groupId: filters.groupId || undefined,
+    patrimonyNumber: filters.patrimonyNumber || undefined,
+    equipmentName: filters.equipmentName || undefined,
+    dateFrom: filters.dateFrom || undefined,
+    dateTo: filters.dateTo || undefined,
   } : {}
 
-  const boardStatuses = !filters.status && !filters.showClosed && !debouncedSearch ? ACTIVE_STATUSES : undefined
+  // Filtros "de busca dirigida" — quando ativos, o board deixa de restringir às
+  // colunas ativas e passa a varrer todos os status (a OS pode estar encerrada).
+  const hasDeepFilters = Boolean(
+    filters.patrimonyNumber || filters.equipmentName || filters.maintenanceType ||
+    filters.slaStatus || filters.dateFrom || filters.dateTo,
+  )
+
+  const boardStatuses = !filters.status && !filters.showClosed && !debouncedSearch && !hasDeepFilters
+    ? ACTIVE_STATUSES
+    : undefined
 
   const { data: boardResponse, isLoading: boardLoading, isFetching: boardFetching } = useServiceOrders(
     filters.view === 'board' && hydrated
@@ -132,6 +171,8 @@ export default function OperacionalPage() {
         showClosed={filters.showClosed}
         onShowClosedChange={(v) => set('showClosed', v)}
         onBatchCreate={() => setBatchSheetOpen(true)}
+        onOpenFilters={() => setFiltersOpen(true)}
+        activeFilterCount={activeFilterCount}
       />
 
       {/* Board */}
@@ -145,7 +186,7 @@ export default function OperacionalPage() {
                   <div className="h-full w-1/2 bg-[#0d4da5] dark:bg-blue-500 rounded-full animate-pulse" />
                 </div>
               )}
-              <OsBoard orders={filteredBoard} showClosed={filters.showClosed || !!debouncedSearch} onCardClick={handleCardClick} />
+              <OsBoard orders={filteredBoard} showClosed={filters.showClosed || !!debouncedSearch || hasDeepFilters} onCardClick={handleCardClick} />
 
               {(boardHasMore || boardFetching) ? (
                 <div className="shrink-0 flex items-center justify-center gap-3 py-2 border-t border-[#e0e5eb] dark:border-zinc-800 bg-white dark:bg-zinc-950">
@@ -244,6 +285,19 @@ export default function OperacionalPage() {
       <OsBatchCreateSheet
         open={batchSheetOpen}
         onClose={() => setBatchSheetOpen(false)}
+      />
+
+      <FiltersModal
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        clients={clients}
+        groups={groups}
+        onApply={(draft: FilterDraft) => setMany(draft)}
+        onClear={() => setMany({
+          patrimonyNumber: '', equipmentName: '', clientId: '', status: '', priority: '',
+          groupId: '', maintenanceType: '', slaStatus: '', dateFrom: '', dateTo: '',
+        })}
       />
     </div>
   )

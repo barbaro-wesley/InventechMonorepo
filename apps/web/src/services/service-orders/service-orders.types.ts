@@ -232,9 +232,13 @@ export interface ListServiceOrdersParams {
   status?: ServiceOrderStatus
   statuses?: ServiceOrderStatus[]
   priority?: ServiceOrderPriority
+  slaStatus?: SlaStatus
+  maintenanceType?: MaintenanceType
   clientId?: string
   groupId?: string
   equipmentId?: string
+  patrimonyNumber?: string
+  equipmentName?: string
   dateFrom?: string
   dateTo?: string
   page?: number
