@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, LayoutGrid, List, User, Archive, Loader2, Layers } from 'lucide-react'
+import { Search, LayoutGrid, List, User, Archive, Loader2, Layers, SlidersHorizontal } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -36,6 +36,8 @@ interface CommandBarProps {
   showClosed: boolean
   onShowClosedChange: (v: boolean) => void
   onBatchCreate?: () => void
+  onOpenFilters?: () => void
+  activeFilterCount?: number
 }
 
 export function CommandBar({
@@ -59,6 +61,8 @@ export function CommandBar({
   showClosed,
   onShowClosedChange,
   onBatchCreate,
+  onOpenFilters,
+  activeFilterCount = 0,
 }: CommandBarProps) {
   return (
     <div className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-zinc-950 border-b border-[#e0e5eb] dark:border-zinc-800 flex-wrap">
@@ -75,6 +79,29 @@ export function CommandBar({
           <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6c7c93] dark:text-zinc-400 animate-spin" />
         )}
       </div>
+
+      {/* Filtros avançados (Ctrl/⌘+K) */}
+      {onOpenFilters && (
+        <button
+          onClick={onOpenFilters}
+          title="Filtros avançados (Ctrl/⌘ + K)"
+          className={`flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-colors border ${
+            activeFilterCount > 0
+              ? 'bg-[#0d4da5] dark:bg-blue-600 text-white border-[#0d4da5] dark:border-blue-600'
+              : 'bg-[#f3f4f7] dark:bg-zinc-800 text-[#6c7c93] dark:text-zinc-400 border-transparent hover:text-[#1d2530] dark:hover:text-zinc-100'
+          }`}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Filtros
+          {activeFilterCount > 0 ? (
+            <span className="ml-0.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-white/25 text-[10px] font-bold">
+              {activeFilterCount}
+            </span>
+          ) : (
+            <kbd className="ml-0.5 hidden sm:inline font-mono text-[10px] opacity-70">⌘K</kbd>
+          )}
+        </button>
+      )}
 
       {/* Filtro status */}
       <Select
