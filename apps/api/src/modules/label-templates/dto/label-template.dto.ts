@@ -1,6 +1,6 @@
 import {
   IsString, IsOptional, IsBoolean, IsEnum, IsArray,
-  IsNumber, Min, Max, ValidateNested, IsInt,
+  IsNumber, Min, Max, ValidateNested, IsInt, IsObject,
 } from 'class-validator'
 import { Type, Transform } from 'class-transformer'
 import { LabelReferenceType } from '@prisma/client'
@@ -43,12 +43,16 @@ export interface LabelTextElement extends LabelElementBase {
   italic?: boolean
   align?: 'left' | 'center' | 'right'
   color?: string
+  /** Na impressão em folha (mala-direta), indica se o conteúdo varia por etiqueta. */
+  perCell?: boolean
 }
 
 export interface LabelQrElement extends LabelElementBase {
   type: 'qrcode'
   value: string
   errorCorrectionLevel?: 'L' | 'M' | 'Q' | 'H'
+  /** Na impressão em folha (mala-direta), indica se o valor varia por etiqueta. */
+  perCell?: boolean
 }
 
 export interface LabelImageElement extends LabelElementBase {
@@ -95,12 +99,33 @@ export type LabelElement =
   | LabelLineElement
   | LabelRectElement
 
+// ─── Folha de impressão (imposição em A4/A3/A5) ─────────────────────────────────
+
+export type PaperSize = 'A4' | 'A3' | 'A5'
+
+export interface LabelSheet {
+  /** Se a etiqueta deve ser impressa numa folha com várias por página. */
+  enabled: boolean
+  paperSize: PaperSize
+  orientation: 'portrait' | 'landscape'
+  marginTop: number
+  marginRight: number
+  marginBottom: number
+  marginLeft: number
+  columns: number
+  rows: number
+  gapX: number
+  gapY: number
+}
+
 export interface LabelLayout {
   width: number
   height: number
   unit: 'mm'
   background?: string
   elements: LabelElement[]
+  /** Configuração padrão de impressão em folha (opcional). */
+  sheet?: LabelSheet
 }
 
 // ─── DTOs ──────────────────────────────────────────────────────────────────────
@@ -123,6 +148,11 @@ export class LabelLayoutDto {
   @IsArray()
   @Transform(({ obj, key }) => obj[key])
   elements: LabelElement[]
+
+  // Sanitização profunda do sheet é feita no service (sanitizeSheet).
+  @IsOptional() @IsObject()
+  @Transform(({ obj, key }) => obj[key])
+  sheet?: LabelSheet
 }
 
 export class CreateLabelTemplateDto {
@@ -190,4 +220,67 @@ export class RenderLabelsDto {
   @IsArray()
   @IsString({ each: true })
   entityIds: string[]
+}
+
+// ─── Impressão em folha (mala-direta / imposição) ───────────────────────────────
+
+export class RenderSheetOptionsDto {
+  @IsOptional() @IsBoolean()
+  enabled?: boolean
+
+  @IsOptional() @IsString()
+  paperSize?: string
+
+  @IsOptional() @IsString()
+  orientation?: string
+
+  @IsOptional() @IsNumber()
+  marginTop?: number
+
+  @IsOptional() @IsNumber()
+  marginRight?: number
+
+  @IsOptional() @IsNumber()
+  marginBottom?: number
+
+  @IsOptional() @IsNumber()
+  marginLeft?: number
+
+  @IsOptional() @IsInt()
+  columns?: number
+
+  @IsOptional() @IsInt()
+  rows?: number
+
+  @IsOptional() @IsNumber()
+  gapX?: number
+
+  @IsOptional() @IsNumber()
+  gapY?: number
+}
+
+export class RenderSheetCellDto {
+  // Mapa { elementId: valor } com o conteúdo desta etiqueta (texto/QR).
+  @IsOptional() @IsObject()
+  overrides?: Record<string, string>
+}
+
+export class RenderSheetDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RenderSheetOptionsDto)
+  sheet?: RenderSheetOptionsDto
+
+  // Etiquetas avulsas: uma célula por etiqueta (com o conteúdo de cada uma).
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RenderSheetCellDto)
+  cells?: RenderSheetCellDto[]
+
+  // Modo entidade: distribui vários equipamentos/OS pelo grid da folha.
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  entityIds?: string[]
 }

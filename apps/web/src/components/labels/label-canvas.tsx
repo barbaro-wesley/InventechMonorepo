@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { cn } from "@/lib/utils";
 import type { LabelElement, LabelLayout } from "@/services/label-templates/label-templates.types";
@@ -8,31 +8,49 @@ import type { LabelElement, LabelLayout } from "@/services/label-templates/label
 // 1 pt = 1/72 pol = 0.352778 mm — converte fontSize (pt) para mm ao renderizar na tela.
 const PT_TO_MM = 0.352778;
 
-type DragMode = "move" | "resize";
+type DragMode = "move" | "resize" | "marquee";
+
+interface ElementBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 interface DragState {
-  id: string;
   mode: DragMode;
   startPx: { x: number; y: number };
-  orig: { x: number; y: number; width: number; height: number };
+  origs: Record<string, ElementBox>; // move: posição original de cada selecionado
+  resizeId?: string;
+  resizeOrig?: ElementBox;
+  additive?: boolean; // marquee somando à seleção
+  prevSelection?: string[];
+}
+
+interface ElementPatch {
+  id: string;
+  patch: Partial<LabelElement>;
 }
 
 export function LabelCanvas({
   layout,
   scale,
-  selectedId,
-  onSelect,
-  onElementChange,
+  selectedIds = [],
+  onSelectionChange = () => {},
+  onElementsChange = () => {},
   interactive = true,
 }: {
   layout: LabelLayout;
   scale: number; // px por mm
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  onElementChange: (id: string, patch: Partial<LabelElement>) => void;
+  selectedIds?: string[];
+  onSelectionChange?: (ids: string[]) => void;
+  onElementsChange?: (patches: ElementPatch[]) => void;
   interactive?: boolean;
 }) {
   const dragRef = useRef<DragState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
   const canvasW = layout.width * scale;
   const canvasH = layout.height * scale;
 
@@ -40,69 +58,167 @@ export function LabelCanvas({
     return Math.min(max, Math.max(min, n));
   }
 
-  function handlePointerDown(
-    e: React.PointerEvent,
-    el: LabelElement,
-    mode: DragMode,
-  ) {
-    if (!interactive) return;
-    e.stopPropagation();
-    onSelect(el.id);
-    dragRef.current = {
-      id: el.id,
-      mode,
-      startPx: { x: e.clientX, y: e.clientY },
-      orig: { x: el.x, y: el.y, width: el.width, height: el.height },
-    };
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
+  function round1(n: number) {
+    return Math.round(n * 10) / 10;
   }
 
-  function handlePointerMove(e: PointerEvent) {
+  // ── Início de arraste em um elemento (mover, ou selecionar) ──
+  function onElementPointerDown(e: React.PointerEvent, el: LabelElement) {
+    if (!interactive) return;
+    e.stopPropagation();
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+
+    if (additive) {
+      const next = selectedIds.includes(el.id)
+        ? selectedIds.filter((id) => id !== el.id)
+        : [...selectedIds, el.id];
+      onSelectionChange(next);
+      return;
+    }
+
+    const ids = selectedIds.includes(el.id) ? selectedIds : [el.id];
+    if (!selectedIds.includes(el.id)) onSelectionChange(ids);
+
+    const origs: Record<string, ElementBox> = {};
+    for (const id of ids) {
+      const found = layout.elements.find((x) => x.id === id);
+      if (found) origs[id] = { x: found.x, y: found.y, width: found.width, height: found.height };
+    }
+    dragRef.current = { mode: "move", startPx: { x: e.clientX, y: e.clientY }, origs };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  }
+
+  // ── Início de redimensionamento (apenas com um elemento selecionado) ──
+  function onResizePointerDown(e: React.PointerEvent, el: LabelElement) {
+    if (!interactive) return;
+    e.stopPropagation();
+    dragRef.current = {
+      mode: "resize",
+      startPx: { x: e.clientX, y: e.clientY },
+      origs: {},
+      resizeId: el.id,
+      resizeOrig: { x: el.x, y: el.y, width: el.width, height: el.height },
+    };
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  }
+
+  // ── Início de seleção por retângulo (marquee) no fundo do canvas ──
+  function onCanvasPointerDown(e: React.PointerEvent) {
+    if (!interactive) return;
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey;
+    if (!additive) onSelectionChange([]);
+    dragRef.current = {
+      mode: "marquee",
+      startPx: { x: e.clientX, y: e.clientY },
+      origs: {},
+      additive,
+      prevSelection: selectedIds,
+    };
+    setMarquee({ x: e.clientX - rect.left, y: e.clientY - rect.top, w: 0, h: 0 });
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  }
+
+  function onPointerMove(e: PointerEvent) {
     const drag = dragRef.current;
     if (!drag) return;
-    const dxMm = (e.clientX - drag.startPx.x) / scale;
-    const dyMm = (e.clientY - drag.startPx.y) / scale;
 
     if (drag.mode === "move") {
-      const x = clamp(drag.orig.x + dxMm, 0, layout.width - drag.orig.width);
-      const y = clamp(drag.orig.y + dyMm, 0, layout.height - drag.orig.height);
-      onElementChange(drag.id, {
-        x: Math.round(x * 10) / 10,
-        y: Math.round(y * 10) / 10,
-      });
-    } else {
-      const width = clamp(drag.orig.width + dxMm, 2, layout.width - drag.orig.x);
-      const height = clamp(drag.orig.height + dyMm, 2, layout.height - drag.orig.y);
-      onElementChange(drag.id, {
-        width: Math.round(width * 10) / 10,
-        height: Math.round(height * 10) / 10,
+      const dxMm = (e.clientX - drag.startPx.x) / scale;
+      const dyMm = (e.clientY - drag.startPx.y) / scale;
+      // Limita o deslocamento para que TODOS os selecionados fiquem dentro da etiqueta.
+      let minDx = -Infinity, maxDx = Infinity, minDy = -Infinity, maxDy = Infinity;
+      for (const id of Object.keys(drag.origs)) {
+        const o = drag.origs[id];
+        minDx = Math.max(minDx, -o.x);
+        maxDx = Math.min(maxDx, layout.width - o.width - o.x);
+        minDy = Math.max(minDy, -o.y);
+        maxDy = Math.min(maxDy, layout.height - o.height - o.y);
+      }
+      const dx = clamp(dxMm, minDx, maxDx);
+      const dy = clamp(dyMm, minDy, maxDy);
+      const patches: ElementPatch[] = Object.keys(drag.origs).map((id) => ({
+        id,
+        patch: { x: round1(drag.origs[id].x + dx), y: round1(drag.origs[id].y + dy) },
+      }));
+      onElementsChange(patches);
+      return;
+    }
+
+    if (drag.mode === "resize" && drag.resizeId && drag.resizeOrig) {
+      const dxMm = (e.clientX - drag.startPx.x) / scale;
+      const dyMm = (e.clientY - drag.startPx.y) / scale;
+      const o = drag.resizeOrig;
+      const width = clamp(o.width + dxMm, 2, layout.width - o.x);
+      const height = clamp(o.height + dyMm, 2, layout.height - o.y);
+      onElementsChange([{ id: drag.resizeId, patch: { width: round1(width), height: round1(height) } }]);
+      return;
+    }
+
+    if (drag.mode === "marquee") {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x0 = drag.startPx.x - rect.left;
+      const y0 = drag.startPx.y - rect.top;
+      const x1 = e.clientX - rect.left;
+      const y1 = e.clientY - rect.top;
+      setMarquee({
+        x: Math.min(x0, x1),
+        y: Math.min(y0, y1),
+        w: Math.abs(x1 - x0),
+        h: Math.abs(y1 - y0),
       });
     }
   }
 
-  function handlePointerUp() {
+  function onPointerUp(e: PointerEvent) {
+    const drag = dragRef.current;
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
     dragRef.current = null;
-    window.removeEventListener("pointermove", handlePointerMove);
-    window.removeEventListener("pointerup", handlePointerUp);
+
+    if (drag?.mode === "marquee") {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        // Retângulo do marquee em mm (coordenadas da etiqueta).
+        const mx = Math.min(drag.startPx.x, e.clientX) - rect.left;
+        const my = Math.min(drag.startPx.y, e.clientY) - rect.top;
+        const mw = Math.abs(e.clientX - drag.startPx.x);
+        const mh = Math.abs(e.clientY - drag.startPx.y);
+        const ax = mx / scale, ay = my / scale, aw = mw / scale, ah = mh / scale;
+        const hits = layout.elements
+          .filter((el) => !(el.x > ax + aw || el.x + el.width < ax || el.y > ay + ah || el.y + el.height < ay))
+          .map((el) => el.id);
+        if (mw > 3 || mh > 3) {
+          const base = drag.additive ? (drag.prevSelection ?? []) : [];
+          onSelectionChange(Array.from(new Set([...base, ...hits])));
+        }
+      }
+      setMarquee(null);
+    }
   }
 
   return (
     <div
+      ref={containerRef}
       className="relative overflow-hidden bg-white shadow-md ring-1 ring-gray-300"
       style={{
         width: canvasW,
         height: canvasH,
         background: layout.background || "#FFFFFF",
       }}
-      onPointerDown={() => interactive && onSelect(null)}
+      onPointerDown={onCanvasPointerDown}
     >
       {layout.elements.map((el) => {
-        const selected = el.id === selectedId;
+        const selected = selectedIds.includes(el.id);
         return (
           <div
             key={el.id}
-            onPointerDown={(e) => handlePointerDown(e, el, "move")}
+            onPointerDown={(e) => onElementPointerDown(e, el)}
             className={cn(
               "absolute box-border select-none",
               interactive && "cursor-move",
@@ -119,15 +235,23 @@ export function LabelCanvas({
           >
             <ElementContent el={el} scale={scale} />
 
-            {interactive && selected && (
+            {interactive && selected && selectedIds.length === 1 && (
               <div
-                onPointerDown={(e) => handlePointerDown(e, el, "resize")}
+                onPointerDown={(e) => onResizePointerDown(e, el)}
                 className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-se-resize rounded-sm border border-white bg-blue-500"
               />
             )}
           </div>
         );
       })}
+
+      {/* Retângulo de seleção (marquee) */}
+      {interactive && marquee && (marquee.w > 0 || marquee.h > 0) && (
+        <div
+          className="pointer-events-none absolute border border-blue-500 bg-blue-500/10"
+          style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }}
+        />
+      )}
     </div>
   );
 }

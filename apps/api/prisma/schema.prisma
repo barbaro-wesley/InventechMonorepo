@@ -1614,6 +1614,7 @@ enum LaudoReferenceType {
 enum LabelReferenceType {
   EQUIPMENT
   SERVICE_ORDER
+  STANDALONE
 }
 
 enum ScanStatus {

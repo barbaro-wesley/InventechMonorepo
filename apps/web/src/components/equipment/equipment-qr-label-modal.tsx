@@ -95,9 +95,6 @@ export function EquipmentQrLabelModal({
               <LabelCanvas
                 layout={selected.layout}
                 scale={fitScale(selected.layout.width, selected.layout.height)}
-                selectedId={null}
-                onSelect={() => {}}
-                onElementChange={() => {}}
                 interactive={false}
               />
             </div>

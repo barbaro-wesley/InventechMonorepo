@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LabelCanvas } from "@/components/labels/label-canvas";
 import { LabelEditor } from "@/components/labels/label-editor";
+import { LabelSheetPrint } from "@/components/labels/label-sheet-print";
 import {
   useLabelTemplates, useDeleteLabelTemplate, useCloneLabelTemplate,
   labelTemplateKeys,
@@ -53,6 +54,7 @@ export default function EtiquetasPage() {
   const queryClient = useQueryClient();
 
   const [editing, setEditing] = useState<EditingState>(null);
+  const [printingSheet, setPrintingSheet] = useState<LabelTemplate | null>(null);
   const [toDelete, setToDelete] = useState<LabelTemplate | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -89,6 +91,13 @@ export default function EtiquetasPage() {
     window.open(labelTemplatesService.getRenderUrl(tpl.id, makeTestId()), "_blank");
   }
 
+  // Etiquetas avulsas abrem a tela de impressão em folha (mala-direta);
+  // as de entidade abrem uma impressão de teste com dados vazios.
+  function handlePrint(tpl: LabelTemplate) {
+    if (tpl.referenceType === "STANDALONE") setPrintingSheet(tpl);
+    else openTestPrint(tpl);
+  }
+
   async function patchTemplate(id: string, dto: UpdateLabelTemplateDto, message: string) {
     setBusyId(id);
     try {
@@ -109,6 +118,14 @@ export default function EtiquetasPage() {
           template={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
         />
+      </div>
+    );
+  }
+
+  if (printingSheet) {
+    return (
+      <div className="p-2">
+        <LabelSheetPrint template={printingSheet} onClose={() => setPrintingSheet(null)} />
       </div>
     );
   }
@@ -216,7 +233,7 @@ export default function EtiquetasPage() {
               canDelete={canDelete}
               onEdit={() => canEdit && setEditing(tpl)}
               onClone={() => cloneMutation.mutate(tpl.id)}
-              onPrintTest={() => openTestPrint(tpl)}
+              onPrintTest={() => handlePrint(tpl)}
               onDelete={() => setToDelete(tpl)}
               onSetDefault={() => patchTemplate(tpl.id, { isDefault: true }, "Etiqueta definida como padrão!")}
               onToggleActive={() =>
@@ -252,7 +269,7 @@ export default function EtiquetasPage() {
                   canDelete={canDelete}
                   onEdit={() => canEdit && setEditing(tpl)}
                   onClone={() => cloneMutation.mutate(tpl.id)}
-                  onPrintTest={() => openTestPrint(tpl)}
+                  onPrintTest={() => handlePrint(tpl)}
                   onDelete={() => setToDelete(tpl)}
                   onSetDefault={() => patchTemplate(tpl.id, { isDefault: true }, "Etiqueta definida como padrão!")}
                   onToggleActive={() =>
@@ -368,7 +385,7 @@ function LabelTemplateCard({
   const actions = [
     canEdit && { key: "edit", icon: Pencil, label: "Editar", onClick: onEdit },
     canClone && { key: "clone", icon: Copy, label: "Duplicar", onClick: onClone },
-    { key: "print", icon: Printer, label: "Imprimir teste", onClick: onPrintTest },
+    { key: "print", icon: Printer, label: template.referenceType === "STANDALONE" ? "Imprimir" : "Imprimir teste", onClick: onPrintTest },
     canDelete && { key: "delete", icon: Trash2, label: "Excluir", onClick: onDelete, danger: true },
   ].filter(Boolean) as { key: string; icon: React.ElementType; label: string; onClick: () => void; danger?: boolean }[];
 
@@ -387,9 +404,6 @@ function LabelTemplateCard({
             <LabelCanvas
               layout={template.layout}
               scale={previewScale(template.layout.width, template.layout.height)}
-              selectedId={null}
-              onSelect={() => {}}
-              onElementChange={() => {}}
               interactive={false}
             />
           </div>
@@ -463,9 +477,6 @@ function LabelTemplateRow({
           <LabelCanvas
             layout={template.layout}
             scale={thumbScale(template.layout.width, template.layout.height)}
-            selectedId={null}
-            onSelect={() => {}}
-            onElementChange={() => {}}
             interactive={false}
           />
         </div>
@@ -502,7 +513,7 @@ function LabelTemplateRow({
               <Copy className="h-3.5 w-3.5" />
             </IconButton>
           )}
-          <IconButton title="Imprimir teste" onClick={onPrintTest}>
+          <IconButton title={template.referenceType === "STANDALONE" ? "Imprimir" : "Imprimir teste"} onClick={onPrintTest}>
             <Printer className="h-3.5 w-3.5" />
           </IconButton>
           {canDelete && (
