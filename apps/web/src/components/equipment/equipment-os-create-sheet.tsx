@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 
 const MAINTENANCE_TYPE_LABELS: Record<string, string> = {
   CORRECTIVE: 'Corretiva',
+  PREVENTIVE: 'Preventiva',
   INITIAL_ACCEPTANCE: 'Aceitação Inicial',
   EXTERNAL_SERVICE: 'Serviço Externo',
   TECHNOVIGILANCE: 'Tecnovigilância',
