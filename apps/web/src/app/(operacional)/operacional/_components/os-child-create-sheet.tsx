@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { GitBranch, Loader2 } from 'lucide-react'
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,8 +30,8 @@ const CHILD_ALLOWED_TYPES: Record<MaintenanceType, MaintenanceType[]> = {
   CORRECTIVE:         ['PREVENTIVE', 'CORRECTIVE', 'DEACTIVATION'],
   INITIAL_ACCEPTANCE: ['PREVENTIVE', 'CORRECTIVE'],
   PREVENTIVE:         ['CORRECTIVE', 'DEACTIVATION'],
-  EXTERNAL_SERVICE:   ['CORRECTIVE'],
-  TECHNOVIGILANCE:    ['CORRECTIVE'],
+  EXTERNAL_SERVICE:   ['CORRECTIVE', 'PREVENTIVE', 'DEACTIVATION'],
+  TECHNOVIGILANCE:    ['CORRECTIVE', 'PREVENTIVE'],
   IMPROPER_USE:       ['CORRECTIVE', 'DEACTIVATION'],
   DEACTIVATION:       [],
   TRAINING:           [],
@@ -48,6 +48,9 @@ const RECURRENCE_LABELS: Record<RecurrenceType, string> = {
   CUSTOM:     'Intervalo personalizado',
 }
 
+// Valor sentinela para "sem técnico" (Radix Select não aceita value vazio)
+const NO_TECHNICIAN = 'none'
+
 interface SimpleOption { id: string; name: string }
 
 type ChildType = 'SERVICE_ORDER' | 'MAINTENANCE_SCHEDULE'
@@ -57,9 +60,7 @@ type FormData = {
   description: string
   maintenanceType: MaintenanceType
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'
-  groupId: string
   technicianId: string
-  scheduledFor: string
   recurrenceType: RecurrenceType
   customIntervalDays: number
   startDate: string
@@ -73,6 +74,8 @@ interface OsChildCreateSheetProps {
   parentNumber: number
   parentMaintenanceType: MaintenanceType
   clientId: string | null
+  /** Técnico responsável herdado da OS pai (pré-selecionado, editável/removível) */
+  parentTechnician?: { id: string; name: string } | null
 }
 
 export function OsChildCreateSheet({
@@ -82,9 +85,9 @@ export function OsChildCreateSheet({
   parentNumber,
   parentMaintenanceType,
   clientId,
+  parentTechnician,
 }: OsChildCreateSheetProps) {
   const [childType, setChildType] = useState<ChildType>('SERVICE_ORDER')
-  const [groups, setGroups] = useState<SimpleOption[]>([])
   const [technicians, setTechnicians] = useState<SimpleOption[]>([])
 
   const createChild = useCreateChildServiceOrder(clientId, parentId)
@@ -94,6 +97,7 @@ export function OsChildCreateSheet({
     defaultValues: {
       priority: 'MEDIUM',
       recurrenceType: 'MONTHLY',
+      technicianId: parentTechnician?.id ?? NO_TECHNICIAN,
     },
   })
 
@@ -101,13 +105,20 @@ export function OsChildCreateSheet({
 
   useEffect(() => {
     if (!open) return
-    api.get('/maintenance-groups', { params: { limit: 100 } }).then(({ data }) =>
-      setGroups((data?.data ?? []).map((g: any) => ({ id: g.id, name: g.name }))),
-    )
+    // Herda o técnico da OS pai ao abrir (pode ser alterado/removido depois)
+    form.setValue('technicianId', parentTechnician?.id ?? NO_TECHNICIAN)
     api.get('/users', { params: { role: 'TECHNICIAN', limit: 100 } }).then(({ data }) =>
       setTechnicians((data?.data ?? []).map((u: any) => ({ id: u.id, name: u.name }))),
     )
-  }, [open])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, parentTechnician?.id])
+
+  // Garante que o técnico herdado sempre exista como opção,
+  // mesmo antes da lista carregar (evita valor "fantasma").
+  const technicianOptions: SimpleOption[] = parentTechnician
+    && !technicians.some((t) => t.id === parentTechnician.id)
+      ? [parentTechnician, ...technicians]
+      : technicians
 
   const handleClose = () => {
     form.reset()
@@ -116,17 +127,21 @@ export function OsChildCreateSheet({
   }
 
   const onSubmit = form.handleSubmit((values) => {
+    const technicianId =
+      values.technicianId && values.technicianId !== NO_TECHNICIAN
+        ? values.technicianId
+        : undefined
+
     createChild.mutate(
       {
         childType,
         title: values.title,
         description: values.description,
         maintenanceType: values.maintenanceType,
-        groupId: values.groupId || undefined,
-        technicianId: values.technicianId || undefined,
+        // grupo herdado da OS pai automaticamente no backend
+        technicianId,
         ...(childType === 'SERVICE_ORDER' && {
           priority: values.priority,
-          scheduledFor: values.scheduledFor || undefined,
         }),
         ...(childType === 'MAINTENANCE_SCHEDULE' && {
           recurrenceType: values.recurrenceType,
@@ -142,18 +157,15 @@ export function OsChildCreateSheet({
   if (allowedTypes.length === 0) return null
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && handleClose()}>
-      <SheetContent
-        side="right"
-        className="w-full sm:!w-[480px] sm:!max-w-[480px] flex flex-col gap-0 p-0"
-      >
-        <SheetHeader className="px-6 pt-5 pb-4 border-b border-[#e0e5eb] dark:border-zinc-800 ">
+    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+      <DialogContent className="w-full sm:max-w-[520px] max-h-[90vh] overflow-hidden flex flex-col gap-0 p-0">
+        <DialogHeader className="px-6 pt-5 pb-4 border-b border-[#e0e5eb] dark:border-zinc-800 text-left">
           <div className="flex items-center gap-2 mb-1">
             <GitBranch className="h-4 w-4 text-violet-500" />
-            <span className="text-xs text-[#6c7c93] dark:text-zinc-400 ">OS Vinculada à OS #{parentNumber}</span>
+            <span className="text-xs text-[#6c7c93] dark:text-zinc-400">Vinculada à OS #{parentNumber}</span>
           </div>
-          <SheetTitle className="text-base text-[#1d2530] dark:text-zinc-100 ">Nova OS Vinculada</SheetTitle>
-        </SheetHeader>
+          <DialogTitle className="text-base text-[#1d2530] dark:text-zinc-100">Nova OS Vinculada</DialogTitle>
+        </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {/* Toggle tipo de filho */}
@@ -164,7 +176,7 @@ export function OsChildCreateSheet({
               className={`flex-1 py-2 text-center transition-colors ${
                 childType === 'SERVICE_ORDER'
                   ? 'bg-[#0d4da5] dark:bg-blue-500 text-white font-medium'
-                  : 'bg-white dark:bg-zinc-950 text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f8f9fc] dark:hover:bg-zinc-900/50 dark:bg-zinc-900'
+                  : 'bg-white dark:bg-zinc-950 text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f8f9fc] dark:hover:bg-zinc-900/50'
               }`}
             >
               OS Avulsa
@@ -175,7 +187,7 @@ export function OsChildCreateSheet({
               className={`flex-1 py-2 text-center transition-colors ${
                 childType === 'MAINTENANCE_SCHEDULE'
                   ? 'bg-[#0d4da5] dark:bg-blue-500 text-white font-medium'
-                  : 'bg-white dark:bg-zinc-950 text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f8f9fc] dark:hover:bg-zinc-900/50 dark:bg-zinc-900'
+                  : 'bg-white dark:bg-zinc-950 text-[#6c7c93] dark:text-zinc-400 hover:bg-[#f8f9fc] dark:hover:bg-zinc-900/50'
               }`}
             >
               Agendamento Recorrente
@@ -234,34 +246,23 @@ export function OsChildCreateSheet({
 
           {/* Campos específicos de OS avulsa */}
           {childType === 'SERVICE_ORDER' && (
-            <>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Prioridade</Label>
-                <Select
-                  value={form.watch('priority')}
-                  onValueChange={(v) => form.setValue('priority', v as FormData['priority'])}
-                >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">Baixa</SelectItem>
-                    <SelectItem value="MEDIUM">Média</SelectItem>
-                    <SelectItem value="HIGH">Alta</SelectItem>
-                    <SelectItem value="URGENT">Urgente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs">Data de agendamento (opcional)</Label>
-                <Input
-                  type="datetime-local"
-                  className="h-9 text-sm"
-                  {...form.register('scheduledFor')}
-                />
-              </div>
-            </>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Prioridade</Label>
+              <Select
+                value={form.watch('priority')}
+                onValueChange={(v) => form.setValue('priority', v as FormData['priority'])}
+              >
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Baixa</SelectItem>
+                  <SelectItem value="MEDIUM">Média</SelectItem>
+                  <SelectItem value="HIGH">Alta</SelectItem>
+                  <SelectItem value="URGENT">Urgente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           )}
 
           {/* Campos específicos de agendamento recorrente */}
@@ -319,44 +320,27 @@ export function OsChildCreateSheet({
             </>
           )}
 
-          {/* Grupo e técnico — comuns */}
-          {groups.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Grupo responsável (herdado do pai)</Label>
-              <Select
-                value={form.watch('groupId') ?? ''}
-                onValueChange={(v) => form.setValue('groupId', v)}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Manter grupo do pai" />
-                </SelectTrigger>
-                <SelectContent>
-                  {groups.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {technicians.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className="text-xs">Técnico (opcional)</Label>
-              <Select
-                value={form.watch('technicianId') ?? ''}
-                onValueChange={(v) => form.setValue('technicianId', v)}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Nenhum — vai para o painel" />
-                </SelectTrigger>
-                <SelectContent>
-                  {technicians.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {/* Técnico responsável — herdado da OS pai, editável/removível */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Técnico responsável</Label>
+            <Select
+              value={form.watch('technicianId') || NO_TECHNICIAN}
+              onValueChange={(v) => form.setValue('technicianId', v)}
+            >
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Sem técnico — vai para o painel" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TECHNICIAN}>Sem técnico — vai para o painel</SelectItem>
+                {technicianOptions.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-[#6c7c93] dark:text-zinc-400">
+              Herdado da OS pai — altere ou remova se necessário
+            </p>
+          </div>
         </div>
 
         {/* Footer */}
@@ -370,7 +354,7 @@ export function OsChildCreateSheet({
             Cancelar
           </Button>
           <Button
-            className="flex-1 h-9 text-sm bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:bg-blue-600"
+            className="flex-1 h-9 text-sm bg-[#0d4da5] dark:bg-blue-500 hover:bg-[#0a3776] dark:hover:bg-blue-600 text-white"
             onClick={onSubmit}
             disabled={createChild.isPending}
           >
@@ -380,7 +364,7 @@ export function OsChildCreateSheet({
             {childType === 'MAINTENANCE_SCHEDULE' ? 'Criar Agendamento' : 'Criar OS'}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }
