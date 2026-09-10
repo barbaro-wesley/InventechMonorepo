@@ -594,6 +594,10 @@ export function OsActions({ os, clientId, osId, onDeleted, showPrimaryComplete =
           parentNumber={os.number}
           parentMaintenanceType={os.maintenanceType}
           clientId={clientId}
+          parentTechnician={(() => {
+            const t = os.technicians?.find((x) => x.role === 'LEAD') ?? os.technicians?.[0]
+            return t ? { id: t.technician.id, name: t.technician.name } : null
+          })()}
         />
       )}
     </>

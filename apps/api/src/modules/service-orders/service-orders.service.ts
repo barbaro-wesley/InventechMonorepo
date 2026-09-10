@@ -87,9 +87,12 @@ const CHILD_ALLOWED_TYPES: Record<MaintenanceType, MaintenanceType[]> = {
     ],
     [MaintenanceType.EXTERNAL_SERVICE]: [
         MaintenanceType.CORRECTIVE,
+        MaintenanceType.PREVENTIVE,
+        MaintenanceType.DEACTIVATION,
     ],
     [MaintenanceType.TECHNOVIGILANCE]: [
         MaintenanceType.CORRECTIVE,
+        MaintenanceType.PREVENTIVE,
     ],
     [MaintenanceType.IMPROPER_USE]: [
         MaintenanceType.CORRECTIVE,
