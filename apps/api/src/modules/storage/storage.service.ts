@@ -453,8 +453,10 @@ export class StorageService implements OnModuleInit {
         where: { id: entityId, ...tenantFilter },
         select: { id: true },
       }),
+      // Equipamentos pertencem diretamente à empresa; não possuem clientId.
+      // A visibilidade específica do usuário cliente é tratada no módulo de equipamentos.
       EQUIPMENT: () => this.prisma.equipment.findFirst({
-        where: { id: entityId, ...tenantFilter, deletedAt: null },
+        where: { id: entityId, companyId, deletedAt: null },
         select: { id: true },
       }),
       INVOICE: () => this.prisma.equipment.findFirst({
