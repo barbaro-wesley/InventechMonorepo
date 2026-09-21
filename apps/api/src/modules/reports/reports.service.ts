@@ -334,7 +334,7 @@ export class ReportsService {
         completedAt: true,
         approvedAt: true,
         client: { select: { name: true } },
-        equipment: { select: { name: true, brand: true, model: true, serialNumber: true } },
+        equipment: { select: { name: true, brand: true, model: true, serialNumber: true, patrimonyNumber: true } },
         group: { select: { name: true } },
         requester: { select: { name: true } },
         technicians: {
@@ -382,6 +382,7 @@ export class ReportsService {
       { header: 'Título', key: 'title', width: 35 },
       { header: 'Cliente', key: 'client', width: 25 },
       { header: 'Equipamento', key: 'equipment', width: 28 },
+      { header: 'Patrimônio', key: 'patrimony', width: 14 },
       { header: 'Tipo', key: 'type', width: 18 },
       { header: 'Grupo', key: 'group', width: 15 },
       { header: 'Status', key: 'status', width: 18 },
@@ -500,7 +501,7 @@ export class ReportsService {
     const addSubGroupSubtotal = (subLabel: string, count: number) => {
       const stRow = sheet.addRow([
         `      ↳ Subtotal ${subLabel}: ${count} OS`,
-        ...Array(14).fill(''),
+        ...Array(columns.length - 1).fill(''),
       ])
       stRow.font = { italic: true, size: 8.5, color: { argb: 'FF475569' } }
       stRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
@@ -510,7 +511,7 @@ export class ReportsService {
     const addMainGroupSubtotal = (mainLabel: string, count: number) => {
       const stRow = sheet.addRow([
         `  ↳ Total ${mainLabel}: ${count} OS`,
-        ...Array(14).fill(''),
+        ...Array(columns.length - 1).fill(''),
       ])
       stRow.font = { bold: true, italic: true, size: 9 }
       stRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
@@ -538,7 +539,7 @@ export class ReportsService {
             mainCount = 0
           }
           currentMainGroup = info.mainLabel
-          const hRow = sheet.addRow([`  ${currentMainGroup}`, ...Array(14).fill('')])
+          const hRow = sheet.addRow([`  ${currentMainGroup}`, ...Array(columns.length - 1).fill('')])
           hRow.height = 22
           hRow.eachCell((cell) => Object.assign(cell, groupHeaderStyle))
         }
@@ -549,7 +550,7 @@ export class ReportsService {
             subCount = 0
           }
           currentSubGroup = info.subLabel
-          const subGroupRow = sheet.addRow([`    ↳ ${currentSubGroup}`, ...Array(14).fill('')])
+          const subGroupRow = sheet.addRow([`    ↳ ${currentSubGroup}`, ...Array(columns.length - 1).fill('')])
           subGroupRow.height = 19
           subGroupRow.eachCell((cell) => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }
@@ -564,6 +565,7 @@ export class ReportsService {
         client: os.client?.name ?? '-',
         equipment: [os.equipment?.name, os.equipment?.brand, os.equipment?.model]
           .filter(Boolean).join(' — '),
+        patrimony: os.equipment?.patrimonyNumber ?? '-',
         type: typeLabels[os.maintenanceType] ?? os.maintenanceType,
         group: os.group?.name ?? '-',
         status: statusLabels[os.status] ?? os.status,
@@ -586,7 +588,7 @@ export class ReportsService {
       }
       row.height = 18
 
-      const statusCell = row.getCell(7)
+      const statusCell = row.getCell('status')
       const color = statusColors[statusCell.value as string]
       if (color) statusCell.font = { bold: true, color: { argb: color } }
 
@@ -602,7 +604,8 @@ export class ReportsService {
 
     // ── Linha de total geral ──
     const totalRow = sheet.addRow([
-      `${template.companyName} — Total geral: ${orders.length} OS`, '', '', '', '', '', '', '', '', '', '', '', '', '', '',
+      `${template.companyName} — Total geral: ${orders.length} OS`,
+      ...Array(columns.length - 1).fill(''),
     ])
     totalRow.font = { bold: true, italic: true }
     totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.secondaryColor.replace('#', '') } }
@@ -643,15 +646,15 @@ export class ReportsService {
       excelFilterParts.push(`${fieldLabel}: ${[from && `de ${from}`, to && `até ${to}`].filter(Boolean).join(' ')}`)
     }
     if (excelFilterParts.length > 0) {
-      const fr = sheet.addRow([`Filtros aplicados: ${excelFilterParts.join('  ·  ')}`, '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+      const fr = sheet.addRow([`Filtros aplicados: ${excelFilterParts.join('  ·  ')}`, ...Array(columns.length - 1).fill('')])
       fr.font = { italic: true, size: 8, color: { argb: 'FF475569' } }
       fr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }
       fr.height = 16
-      sheet.mergeCells(fr.number, 1, fr.number, 15)
+      sheet.mergeCells(fr.number, 1, fr.number, columns.length)
     }
 
     // ── Auto-filtro e freeze ──
-    sheet.autoFilter = { from: 'A1', to: 'O1' }
+    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: columns.length } }
     sheet.views = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
 
     const buffer = await workbook.xlsx.writeBuffer()
@@ -791,8 +794,9 @@ export class ReportsService {
     // ── Colunas da tabela ──
     const cols = [
       { label: 'Nº', w: 35 },
-      { label: 'Título', w: 160 },
+      { label: 'Título', w: 150 },
       { label: 'Cliente', w: 100 },
+      { label: 'Patrimônio', w: 68 },
       { label: 'Tipo', w: 70 },
       { label: 'Status', w: 75 },
       { label: 'Técnico', w: 100 },
@@ -851,6 +855,7 @@ export class ReportsService {
 
       const cells = [
         String(os.number), os.title, os.client?.name ?? '-',
+        os.equipment?.patrimonyNumber ?? '-',
         typeLabels[os.maintenanceType] ?? '-', statusLabels[os.status] ?? '-',
         os.technicians[0]?.technician.name ?? '-', fmt(os.createdAt), fmt(os.completedAt),
       ]
