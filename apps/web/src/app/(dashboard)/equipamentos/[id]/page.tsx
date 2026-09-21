@@ -163,6 +163,28 @@ const ACC_STATUS_COLOR: Record<string, string> = {
   LOST: "bg-gray-100 text-gray-500",
 };
 
+const RECURRENCE_LABEL: Record<string, string> = {
+  DAILY: "Diária",
+  WEEKLY: "Semanal",
+  BIWEEKLY: "Quinzenal",
+  MONTHLY: "Mensal",
+  QUARTERLY: "Trimestral",
+  SEMIANNUAL: "Semestral",
+  ANNUAL: "Anual",
+  CUSTOM: "Personalizada",
+};
+
+// Nº de dias aproximado de cada recorrência (meses/anos usam a duração usual)
+const RECURRENCE_DAYS: Record<string, number> = {
+  DAILY: 1,
+  WEEKLY: 7,
+  BIWEEKLY: 14,
+  MONTHLY: 30,
+  QUARTERLY: 90,
+  SEMIANNUAL: 180,
+  ANNUAL: 365,
+};
+
 // ─── Small presentational helpers ───────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: EquipmentStatus }) {
@@ -268,6 +290,17 @@ function fmtDateTime(value: string | null | undefined) {
 function daysUntil(value: string) {
   const diff = new Date(value).getTime() - Date.now();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+// Recorrência legível + nº de dias entre parênteses, ex.: "Anual (365 dias)"
+function fmtRecurrence(schedule: MaintenanceSchedule) {
+  const label = RECURRENCE_LABEL[schedule.recurrenceType] ?? schedule.recurrenceType;
+  const days =
+    schedule.recurrenceType === "CUSTOM"
+      ? schedule.customIntervalDays
+      : RECURRENCE_DAYS[schedule.recurrenceType];
+  if (!days) return label;
+  return `${label} (${days} ${days === 1 ? "dia" : "dias"})`;
 }
 
 function AttachmentIcon({ category, className }: { category: string; className?: string }) {
@@ -1156,7 +1189,12 @@ export default function EquipmentDetailPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate text-foreground">{sch.title}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <div className="mt-1">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary ring-1 ring-primary/20">
+                            {fmtRecurrence(sch)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
                           Próxima: {fmtDate(sch.nextRunAt)}
                           {sch.assignedTechnician ? ` · ${sch.assignedTechnician.name}` : ""}
                         </p>
