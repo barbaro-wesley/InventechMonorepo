@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client'
+
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 /**
@@ -32,4 +34,29 @@ function startOfYear(): Date {
   d.setMonth(0, 1)
   d.setHours(0, 0, 0, 0)
   return d
+}
+
+export type Granularity = 'day' | 'week' | 'month'
+
+/**
+ * Granularidade padrão em função do tamanho da janela. Agrupar 30 dias por
+ * mês produzia um gráfico de um ou dois pontos, que na tela parece um gráfico
+ * quebrado.
+ */
+export function pickGranularity(start: Date, end: Date): Granularity {
+  const days = (end.getTime() - start.getTime()) / 86_400_000
+  if (days <= 45)  return 'day'
+  if (days <= 180) return 'week'
+  return 'month'
+}
+
+/** Fragmentos SQL (unidade do DATE_TRUNC, passo da série e formato do rótulo). */
+export function granularityParts(granularity: string) {
+  if (granularity === 'day') {
+    return { unit: Prisma.sql`'day'`,  step: Prisma.sql`'1 day'::interval`,  format: 'YYYY-MM-DD' }
+  }
+  if (granularity === 'week') {
+    return { unit: Prisma.sql`'week'`, step: Prisma.sql`'1 week'::interval`, format: 'IYYY-"W"IW' }
+  }
+  return { unit: Prisma.sql`'month'`,  step: Prisma.sql`'1 month'::interval`, format: 'YYYY-MM' }
 }

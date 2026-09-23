@@ -236,7 +236,7 @@ export function SectionEquipment({ filters }: Props) {
           <div className="px-5 pt-4 pb-3 border-b border-[#f3f4f7]">
             <p className="text-sm font-semibold text-[#1d2530] dark:text-zinc-100">Top Equipamentos com Falhas</p>
             <p className="text-xs text-[#6c7c93] dark:text-zinc-400 mt-0.5">
-              {topFailures ? `MTTR global: ${fmtHours(topFailures.globalMttrHours)}` : 'Maior nº de OS no período'}
+              {topFailures ? `Somente OS corretivas · MTTR global: ${fmtHours(topFailures.globalMttrHours)}` : 'Maior nº de OS corretivas no período'}
             </p>
           </div>
           <div className="overflow-auto" style={{ maxHeight: 260 }}>
@@ -247,13 +247,13 @@ export function SectionEquipment({ filters }: Props) {
             ) : errorTf ? (
               <p className="p-6 text-xs text-red-500 text-center font-medium">Falha ao carregar o ranking de falhas</p>
             ) : (topFailures?.items ?? []).length === 0 ? (
-              <p className="p-6 text-xs text-[#6c7c93] dark:text-zinc-400 text-center">Nenhuma OS de equipamento no período</p>
+              <p className="p-6 text-xs text-[#6c7c93] dark:text-zinc-400 text-center">Nenhuma OS corretiva no período</p>
             ) : (
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-white dark:bg-zinc-950">
                   <tr className="border-b border-[#f3f4f7]">
                     <th className="px-4 py-2 text-left text-[#6c7c93] dark:text-zinc-400 font-medium">Equipamento</th>
-                    <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">OS</th>
+                    <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">Falhas</th>
                     <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">MTTR</th>
                     <th className="px-4 py-2 text-right text-[#6c7c93] dark:text-zinc-400 font-medium">Custo</th>
                   </tr>

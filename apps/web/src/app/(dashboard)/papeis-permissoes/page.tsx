@@ -88,6 +88,7 @@ const ACTION_LABEL: Record<string, string> = {
   "delete-sub": "Deletar Subtipo", company: "Empresa", platform: "Plataforma",
   client: "Cliente", "service-orders": "OS", equipment: "Equipamentos",
   preventive: "Preventivos", technicians: "Técnicos", financial: "Financeiro",
+  providers: "Prestadores",
   manage: "Gerenciar", assign: "Atribuir",
 };
 

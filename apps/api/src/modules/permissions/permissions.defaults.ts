@@ -289,6 +289,8 @@ export const DEFAULT_PERMISSIONS: Record<string, UserRole[]> = {
   'analytics:technicians':       [SA, CA, CM],
   'analytics:preventive':        [SA, CA, CM, CLA],
   'analytics:financial':         [SA, CA],
+  // Compara prestadores entre si — não liberar a prestadores (CLA) por padrão.
+  'analytics:providers':         [SA, CA, CM],
 
   // ── ACCESSORIES ────────────────────────────────────────────────────────────
   'accessories:read':                    [SA, CA, CM, TEC, CLA, CLU, CLV],
@@ -350,7 +352,7 @@ export const RESOURCE_ACTIONS: Record<string, string[]> = {
   'printer':              ['browse', 'list', 'read', 'create', 'update', 'delete'],
   'scan':                 ['browse', 'list', 'read', 'download', 'update', 'delete'],
   'ghosp':                ['list'],
-  'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial'],
+  'analytics':            ['equipment', 'service-orders', 'technicians', 'preventive', 'financial', 'providers'],
   'accessories':              ['read', 'create', 'update', 'delete'],
   'accessory_categories':     ['read', 'create', 'update', 'delete'],
   'accessory_assignments':    ['read', 'assign', 'unassign'],

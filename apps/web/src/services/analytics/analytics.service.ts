@@ -355,17 +355,28 @@ export interface PreventiveBaseParams {
 export interface PreventiveAdherenceParams extends PreventiveBaseParams, DateRangeParams {}
 
 export interface PreventiveAdherenceByRecurrence {
+  /** Tipo de recorrência do agendamento, ou AVULSA para OS preventiva sem agendamento. */
   recurrenceType: string;
   total: number;
   executed: number;
   onTime: number;
+  late: number;
   overdueNow: number;
+  withinDeadline: number;
   adherenceRate: number | null;
   executionRate: number | null;
 }
 
+export interface PreventiveDeadlineConfig {
+  priority: string;
+  hours: number;
+  isCustomized: boolean;
+}
+
 export interface PreventiveAdherence {
   period: { start: string; end: string };
+  /** Prazo de conclusão da preventiva por prioridade, conforme os parâmetros. */
+  deadlineConfig: PreventiveDeadlineConfig[];
   summary: {
     total: number;
     executed: number;
@@ -373,12 +384,84 @@ export interface PreventiveAdherence {
     late: number;
     notExecuted: number;
     overdueNow: number;
+    withinDeadline: number;
+    inProgress: number;
   };
   rates: {
+    /** No prazo / (executadas + vencidas sem execução). */
     adherenceRate: number | null;
     executionRate: number | null;
+    onTimeOfExecuted: number | null;
+  };
+  times: {
+    avgExecutionHours: number | null;
+    avgResponseHours: number | null;
+    avgDeadlineHours: number | null;
   };
   byRecurrence: PreventiveAdherenceByRecurrence[];
+  byStatus: { status: string; total: number }[];
+  deadlineUsage: { bucket: string; total: number }[];
+  generatedAt: string;
+}
+
+export interface PreventiveTimelineParams extends PreventiveAdherenceParams {
+  groupBy?: "day" | "week" | "month";
+}
+
+export interface PreventiveTimelinePoint {
+  period: string;
+  generated: number;
+  onTime: number;
+  late: number;
+  overdueNow: number;
+  withinDeadline: number;
+  executed: number;
+  adherenceRate: number | null;
+}
+
+export interface PreventiveTimeline {
+  period: { start: string; end: string };
+  granularity: "day" | "week" | "month";
+  series: PreventiveTimelinePoint[];
+  generatedAt: string;
+}
+
+export interface PreventiveRankingParams extends PreventiveAdherenceParams {
+  limit?: number;
+}
+
+export interface PreventiveTechnicianItem {
+  technicianId: string;
+  technicianName: string;
+  total: number;
+  executed: number;
+  onTime: number;
+  late: number;
+  overdueNow: number;
+  avgExecutionHours: number | null;
+  adherenceRate: number | null;
+}
+
+export interface PreventiveByTechnician {
+  period: { start: string; end: string };
+  items: PreventiveTechnicianItem[];
+  unassigned: { total: number; overdueNow: number };
+  generatedAt: string;
+}
+
+export interface PreventiveEquipmentTypeItem {
+  typeName: string;
+  total: number;
+  executed: number;
+  onTime: number;
+  late: number;
+  overdueNow: number;
+  adherenceRate: number | null;
+}
+
+export interface PreventiveByEquipmentType {
+  period: { start: string; end: string };
+  items: PreventiveEquipmentTypeItem[];
   generatedAt: string;
 }
 
@@ -412,11 +495,17 @@ export interface PreventiveUpcomingResult {
 }
 
 export interface PreventiveOverdueItem {
+  /** Id da OS preventiva. */
   id: string;
+  number: number;
   title: string;
-  maintenance_type: string;
-  recurrence_type: string;
-  next_run_at: string;
+  status: string;
+  priority: string;
+  recurrence_type: string | null;
+  created_at: string;
+  /** Abertura da OS + prazo de conclusão configurado nos parâmetros. */
+  due_at: string;
+  deadline_hours: number;
   days_overdue: number;
   equipment_id: string;
   equipment_name: string;
@@ -424,12 +513,15 @@ export interface PreventiveOverdueItem {
   criticality: string;
   type_name: string | null;
   location_name: string | null;
+  client_name: string | null;
+  group_name: string | null;
   technician_name: string | null;
 }
 
 export interface PreventiveOverdueResult {
   count: number;
   byCriticality: Record<string, number>;
+  byDelay: { upTo7: number; upTo30: number; upTo90: number; over90: number };
   items: PreventiveOverdueItem[];
   generatedAt: string;
 }
@@ -445,6 +537,74 @@ export interface PreventiveByRecurrenceItem {
 export interface PreventiveByRecurrenceResult {
   total: number;
   byRecurrence: PreventiveByRecurrenceItem[];
+  generatedAt: string;
+}
+
+// ─── Provider (prestador) types ──────────────────────────────────────────────
+
+export interface ProvidersParams extends DateRangeParams {
+  groupId?: string;
+}
+
+export interface ProvidersTimelineParams extends ProvidersParams {
+  groupBy?: "day" | "week" | "month";
+}
+
+export interface ProviderComparisonItem {
+  /** null = equipe interna (OS sem prestador). */
+  providerId: string | null;
+  providerName: string;
+  isInternal: boolean;
+  isActive: boolean;
+  total: number;
+  concluded: number;
+  open: number;
+  byType: { corrective: number; preventive: number; other: number };
+  technicians: number;
+  equipments: number;
+  rates: {
+    completionRate: number | null;
+    slaComplianceRate: number | null;
+    tpaComplianceRate: number | null;
+    preventiveAdherence: number | null;
+    firstTimeFixRate: number | null;
+    rejectionRate: number | null;
+  };
+  preventive: { onTime: number; late: number; overdueNow: number; withinDeadline: number };
+  sla: { judged: number; onTime: number; tpaApplicable: number; tpaBreached: number };
+  rejected: number;
+  avgResponseHours: number | null;
+  avgResolutionHours: number | null;
+  avgTotalHours: number | null;
+  totalCost: number;
+  avgCostPerOs: number | null;
+}
+
+export interface ProvidersComparison {
+  period: { start: string; end: string };
+  summary: {
+    providersWithOs: number;
+    totalOs: number;
+    providerOs: number;
+    providerShare: number | null;
+    providerCost: number;
+  };
+  items: ProviderComparisonItem[];
+  generatedAt: string;
+}
+
+export interface ProvidersTimelinePoint {
+  period: string;
+  providerId: string | null;
+  opened: number;
+  concluded: number;
+  slaComplianceRate: number | null;
+}
+
+export interface ProvidersTimeline {
+  period: { start: string; end: string };
+  granularity: "day" | "week" | "month";
+  series: ProvidersTimelinePoint[];
   generatedAt: string;
 }
 
@@ -608,6 +768,32 @@ export const analyticsService = {
   // Preventive
   async getPreventiveAdherence(p: PreventiveAdherenceParams = {}): Promise<PreventiveAdherence> {
     const { data } = await api.get(`/analytics/preventive/adherence${toQuery(p)}`);
+    return data;
+  },
+
+  async getPreventiveTimeline(p: PreventiveTimelineParams = {}): Promise<PreventiveTimeline> {
+    const { data } = await api.get(`/analytics/preventive/timeline${toQuery(p)}`);
+    return data;
+  },
+
+  async getPreventiveByTechnician(p: PreventiveRankingParams = {}): Promise<PreventiveByTechnician> {
+    const { data } = await api.get(`/analytics/preventive/by-technician${toQuery(p)}`);
+    return data;
+  },
+
+  async getPreventiveByEquipmentType(p: PreventiveRankingParams = {}): Promise<PreventiveByEquipmentType> {
+    const { data } = await api.get(`/analytics/preventive/by-equipment-type${toQuery(p)}`);
+    return data;
+  },
+
+  // Providers
+  async getProvidersComparison(p: ProvidersParams = {}): Promise<ProvidersComparison> {
+    const { data } = await api.get(`/analytics/providers/comparison${toQuery(p)}`);
+    return data;
+  },
+
+  async getProvidersTimeline(p: ProvidersTimelineParams = {}): Promise<ProvidersTimeline> {
+    const { data } = await api.get(`/analytics/providers/timeline${toQuery(p)}`);
     return data;
   },
 

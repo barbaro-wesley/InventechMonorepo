@@ -45,8 +45,8 @@ export class AnalyticsFinancialService {
     const prevEnd    = new Date(start.getTime() - 1)
     const prevStart  = new Date(prevEnd.getTime() - durationMs)
 
-    const clientF = filters.clientId ? Prisma.sql`AND so.client_id = ${filters.clientId}::uuid` : Prisma.empty
-    const groupF  = filters.groupId  ? Prisma.sql`AND so.group_id  = ${filters.groupId}::uuid`  : Prisma.empty
+    const clientF = filters.clientId ? Prisma.sql`AND so.client_id = ${filters.clientId}` : Prisma.empty
+    const groupF  = filters.groupId  ? Prisma.sql`AND so.group_id  = ${filters.groupId}`  : Prisma.empty
 
     const cacheKey = `analytics:fin:overview:${companyId}:${start.toISOString()}:${end.toISOString()}:${filters.clientId ?? ''}:${filters.groupId ?? ''}`
 
@@ -146,8 +146,8 @@ export class AnalyticsFinancialService {
     const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
     const granularity = filters.groupBy ?? 'month'
 
-    const clientF = filters.clientId ? Prisma.sql`AND so.client_id = ${filters.clientId}::uuid` : Prisma.empty
-    const groupF  = filters.groupId  ? Prisma.sql`AND so.group_id  = ${filters.groupId}::uuid`  : Prisma.empty
+    const clientF = filters.clientId ? Prisma.sql`AND so.client_id = ${filters.clientId}` : Prisma.empty
+    const groupF  = filters.groupId  ? Prisma.sql`AND so.group_id  = ${filters.groupId}`  : Prisma.empty
 
     const trunc = granularity === 'quarter'
       ? Prisma.sql`DATE_TRUNC('quarter', so.created_at)`
@@ -205,9 +205,9 @@ export class AnalyticsFinancialService {
   async getTco(companyId: string, filters: FinancialTcoQueryDto) {
     const limit = filters.limit ?? 20
 
-    const typeF = filters.typeId       ? Prisma.sql`AND e.type_id             = ${filters.typeId}::uuid`       : Prisma.empty
-    const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id = ${filters.locationId}::uuid`   : Prisma.empty
-    const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id      = ${filters.costCenterId}::uuid` : Prisma.empty
+    const typeF = filters.typeId       ? Prisma.sql`AND e.type_id             = ${filters.typeId}`       : Prisma.empty
+    const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id = ${filters.locationId}`   : Prisma.empty
+    const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id      = ${filters.costCenterId}` : Prisma.empty
 
     const cacheKey = `analytics:fin:tco:${companyId}:${filters.typeId ?? ''}:${filters.locationId ?? ''}:${limit}`
 

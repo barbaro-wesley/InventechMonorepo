@@ -1,4 +1,4 @@
-import { IsOptional, IsDateString, IsUUID, IsInt, Min, Max } from 'class-validator'
+import { IsOptional, IsDateString, IsUUID, IsInt, IsIn, Min, Max } from 'class-validator'
 import { Type } from 'class-transformer'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 
@@ -11,6 +11,26 @@ export class PreventiveBaseQueryDto {
 export class PreventiveAdherenceQueryDto extends PreventiveBaseQueryDto {
   @ApiPropertyOptional({ example: '2025-01-01' }) @IsOptional() @IsDateString() startDate?: string
   @ApiPropertyOptional({ example: '2025-12-31' }) @IsOptional() @IsDateString() endDate?: string
+}
+
+export class PreventiveTimelineQueryDto extends PreventiveAdherenceQueryDto {
+  @ApiPropertyOptional({
+    enum: ['day', 'week', 'month'],
+    description: 'Granularidade da série. Omitido = escolhida pelo tamanho do período.',
+  })
+  @IsOptional()
+  @IsIn(['day', 'week', 'month'])
+  groupBy?: 'day' | 'week' | 'month'
+}
+
+export class PreventiveRankingQueryDto extends PreventiveAdherenceQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  limit?: number
 }
 
 export class PreventiveUpcomingQueryDto extends PreventiveBaseQueryDto {

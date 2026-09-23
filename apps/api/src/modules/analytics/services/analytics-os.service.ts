@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import Redis from 'ioredis'
 import { PrismaService } from '../../../prisma/prisma.service'
 import { REDIS_CLIENT } from '../../../common/providers/redis.provider'
-import { resolvePeriod } from '../analytics-period.util'
+import { resolvePeriod, pickGranularity, granularityParts } from '../analytics-period.util'
 import type {
   OsBaseQueryDto,
   OsBacklogQueryDto,
@@ -42,8 +42,8 @@ export class AnalyticsOsService {
     return {
       start,
       end,
-      clientF:  f.clientId       ? Prisma.sql`AND so.client_id        = ${f.clientId}::uuid`          : Prisma.empty,
-      groupF:   f.groupId        ? Prisma.sql`AND so.group_id         = ${f.groupId}::uuid`           : Prisma.empty,
+      clientF:  f.clientId       ? Prisma.sql`AND so.client_id        = ${f.clientId}`          : Prisma.empty,
+      groupF:   f.groupId        ? Prisma.sql`AND so.group_id         = ${f.groupId}`           : Prisma.empty,
       // Colunas enum precisam ser convertidas para text — comparar
       // "MaintenanceType" com um parâmetro text quebra a resolução de operador
       // no Postgres.
@@ -313,11 +313,11 @@ export class AnalyticsOsService {
   // ─────────────────────────────────────────
   async getTimeline(companyId: string, filters: OsTimelineQueryDto) {
     const { start, end, clientF, groupF, typeF, priorityF } = this.buildFilters(filters)
-    const granularity = filters.groupBy ?? this.pickGranularity(start, end)
+    const granularity = filters.groupBy ?? pickGranularity(start, end)
     const cacheKey = `analytics:os:timeline:${companyId}:${start.toISOString()}:${end.toISOString()}:${granularity}:${filters.clientId ?? ''}:${filters.groupId ?? ''}:${filters.maintenanceType ?? ''}:${filters.priority ?? ''}`
 
     return this.cached(cacheKey, async () => {
-      const { unit, step, format } = this.granParts(granularity)
+      const { unit, step, format } = granularityParts(granularity)
 
       // A série é montada sobre um "espinha dorsal" de buckets gerado pelo
       // Postgres: sem isso, períodos sem OS simplesmente não vinham na resposta
@@ -415,7 +415,7 @@ export class AnalyticsOsService {
     const { start, end, clientF, groupF, typeF, priorityF } = this.buildFilters(filters)
     const limit = filters.limit ?? 20
     const techF = filters.technicianId
-      ? Prisma.sql`AND sot.technician_id = ${filters.technicianId}::uuid`
+      ? Prisma.sql`AND sot.technician_id = ${filters.technicianId}`
       : Prisma.empty
     const cacheKey = `analytics:os:technicians:${companyId}:${start.toISOString()}:${end.toISOString()}:${filters.groupId ?? ''}:${filters.technicianId ?? ''}:${limit}`
 
@@ -655,8 +655,8 @@ export class AnalyticsOsService {
   // Mostra represamento operacional
   // ─────────────────────────────────────────
   async getBacklogAging(companyId: string, filters: OsBacklogQueryDto) {
-    const clientF = filters.clientId ? Prisma.sql`AND so.client_id = ${filters.clientId}::uuid` : Prisma.empty
-    const groupF  = filters.groupId  ? Prisma.sql`AND so.group_id  = ${filters.groupId}::uuid`  : Prisma.empty
+    const clientF = filters.clientId ? Prisma.sql`AND so.client_id = ${filters.clientId}` : Prisma.empty
+    const groupF  = filters.groupId  ? Prisma.sql`AND so.group_id  = ${filters.groupId}`  : Prisma.empty
 
     const cacheKey = `analytics:os:backlog:${companyId}:${filters.clientId ?? ''}:${filters.groupId ?? ''}`
 
@@ -875,27 +875,5 @@ export class AnalyticsOsService {
         generatedAt: new Date().toISOString(),
       }
     })
-  }
-
-  private granParts(granularity: string) {
-    if (granularity === 'day') {
-      return { unit: Prisma.sql`'day'`,  step: Prisma.sql`'1 day'::interval`,  format: 'YYYY-MM-DD' }
-    }
-    if (granularity === 'week') {
-      return { unit: Prisma.sql`'week'`, step: Prisma.sql`'1 week'::interval`, format: 'IYYY-"W"IW' }
-    }
-    return { unit: Prisma.sql`'month'`,  step: Prisma.sql`'1 month'::interval`, format: 'YYYY-MM' }
-  }
-
-  /**
-   * Granularidade padrão em função do tamanho da janela. Agrupar 30 dias por
-   * mês produzia um gráfico de um ou dois pontos, que na tela parece um gráfico
-   * quebrado.
-   */
-  private pickGranularity(start: Date, end: Date): 'day' | 'week' | 'month' {
-    const days = (end.getTime() - start.getTime()) / 86_400_000
-    if (days <= 45)  return 'day'
-    if (days <= 180) return 'week'
-    return 'month'
   }
 }
