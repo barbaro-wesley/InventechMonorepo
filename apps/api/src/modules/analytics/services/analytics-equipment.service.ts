@@ -143,12 +143,12 @@ export class AnalyticsEquipmentService {
     const limit = filters.limit ?? 10
     const { start, end } = resolvePeriod(filters.startDate, filters.endDate)
 
-    const cacheKey = `analytics:equip:failures:${companyId}:${start.toISOString()}:${end.toISOString()}:${filters.typeId ?? ''}:${filters.locationId ?? ''}:${limit}`
+    const cacheKey = `analytics:equip:failures:v2:${companyId}:${start.toISOString()}:${end.toISOString()}:${filters.typeId ?? ''}:${filters.locationId ?? ''}:${filters.costCenterId ?? ''}:${limit}`
 
     return this.cached(cacheKey, async () => {
-      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id              = ${filters.typeId}::uuid`       : Prisma.empty
-      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id  = ${filters.locationId}::uuid`   : Prisma.empty
-      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id       = ${filters.costCenterId}::uuid` : Prisma.empty
+      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id              = ${filters.typeId}`       : Prisma.empty
+      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id  = ${filters.locationId}`   : Prisma.empty
+      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id       = ${filters.costCenterId}` : Prisma.empty
 
       const [items, [globalRow]] = await Promise.all([
         this.prisma.$queryRaw<Array<{
@@ -191,11 +191,16 @@ export class AnalyticsEquipmentService {
           FROM equipments e
           LEFT JOIN equipment_types            et   ON et.id  = e.type_id
           LEFT JOIN locations                  l    ON l.id   = e.current_location_id
-          LEFT JOIN service_orders             so
-            ON  so.equipment_id = e.id
-            AND so.deleted_at   IS NULL
-            AND so.created_at  >= ${start}
-            AND so.created_at  <= ${end}
+          -- Falha = OS corretiva. Preventivas e demais tipos (aceitação,
+          -- treinamento etc.) são trabalho planejado e inflavam o ranking.
+          -- Canceladas ficam de fora: não houve falha a atender.
+          JOIN service_orders                  so
+            ON  so.equipment_id     = e.id
+            AND so.deleted_at      IS NULL
+            AND so.maintenance_type = 'CORRECTIVE'
+            AND so.status          <> 'CANCELLED'
+            AND so.created_at      >= ${start}
+            AND so.created_at      <= ${end}
           -- Custo agregado por OS antes do join: juntar os itens direto
           -- duplicava a linha da OS e distorcia o MTTR médio.
           LEFT JOIN LATERAL (
@@ -222,10 +227,12 @@ export class AnalyticsEquipmentService {
           )::numeric, 1)::float8 AS global_mttr
           FROM service_orders so
           JOIN equipments e ON e.id = so.equipment_id
-          WHERE so.company_id = ${companyId}
-            AND so.deleted_at IS NULL
-            AND so.created_at >= ${start}
-            AND so.created_at <= ${end}
+          WHERE so.company_id       = ${companyId}
+            AND so.deleted_at      IS NULL
+            AND so.maintenance_type = 'CORRECTIVE'
+            AND so.status          <> 'CANCELLED'
+            AND so.created_at      >= ${start}
+            AND so.created_at      <= ${end}
             ${typeF}
             ${locF}
             ${ccF}
@@ -253,9 +260,9 @@ export class AnalyticsEquipmentService {
     const cacheKey = `analytics:equip:costs:${companyId}:${start.toISOString()}:${end.toISOString()}:${groupBy}:${filters.typeId ?? ''}:${limit}`
 
     return this.cached(cacheKey, async () => {
-      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id              = ${filters.typeId}::uuid`       : Prisma.empty
-      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id  = ${filters.locationId}::uuid`   : Prisma.empty
-      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id       = ${filters.costCenterId}::uuid` : Prisma.empty
+      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id              = ${filters.typeId}`       : Prisma.empty
+      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id  = ${filters.locationId}`   : Prisma.empty
+      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id       = ${filters.costCenterId}` : Prisma.empty
 
       const byItemType = await this.prisma.$queryRaw<Array<{
         type:       string
@@ -468,9 +475,9 @@ export class AnalyticsEquipmentService {
     const cacheKey = `analytics:equip:warranty:${companyId}:${daysAhead}:${scope}:${limit}:${filters.typeId ?? ''}:${filters.locationId ?? ''}:${filters.costCenterId ?? ''}`
 
     return this.cached(cacheKey, async () => {
-      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id             = ${filters.typeId}::uuid`       : Prisma.empty
-      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id = ${filters.locationId}::uuid`   : Prisma.empty
-      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id      = ${filters.costCenterId}::uuid` : Prisma.empty
+      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id             = ${filters.typeId}`       : Prisma.empty
+      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id = ${filters.locationId}`   : Prisma.empty
+      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id      = ${filters.costCenterId}` : Prisma.empty
 
       // Sucateados/inativos ficam de fora: a garantia deles é irrelevante
       // operacionalmente e só inflaria as contagens.
@@ -646,9 +653,9 @@ export class AnalyticsEquipmentService {
     const cacheKey = `analytics:equip:timeline:${companyId}:${start.toISOString()}:${end.toISOString()}:${filters.typeId ?? ''}:${filters.locationId ?? ''}`
 
     return this.cached(cacheKey, async () => {
-      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id             = ${filters.typeId}::uuid`       : Prisma.empty
-      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id = ${filters.locationId}::uuid`   : Prisma.empty
-      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id      = ${filters.costCenterId}::uuid` : Prisma.empty
+      const typeF = filters.typeId       ? Prisma.sql`AND e.type_id             = ${filters.typeId}`       : Prisma.empty
+      const locF  = filters.locationId   ? Prisma.sql`AND e.current_location_id = ${filters.locationId}`   : Prisma.empty
+      const ccF   = filters.costCenterId ? Prisma.sql`AND e.cost_center_id      = ${filters.costCenterId}` : Prisma.empty
 
       const rows = await this.prisma.$queryRaw<Array<{
         month:        string

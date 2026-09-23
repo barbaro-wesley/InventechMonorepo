@@ -24,6 +24,8 @@ import {
 import {
   PreventiveAdherenceQueryDto,
   PreventiveBaseQueryDto,
+  PreventiveRankingQueryDto,
+  PreventiveTimelineQueryDto,
   PreventiveUpcomingQueryDto,
 } from './dto/analytics-preventive-query.dto'
 import {
@@ -66,8 +68,9 @@ export class AnalyticsController {
   @ApiOperation({
     summary: 'Top equipamentos com mais falhas',
     description:
-      'Ranking dos equipamentos com maior número de OS no período, ' +
-      'com MTTR individual, MTTR global e custo total de manutenção.',
+      'Ranking dos equipamentos com maior número de OS corretivas (falhas) no ' +
+      'período, com MTTR individual, MTTR global e custo das corretivas. ' +
+      'Preventivas e demais tipos não contam como falha.',
   })
   getEquipmentTopFailures(
     @CurrentUser() cu: AuthenticatedUser,
@@ -245,14 +248,63 @@ export class AnalyticsController {
   @ApiOperation({
     summary: 'Taxa de aderência às manutenções preventivas',
     description:
-      'Total de manutenções programadas vs executadas no prazo, com atraso ' +
-      'ou não executadas. Taxa de aderência e execução por tipo de recorrência.',
+      'OS preventivas abertas no período vs executadas dentro do prazo de conclusão ' +
+      'configurado nos parâmetros (SLA por tipo de manutenção), com atraso, vencidas ' +
+      'ou ainda no prazo. Inclui aderência por recorrência, distribuição por status ' +
+      'e consumo do prazo pelas executadas.',
   })
   getPreventiveAdherence(
     @CurrentUser() cu: AuthenticatedUser,
     @Query() query: PreventiveAdherenceQueryDto,
   ) {
     return this.preventiveSvc.getAdherence(cu.companyId!, query)
+  }
+
+  @Get('preventive/timeline')
+  @Permission('analytics:preventive')
+  @ApiOperation({
+    summary: 'Evolução das preventivas',
+    description:
+      'Série por dia, semana ou mês das OS preventivas abertas, com o desfecho ' +
+      '(no prazo, com atraso, vencidas, no prazo em aberto), executadas no período ' +
+      'e taxa de aderência de cada intervalo.',
+  })
+  getPreventiveTimeline(
+    @CurrentUser() cu: AuthenticatedUser,
+    @Query() query: PreventiveTimelineQueryDto,
+  ) {
+    return this.preventiveSvc.getTimeline(cu.companyId!, query)
+  }
+
+  @Get('preventive/by-technician')
+  @Permission('analytics:preventive')
+  @ApiOperation({
+    summary: 'Preventivas por técnico',
+    description:
+      'OS preventivas do período por técnico vinculado: total, executadas, ' +
+      'no prazo, com atraso, vencidas, tempo médio de execução e aderência. ' +
+      'Inclui o total de preventivas sem técnico.',
+  })
+  getPreventiveByTechnician(
+    @CurrentUser() cu: AuthenticatedUser,
+    @Query() query: PreventiveRankingQueryDto,
+  ) {
+    return this.preventiveSvc.getByTechnician(cu.companyId!, query)
+  }
+
+  @Get('preventive/by-equipment-type')
+  @Permission('analytics:preventive')
+  @ApiOperation({
+    summary: 'Preventivas por tipo de equipamento',
+    description:
+      'OS preventivas do período agrupadas pelo tipo do equipamento, ' +
+      'com executadas, no prazo, com atraso, vencidas e aderência.',
+  })
+  getPreventiveByEquipmentType(
+    @CurrentUser() cu: AuthenticatedUser,
+    @Query() query: PreventiveRankingQueryDto,
+  ) {
+    return this.preventiveSvc.getByEquipmentType(cu.companyId!, query)
   }
 
   @Get('preventive/upcoming')
@@ -275,8 +327,9 @@ export class AnalyticsController {
   @ApiOperation({
     summary: 'Preventivas atrasadas',
     description:
-      'Agendas preventivas ativas com nextRunAt anterior à data atual, ' +
-      'ordenadas por atraso mais antigo, com contagem por criticidade do equipamento.',
+      'OS preventivas não executadas cujo prazo de conclusão configurado nos ' +
+      'parâmetros (contado da abertura da OS) já venceu, ordenadas pelo atraso ' +
+      'mais antigo, com contagem por criticidade do equipamento e faixa de atraso.',
   })
   getPreventiveOverdue(
     @CurrentUser() cu: AuthenticatedUser,

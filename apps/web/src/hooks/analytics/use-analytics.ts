@@ -14,6 +14,8 @@ import {
   OsTimelineParams,
   PreventiveAdherenceParams,
   PreventiveBaseParams,
+  PreventiveRankingParams,
+  PreventiveTimelineParams,
   PreventiveUpcomingParams,
   TechnicianRankingParams,
 } from "@/services/analytics/analytics.service";
@@ -42,6 +44,9 @@ export const analyticsKeys = {
   },
   preventive: {
     adherence: (p: PreventiveAdherenceParams) => ["analytics", "preventive", "adherence", p] as const,
+    timeline: (p: PreventiveTimelineParams) => ["analytics", "preventive", "timeline", p] as const,
+    byTechnician: (p: PreventiveRankingParams) => ["analytics", "preventive", "by-technician", p] as const,
+    byEquipmentType: (p: PreventiveRankingParams) => ["analytics", "preventive", "by-equipment-type", p] as const,
     upcoming: (p: PreventiveUpcomingParams) => ["analytics", "preventive", "upcoming", p] as const,
     overdue: (p: PreventiveBaseParams) => ["analytics", "preventive", "overdue", p] as const,
     byRecurrence: (p: PreventiveBaseParams) => ["analytics", "preventive", "by-recurrence", p] as const,
@@ -157,6 +162,30 @@ export function usePreventiveAdherence(p: PreventiveAdherenceParams = {}) {
   return useQuery({
     queryKey: analyticsKeys.preventive.adherence(p),
     queryFn: () => analyticsService.getPreventiveAdherence(p),
+    staleTime: STALE,
+  });
+}
+
+export function usePreventiveTimeline(p: PreventiveTimelineParams = {}) {
+  return useQuery({
+    queryKey: analyticsKeys.preventive.timeline(p),
+    queryFn: () => analyticsService.getPreventiveTimeline(p),
+    staleTime: STALE,
+  });
+}
+
+export function usePreventiveByTechnician(p: PreventiveRankingParams = {}) {
+  return useQuery({
+    queryKey: analyticsKeys.preventive.byTechnician(p),
+    queryFn: () => analyticsService.getPreventiveByTechnician(p),
+    staleTime: STALE,
+  });
+}
+
+export function usePreventiveByEquipmentType(p: PreventiveRankingParams = {}) {
+  return useQuery({
+    queryKey: analyticsKeys.preventive.byEquipmentType(p),
+    queryFn: () => analyticsService.getPreventiveByEquipmentType(p),
     staleTime: STALE,
   });
 }
