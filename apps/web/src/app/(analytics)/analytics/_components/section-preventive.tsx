@@ -320,7 +320,7 @@ export function SectionPreventive({ filters }: Props) {
                   }}
                   formatter={(v: ChartValue, n) => [asNum(v), n]}
                 />
-                <Legend iconType="circle" iconSize={8} formatter={legendFormatter}/>
+                <Legend iconType="circle" iconSize={8} itemSorter={null} formatter={legendFormatter}/>
                 {outcomeKeys.map((o, i) => (
                   <Bar key={o.label} dataKey={o.label} stackId="a" fill={o.color} maxBarSize={32}
                     radius={i === outcomeKeys.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}/>
@@ -354,7 +354,7 @@ export function SectionPreventive({ filters }: Props) {
                     return row ? `${v} · aderência ${fmtPct(row.adherenceRate)}` : String(v)
                   }}
                 />
-                <Legend iconType="circle" iconSize={8} formatter={legendFormatter}/>
+                <Legend iconType="circle" iconSize={8} itemSorter={null} formatter={legendFormatter}/>
                 {outcomeKeys.map((o, i) => (
                   <Bar key={o.label} dataKey={o.label} stackId="a" fill={o.color} maxBarSize={40}
                     radius={i === outcomeKeys.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}/>
@@ -427,7 +427,7 @@ export function SectionPreventive({ filters }: Props) {
                 <XAxis type="number" tick={{fontSize:11,fill:'#6c7c93'}} tickLine={false} axisLine={false} allowDecimals={false}/>
                 <YAxis type="category" dataKey="name" tick={{fontSize:10,fill:'#6c7c93'}} tickLine={false} axisLine={false} width={110}/>
                 <Tooltip contentStyle={tooltipStyle}/>
-                <Legend iconType="circle" iconSize={8} formatter={legendFormatter}/>
+                <Legend iconType="circle" iconSize={8} itemSorter={null} formatter={legendFormatter}/>
                 {outcomeKeys.map((o, i) => (
                   <Bar key={o.label} dataKey={o.label} stackId="a" fill={o.color} maxBarSize={18}
                     radius={i === outcomeKeys.length - 1 ? [0, 4, 4, 0] : [0, 0, 0, 0]}/>
@@ -510,7 +510,7 @@ export function SectionPreventive({ filters }: Props) {
             </div>
             {upcomingResult && upcomingResult.count > 0 && (
               <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                {upcomingResult.count} agendadas
+                {upcomingResult.count} {upcomingResult.count === 1 ? 'agendada' : 'agendadas'}
               </span>
             )}
           </div>

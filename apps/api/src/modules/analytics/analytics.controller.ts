@@ -4,6 +4,7 @@ import { AnalyticsEquipmentService } from './services/analytics-equipment.servic
 import { AnalyticsOsService } from './services/analytics-os.service'
 import { AnalyticsPreventiveService } from './services/analytics-preventive.service'
 import { AnalyticsFinancialService } from './services/analytics-financial.service'
+import { AnalyticsProvidersService } from './services/analytics-providers.service'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Permission } from '../../common/decorators/permission.decorator'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
@@ -33,6 +34,10 @@ import {
   FinancialTrendQueryDto,
   FinancialTcoQueryDto,
 } from './dto/analytics-financial-query.dto'
+import {
+  ProvidersQueryDto,
+  ProvidersTimelineQueryDto,
+} from './dto/analytics-providers-query.dto'
 
 @ApiTags('Analytics')
 @ApiBearerAuth('JWT')
@@ -43,6 +48,7 @@ export class AnalyticsController {
     private readonly osSvc: AnalyticsOsService,
     private readonly preventiveSvc: AnalyticsPreventiveService,
     private readonly financialSvc: AnalyticsFinancialService,
+    private readonly providersSvc: AnalyticsProvidersService,
   ) {}
 
   // ── Equipamentos ─────────────────────────────────────────────────────────
@@ -351,6 +357,41 @@ export class AnalyticsController {
     @Query() query: PreventiveBaseQueryDto,
   ) {
     return this.preventiveSvc.getByRecurrence(cu.companyId!, query)
+  }
+
+  // ── Prestadores ──────────────────────────────────────────────────────────
+
+  @Get('providers/comparison')
+  @Permission('analytics:providers')
+  @ApiOperation({
+    summary: 'Comparativo entre prestadores',
+    description:
+      'Indicadores por prestador (Client) no período: volume de OS por tipo, ' +
+      'conclusão, cumprimento de SLA e TPA, aderência às preventivas (prazo dos ' +
+      'parâmetros), First-Time Fix, reprovações, tempos médios e custo. ' +
+      'OS de grupo assumidas do painel são creditadas ao prestador do técnico; ' +
+      'OS sem prestador aparecem como equipe interna.',
+  })
+  getProvidersComparison(
+    @CurrentUser() cu: AuthenticatedUser,
+    @Query() query: ProvidersQueryDto,
+  ) {
+    return this.providersSvc.getComparison(cu.companyId!, query)
+  }
+
+  @Get('providers/timeline')
+  @Permission('analytics:providers')
+  @ApiOperation({
+    summary: 'Evolução por prestador',
+    description:
+      'Série por dia, semana ou mês com OS abertas, concluídas e cumprimento ' +
+      'de SLA de cada prestador, para comparar a produção ao longo do tempo.',
+  })
+  getProvidersTimeline(
+    @CurrentUser() cu: AuthenticatedUser,
+    @Query() query: ProvidersTimelineQueryDto,
+  ) {
+    return this.providersSvc.getTimeline(cu.companyId!, query)
   }
 
   // ── Financeiro ───────────────────────────────────────────────────────────

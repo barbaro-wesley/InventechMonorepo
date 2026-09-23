@@ -540,6 +540,74 @@ export interface PreventiveByRecurrenceResult {
   generatedAt: string;
 }
 
+// ─── Provider (prestador) types ──────────────────────────────────────────────
+
+export interface ProvidersParams extends DateRangeParams {
+  groupId?: string;
+}
+
+export interface ProvidersTimelineParams extends ProvidersParams {
+  groupBy?: "day" | "week" | "month";
+}
+
+export interface ProviderComparisonItem {
+  /** null = equipe interna (OS sem prestador). */
+  providerId: string | null;
+  providerName: string;
+  isInternal: boolean;
+  isActive: boolean;
+  total: number;
+  concluded: number;
+  open: number;
+  byType: { corrective: number; preventive: number; other: number };
+  technicians: number;
+  equipments: number;
+  rates: {
+    completionRate: number | null;
+    slaComplianceRate: number | null;
+    tpaComplianceRate: number | null;
+    preventiveAdherence: number | null;
+    firstTimeFixRate: number | null;
+    rejectionRate: number | null;
+  };
+  preventive: { onTime: number; late: number; overdueNow: number; withinDeadline: number };
+  sla: { judged: number; onTime: number; tpaApplicable: number; tpaBreached: number };
+  rejected: number;
+  avgResponseHours: number | null;
+  avgResolutionHours: number | null;
+  avgTotalHours: number | null;
+  totalCost: number;
+  avgCostPerOs: number | null;
+}
+
+export interface ProvidersComparison {
+  period: { start: string; end: string };
+  summary: {
+    providersWithOs: number;
+    totalOs: number;
+    providerOs: number;
+    providerShare: number | null;
+    providerCost: number;
+  };
+  items: ProviderComparisonItem[];
+  generatedAt: string;
+}
+
+export interface ProvidersTimelinePoint {
+  period: string;
+  providerId: string | null;
+  opened: number;
+  concluded: number;
+  slaComplianceRate: number | null;
+}
+
+export interface ProvidersTimeline {
+  period: { start: string; end: string };
+  granularity: "day" | "week" | "month";
+  series: ProvidersTimelinePoint[];
+  generatedAt: string;
+}
+
 // ─── Financial types ─────────────────────────────────────────────────────────
 
 export interface FinancialParams extends DateRangeParams {
@@ -715,6 +783,17 @@ export const analyticsService = {
 
   async getPreventiveByEquipmentType(p: PreventiveRankingParams = {}): Promise<PreventiveByEquipmentType> {
     const { data } = await api.get(`/analytics/preventive/by-equipment-type${toQuery(p)}`);
+    return data;
+  },
+
+  // Providers
+  async getProvidersComparison(p: ProvidersParams = {}): Promise<ProvidersComparison> {
+    const { data } = await api.get(`/analytics/providers/comparison${toQuery(p)}`);
+    return data;
+  },
+
+  async getProvidersTimeline(p: ProvidersTimelineParams = {}): Promise<ProvidersTimeline> {
+    const { data } = await api.get(`/analytics/providers/timeline${toQuery(p)}`);
     return data;
   },
 

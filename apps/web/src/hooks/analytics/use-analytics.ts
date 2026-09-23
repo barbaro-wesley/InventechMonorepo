@@ -17,6 +17,8 @@ import {
   PreventiveRankingParams,
   PreventiveTimelineParams,
   PreventiveUpcomingParams,
+  ProvidersParams,
+  ProvidersTimelineParams,
   TechnicianRankingParams,
 } from "@/services/analytics/analytics.service";
 
@@ -41,6 +43,10 @@ export const analyticsKeys = {
   },
   technicians: {
     ranking: (p: TechnicianRankingParams) => ["analytics", "technicians", "ranking", p] as const,
+  },
+  providers: {
+    comparison: (p: ProvidersParams) => ["analytics", "providers", "comparison", p] as const,
+    timeline: (p: ProvidersTimelineParams) => ["analytics", "providers", "timeline", p] as const,
   },
   preventive: {
     adherence: (p: PreventiveAdherenceParams) => ["analytics", "preventive", "adherence", p] as const,
@@ -235,6 +241,23 @@ export function useFinancialTco(p: FinancialTcoParams = {}) {
   return useQuery({
     queryKey: analyticsKeys.financial.tco(p),
     queryFn: () => analyticsService.getFinancialTco(p),
+    staleTime: STALE,
+  });
+}
+
+// Providers (prestadores)
+export function useProvidersComparison(p: ProvidersParams = {}) {
+  return useQuery({
+    queryKey: analyticsKeys.providers.comparison(p),
+    queryFn: () => analyticsService.getProvidersComparison(p),
+    staleTime: STALE,
+  });
+}
+
+export function useProvidersTimeline(p: ProvidersTimelineParams = {}) {
+  return useQuery({
+    queryKey: analyticsKeys.providers.timeline(p),
+    queryFn: () => analyticsService.getProvidersTimeline(p),
     staleTime: STALE,
   });
 }

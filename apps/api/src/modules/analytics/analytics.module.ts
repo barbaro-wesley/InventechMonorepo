@@ -4,6 +4,7 @@ import { AnalyticsEquipmentService } from './services/analytics-equipment.servic
 import { AnalyticsOsService } from './services/analytics-os.service'
 import { AnalyticsPreventiveService } from './services/analytics-preventive.service'
 import { AnalyticsFinancialService } from './services/analytics-financial.service'
+import { AnalyticsProvidersService } from './services/analytics-providers.service'
 
 @Module({
   controllers: [AnalyticsController],
@@ -12,6 +13,7 @@ import { AnalyticsFinancialService } from './services/analytics-financial.servic
     AnalyticsOsService,
     AnalyticsPreventiveService,
     AnalyticsFinancialService,
+    AnalyticsProvidersService,
   ],
 })
 export class AnalyticsModule {}

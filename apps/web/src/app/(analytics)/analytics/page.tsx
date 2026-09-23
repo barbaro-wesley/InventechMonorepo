@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { LayoutDashboard, Wrench, Cpu, Users, CalendarCheck, DollarSign } from 'lucide-react'
+import { LayoutDashboard, Wrench, Cpu, Users, CalendarCheck, DollarSign, Building2 } from 'lucide-react'
 import { FilterBar, type AnalyticsFilters } from './_components/filter-bar'
 import { SectionOverview } from './_components/section-overview'
 import { SectionOs } from './_components/section-os'
@@ -9,9 +9,11 @@ import { SectionEquipment } from './_components/section-equipment'
 import { SectionTechnicians } from './_components/section-technicians'
 import { SectionPreventive } from './_components/section-preventive'
 import { SectionFinancial } from './_components/section-financial'
+import { SectionProviders } from './_components/section-providers'
+import { usePermissions } from '@/hooks/auth/use-permissions'
 import { cn } from '@/lib/utils'
 
-type Tab = 'overview' | 'os' | 'equipment' | 'technicians' | 'preventive' | 'financial'
+type Tab = 'overview' | 'os' | 'equipment' | 'technicians' | 'preventive' | 'providers' | 'financial'
 
 const TABS: { id: Tab; label: string; icon: React.ElementType; description: string }[] = [
   { id: 'overview',    label: 'Visão Geral',       icon: LayoutDashboard, description: 'KPIs consolidados e evolução geral' },
@@ -19,6 +21,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType; description: stri
   { id: 'equipment',   label: 'Equipamentos',       icon: Cpu,             description: 'Parque, falhas e disponibilidade' },
   { id: 'technicians', label: 'Técnicos',           icon: Users,           description: 'Performance e ranking individual' },
   { id: 'preventive',  label: 'Preventivas',        icon: CalendarCheck,   description: 'Aderência, atrasos e próximas' },
+  { id: 'providers',   label: 'Prestadores',        icon: Building2,       description: 'Comparativo do trabalho entre prestadores' },
   { id: 'financial',   label: 'Financeiro',         icon: DollarSign,      description: 'Custos, TCO e tendências' },
 ]
 
@@ -36,14 +39,19 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [filters, setFilters] = useState<AnalyticsFilters>(defaultFilters)
 
-  const activeTabMeta = TABS.find((t) => t.id === activeTab)!
+  const { canSeeNav } = usePermissions()
+  // O comparativo expõe dados de todos os prestadores — só para quem gere a empresa.
+  const canSeeProviders = canSeeNav(['COMPANY_ADMIN', 'COMPANY_MANAGER'], 'analytics:providers')
+  const tabs = TABS.filter((t) => t.id !== 'providers' || canSeeProviders)
+
+  const activeTabMeta = tabs.find((t) => t.id === activeTab) ?? tabs[0]
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Tab bar */}
       <div className="bg-white dark:bg-zinc-950 border-b border-[#e8ecf1] dark:border-zinc-800 shrink-0">
         <div className="flex items-end gap-0 px-6 overflow-x-auto scrollbar-none">
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
             return (
@@ -91,6 +99,7 @@ export default function AnalyticsPage() {
         {activeTab === 'equipment'   && <SectionEquipment   filters={filters} />}
         {activeTab === 'technicians' && <SectionTechnicians filters={filters} />}
         {activeTab === 'preventive'  && <SectionPreventive  filters={filters} />}
+        {activeTab === 'providers'   && canSeeProviders && <SectionProviders filters={filters} />}
         {activeTab === 'financial'   && <SectionFinancial   filters={filters} />}
         <div className="h-6" />
       </div>
