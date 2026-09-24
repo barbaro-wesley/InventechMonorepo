@@ -70,6 +70,14 @@ class PreventiveFiltersDto {
   isActive?: boolean
 }
 
+class OverduePreventiveFiltersDto {
+  @IsOptional() @IsUUID() clientId?: string
+  @IsOptional() @IsString() typeId?: string
+  @IsOptional() @IsString() subtypeId?: string
+  @IsOptional() @IsString() costCenterId?: string
+  @IsOptional() @IsString() recurrenceType?: string
+}
+
 class SetReportPermissionDto {
   @IsEnum(['SERVICE_ORDERS', 'EQUIPMENT', 'PREVENTIVE', 'TECHNICIANS', 'FINANCIAL'])
   reportType: string
@@ -190,6 +198,32 @@ export class ReportsController {
     await this.permissionsService.checkAccess(cu, 'PREVENTIVE')
     const buffer = await this.reportsService.exportPreventivePdf(cu.companyId!, filters, cu)
     this.sendFile(res, buffer, 'pdf', `Preventivas_${today()}`)
+  }
+
+  @Get('preventive/overdue/excel')
+  @ApiOperation({ summary: 'Exportar OS preventivas atrasadas pelo prazo configurado em Parâmetros / SLA' })
+  @RateLimit(RATE)
+  async exportOverduePreventiveExcel(
+    @Query() filters: OverduePreventiveFiltersDto,
+    @CurrentUser() cu: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    await this.permissionsService.checkAccess(cu, 'PREVENTIVE')
+    const buffer = await this.reportsService.exportOverduePreventiveExcel(cu.companyId!, filters, cu)
+    this.sendFile(res, buffer, 'xlsx', `Preventivas_Atrasadas_${today()}`)
+  }
+
+  @Get('preventive/overdue/pdf')
+  @ApiOperation({ summary: 'Exportar OS preventivas atrasadas pelo prazo configurado em Parâmetros / SLA' })
+  @RateLimit(RATE)
+  async exportOverduePreventivePdf(
+    @Query() filters: OverduePreventiveFiltersDto,
+    @CurrentUser() cu: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    await this.permissionsService.checkAccess(cu, 'PREVENTIVE')
+    const buffer = await this.reportsService.exportOverduePreventivePdf(cu.companyId!, filters, cu)
+    this.sendFile(res, buffer, 'pdf', `Preventivas_Atrasadas_${today()}`)
   }
 
   // ─────────────────────────────────────────
