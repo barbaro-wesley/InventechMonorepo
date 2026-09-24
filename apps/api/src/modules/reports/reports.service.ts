@@ -2295,10 +2295,10 @@ export class ReportsService {
     },
     currentUser: AuthenticatedUser,
   ) {
-    const effectiveClientId = currentUser.role === UserRole.CLIENT_ADMIN
+    const effectiveClientId = (currentUser.role === UserRole.CLIENT_ADMIN || currentUser.role === UserRole.CLIENT_USER)
       ? currentUser.clientId
       : filters.clientId
-    if (currentUser.role === UserRole.CLIENT_ADMIN && !effectiveClientId) return []
+    if ((currentUser.role === UserRole.CLIENT_ADMIN || currentUser.role === UserRole.CLIENT_USER) && !effectiveClientId) return []
     const equipmentFilter: Record<string, unknown> = {}
     if (filters.typeId) equipmentFilter.typeId = { in: filters.typeId.split(',') }
     if (filters.subtypeId) equipmentFilter.subtypeId = { in: filters.subtypeId.split(',') }
