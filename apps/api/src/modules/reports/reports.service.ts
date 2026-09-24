@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { UserRole } from '@prisma/client'
+import { DEFAULT_MAINTENANCE_TYPE_RESOLUTION_HOURS } from '../sla/sla.service'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CompaniesService } from '../companies/companies.service'
 import { getFrontendUrl } from '../../config/app.config'
@@ -2273,6 +2274,212 @@ export class ReportsService {
 
     this.drawPdfFooter(doc, template, y + 12)
 
+    doc.end()
+    return new Promise<Buffer>((resolve, reject) => {
+      doc.on('end', () => resolve(Buffer.concat(buffers)))
+      doc.on('error', reject)
+    })
+  }
+
+  // ─────────────────────────────────────────
+  // OS PREVENTIVAS ATRASADAS — prazo de conclusão em Parâmetros → SLA
+  // ─────────────────────────────────────────
+  async getOverduePreventiveOrders(
+    companyId: string,
+    filters: {
+      clientId?: string
+      typeId?: string
+      subtypeId?: string
+      costCenterId?: string
+      recurrenceType?: string
+    },
+    currentUser: AuthenticatedUser,
+  ) {
+    const effectiveClientId = currentUser.role === UserRole.CLIENT_ADMIN
+      ? currentUser.clientId
+      : filters.clientId
+    if (currentUser.role === UserRole.CLIENT_ADMIN && !effectiveClientId) return []
+    const equipmentFilter: Record<string, unknown> = {}
+    if (filters.typeId) equipmentFilter.typeId = { in: filters.typeId.split(',') }
+    if (filters.subtypeId) equipmentFilter.subtypeId = { in: filters.subtypeId.split(',') }
+    if (filters.costCenterId) equipmentFilter.costCenterId = { in: filters.costCenterId.split(',') }
+
+    const [orders, configs] = await Promise.all([
+      this.prisma.serviceOrder.findMany({
+        where: {
+          companyId,
+          deletedAt: null,
+          maintenanceType: 'PREVENTIVE',
+          status: { notIn: ['CANCELLED', 'COMPLETED', 'COMPLETED_APPROVED'] },
+          ...(effectiveClientId && { clientId: effectiveClientId }),
+          ...(Object.keys(equipmentFilter).length > 0 && { equipment: equipmentFilter }),
+          ...(filters.recurrenceType && {
+            maintenance: { schedule: { recurrenceType: { in: filters.recurrenceType.split(',') as any } } },
+          }),
+        },
+        select: {
+          number: true, title: true, status: true, priority: true, createdAt: true,
+          client: { select: { name: true } },
+          equipment: { select: { name: true, serialNumber: true, costCenter: { select: { name: true } } } },
+          maintenance: { select: { schedule: { select: { title: true, recurrenceType: true } } } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.companyMaintenanceTypeSla.findMany({
+        where: { companyId, maintenanceType: 'PREVENTIVE' },
+        select: { priority: true, maxResolutionHours: true },
+      }),
+    ])
+    const configuredHours = new Map(configs.map((c) => [c.priority, Number(c.maxResolutionHours)]))
+    const now = Date.now()
+
+    // Mesmo critério da análise de preventivas: prazo vigente por prioridade,
+    // inclusive para OS avulsas. Não usamos nextRunAt, que o gerador avança.
+    return orders.flatMap((os) => {
+      const deadlineHours = configuredHours.get(os.priority)
+        ?? DEFAULT_MAINTENANCE_TYPE_RESOLUTION_HOURS.PREVENTIVE
+      const dueAt = new Date(os.createdAt.getTime() + deadlineHours * 60 * 60 * 1000)
+      return dueAt.getTime() < now
+        ? [{ ...os, deadlineHours, dueAt, overdueHours: Math.round((now - dueAt.getTime()) / 360000) / 10 }]
+        : []
+    }).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
+  }
+
+  async exportOverduePreventiveExcel(
+    companyId: string,
+    filters: { clientId?: string; typeId?: string; subtypeId?: string; costCenterId?: string; recurrenceType?: string },
+    currentUser: AuthenticatedUser,
+  ): Promise<Buffer> {
+    const ExcelJS = await import('exceljs')
+    const [orders, template] = await Promise.all([
+      this.getOverduePreventiveOrders(companyId, filters, currentUser),
+      this.companiesService.getReportTemplate(companyId),
+    ])
+    const workbook = new ExcelJS.default.Workbook()
+    workbook.creator = template.companyName
+    const sheet = workbook.addWorksheet('Preventivas atrasadas')
+    sheet.columns = [
+      { header: 'Nº OS', key: 'number', width: 10 },
+      { header: 'Título', key: 'title', width: 35 },
+      { header: 'Cliente', key: 'client', width: 24 },
+      { header: 'Equipamento', key: 'equipment', width: 27 },
+      { header: 'Nº Série', key: 'serial', width: 18 },
+      { header: 'Setor', key: 'sector', width: 20 },
+      { header: 'Agendamento', key: 'schedule', width: 28 },
+      { header: 'Status', key: 'status', width: 18 },
+      { header: 'Prioridade', key: 'priority', width: 14 },
+      { header: 'Aberta em', key: 'createdAt', width: 20 },
+      { header: 'Prazo (h)', key: 'deadlineHours', width: 13 },
+      { header: 'Vencimento', key: 'dueAt', width: 20 },
+      { header: 'Atraso (h)', key: 'overdueHours', width: 14 },
+    ]
+    sheet.getRow(1).height = 26
+    sheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: this.getContrastArgb(template.primaryColor) } }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + template.primaryColor.replace('#', '') } }
+    })
+    const statusLabels: Record<string, string> = {
+      OPEN: 'Aberta', AWAITING_PICKUP: 'Aguard. técnico',
+      IN_PROGRESS: 'Em andamento', COMPLETED_REJECTED: 'Reprovada',
+    }
+    const priorityLabels: Record<string, string> = {
+      LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', URGENT: 'Urgente',
+    }
+    for (const os of orders) {
+      sheet.addRow({
+        number: os.number,
+        title: os.title,
+        client: os.client?.name ?? '-',
+        equipment: os.equipment?.name ?? '-',
+        serial: os.equipment?.serialNumber ?? '-',
+        sector: os.equipment?.costCenter?.name ?? '-',
+        schedule: os.maintenance?.schedule?.title ?? 'Avulsa',
+        status: statusLabels[os.status] ?? os.status,
+        priority: priorityLabels[os.priority] ?? os.priority,
+        createdAt: os.createdAt,
+        deadlineHours: os.deadlineHours,
+        dueAt: os.dueAt,
+        overdueHours: os.overdueHours,
+      })
+    }
+    sheet.getColumn('createdAt').numFmt = 'dd/mm/yyyy hh:mm'
+    sheet.getColumn('dueAt').numFmt = 'dd/mm/yyyy hh:mm'
+    sheet.autoFilter = { from: 'A1', to: 'M1' }
+    sheet.views = [{ state: 'frozen', ySplit: 1 }]
+    const buffer = await workbook.xlsx.writeBuffer()
+    return Buffer.from(buffer)
+  }
+
+  async exportOverduePreventivePdf(
+    companyId: string,
+    filters: { clientId?: string; typeId?: string; subtypeId?: string; costCenterId?: string; recurrenceType?: string },
+    currentUser: AuthenticatedUser,
+  ): Promise<Buffer> {
+    const PDFDocument = (await import('pdfkit')).default
+    const [orders, template] = await Promise.all([
+      this.getOverduePreventiveOrders(companyId, filters, currentUser),
+      this.companiesService.getReportTemplate(companyId),
+    ])
+    const logoBuffer = await this.fetchLogoBuffer(template.logoUrl)
+    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: 40, bottom: 40, left: 40, right: 40 } })
+    const buffers: Buffer[] = []
+    doc.on('data', (c: Buffer) => buffers.push(c))
+    const W = doc.page.width - 80
+    let y = this.drawPdfHeader(doc, template, 'OS preventivas atrasadas',
+      `Total: ${orders.length}  ·  Prazo: Parâmetros / SLA / Preventiva`, logoBuffer)
+    const cols = [
+      { label: 'OS / Título', w: 150 },
+      { label: 'Cliente', w: 95 },
+      { label: 'Equipamento', w: 120 },
+      { label: 'Status', w: 80 },
+      { label: 'Prior.', w: 50 },
+      { label: 'Aberta', w: 83 },
+      { label: 'Prazo', w: 50 },
+      { label: 'Venceu', w: 83 },
+      { label: 'Atraso', w: 50 },
+    ]
+    const drawHeader = () => {
+      doc.rect(40, y, W, 20).fill(template.secondaryColor)
+      let x = 40
+      doc.fillColor(this.getContrastColor(template.secondaryColor)).fontSize(7).font('Helvetica-Bold')
+      cols.forEach((col) => {
+        doc.text(col.label, x + 3, y + 6, { width: col.w - 6, lineBreak: false })
+        x += col.w
+      })
+      y += 20
+    }
+    drawHeader()
+    const fmt = (d: Date) => d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    const statusLabels: Record<string, string> = {
+      OPEN: 'Aberta', AWAITING_PICKUP: 'Aguard. técnico',
+      IN_PROGRESS: 'Em andamento', COMPLETED_REJECTED: 'Reprovada',
+    }
+    const priorityLabels: Record<string, string> = {
+      LOW: 'Baixa', MEDIUM: 'Média', HIGH: 'Alta', URGENT: 'Urgente',
+    }
+    orders.forEach((os, i) => {
+      if (y > doc.page.height - 80) { doc.addPage(); y = 40; drawHeader() }
+      doc.rect(40, y, W, 22).fill(i % 2 ? '#F8FAFC' : '#FFFFFF')
+      const values = [
+        `#${os.number} ${os.title}`,
+        os.client?.name ?? '-',
+        os.equipment?.name ?? '-',
+        statusLabels[os.status] ?? os.status,
+        priorityLabels[os.priority] ?? os.priority,
+        fmt(os.createdAt),
+        `${os.deadlineHours} h`,
+        fmt(os.dueAt),
+        `${os.overdueHours} h`,
+      ]
+      let x = 40
+      values.forEach((value, index) => {
+        doc.fillColor(index === 8 ? '#DC2626' : '#1F2937').fontSize(7).font('Helvetica')
+          .text(value, x + 3, y + 7, { width: cols[index].w - 6, lineBreak: false, ellipsis: true })
+        x += cols[index].w
+      })
+      y += 22
+    })
+    this.drawPdfFooter(doc, template, y + 12)
     doc.end()
     return new Promise<Buffer>((resolve, reject) => {
       doc.on('end', () => resolve(Buffer.concat(buffers)))
