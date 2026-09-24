@@ -9,6 +9,8 @@ import {
   ChevronUp,
   Settings2,
   Loader2,
+  CalendarDays,
+  TriangleAlert,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -968,7 +970,7 @@ interface ClientOption { id: string; name: string }
 
 function PreventiveReport() {
   const currentUser = useCurrentUser();
-  const isClientAdmin = currentUser?.role === "CLIENT_ADMIN";
+  const isClientAdmin = currentUser?.role === "CLIENT_ADMIN" || currentUser?.role === "CLIENT_USER";
 
   const { data: types = [] } = useEquipmentTypes({ limit: 100 } as any);
   const { data: costCenters = [] } = useCostCenters({ limit: 100 } as any);
@@ -989,6 +991,7 @@ function PreventiveReport() {
   const [orderBy, setOrderBy] = useState("nextRun");
   const [loading, setLoading] = useState<"excel" | "pdf" | null>(null);
   const [overdueLoading, setOverdueLoading] = useState<"excel" | "pdf" | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   // Subtypes from selected types (all subtypes when no type is selected)
   const subtypeOptions = useMemo(() => {
@@ -1060,247 +1063,249 @@ function PreventiveReport() {
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <Section title="Filtros" collapsible>
-        <div className="space-y-4">
-          {/* Recorrência — chips */}
-          <div>
-            <Label className="text-xs text-muted-foreground mb-2 block">Recorrência</Label>
-            <div className="flex flex-wrap gap-2">
-              {(Object.keys(RECURRENCE_LABEL) as RecurrenceType[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  data-selected={recurrenceTypes.includes(r)}
-                  onClick={() => toggleRecurrence(r)}
-                  className="px-3 py-1 rounded-full border text-xs font-medium transition-colors
-                    border-border text-muted-foreground bg-background
-                    data-[selected=true]:border-primary data-[selected=true]:text-primary data-[selected=true]:bg-primary/10"
-                >
-                  {RECURRENCE_LABEL[r]}
-                </button>
-              ))}
-            </div>
-          </div>
+  const clearFilters = (mode: "schedules" | "overdue") => {
+    setClientId("");
+    setTypeIds([]);
+    setSubtypeIds([]);
+    setCostCenterIds([]);
+    setRecurrenceTypes([]);
+    if (mode === "schedules") {
+      setIsActive("__all__");
+      setNextRunFrom("");
+      setNextRunTo("");
+      setStartDateFrom("");
+      setStartDateTo("");
+      setGroupBy("");
+      setSubGroupBy("");
+      setOrderBy("nextRun");
+    }
+  };
 
-          {/* Prestador — apenas company admin */}
-          {!isClientAdmin && (
-            <div className="max-w-xs space-y-1">
-              <Label className="text-xs text-muted-foreground">Prestador</Label>
-              <Select value={clientId || "__all__"} onValueChange={(v) => setClientId(v === "__all__" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos os prestadores" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos os prestadores</SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Tipo + Subtipo + Centro de Custo + Status */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <MultiSelect
-              label="Tipo de equipamento"
-              placeholder="Todos os tipos"
-              options={(types as any[]).map((t: any) => ({ label: t.name, value: t.id }))}
-              selectedValues={typeIds}
-              onChange={setTypeIds}
-            />
-
-            <MultiSelect
-              label="Subtipo"
-              placeholder="Todos os subtipos"
-              options={subtypeOptions}
-              selectedValues={subtypeIds}
-              onChange={setSubtypeIds}
-            />
-
-            <MultiSelect
-              label="Centro de Custo / Setor"
-              placeholder="Todos os centros"
-              options={(costCenters as any[]).map((c: any) => ({ label: c.name, value: c.id }))}
-              selectedValues={costCenterIds}
-              onChange={setCostCenterIds}
-            />
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Status</Label>
-              <Select value={isActive} onValueChange={setIsActive}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos</SelectItem>
-                  <SelectItem value="true">Apenas ativos</SelectItem>
-                  <SelectItem value="false">Apenas inativos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Período da próxima OS + Vigência */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Período da próxima OS</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={nextRunFrom}
-                  onChange={(e) => setNextRunFrom(e.target.value)}
-                  className="text-xs"
-                />
-                <span className="text-xs text-muted-foreground shrink-0">até</span>
-                <Input
-                  type="date"
-                  value={nextRunTo}
-                  onChange={(e) => setNextRunTo(e.target.value)}
-                  className="text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Vigência</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={startDateFrom}
-                  onChange={(e) => setStartDateFrom(e.target.value)}
-                  className="text-xs"
-                />
-                <span className="text-xs text-muted-foreground shrink-0">até</span>
-                <Input
-                  type="date"
-                  value={startDateTo}
-                  onChange={(e) => setStartDateTo(e.target.value)}
-                  className="text-xs"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Agrupamento (Quebra e Subquebra) & Ordenação */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Quebra principal (1º nível)</Label>
-              <Select value={groupBy || "__none__"} onValueChange={(v) => setGroupBy(v === "__none__" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem quebra" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sem quebra</SelectItem>
-                  <SelectItem value="month">Mês (Próxima OS)</SelectItem>
-                  <SelectItem value="day">Dia (Próxima OS)</SelectItem>
-                  <SelectItem value="costCenter">Centro de Custo / Setor</SelectItem>
-                  <SelectItem value="type">Tipo de Equipamento</SelectItem>
-                  <SelectItem value="recurrence">Recorrência</SelectItem>
-                  <SelectItem value="situation">Situação (Em dia / Atrasada)</SelectItem>
-                  <SelectItem value="client">Prestador</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Subquebra (2º nível)</Label>
-              <Select value={subGroupBy || "__none__"} onValueChange={(v) => setSubGroupBy(v === "__none__" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem subquebra" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Sem subquebra</SelectItem>
-                  <SelectItem value="day">Dia (Próxima OS)</SelectItem>
-                  <SelectItem value="month">Mês (Próxima OS)</SelectItem>
-                  <SelectItem value="costCenter">Centro de Custo / Setor</SelectItem>
-                  <SelectItem value="type">Tipo de Equipamento</SelectItem>
-                  <SelectItem value="recurrence">Recorrência</SelectItem>
-                  <SelectItem value="situation">Situação (Em dia / Atrasada)</SelectItem>
-                  <SelectItem value="client">Prestador</SelectItem>
-                  <SelectItem value="equipment">Equipamento</SelectItem>
-                  <SelectItem value="title">Título</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Ordenar por</Label>
-              <Select value={orderBy} onValueChange={setOrderBy}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nextRun">Próxima OS (mais próxima)</SelectItem>
-                  <SelectItem value="nextRunDesc">Próxima OS (mais atrasada)</SelectItem>
-                  <SelectItem value="situation">Situação (atrasadas primeiro)</SelectItem>
-                  <SelectItem value="equipment">Nome do equipamento</SelectItem>
-                  <SelectItem value="costCenter">Setor</SelectItem>
-                  <SelectItem value="title">Título</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+  const sharedFilterFields = (
+    <>
+      {!isClientAdmin && (
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Prestador</Label>
+          <Select value={clientId || "__all__"} onValueChange={(v) => setClientId(v === "__all__" ? "" : v)}>
+            <SelectTrigger><SelectValue placeholder="Todos os prestadores" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">Todos os prestadores</SelectItem>
+              {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
-      </Section>
+      )}
+      <MultiSelect
+        label="Centro de Custo / Setor"
+        placeholder="Todos os centros"
+        options={(costCenters as any[]).map((c: any) => ({ label: c.name, value: c.id }))}
+        selectedValues={costCenterIds}
+        onChange={setCostCenterIds}
+      />
+      <MultiSelect
+        label="Tipo de equipamento"
+        placeholder="Todos os tipos"
+        options={(types as any[]).map((t: any) => ({ label: t.name, value: t.id }))}
+        selectedValues={typeIds}
+        onChange={setTypeIds}
+      />
+      <MultiSelect
+        label="Subtipo"
+        placeholder="Todos os subtipos"
+        options={subtypeOptions}
+        selectedValues={subtypeIds}
+        onChange={setSubtypeIds}
+      />
+      <div className="space-y-2 sm:col-span-2 xl:col-span-3">
+        <Label className="text-xs text-muted-foreground">Recorrência</Label>
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(RECURRENCE_LABEL) as RecurrenceType[]).map((r) => (
+            <button
+              key={r}
+              type="button"
+              data-selected={recurrenceTypes.includes(r)}
+              onClick={() => toggleRecurrence(r)}
+              className="px-3 py-1 rounded-full border text-xs font-medium transition-colors
+                border-border text-muted-foreground bg-background
+                data-[selected=true]:border-primary data-[selected=true]:text-primary data-[selected=true]:bg-primary/10"
+            >
+              {RECURRENCE_LABEL[r]}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 
-      <div className="flex gap-3">
+  const exportButtons = (mode: "schedules" | "overdue") => {
+    const active = mode === "schedules" ? loading : overdueLoading;
+    const download = mode === "schedules" ? handleDownload : handleOverdueDownload;
+    return (
+      <div className="flex flex-wrap justify-end gap-3 pt-1">
         <Button
-          onClick={() => handleDownload("excel")}
-          disabled={loading !== null}
+          onClick={() => download("excel")}
+          disabled={active !== null}
           className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
         >
-          {loading === "excel" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="h-4 w-4" />
-          )}
+          {active === "excel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
           Exportar Excel
         </Button>
-        <Button
-          onClick={() => handleDownload("pdf")}
-          disabled={loading !== null}
-          variant="outline"
-          className="gap-2"
-        >
-          {loading === "pdf" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FileText className="h-4 w-4" />
-          )}
+        <Button onClick={() => download("pdf")} disabled={active !== null} variant="outline" className="gap-2">
+          {active === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
           Exportar PDF
         </Button>
       </div>
+    );
+  };
 
-      <Section title="OS preventivas atrasadas" collapsible>
-        <p className="text-sm text-muted-foreground mb-3">
-          OS abertas cujo prazo de conclusão, definido em Parâmetros → SLA por prioridade, já venceu.
-          Inclui OS avulsas. Aplicam-se os filtros de prestador, equipamento, setor e recorrência acima;
-          ao filtrar recorrência, as avulsas ficam de fora. Datas da próxima OS, vigência e status do
-          agendamento não se aplicam a esta exportação.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Button
-            onClick={() => handleOverdueDownload("excel")}
-            disabled={overdueLoading !== null}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+  const filterHeader = (
+    <button
+      type="button"
+      aria-expanded={filtersOpen}
+      onClick={() => setFiltersOpen((open) => !open)}
+      className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold text-foreground"
+    >
+      Filtros
+      {filtersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+    </button>
+  );
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5 lg:p-6">
+      <div className="mb-5">
+        <h2 className="text-lg font-semibold text-foreground">Preventivas</h2>
+        <p className="text-sm text-muted-foreground">Relatórios de manutenções preventivas.</p>
+      </div>
+
+      <Tabs defaultValue="schedules" onValueChange={() => setFiltersOpen(true)}>
+        <TabsList className="mb-4 h-auto w-full justify-start gap-2 rounded-none border-b border-border bg-transparent p-0">
+          <TabsTrigger
+            value="schedules"
+            className="gap-2 rounded-none border-b-2 border-transparent px-4 py-3 text-muted-foreground
+              data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
           >
-            {overdueLoading === "excel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
-            Exportar atrasadas em Excel
-          </Button>
-          <Button
-            onClick={() => handleOverdueDownload("pdf")}
-            disabled={overdueLoading !== null}
-            variant="outline"
-            className="gap-2"
+            <CalendarDays className="h-4 w-4" />
+            Agendamentos
+          </TabsTrigger>
+          <TabsTrigger
+            value="overdue"
+            className="gap-2 rounded-none border-b-2 border-transparent px-4 py-3 text-muted-foreground
+              data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
           >
-            {overdueLoading === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-            Exportar atrasadas em PDF
-          </Button>
-        </div>
-      </Section>
+            <TriangleAlert className="h-4 w-4" />
+            Atrasadas
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="schedules" className="mt-0 space-y-4">
+          <div className="rounded-lg border border-border">
+            {filterHeader}
+            {filtersOpen && (
+              <div className="grid gap-4 border-t border-border px-4 pb-4 pt-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Período da próxima OS</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="date" value={nextRunFrom} onChange={(e) => setNextRunFrom(e.target.value)} className="min-w-0 text-xs" />
+                    <span className="shrink-0 text-xs text-muted-foreground">até</span>
+                    <Input type="date" value={nextRunTo} onChange={(e) => setNextRunTo(e.target.value)} className="min-w-0 text-xs" />
+                  </div>
+                </div>
+                {sharedFilterFields}
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Status do agendamento</Label>
+                  <Select value={isActive} onValueChange={setIsActive}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__all__">Todos</SelectItem>
+                      <SelectItem value="true">Apenas ativos</SelectItem>
+                      <SelectItem value="false">Apenas inativos</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Vigência</Label>
+                  <div className="flex items-center gap-2">
+                    <Input type="date" value={startDateFrom} onChange={(e) => setStartDateFrom(e.target.value)} className="min-w-0 text-xs" />
+                    <span className="shrink-0 text-xs text-muted-foreground">até</span>
+                    <Input type="date" value={startDateTo} onChange={(e) => setStartDateTo(e.target.value)} className="min-w-0 text-xs" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Quebra principal (1º nível)</Label>
+                  <Select value={groupBy || "__none__"} onValueChange={(v) => setGroupBy(v === "__none__" ? "" : v)}>
+                    <SelectTrigger><SelectValue placeholder="Sem quebra" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sem quebra</SelectItem>
+                      <SelectItem value="month">Mês (Próxima OS)</SelectItem>
+                      <SelectItem value="day">Dia (Próxima OS)</SelectItem>
+                      <SelectItem value="costCenter">Centro de Custo / Setor</SelectItem>
+                      <SelectItem value="type">Tipo de Equipamento</SelectItem>
+                      <SelectItem value="recurrence">Recorrência</SelectItem>
+                      <SelectItem value="situation">Situação (Em dia / Atrasada)</SelectItem>
+                      <SelectItem value="client">Prestador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Subquebra (2º nível)</Label>
+                  <Select value={subGroupBy || "__none__"} onValueChange={(v) => setSubGroupBy(v === "__none__" ? "" : v)}>
+                    <SelectTrigger><SelectValue placeholder="Sem subquebra" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Sem subquebra</SelectItem>
+                      <SelectItem value="day">Dia (Próxima OS)</SelectItem>
+                      <SelectItem value="month">Mês (Próxima OS)</SelectItem>
+                      <SelectItem value="costCenter">Centro de Custo / Setor</SelectItem>
+                      <SelectItem value="type">Tipo de Equipamento</SelectItem>
+                      <SelectItem value="recurrence">Recorrência</SelectItem>
+                      <SelectItem value="situation">Situação (Em dia / Atrasada)</SelectItem>
+                      <SelectItem value="client">Prestador</SelectItem>
+                      <SelectItem value="equipment">Equipamento</SelectItem>
+                      <SelectItem value="title">Título</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Ordenar por</Label>
+                  <Select value={orderBy} onValueChange={setOrderBy}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nextRun">Próxima OS (mais próxima)</SelectItem>
+                      <SelectItem value="nextRunDesc">Próxima OS (mais atrasada)</SelectItem>
+                      <SelectItem value="situation">Situação (atrasadas primeiro)</SelectItem>
+                      <SelectItem value="equipment">Nome do equipamento</SelectItem>
+                      <SelectItem value="costCenter">Setor</SelectItem>
+                      <SelectItem value="title">Título</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-end justify-end sm:col-span-2 xl:col-span-3">
+                  <Button variant="ghost" className="text-primary" onClick={() => clearFilters("schedules")}>Limpar filtros</Button>
+                </div>
+              </div>
+            )}
+          </div>
+          {exportButtons("schedules")}
+        </TabsContent>
+
+        <TabsContent value="overdue" className="mt-0 space-y-4">
+          <div className="rounded-lg border border-border">
+            {filterHeader}
+            {filtersOpen && (
+              <div className="grid gap-4 border-t border-border px-4 pb-4 pt-4 sm:grid-cols-2 xl:grid-cols-3">
+                {sharedFilterFields}
+                <p className="text-xs text-muted-foreground sm:col-span-2 xl:col-span-3">
+                  O atraso considera o prazo de conclusão em Parâmetros → SLA. OS avulsas entram no relatório;
+                  ao filtrar recorrência, elas ficam de fora.
+                </p>
+                <div className="flex items-end justify-end sm:col-span-2 xl:col-span-3">
+                  <Button variant="ghost" className="text-primary" onClick={() => clearFilters("overdue")}>Limpar filtros</Button>
+                </div>
+              </div>
+            )}
+          </div>
+          {exportButtons("overdue")}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
