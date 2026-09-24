@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { UserRole } from '@prisma/client'
-import { DEFAULT_MAINTENANCE_TYPE_RESOLUTION_HOURS } from '../sla/sla.service'
+import { Prisma, UserRole } from '@prisma/client'
+import { preventiveOsQuery } from '../analytics/services/preventive-os.query'
 import { PrismaService } from '../../prisma/prisma.service'
 import { CompaniesService } from '../companies/companies.service'
 import { getFrontendUrl } from '../../config/app.config'
@@ -2295,54 +2295,71 @@ export class ReportsService {
     },
     currentUser: AuthenticatedUser,
   ) {
-    const effectiveClientId = (currentUser.role === UserRole.CLIENT_ADMIN || currentUser.role === UserRole.CLIENT_USER)
-      ? currentUser.clientId
-      : filters.clientId
-    if ((currentUser.role === UserRole.CLIENT_ADMIN || currentUser.role === UserRole.CLIENT_USER) && !effectiveClientId) return []
-    const equipmentFilter: Record<string, unknown> = {}
-    if (filters.typeId) equipmentFilter.typeId = { in: filters.typeId.split(',') }
-    if (filters.subtypeId) equipmentFilter.subtypeId = { in: filters.subtypeId.split(',') }
-    if (filters.costCenterId) equipmentFilter.costCenterId = { in: filters.costCenterId.split(',') }
+    const isClient = currentUser.role === UserRole.CLIENT_ADMIN || currentUser.role === UserRole.CLIENT_USER
+    const effectiveClientId = isClient ? currentUser.clientId : filters.clientId
+    if (isClient && !effectiveClientId) return []
 
-    const [orders, configs] = await Promise.all([
-      this.prisma.serviceOrder.findMany({
-        where: {
-          companyId,
-          deletedAt: null,
-          maintenanceType: 'PREVENTIVE',
-          status: { notIn: ['CANCELLED', 'COMPLETED', 'COMPLETED_APPROVED'] },
-          ...(effectiveClientId && { clientId: effectiveClientId }),
-          ...(Object.keys(equipmentFilter).length > 0 && { equipment: equipmentFilter }),
-          ...(filters.recurrenceType && {
-            maintenance: { schedule: { recurrenceType: { in: filters.recurrenceType.split(',') as any } } },
-          }),
-        },
-        select: {
-          number: true, title: true, status: true, priority: true, createdAt: true,
-          client: { select: { name: true } },
-          equipment: { select: { name: true, serialNumber: true, costCenter: { select: { name: true } } } },
-          maintenance: { select: { schedule: { select: { title: true, recurrenceType: true } } } },
-        },
-        orderBy: { createdAt: 'asc' },
-      }),
-      this.prisma.companyMaintenanceTypeSla.findMany({
-        where: { companyId, maintenanceType: 'PREVENTIVE' },
-        select: { priority: true, maxResolutionHours: true },
-      }),
-    ])
-    const configuredHours = new Map(configs.map((c) => [c.priority, Number(c.maxResolutionHours)]))
-    const now = Date.now()
-
-    // Mesmo critério da análise de preventivas: prazo vigente por prioridade,
-    // inclusive para OS avulsas. Não usamos nextRunAt, que o gerador avança.
-    return orders.flatMap((os) => {
-      const deadlineHours = configuredHours.get(os.priority)
-        ?? DEFAULT_MAINTENANCE_TYPE_RESOLUTION_HOURS.PREVENTIVE
-      const dueAt = new Date(os.createdAt.getTime() + deadlineHours * 60 * 60 * 1000)
-      return dueAt.getTime() < now
-        ? [{ ...os, deadlineHours, dueAt, overdueHours: Math.round((now - dueAt.getTime()) / 360000) / 10 }]
-        : []
-    }).sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
+    // A mesma base SQL usada pela rota /analytics/preventive/overdue.
+    // A exportação consulta todas as linhas, pois a resposta do painel é
+    // limitada a 200 itens e guardada em cache por cinco minutos.
+    const base = preventiveOsQuery(companyId, { clientId: effectiveClientId ?? undefined })
+    const ids = (value?: string) => value?.split(',').map((id) => id.trim()).filter(Boolean) ?? []
+    const types = ids(filters.typeId)
+    const subtypes = ids(filters.subtypeId)
+    const sectors = ids(filters.costCenterId)
+    const recurrence = ids(filters.recurrenceType)
+    const typeF = types.length ? Prisma.sql`AND e.type_id::text IN (${Prisma.join(types)})` : Prisma.empty
+    const subtypeF = subtypes.length ? Prisma.sql`AND e.subtype_id::text IN (${Prisma.join(subtypes)})` : Prisma.empty
+    const sectorF = sectors.length ? Prisma.sql`AND e.cost_center_id::text IN (${Prisma.join(sectors)})` : Prisma.empty
+    const recurrenceF = recurrence.length
+      ? Prisma.sql`AND p.recurrence_type IN (${Prisma.join(recurrence)})`
+      : Prisma.empty
+    const now = new Date()
+    const rows = await this.prisma.$queryRaw<Array<{
+      number: number
+      title: string
+      status: string
+      priority: string
+      created_at: Date
+      due_at: Date
+      deadline_hours: number
+      client_name: string | null
+      equipment_name: string | null
+      equipment_serial: string | null
+      sector_name: string | null
+      schedule_title: string | null
+    }>>`
+      WITH p AS (${base})
+      SELECT
+        p.number, p.title, p.status::text AS status, p.priority::text AS priority,
+        p.created_at, p.due_at, p.deadline_hours,
+        c.name AS client_name, e.name AS equipment_name,
+        e.serial_number AS equipment_serial, cc.name AS sector_name,
+        ms.title AS schedule_title
+      FROM p
+      LEFT JOIN equipments e ON e.id = p.equipment_id
+      LEFT JOIN clients c ON c.id = p.client_id
+      LEFT JOIN cost_centers cc ON cc.id = e.cost_center_id
+      LEFT JOIN maintenance_schedules ms ON ms.id = p.schedule_id
+      WHERE NOT p.executed AND p.due_at < ${now}
+        ${typeF} ${subtypeF} ${sectorF} ${recurrenceF}
+      ORDER BY p.due_at ASC
+    `
+    return rows.map((r) => ({
+      number: r.number,
+      title: r.title,
+      status: r.status,
+      priority: r.priority,
+      createdAt: r.created_at,
+      dueAt: r.due_at,
+      deadlineHours: r.deadline_hours,
+      overdueHours: Math.round((now.getTime() - r.due_at.getTime()) / 360000) / 10,
+      client: r.client_name ? { name: r.client_name } : null,
+      equipment: r.equipment_name
+        ? { name: r.equipment_name, serialNumber: r.equipment_serial, costCenter: r.sector_name ? { name: r.sector_name } : null }
+        : null,
+      maintenance: r.schedule_title ? { schedule: { title: r.schedule_title } } : null,
+    }))
   }
 
   async exportOverduePreventiveExcel(
