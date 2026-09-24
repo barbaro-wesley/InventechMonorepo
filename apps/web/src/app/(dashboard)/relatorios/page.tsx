@@ -658,7 +658,7 @@ function ActiveFiltersBar({
 
 function ServiceOrdersReport() {
   const currentUser = useCurrentUser();
-  const isClientAdmin = currentUser?.role === "CLIENT_ADMIN";
+  const isClientAdmin = currentUser?.role === "CLIENT_ADMIN" || currentUser?.role === "CLIENT_USER";
 
   const { data: groupsData } = useMaintenanceGroups({ isActive: true });
 
