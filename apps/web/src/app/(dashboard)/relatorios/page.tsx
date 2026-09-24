@@ -988,6 +988,7 @@ function PreventiveReport() {
   const [subGroupBy, setSubGroupBy] = useState("");
   const [orderBy, setOrderBy] = useState("nextRun");
   const [loading, setLoading] = useState<"excel" | "pdf" | null>(null);
+  const [overdueLoading, setOverdueLoading] = useState<"excel" | "pdf" | null>(null);
 
   // Subtypes from selected types (all subtypes when no type is selected)
   const subtypeOptions = useMemo(() => {
@@ -1039,6 +1040,23 @@ function PreventiveReport() {
       toast.error(getErrorMessage(err));
     } finally {
       setLoading(null);
+    }
+  };
+
+  const handleOverdueDownload = async (format: "excel" | "pdf") => {
+    setOverdueLoading(format);
+    try {
+      await downloadReport(`preventive/overdue/${format}`, {
+        ...(clientId && !isClientAdmin && { clientId }),
+        ...(typeIds.length > 0 && { typeId: typeIds.join(",") }),
+        ...(subtypeIds.length > 0 && { subtypeId: subtypeIds.join(",") }),
+        ...(costCenterIds.length > 0 && { costCenterId: costCenterIds.join(",") }),
+        ...(recurrenceTypes.length > 0 && { recurrenceType: recurrenceTypes.join(",") }),
+      }, "Preventivas_Atrasadas");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setOverdueLoading(null);
     }
   };
 
@@ -1255,6 +1273,34 @@ function PreventiveReport() {
           Exportar PDF
         </Button>
       </div>
+
+      <Section title="OS preventivas atrasadas" collapsible>
+        <p className="text-sm text-muted-foreground mb-3">
+          OS abertas cujo prazo de conclusão, definido em Parâmetros → SLA por prioridade, já venceu.
+          Inclui OS avulsas. Aplicam-se os filtros de prestador, equipamento, setor e recorrência acima;
+          ao filtrar recorrência, as avulsas ficam de fora. Datas da próxima OS, vigência e status do
+          agendamento não se aplicam a esta exportação.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            onClick={() => handleOverdueDownload("excel")}
+            disabled={overdueLoading !== null}
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {overdueLoading === "excel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+            Exportar atrasadas em Excel
+          </Button>
+          <Button
+            onClick={() => handleOverdueDownload("pdf")}
+            disabled={overdueLoading !== null}
+            variant="outline"
+            className="gap-2"
+          >
+            {overdueLoading === "pdf" ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Exportar atrasadas em PDF
+          </Button>
+        </div>
+      </Section>
     </div>
   );
 }
