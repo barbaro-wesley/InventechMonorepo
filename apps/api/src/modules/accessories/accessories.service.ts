@@ -2,7 +2,6 @@ import {
     Injectable,
     NotFoundException,
     ConflictException,
-    ForbiddenException,
     BadRequestException,
 } from '@nestjs/common'
 import { Prisma, AccessoryStatus, AccessoryOwnership, EquipmentCriticality } from '@prisma/client'
@@ -62,71 +61,6 @@ function generateQrCode(companyId: string): string {
 export class AccessoriesService {
     constructor(private readonly prisma: PrismaService) { }
 
-    /**
-     * Resolve o companyId e os equipmentIds visíveis ao usuário.
-     * - Empresa: vê todos os acessórios da empresa.
-     * - Cliente: vê apenas acessórios vinculados a equipamentos do escopo do cliente.
-     */
-    private async resolveAccessoryScope(currentUser: AuthenticatedUser) {
-        if (!currentUser.clientId) {
-            return { companyId: currentUser.companyId!, equipmentIdFilter: null as string[] | null }
-        }
-
-        const client = await this.prisma.client.findUnique({
-            where: { id: currentUser.clientId },
-            select: {
-                companyId: true,
-                maintenanceGroups: {
-                    where: { isActive: true },
-                    select: {
-                        group: {
-                            select: {
-                                noRestriction: true,
-                                equipmentTypes: { select: { id: true } },
-                            },
-                        },
-                    },
-                },
-            },
-        })
-        if (!client) throw new ForbiddenException('Cliente não encontrado')
-
-        const hasUnrestrictedGroup = client.maintenanceGroups.some((cg) => cg.group.noRestriction)
-        if (hasUnrestrictedGroup) {
-            // Busca todos os equipment IDs do cliente (sem restrição de tipo)
-            const equipments = await this.prisma.equipment.findMany({
-                where: { companyId: client.companyId, deletedAt: null },
-                select: { id: true },
-            })
-            return {
-                companyId: client.companyId,
-                equipmentIdFilter: equipments.map((e) => e.id),
-            }
-        }
-
-        const allowedTypeIds = client.maintenanceGroups.flatMap((cg) =>
-            cg.group.equipmentTypes.map((et) => et.id),
-        )
-
-        if (allowedTypeIds.length === 0) {
-            return { companyId: client.companyId, equipmentIdFilter: [] as string[] }
-        }
-
-        const equipments = await this.prisma.equipment.findMany({
-            where: {
-                companyId: client.companyId,
-                deletedAt: null,
-                typeId: { in: allowedTypeIds },
-            },
-            select: { id: true },
-        })
-
-        return {
-            companyId: client.companyId,
-            equipmentIdFilter: equipments.map((e) => e.id),
-        }
-    }
-
     async findAll(currentUser: AuthenticatedUser, filters: ListAccessoriesDto) {
         const {
             search, status, criticality, categoryId, currentEquipmentId,
@@ -134,10 +68,7 @@ export class AccessoriesService {
             page = 1, limit = 20,
         } = filters
 
-        const { companyId, equipmentIdFilter } = await this.resolveAccessoryScope(currentUser)
-
-        // Clientes não veem acessórios disponíveis (sem equipamento vinculado)
-        const isClientUser = !!currentUser.clientId
+        const companyId = currentUser.companyId!
 
         const warrantyCondition = (() => {
             if (!warrantyFilter) return {}
@@ -159,14 +90,6 @@ export class AccessoriesService {
             ...(categoryId && { categoryId }),
             ...(qrCode && { qrCode }),
             ...(currentLocationId && { currentLocationId }),
-            // Escopo de cliente: apenas acessórios dos equipamentos visíveis
-            ...(equipmentIdFilter !== null && {
-                currentEquipmentId: equipmentIdFilter.length > 0
-                    ? { in: equipmentIdFilter }
-                    : '__no_results__',  // força 0 resultados se cliente sem grupos
-            }),
-            // Clientes não veem AVAILABLE
-            ...(isClientUser && { status: AccessoryStatus.IN_USE }),
             ...(currentEquipmentId && { currentEquipmentId }),
             ...warrantyCondition,
             ...(search && {
@@ -195,20 +118,13 @@ export class AccessoriesService {
     }
 
     async findOne(id: string, currentUser: AuthenticatedUser) {
-        const { companyId, equipmentIdFilter } = await this.resolveAccessoryScope(currentUser)
+        const companyId = currentUser.companyId!
 
         const accessory = await this.prisma.accessory.findFirst({
             where: { id, companyId, deletedAt: null },
             select: ACCESSORY_SELECT,
         })
         if (!accessory) throw new NotFoundException('Acessório não encontrado')
-
-        // Verifica escopo do cliente
-        if (equipmentIdFilter !== null) {
-            if (!accessory.currentEquipmentId || !equipmentIdFilter.includes(accessory.currentEquipmentId)) {
-                throw new NotFoundException('Acessório não encontrado')
-            }
-        }
 
         return normalizeAccessory(accessory)
     }
