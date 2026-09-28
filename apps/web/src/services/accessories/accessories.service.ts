@@ -154,6 +154,7 @@ export interface AccessoryHistory {
 export interface ListAccessoriesParams {
   search?: string;
   status?: AccessoryStatus;
+  criticality?: AccessoryCriticality;
   categoryId?: string;
   qrCode?: string;
   page?: number;
@@ -185,7 +186,7 @@ export interface CreateAccessoryDto {
   status?: AccessoryStatus;
   criticality?: AccessoryCriticality;
   observations?: string;
-  locationId?: string;
+  currentLocationId?: string;
 }
 
 export type UpdateAccessoryDto = Partial<CreateAccessoryDto>;
