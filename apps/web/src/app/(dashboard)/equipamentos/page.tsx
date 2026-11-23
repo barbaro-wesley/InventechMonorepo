@@ -2056,6 +2056,9 @@ function IpNetworkPanel({ onFilterIp }: { onFilterIp: (ip: string) => void }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+/** Opção do filtro de status que mostra os equipamentos excluídos (não é um EquipmentStatus) */
+const DELETED_OPTION = "__deleted__";
+
 export default function EquipamentosPage() {
   const { canAccess } = usePermissions();
   const router = useRouter();
@@ -2124,7 +2127,7 @@ export default function EquipamentosPage() {
   const total = listData?.total ?? 0;
   const totalPages = Math.ceil(total / 50);
 
-  const activeFilterCount = [statusFilter, criticalityFilter, typeFilter, locationFilter, costCenterFilter, ipFilter, patrimonyFilter]
+  const activeFilterCount = [statusFilter || (showDeleted ? DELETED_OPTION : ""), criticalityFilter, typeFilter, locationFilter, costCenterFilter, ipFilter, patrimonyFilter]
     .filter(Boolean).length;
 
   useEffect(() => {
@@ -2132,6 +2135,7 @@ export default function EquipamentosPage() {
   }, [search, ipFilter, patrimonyFilter, statusFilter, criticalityFilter, typeFilter, locationFilter, costCenterFilter, showDeleted]);
 
   function clearAll() {
+    setShowDeleted(false);
     setSearch("");
     setIpFilter("");
     setStatusFilter("");
@@ -2244,14 +2248,27 @@ export default function EquipamentosPage() {
             />
           </div>
           <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as EquipmentStatus | "")}
+            value={showDeleted ? DELETED_OPTION : statusFilter}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === DELETED_OPTION) {
+                // "Excluídos" não é um status real: lista a lixeira (deleted=true)
+                setShowDeleted(true);
+                setStatusFilter("");
+                setSelectionMode(false);
+                setSelectedIds(new Set());
+                return;
+              }
+              setShowDeleted(false);
+              setStatusFilter(value as EquipmentStatus | "");
+            }}
             className="text-sm border border-border rounded-md px-3 py-2 bg-white dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/30 w-full sm:w-auto"
           >
             <option value="">Todos os status</option>
             {(Object.keys(STATUS_LABEL) as EquipmentStatus[]).map((s) => (
               <option key={s} value={s}>{STATUS_LABEL[s]}</option>
             ))}
+            <option value={DELETED_OPTION}>Excluídos</option>
           </select>
           <select
             value={criticalityFilter}
@@ -2278,22 +2295,6 @@ export default function EquipamentosPage() {
                 {activeFilterCount}
               </span>
             )}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setShowDeleted((v) => !v);
-              setSelectionMode(false);
-              setSelectedIds(new Set());
-            }}
-            aria-pressed={showDeleted}
-            className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors w-full sm:w-auto ${showDeleted
-              ? "border-red-300 text-red-700 bg-red-50 dark:border-red-900 dark:text-red-400 dark:bg-red-950/30"
-              : "border-border text-muted-foreground hover:bg-muted/30"
-              }`}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            {showDeleted ? "Vendo excluídos" : "Ver excluídos"}
           </button>
           {(search || activeFilterCount > 0) && (
             <button
