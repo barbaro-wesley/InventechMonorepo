@@ -88,7 +88,25 @@ export interface AuditLog {
   createdAt: string;
   user: { id: string; name: string; email: string } | null;
   company: { id: string; name: string } | null;
+  /** Identificação legível do registro (equipamento / OS); null nas demais entidades */
+  subject: AuditSubject | null;
 }
+
+export interface AuditEquipmentRef {
+  id: string;
+  name: string | null;
+  patrimonyNumber: string | null;
+}
+
+export type AuditSubject =
+  | { type: "Equipment"; id: string; name: string | null; patrimonyNumber: string | null }
+  | {
+      type: "ServiceOrder";
+      id: string;
+      number: number | null;
+      title: string | null;
+      equipment: AuditEquipmentRef | null;
+    };
 
 export interface ListAuditLogsParams {
   page?: number;

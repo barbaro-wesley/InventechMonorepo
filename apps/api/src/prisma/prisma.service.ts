@@ -172,6 +172,13 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   get auditLog() { return this._db.auditLog }
 
+  /**
+   * Client SEM o filtro global de soft delete. Use só para leituras que
+   * precisam enxergar registros excluídos (ex.: identificar o equipamento
+   * de um log de auditoria). Não audita escritas — não use para gravar.
+   */
+  get unfiltered(): PrismaClient { return this._base }
+
   /** Grava os logs de auditoria acumulados numa requisição (usado pelo AuditContextInterceptor). */
   flushAuditEntries(entries: AuditEntry[]): Promise<void> {
     return writeAuditEntries(this._base, entries)

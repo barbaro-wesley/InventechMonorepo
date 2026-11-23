@@ -24,6 +24,8 @@ export interface AuditEntry {
     userAgent: string | null
     requestId: string | null
     method: string | null
+    /** Momento da ação (não do flush), para manter a ordem dentro da requisição */
+    createdAt: Date
 }
 
 export interface AuditContext {

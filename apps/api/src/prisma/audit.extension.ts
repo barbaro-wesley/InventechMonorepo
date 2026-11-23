@@ -214,6 +214,7 @@ export function auditExtension(base: PrismaClient) {
             userAgent: ctx?.userAgent ?? null,
             requestId: ctx?.requestId ?? null,
             method: ctx?.method ?? null,
+            createdAt: new Date(),
         }
     }
 

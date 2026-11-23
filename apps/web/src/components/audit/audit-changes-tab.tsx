@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuditChangeLogs, useAuditedEntities } from "@/hooks/audit/use-audit";
-import type { AuditAction, AuditLog } from "@/services/audit/audit.service";
+import type { AuditAction, AuditLog, AuditSubject } from "@/services/audit/audit.service";
 
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
@@ -96,6 +96,46 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 const entityLabel = (e: string) => ENTITY_LABEL[e] ?? e;
+
+// ─── Identificação do registro (equipamento / OS) ────────────────────────────
+
+function osNumber(n: number | null) {
+  return n != null ? `OS nº ${n}` : "OS sem número";
+}
+
+function equipmentLine(e: { name: string | null; patrimonyNumber: string | null }) {
+  return [e.name ?? "Equipamento sem nome", e.patrimonyNumber && `Patrimônio ${e.patrimonyNumber}`]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** Título principal do registro: nome do equipamento ou "OS nº X — título". */
+function subjectTitle(log: AuditLog) {
+  const s = log.subject;
+  if (s?.type === "Equipment") return s.name ?? "Equipamento sem nome";
+  if (s?.type === "ServiceOrder") return s.title ? `${osNumber(s.number)} — ${s.title}` : osNumber(s.number);
+  return entityLabel(log.entity);
+}
+
+/** Linha de apoio: patrimônio/UUID do equipamento ou o equipamento da OS. */
+function SubjectDetails({ subject, entityId }: { subject: AuditSubject | null; entityId: string }) {
+  if (subject?.type === "Equipment") {
+    return (
+      <>
+        {subject.patrimonyNumber && <span>Patrimônio {subject.patrimonyNumber}</span>}
+        <span className="font-mono">{entityId}</span>
+      </>
+    );
+  }
+  if (subject?.type === "ServiceOrder") {
+    return (
+      <>
+        <span>{subject.equipment ? `Equipamento: ${equipmentLine(subject.equipment)}` : "Sem equipamento vinculado"}</span>
+      </>
+    );
+  }
+  return <span className="font-mono">{entityId.slice(0, 8)}</span>;
+}
 const fieldLabel = (f: string) => FIELD_LABEL[f] ?? f;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -178,7 +218,7 @@ export function AuditChangesTab() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Buscar por e-mail do usuário, ID do registro ou rota..."
+            placeholder="Buscar por equipamento, patrimônio, nº da OS, e-mail ou ID..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -287,12 +327,17 @@ export function AuditChangesTab() {
                       {ACTION_LABEL[log.action].label}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-sm" style={{ color: "var(--foreground)" }}>
-                      {entityLabel(log.entity)}
+                  <td className="px-4 py-3 max-w-xs">
+                    {log.subject && (
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {entityLabel(log.entity)}
+                      </p>
+                    )}
+                    <p className="font-medium text-sm break-words" style={{ color: "var(--foreground)" }}>
+                      {subjectTitle(log)}
                     </p>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {log.entityId.slice(0, 8)}
+                    <p className="text-xs text-muted-foreground flex flex-col break-all">
+                      <SubjectDetails subject={log.subject} entityId={log.entityId} />
                     </p>
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground max-w-xs truncate">
@@ -371,7 +416,7 @@ function AuditLogDetailDialog({ log, onClose }: { log: AuditLog | null; onClose:
 
   return (
     <Dialog open={!!log} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+      <DialogContent className="w-[calc(100%-2rem)] sm:max-w-4xl max-h-[90vh] flex flex-col p-6 gap-4">
         {log && (
           <>
             <DialogHeader>
@@ -379,15 +424,33 @@ function AuditLogDetailDialog({ log, onClose }: { log: AuditLog | null; onClose:
                 <Badge className={`${ACTION_LABEL[log.action].className} border-0 text-xs`}>
                   {ACTION_LABEL[log.action].label}
                 </Badge>
-                {entityLabel(log.entity)}
+                <span className="break-words">
+                  {log.subject ? `${entityLabel(log.entity)}: ${subjectTitle(log)}` : entityLabel(log.entity)}
+                </span>
               </DialogTitle>
               <DialogDescription>
                 {log.user?.name ?? log.userEmail ?? "Sistema"} · {formatDate(log.createdAt)}
               </DialogDescription>
             </DialogHeader>
 
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
-              <Meta label="ID do registro" value={log.entityId} mono />
+            <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 text-xs rounded-lg border border-border bg-muted/30 p-4">
+              {log.subject?.type === "Equipment" && (
+                <>
+                  <Meta label="Equipamento" value={log.subject.name ?? "—"} />
+                  <Meta label="Patrimônio" value={log.subject.patrimonyNumber ?? "—"} mono />
+                </>
+              )}
+              {log.subject?.type === "ServiceOrder" && (
+                <>
+                  <Meta label="Ordem de serviço" value={osNumber(log.subject.number)} />
+                  <Meta label="Título da OS" value={log.subject.title ?? "—"} />
+                  <Meta
+                    label="Equipamento da OS"
+                    value={log.subject.equipment ? equipmentLine(log.subject.equipment) : "—"}
+                  />
+                </>
+              )}
+              <Meta label={log.subject?.type === "Equipment" ? "UUID do equipamento" : "ID do registro"} value={log.entityId} mono />
               <Meta label="Empresa" value={log.company?.name ?? "—"} />
               <Meta label="E-mail" value={log.user?.email ?? log.userEmail ?? "—"} />
               <Meta label="IP" value={log.ipAddress ?? "—"} mono />
@@ -395,9 +458,15 @@ function AuditLogDetailDialog({ log, onClose }: { log: AuditLog | null; onClose:
               <Meta label="Requisição" value={log.requestId ?? "—"} mono />
             </dl>
 
-            <div className="overflow-auto border border-border rounded-lg mt-2">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted">
+            <div className="overflow-auto border border-border rounded-lg min-h-0 flex-1">
+              <table className="w-full text-sm table-fixed">
+                <colgroup>
+                  <col className="w-44" />
+                  {!isCreate && <col />}
+                  {isDiff && <col className="w-8" />}
+                  {(isDiff || isCreate) && <col />}
+                </colgroup>
+                <thead className="sticky top-0 bg-muted z-10">
                   <tr>
                     <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground">Campo</th>
                     {!isCreate && (
@@ -423,24 +492,24 @@ function AuditLogDetailDialog({ log, onClose }: { log: AuditLog | null; onClose:
                   ) : (
                     rows.map((r) => (
                       <tr key={r.field} className="border-t border-border/50 align-top">
-                        <td className="px-3 py-2 font-medium whitespace-nowrap" style={{ color: "var(--foreground)" }}>
+                        <td className="px-3 py-2.5 font-medium break-words" style={{ color: "var(--foreground)" }}>
                           {fieldLabel(r.field)}
                           {FIELD_LABEL[r.field] && (
                             <span className="block text-[10px] font-mono text-muted-foreground">{r.field}</span>
                           )}
                         </td>
                         {!isCreate && (
-                          <td className={`px-3 py-2 break-all ${isDiff ? "text-red-700 bg-red-50/50" : "text-muted-foreground"}`}>
+                          <td className={`px-3 py-2.5 whitespace-pre-wrap [overflow-wrap:anywhere] ${isDiff ? "text-red-700 bg-red-50/50 dark:text-red-400 dark:bg-red-950/20" : ""}`} style={isDiff ? undefined : { color: "var(--foreground)" }}>
                             {formatValue(r.from)}
                           </td>
                         )}
                         {isDiff && (
-                          <td className="py-2 text-muted-foreground">
+                          <td className="py-2.5 text-muted-foreground">
                             <ArrowRight className="w-3.5 h-3.5" />
                           </td>
                         )}
                         {(isDiff || isCreate) && (
-                          <td className={`px-3 py-2 break-all ${isDiff ? "text-green-700 bg-green-50/50" : "text-muted-foreground"}`}>
+                          <td className={`px-3 py-2.5 whitespace-pre-wrap [overflow-wrap:anywhere] ${isDiff ? "text-green-700 bg-green-50/50 dark:text-green-400 dark:bg-green-950/20" : ""}`} style={isDiff ? undefined : { color: "var(--foreground)" }}>
                             {formatValue(r.to)}
                           </td>
                         )}
@@ -461,7 +530,7 @@ function Meta({ label, value, mono }: { label: string; value: string; mono?: boo
   return (
     <div className="min-w-0">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className={`truncate ${mono ? "font-mono" : ""}`} style={{ color: "var(--foreground)" }} title={value}>
+      <dd className={`mt-0.5 ${mono ? "font-mono break-all" : "break-words"}`} style={{ color: "var(--foreground)" }}>
         {value}
       </dd>
     </div>
