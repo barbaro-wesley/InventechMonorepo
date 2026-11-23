@@ -11,6 +11,7 @@ import { JwtRefreshGuard } from './guards/jwt-auth.guard'
 import { Public } from '../../common/decorators/public.decorator'
 import { CurrentUser } from '../../common/decorators/current-user.decorator'
 import { Roles } from '../../common/decorators/roles.decorator'
+import { getClientIp } from '../../common/utils/request.util'
 import type { AuthenticatedUser } from '../../common/interfaces/authenticated-user.interface'
 import { TwoFactorService } from './security/two-factor.service'
 import { LoginSecurityService } from './security/login-security.service'
@@ -54,14 +55,6 @@ class SetFirstPasswordDto {
   newPassword: string
 }
 
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for']
-  if (forwarded) {
-    const first = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0]
-    return first.trim()
-  }
-  return req.headers['x-real-ip'] as string || req.ip || ''
-}
 
 const COOKIE_OPTIONS = {
   httpOnly: true,

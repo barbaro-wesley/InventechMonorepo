@@ -1,4 +1,4 @@
-import {
+import { IsBoolean,
     IsArray, IsDateString, IsDecimal, IsEnum, IsInt, IsOptional,
     IsString, IsUUID, Max, Min, ValidateNested,
 } from 'class-validator'
@@ -160,6 +160,12 @@ export class ListEquipmentsDto {
     @IsOptional() @IsUUID() typeId?: string
     @IsOptional() @IsUUID() locationId?: string
     @IsOptional() @IsUUID() costCenterId?: string
+
+    /** true = lista somente equipamentos excluídos (soft delete) */
+    @IsOptional()
+    @Transform(({ value }) => value === 'true' || value === true)
+    @IsBoolean()
+    deleted?: boolean
 
     @IsOptional()
     @Type(() => Number)

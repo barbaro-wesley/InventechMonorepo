@@ -751,6 +751,7 @@ function EquipmentCard({
   selectionMode,
   selected,
   onToggleSelect,
+  deleted,
 }: {
   equipment: Equipment;
   onView: (e: Equipment) => void;
@@ -763,6 +764,8 @@ function EquipmentCard({
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (e: Equipment) => void;
+  /** Card de equipamento excluído: sem ações, mostra quando e por quem foi excluído */
+  deleted?: boolean;
 }) {
   const { canAccess } = usePermissions();
   const canEdit = canAccess("equipment", "update");
@@ -849,8 +852,21 @@ function EquipmentCard({
         )}
       </div>
 
+      {/* Excluído */}
+      {deleted && (
+        <div className="px-5 py-3 border-t border-red-100 dark:border-red-900/40 bg-red-50/60 dark:bg-red-950/20 text-xs space-y-0.5">
+          <p className="flex items-center gap-1.5 font-medium text-red-700 dark:text-red-400">
+            <Trash2 className="w-3.5 h-3.5" />
+            Excluído{equipment.deletedAt ? ` em ${new Date(equipment.deletedAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}
+          </p>
+          <p className="text-muted-foreground truncate">
+            por {equipment.deletedBy?.name ?? equipment.deletedBy?.email ?? "não registrado"}
+          </p>
+        </div>
+      )}
+
       {/* Actions */}
-      {!selectionMode && (
+      {!selectionMode && !deleted && (
       <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2 flex-shrink-0">
         {canEdit && (
           <Button variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => onEdit(equipment)}>
@@ -2054,6 +2070,7 @@ export default function EquipamentosPage() {
   const [locationFilter, setLocationFilter] = useState("");
   const [costCenterFilter, setCostCenterFilter] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [qrTarget, setQrTarget] = useState<Equipment | null>(null);
   const [page, setPage] = useState(1);
 
@@ -2098,6 +2115,7 @@ export default function EquipamentosPage() {
     typeId: typeFilter || undefined,
     locationId: locationFilter || undefined,
     costCenterId: costCenterFilter || undefined,
+    deleted: showDeleted || undefined,
     page,
     limit: 50,
   });
@@ -2111,7 +2129,7 @@ export default function EquipamentosPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, ipFilter, patrimonyFilter, statusFilter, criticalityFilter, typeFilter, locationFilter, costCenterFilter]);
+  }, [search, ipFilter, patrimonyFilter, statusFilter, criticalityFilter, typeFilter, locationFilter, costCenterFilter, showDeleted]);
 
   function clearAll() {
     setSearch("");
@@ -2183,7 +2201,7 @@ export default function EquipamentosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          {canCreateOs && (
+          {canCreateOs && !showDeleted && (
             <Button
               variant={selectionMode ? "secondary" : "outline"}
               className="flex-1 sm:flex-none"
@@ -2196,7 +2214,7 @@ export default function EquipamentosPage() {
               )}
             </Button>
           )}
-          {canCreateEquipment && !selectionMode && (
+          {canCreateEquipment && !selectionMode && !showDeleted && (
             <Button className="flex-1 sm:flex-none" onClick={() => setFormSheet({ open: true, target: null })}>
               <Plus className="w-4 h-4 mr-2" />
               Novo equipamento
@@ -2260,6 +2278,22 @@ export default function EquipamentosPage() {
                 {activeFilterCount}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowDeleted((v) => !v);
+              setSelectionMode(false);
+              setSelectedIds(new Set());
+            }}
+            aria-pressed={showDeleted}
+            className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-md border transition-colors w-full sm:w-auto ${showDeleted
+              ? "border-red-300 text-red-700 bg-red-50 dark:border-red-900 dark:text-red-400 dark:bg-red-950/30"
+              : "border-border text-muted-foreground hover:bg-muted/30"
+              }`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            {showDeleted ? "Vendo excluídos" : "Ver excluídos"}
           </button>
           {(search || activeFilterCount > 0) && (
             <button
@@ -2331,6 +2365,18 @@ export default function EquipamentosPage() {
         )}
       </div>
 
+      {showDeleted && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20 px-4 py-2.5 text-sm text-red-700 dark:text-red-400">
+          <span className="flex items-center gap-2">
+            <Trash2 className="w-4 h-4 flex-shrink-0" />
+            Exibindo somente equipamentos excluídos. Os filtros acima continuam valendo.
+          </span>
+          <button type="button" onClick={() => setShowDeleted(false)} className="text-xs font-medium underline underline-offset-2 whitespace-nowrap">
+            Voltar aos ativos
+          </button>
+        </div>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2342,9 +2388,11 @@ export default function EquipamentosPage() {
         <div className="bg-white dark:bg-zinc-950/50 rounded-xl border border-dashed border-border py-14 text-center">
           <Wrench className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm font-medium" style={{ color: "var(--foreground)" }}>
-            {search || activeFilterCount > 0 ? "Nenhum equipamento encontrado" : "Nenhum equipamento cadastrado"}
+            {showDeleted
+              ? "Nenhum equipamento excluído encontrado"
+              : search || activeFilterCount > 0 ? "Nenhum equipamento encontrado" : "Nenhum equipamento cadastrado"}
           </p>
-          {!search && activeFilterCount === 0 && canCreateEquipment && (
+          {!search && activeFilterCount === 0 && canCreateEquipment && !showDeleted && (
             <Button size="sm" className="mt-4" onClick={() => setFormSheet({ open: true, target: null })}>
               <Plus className="w-4 h-4 mr-2" />Cadastrar equipamento
             </Button>
@@ -2367,6 +2415,7 @@ export default function EquipamentosPage() {
                 selectionMode={selectionMode}
                 selected={selectedIds.has(eq.id)}
                 onToggleSelect={toggleSelect}
+                deleted={showDeleted}
               />
             ))}
           </div>

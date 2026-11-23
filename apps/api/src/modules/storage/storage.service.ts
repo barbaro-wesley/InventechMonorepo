@@ -54,8 +54,16 @@ export class StorageService implements OnModuleInit {
       secretKey: this.configService.get<string>('minio.secretKey', ''),
     })
 
-    await this.ensureBucketsExist()
-    this.logger.log('MinIO conectado e buckets verificados')
+    // Não derruba o bootstrap se o MinIO estiver indisponível — apenas
+    // uploads/downloads falham até ele subir.
+    try {
+      await this.ensureBucketsExist()
+      this.logger.log('MinIO conectado e buckets verificados')
+    } catch (err) {
+      this.logger.warn(
+        `MinIO indisponível — buckets não verificados. Uploads/downloads vão falhar até o MinIO subir. (${err instanceof Error ? err.message : String(err)})`,
+      )
+    }
   }
 
   // ─────────────────────────────────────────

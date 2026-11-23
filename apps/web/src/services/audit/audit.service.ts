@@ -62,6 +62,47 @@ export interface ListBlocksParams {
   activeOnly?: boolean;
 }
 
+export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "RESTORE";
+
+export interface AuditFieldChange {
+  from: unknown;
+  to: unknown;
+}
+
+export interface AuditLog {
+  id: string;
+  companyId: string | null;
+  userId: string | null;
+  userEmail: string | null;
+  action: AuditAction;
+  entity: string;
+  entityId: string;
+  /** { campo: { from, to } } — o que mudou e pelo que foi substituído */
+  changes: Record<string, AuditFieldChange> | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  requestId: string | null;
+  method: string | null;
+  createdAt: string;
+  user: { id: string; name: string; email: string } | null;
+  company: { id: string; name: string } | null;
+}
+
+export interface ListAuditLogsParams {
+  page?: number;
+  limit?: number;
+  entity?: string;
+  entityId?: string;
+  action?: AuditAction;
+  userId?: string;
+  companyId?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const auditService = {
@@ -86,5 +127,17 @@ export const auditService = {
 
   async unblockUser(userId: string): Promise<void> {
     await api.patch(`/auth/audit/unblock/${userId}`);
+  },
+
+  async getChangeLogs(
+    params: ListAuditLogsParams = {}
+  ): Promise<PaginatedResponse<AuditLog>> {
+    const { data } = await api.get("/audit/logs", { params });
+    return data;
+  },
+
+  async getAuditedEntities(): Promise<Array<{ entity: string; count: number }>> {
+    const { data } = await api.get("/audit/entities");
+    return data;
   },
 };

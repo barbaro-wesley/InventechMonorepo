@@ -77,6 +77,23 @@ const nextConfig: NextConfig = {
     root: "../../",
   },
 
+  // O Socket.IO exige a barra final em /socket.io/ — sem isto o Next
+  // redireciona (308) removendo a barra. Só ativa junto com o proxy.
+  skipTrailingSlashRedirect: !!process.env.API_PROXY_TARGET,
+
+  // Proxy opcional para a API (ex.: GitHub Codespaces no navegador).
+  // Quando API_PROXY_TARGET está definido, o front chama /api/v1 e /socket.io
+  // no próprio domínio e o Next repassa para a API — evita problemas de CSP,
+  // CORS e cookie entre subdomínios diferentes. Sem a variável, nada muda.
+  async rewrites() {
+    const target = process.env.API_PROXY_TARGET?.replace(/\/$/, "");
+    if (!target) return [];
+    return [
+      { source: "/api/v1/:path*", destination: `${target}/api/v1/:path*` },
+      { source: "/socket.io/:path*", destination: `${target}/socket.io/:path*` },
+    ];
+  },
+
   async headers() {
     return [
       {

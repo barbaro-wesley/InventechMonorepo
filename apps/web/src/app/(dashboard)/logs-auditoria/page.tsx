@@ -14,6 +14,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,7 @@ import {
   useUnblockUser,
 } from "@/hooks/audit/use-audit";
 import type { AccountBlock } from "@/services/audit/audit.service";
+import { AuditChangesTab } from "@/components/audit/audit-changes-tab";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -100,7 +102,7 @@ function StatCard({
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
 
-type Tab = "attempts" | "blocks";
+type Tab = "attempts" | "blocks" | "changes";
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -159,7 +161,7 @@ export default function AuditLogsPage() {
             Logs de Auditoria
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Monitoramento de tentativas de login e bloqueios de conta
+            Tentativas de login, bloqueios de conta e histórico de alterações
           </p>
         </div>
       </div>
@@ -217,7 +219,7 @@ export default function AuditLogsPage() {
 
       {/* Tabs */}
       <div className="bg-white rounded-xl border border-border overflow-hidden">
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setTab("attempts")}
             className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors"
@@ -239,6 +241,17 @@ export default function AuditLogsPage() {
           >
             <ShieldX className="w-4 h-4" />
             Bloqueios de Conta
+          </button>
+          <button
+            onClick={() => setTab("changes")}
+            className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-colors"
+            style={{
+              color: tab === "changes" ? "var(--primary)" : "var(--muted-foreground)",
+              borderBottom: tab === "changes" ? "2px solid var(--primary)" : "2px solid transparent",
+            }}
+          >
+            <History className="w-4 h-4" />
+            Alterações
           </button>
         </div>
 
@@ -577,6 +590,9 @@ export default function AuditLogsPage() {
             )}
           </div>
         )}
+
+        {/* ── Alterações (quem alterou o quê) ── */}
+        {tab === "changes" && <AuditChangesTab />}
       </div>
 
       {/* Unblock confirmation */}

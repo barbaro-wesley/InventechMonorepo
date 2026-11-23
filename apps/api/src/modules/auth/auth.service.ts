@@ -132,8 +132,12 @@ export class AuthService {
                 .then(c => c?.enforce2FAForAll ?? false)
             : false
 
+        // SUPER_ADMIN só é obrigado a usar 2FA em produção — em desenvolvimento
+        // o SMTP normalmente não está configurado e o código nunca chegaria.
+        const isProduction = process.env.NODE_ENV === 'production'
+
         const needs2FA =
-            user.role === UserRole.SUPER_ADMIN ||
+            (isProduction && user.role === UserRole.SUPER_ADMIN) ||
             user.require2FA ||
             companyEnforces2FA
 

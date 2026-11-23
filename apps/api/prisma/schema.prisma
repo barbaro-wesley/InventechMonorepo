@@ -172,6 +172,7 @@ model User {
   accessoryMovementsApproved   AccessoryMovement[]         @relation("AccessoryMovementApprover")
   accessoryMaintenances        AccessoryMaintenance[]      @relation("AccessoryMaintenanceTechnician")
   accessoryStatusChanges       AccessoryStatusHistory[]    @relation("AccessoryStatusChangedBy")
+  auditLogs                    AuditLog[]
 
   @@index([companyId])
   @@index([clientId])
@@ -863,6 +864,41 @@ model CustomRolePermission {
   @@unique([customRoleId, resource, action])
   @@index([customRoleId])
   @@map("custom_role_permissions")
+}
+
+// ─── Auditoria de alterações ────────────────────────────────────────────────
+// Preenchida automaticamente pela extensão Prisma (src/prisma/audit.extension.ts).
+// `changes` guarda { campo: { from, to } } — o que mudou e pelo que foi substituído.
+model AuditLog {
+  id        String      @id @default(uuid())
+  companyId String?     @map("company_id")
+  userId    String?     @map("user_id")
+  userEmail String?     @map("user_email")
+  action    AuditAction
+  entity    String
+  entityId  String      @map("entity_id")
+  changes   Json?
+  before    Json?
+  after     Json?
+  ipAddress String?     @map("ip_address")
+  userAgent String?     @map("user_agent")
+  requestId String?     @map("request_id")
+  method    String?
+  createdAt DateTime    @default(now()) @map("created_at")
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId, createdAt])
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
 }
 
 model LoginAttempt {

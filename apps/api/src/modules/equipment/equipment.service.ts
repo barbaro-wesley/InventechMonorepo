@@ -134,7 +134,7 @@ export class EquipmentService {
     }
 
     async findAll(currentUser: AuthenticatedUser, filters: ListEquipmentsDto) {
-        const { search, ipAddress, patrimonyNumber, status, criticality, typeId, locationId, costCenterId, page = 1, limit = 20 } = filters
+        const { search, ipAddress, patrimonyNumber, status, criticality, typeId, locationId, costCenterId, deleted = false, page = 1, limit = 20 } = filters
 
         const { companyId, allowedTypeIds } = await this.resolveScope(currentUser)
 
@@ -159,7 +159,8 @@ export class EquipmentService {
 
         const where: Prisma.EquipmentWhereInput = {
             companyId,
-            deletedAt: null,
+            // deleted=true → somente excluídos (soft delete); padrão → somente ativos
+            deletedAt: deleted ? { not: null } : null,
             ...effectiveTypeId,
             ...(status && { status }),
             ...(criticality && { criticality }),
@@ -182,15 +183,49 @@ export class EquipmentService {
         const [data, total] = await this.prisma.$transaction([
             this.prisma.equipment.findMany({
                 where,
-                select: EQUIPMENT_SELECT,
-                orderBy: { name: 'asc' },
+                select: { ...EQUIPMENT_SELECT, deletedAt: true },
+                // Excluídos: mais recentes primeiro
+                orderBy: deleted ? { deletedAt: 'desc' } : { name: 'asc' },
                 skip: (page - 1) * limit,
                 take: limit,
             }),
             this.prisma.equipment.count({ where }),
         ])
 
-        return { data: data.map(normalizeEquipment), total, page, limit }
+        const deletedBy = deleted ? await this.findDeletedBy(data.map((e) => e.id)) : null
+
+        return {
+            data: data.map((eq) => ({
+                ...normalizeEquipment(eq),
+                ...(deletedBy && { deletedBy: deletedBy.get(eq.id) ?? null }),
+            })),
+            total,
+            page,
+            limit,
+        }
+    }
+
+    /**
+     * Quem excluiu cada equipamento — pega o último DELETE registrado na
+     * auditoria. Exclusões anteriores à auditoria ficam sem autor (null).
+     */
+    private async findDeletedBy(ids: string[]) {
+        const result = new Map<string, { id: string | null; name: string | null; email: string | null }>()
+        if (!ids.length) return result
+        const logs = await this.prisma.auditLog.findMany({
+            where: { entity: 'Equipment', action: 'DELETE', entityId: { in: ids } },
+            orderBy: { createdAt: 'desc' },
+            select: { entityId: true, userId: true, userEmail: true, user: { select: { name: true, email: true } } },
+        })
+        for (const log of logs) {
+            if (result.has(log.entityId)) continue
+            result.set(log.entityId, {
+                id: log.userId,
+                name: log.user?.name ?? null,
+                email: log.user?.email ?? log.userEmail,
+            })
+        }
+        return result
     }
 
     async getNetworkStats(currentUser: AuthenticatedUser, subnet: string = '192.168.0') {

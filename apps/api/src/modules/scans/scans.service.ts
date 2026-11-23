@@ -64,7 +64,13 @@ export class ScansService implements OnModuleInit {
       secretKey: this.config.get<string>('minio.secretKey', ''),
     })
 
-    await this.ensureBucket()
+    try {
+      await this.ensureBucket()
+    } catch (err) {
+      this.logger.warn(
+        `MinIO indisponível — bucket de scans não verificado. (${err instanceof Error ? err.message : String(err)})`,
+      )
+    }
   }
 
   // ─── API endpoints ───────────────────────────────────────────────────────────

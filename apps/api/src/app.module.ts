@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
-import { APP_GUARD, APP_FILTER } from '@nestjs/core'
+import { APP_GUARD, APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core'
 import { BullModule } from '@nestjs/bull'
 import { ScheduleModule } from '@nestjs/schedule'
 
@@ -38,6 +38,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module'
 import { InventoryModule } from './modules/inventory/inventory.module'
 import { AccessoriesModule } from './modules/accessories/accessories.module'
 import { SlaModule } from './modules/sla/sla.module'
+import { AuditModule } from './modules/audit/audit.module'
+import { AuditContextInterceptor } from './common/audit/audit-context.interceptor'
 
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard'
 import { RateLimitGuard } from './common/guards/rate-limit.guard'
@@ -99,6 +101,7 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     InventoryModule,
     AccessoriesModule,
     SlaModule,
+    AuditModule,
   ],
   providers: [
     // ─── Ordem dos guards é crítica ──────────────────────────────
@@ -108,6 +111,8 @@ import { GlobalExceptionFilter } from './common/filters/http-exception.filter'
     { provide: APP_GUARD, useClass: RateLimitGuard },
     // 3. Permission guard — resolve @Permission e @Roles (legado)
     { provide: APP_GUARD, useClass: PermissionGuard },
+    // ─── Contexto de auditoria (quem fez cada escrita no banco) ────
+    { provide: APP_INTERCEPTOR, useClass: AuditContextInterceptor },
     // ─── Filtro global de exceções ────────────────────────────────
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
   ],

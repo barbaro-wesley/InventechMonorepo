@@ -37,6 +37,9 @@ export interface Equipment {
   costCenter: { id: string; name: string; code: string | null } | null;
   totalServiceOrders: number;
   lastMaintenanceAt: string | null;
+  /** Preenchidos apenas na listagem de excluídos (deleted=true) */
+  deletedAt?: string | null;
+  deletedBy?: { id: string | null; name: string | null; email: string | null } | null;
   _count: { serviceOrders: number; maintenances: number; attachments: number };
   customFieldValues?: Array<{
     definitionId: string;
@@ -99,6 +102,8 @@ export interface ListEquipmentParams {
   typeId?: string;
   locationId?: string;
   costCenterId?: string;
+  /** true = lista somente equipamentos excluídos */
+  deleted?: boolean;
   page?: number;
   limit?: number;
 }

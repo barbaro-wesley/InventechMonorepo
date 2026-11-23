@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common'
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { auditExtension, writeAuditEntries } from './audit.extension'
+import type { AuditEntry } from '../common/audit/audit-context'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modelos com soft delete
@@ -17,6 +19,16 @@ const SOFT_DELETE_MODELS = [
 ] as const
 
 type SoftDeleteModel = (typeof SOFT_DELETE_MODELS)[number]
+
+/**
+ * Filtra registros excluídos por padrão. Se a query já define `deletedAt`
+ * explicitamente (ex.: `{ not: null }` para listar a lixeira), respeita o valor.
+ */
+function withSoftDelete<T>(where: T): T {
+  const w = (where ?? {}) as Record<string, unknown>
+  if (w.deletedAt !== undefined) return where
+  return { ...w, deletedAt: null } as T
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factory do client estendido
@@ -30,7 +42,7 @@ function buildClient() {
   // Log em development vai para stdout do Prisma (sem $on)
   const isDev = process.env.NODE_ENV === 'development'
 
-  return new PrismaClient({
+  const base = new PrismaClient({
     adapter,
     log: isDev
       ? [
@@ -42,63 +54,69 @@ function buildClient() {
         { emit: 'stdout', level: 'warn' },
         { emit: 'stdout', level: 'error' },
       ],
-  }).$extends({
+  })
+
+  const db = base.$extends({
     query: {
       $allModels: {
         async findMany({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as SoftDeleteModel)) {
-            args.where = { ...args.where, deletedAt: null }
+            args.where = withSoftDelete(args.where)
           }
           return query(args)
         },
 
         async findFirst({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as SoftDeleteModel)) {
-            args.where = { ...args.where, deletedAt: null }
+            args.where = withSoftDelete(args.where)
           }
           return query(args)
         },
 
         async findFirstOrThrow({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as SoftDeleteModel)) {
-            args.where = { ...args.where, deletedAt: null }
+            args.where = withSoftDelete(args.where)
           }
           return query(args)
         },
 
         async findUnique({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as SoftDeleteModel)) {
-            ; (args.where as any) = { ...args.where, deletedAt: null }
+            ; (args.where as any) = withSoftDelete(args.where)
           }
           return query(args)
         },
 
         async findUniqueOrThrow({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as SoftDeleteModel)) {
-            ; (args.where as any) = { ...args.where, deletedAt: null }
+            ; (args.where as any) = withSoftDelete(args.where)
           }
           return query(args)
         },
 
         async count({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as SoftDeleteModel)) {
-            args.where = { ...args.where, deletedAt: null }
+            args.where = withSoftDelete(args.where)
           }
           return query(args)
         },
 
         async aggregate({ model, args, query }) {
           if (SOFT_DELETE_MODELS.includes(model as SoftDeleteModel)) {
-            ; (args as any).where = { ...(args as any).where, deletedAt: null }
+            ; (args as any).where = withSoftDelete((args as any).where)
           }
           return query(args)
         },
       },
     },
   })
+    // Auditoria de escritas (quem alterou o quê) — ver audit.extension.ts
+    .$extends(auditExtension(base))
+
+  return { base, db }
 }
 
-type PrismaExtended = ReturnType<typeof buildClient>
+type PrismaExtended = ReturnType<typeof buildClient>['db']
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PrismaService
@@ -108,9 +126,12 @@ type PrismaExtended = ReturnType<typeof buildClient>
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name)
   private readonly _db: PrismaExtended
+  private readonly _base: PrismaClient
 
   constructor() {
-    this._db = buildClient()
+    const { base, db } = buildClient()
+    this._base = base
+    this._db = db
   }
 
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
@@ -145,6 +166,15 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   get $executeRawUnsafe() {
     return this._db.$executeRawUnsafe.bind(this._db)
+  }
+
+  // ─── Auditoria ─────────────────────────────────────────────────────────────
+
+  get auditLog() { return this._db.auditLog }
+
+  /** Grava os logs de auditoria acumulados numa requisição (usado pelo AuditContextInterceptor). */
+  flushAuditEntries(entries: AuditEntry[]): Promise<void> {
+    return writeAuditEntries(this._base, entries)
   }
 
   // ─── Platform & Company ────────────────────────────────────────────────────
